@@ -7,15 +7,28 @@
 *.dll
 *.so
 *.dylib
+bin/
 
 # Test binary, built with `go test -c`
 *.test
 
-# Code coverage profiles and other test artifacts
+# Log files
+*.log
+
+# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+# IntelliJ
+.idea/
+*.iml
+
+# Vscode files
+.vscode
+
 coverage.*
 *.coverprofile
 profile.cov
+*.pprof
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
@@ -24,9 +37,10 @@ profile.cov
 go.work
 go.work.sum
 
-# env file
-.env
-
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Used during parts of the build process. Files _should_ get cleaned up automatically.
+# This is also a good location for any temporary manfiests used during development
+tmp
