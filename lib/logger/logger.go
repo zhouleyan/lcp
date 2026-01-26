@@ -187,11 +187,12 @@ func logLevel(level, format string, args []any) {
 }
 
 func logLevelSkipFrames(skipFrames int, level, format string, args []any) {
+	location := getLogLocation(3 + skipFrames)
 	if shouldSkipLog(level) {
 		return
 	}
 	msg := formatLogMessage(*maxLogArgLen, format, args)
-	logMessage(level, msg, 3+skipFrames)
+	_ = logMessageInternal(level, msg, location)
 }
 
 func shouldSkipLog(level string) bool {
@@ -241,19 +242,20 @@ func formatLogMessage(maxArgLen int, format string, args []any) string {
 	return fmt.Sprintf(format, args...)
 }
 
-func logMessage(level, msg string, skipFrames int) {
-	timestamp := ""
-	if !*disableTimestamps {
-		timestamp = time.Now().In(timezone).Format(time.RFC3339)
-	}
-	levelLowercase := strings.ToLower(level)
+func getLogLocation(skipFrames int) string {
 	_, file, line, ok := runtime.Caller(skipFrames)
 	if !ok {
 		file = "???"
 		line = 0
 	}
+	return fmt.Sprintf("%s:%d", file, line)
+}
 
-	location := fmt.Sprintf("%s:%d", file, line)
+func logMessageInternal(level, msg, location string) bool {
+	timestamp := ""
+	if !*disableTimestamps {
+		timestamp = time.Now().In(timezone).Format(time.RFC3339)
+	}
 
 	// rate limit ERROR and WARN log messages with given limit
 	if level == "ERROR" || level == "WARN" {
@@ -263,7 +265,7 @@ func logMessage(level, msg string, skipFrames int) {
 		}
 		ok, suppressMessage := logLimiter.needSuppress(location, limit)
 		if ok {
-			return
+			return false
 		}
 		if len(suppressMessage) > 0 {
 			msg = suppressMessage + msg
@@ -275,6 +277,7 @@ func logMessage(level, msg string, skipFrames int) {
 		msg = msg[:len(msg)-1]
 	}
 
+	levelLowercase := strings.ToLower(level)
 	var logMsg string
 	switch *loggerFormat {
 	case "json":
@@ -317,4 +320,6 @@ func logMessage(level, msg string, skipFrames int) {
 	case "FATAL":
 		os.Exit(-1)
 	}
+
+	return true
 }
