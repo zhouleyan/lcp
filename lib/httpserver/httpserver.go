@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"lcp/lib/logger"
 	"log"
 	"net"
 	"net/http"
@@ -15,9 +14,16 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"lcp.io/lcp/lib/lflag"
+	"lcp.io/lcp/lib/logger"
 )
 
 var (
+	tlsEnable   = lflag.NewArrayBool("tls", "Whether to enable TLS for the server, -tlsCertFile and -tlsKeyFile must be set if -tls is set")
+	tlsCertFile = lflag.NewArrayString("tlsCertFile", "Path to file with TLS certificate for the corresponding -httpListenAddr if -tls is set."+
+		"Prefer ECDSA certs instead of RSA certs as RSA certs are slower")
+	tlsKeyFile                  = lflag.NewArrayString("tlsKeyFile", "Path to file with TLS key for the corresponding -httpListenAddr if -tls is set")
 	maxGracefulShutdownDuration = flag.Duration("http.maxGracefulShutdownDuration", 7*time.Second, `The maximum duration for a graceful shutdown of the HTTP server. A highly loaded server may require increased value for a graceful shutdown`)
 	shutdownDelay               = flag.Duration("http.shutdownDelay", 0, `Optional delay before http server shutdown. During this delay, the server returns non-OK responses from /health page, so load balancers can route new requests to other servers`)
 	idleConnTimeout             = flag.Duration("http.idleConnTimeout", time.Minute, "Timeout for incoming idle http connections")
@@ -47,7 +53,6 @@ var hostname = func() string {
 type server struct {
 	s                     *http.Server
 	shutdownDelayDeadline atomic.Int64
-	timeoutDeadline       time.Duration
 }
 
 // RequestHandler must serve the given request r and write response to w
@@ -57,8 +62,13 @@ type server struct {
 // RequestHandler must return false if it cannot serve the given request
 type RequestHandler func(w http.ResponseWriter, r *http.Request) bool
 
+type ServerOptions struct {
+	// UseProxyProtocol if is set to true for the corresponding addr, then the incoming connections are accepted via proxy protocol
+	UseProxyProtocol *lflag.ArrayBool
+}
+
 // Serve starts an http server on the given addresses with the given optional request handler
-func Serve(addrs []string, rh RequestHandler) {
+func Serve(addrs []string, rh RequestHandler, opts ServerOptions) {
 	if rh == nil {
 		rh = func(_ http.ResponseWriter, _ *http.Request) bool { return false }
 	}
@@ -67,16 +77,32 @@ func Serve(addrs []string, rh RequestHandler) {
 			continue
 		}
 		logger.Infof("starting http server on %s", addr)
-		go serve(addr, rh, idx)
+		go serve(addr, rh, idx, opts)
 	}
 }
 
-func serve(addr string, rh RequestHandler, idx int) {
+func serve(addr string, rh RequestHandler, idx int, opts ServerOptions) {
 	scheme := "http"
+	if tlsEnable.GetOptionalArg(idx) {
+		scheme = "https"
+	}
+	useProxyProto := false
+	if opts.UseProxyProtocol != nil {
+		useProxyProto = opts.UseProxyProtocol.GetOptionalArg(idx)
+	}
 
 	var tlsConfig *tls.Config
+	if tlsEnable.GetOptionalArg(idx) {
+		certFile := tlsCertFile.GetOptionalArg(idx)
+		keyFile := tlsKeyFile.GetOptionalArg(idx)
+		tc, err := GetServerTLSConfig(certFile, keyFile)
+		if err != nil {
+			logger.Fatalf("cannot load TLS cert from -tlsCertFile=%q, -tlsKeyFile=%q: %s", certFile, keyFile, err)
+		}
+		tlsConfig = tc
+	}
 	// create a TCP listener
-	ln, err := NewTCPListener(scheme, addr, tlsConfig)
+	ln, err := NewTCPListener(scheme, addr, useProxyProto, tlsConfig)
 	if err != nil {
 		logger.Fatalf("cannot start http server on %s: %v", addr, err)
 	}

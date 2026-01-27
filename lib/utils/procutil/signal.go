@@ -3,7 +3,7 @@
 package procutil
 
 import (
-	"lcp/lib/logger"
+	"lcp.io/lcp/lib/logger"
 	"os"
 	"os/signal"
 	"syscall"

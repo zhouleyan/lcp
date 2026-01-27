@@ -1,16 +1,23 @@
 package main
 
 import (
-	"errors"
+	"flag"
 	"fmt"
-	"lcp/lib/flag"
-	"lcp/lib/httpserver"
-	"lcp/lib/logger"
-	"lcp/lib/profile"
-	"lcp/lib/utils/procutil"
 	"net/http"
 	"os"
 	"time"
+
+	"lcp.io/lcp/lib/buildinfo"
+	"lcp.io/lcp/lib/httpserver"
+	"lcp.io/lcp/lib/lflag"
+	"lcp.io/lcp/lib/logger"
+	"lcp.io/lcp/lib/profile"
+	"lcp.io/lcp/lib/utils/procutil"
+)
+
+var (
+	httpListenAddrs  = lflag.NewArrayString("httpListenerAddr", "The address to listen on for HTTP requests")
+	useProxyProtocol = lflag.NewArrayBool("httpListenerAddr.useProxyProtocol", "Whether to use proxy protocol for connections accepted at the corresponding -httpListenAddr")
 )
 
 func main() {
@@ -19,31 +26,37 @@ func main() {
 	// TODO: Load config file
 	// TODO: Load env var
 
-	flag.Parse()
+	// Write flags and help message to stdout, since it is easier to grep or pipe.
+	flag.CommandLine.SetOutput(os.Stdout)
+	flag.Usage = usage
+	lflag.Parse()
+	buildinfo.Init()
 	logger.Init()
+
+	listenAddrs := *httpListenAddrs
+	if len(listenAddrs) == 0 {
+		listenAddrs = []string{":8428"}
+	}
+
+	logger.Infof("starting lcp-server at %q...", listenAddrs)
 
 	startTime := time.Now()
 
-	addrs := []string{
-		":8421",
-		":8422",
-		":8423",
-	}
-	go httpserver.Serve(addrs, requestHandler)
-
+	go httpserver.Serve(listenAddrs, requestHandler, httpserver.ServerOptions{
+		UseProxyProtocol: useProxyProtocol,
+	})
 	logger.Infof("starting lcp-server in %.3f seconds", time.Since(startTime).Seconds())
 
 	sig := procutil.WaitForSigterm()
 	logger.Infof("received signal: %v", sig)
 
-	logger.Infof("gracefully shutting down lcp-server at %q", addrs)
+	logger.Infof("gracefully shutting down lcp-server at %q", listenAddrs)
 	startTime = time.Now()
-	if err := httpserver.Stop(addrs); err != nil {
+	if err := httpserver.Stop(listenAddrs); err != nil {
 		logger.Fatalf("cannot stop the lcp-server: %s", err)
 	}
 	logger.Infof("successfully shut down lcp-server in %.3f seconds", time.Since(startTime).Seconds())
 
-	// TODO: stop others
 	logger.Infof("the lcp-server has been stopped in %.3f seconds", time.Since(startTime).Seconds())
 
 }
@@ -55,13 +68,11 @@ func requestHandler(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func Execute() {
-	logger.Infof("info test")
-	if err := NewServerCmd(); err != nil {
-		os.Exit(1)
-	}
-}
+func usage() {
+	const s = `
+lcp-server is a PaaS management solution.
 
-func NewServerCmd() error {
-	return errors.New("not implemented")
+See the docs at https://docs.lcp.io/lcp/
+`
+	lflag.Usage(s)
 }

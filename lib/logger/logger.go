@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"lcp/lib/utils/stringsutil"
+	"lcp.io/lcp/lib/utils/stringsutil"
 	"log"
 	"os"
 	"runtime"

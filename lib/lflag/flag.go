@@ -1,4 +1,4 @@
-package flag
+package lflag
 
 import (
 	"flag"
@@ -7,7 +7,7 @@ import (
 )
 
 // Parse parses command-line flags
-// This function must be called instead of flag.Parse() before using and flags in the program
+// This function must be called instead of lflag.Parse() before using and flags in the program
 func Parse() {
 	ParseFlagSet(flag.CommandLine, os.Args[1:])
 }
