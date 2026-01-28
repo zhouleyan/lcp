@@ -2,8 +2,11 @@ package lflag
 
 import (
 	"flag"
+	"fmt"
+	"io"
 	"log"
 	"os"
+	"strings"
 )
 
 // Parse parses command-line flags
@@ -33,4 +36,16 @@ func expandArgs(args []string) []string {
 		}
 	}
 	return dstArgs
+}
+
+// WriteFlags writes all the explicitly set flags to w.
+func WriteFlags(w io.Writer) {
+	flag.Visit(func(f *flag.Flag) {
+		lname := strings.ToLower(f.Name)
+		value := f.Value.String()
+		if IsSecretFlag(lname) {
+			value = "secret"
+		}
+		_, _ = fmt.Fprintf(w, "-%s=%q\n", f.Name, value)
+	})
 }

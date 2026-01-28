@@ -26,7 +26,7 @@ func main() {
 	// TODO: Load config file
 	// TODO: Load env var
 
-	// Write flags and help message to stdout, since it is easier to grep or pipe.
+	// Write flags and help message to stdout, since it is easier to grep or pipe
 	flag.CommandLine.SetOutput(os.Stdout)
 	flag.Usage = usage
 	lflag.Parse()

@@ -5,13 +5,14 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"lcp.io/lcp/lib/utils/stringsutil"
 	"log"
 	"os"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"lcp.io/lcp/lib/utils/stringsutil"
 )
 
 var (
@@ -66,9 +67,19 @@ func Warnf(format string, args ...any) {
 	logLevel("WARN", format, args)
 }
 
+// WarnfSkipFrames logs warn message and skips the given number of frames for the caller
+func WarnfSkipFrames(skipFrames int, format string, args ...any) {
+	logLevelSkipFrames(skipFrames, "WARN", format, args)
+}
+
 // Errorf logs error message
 func Errorf(format string, args ...any) {
 	logLevel("ERROR", format, args)
+}
+
+// ErrorfSkipFrames logs error message and skips the given number of frames for the caller
+func ErrorfSkipFrames(skipFrames int, format string, args ...any) {
+	logLevelSkipFrames(skipFrames, "ERROR", format, args)
 }
 
 // Fatalf logs fatal message and terminates the app.
