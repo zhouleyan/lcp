@@ -26,6 +26,7 @@ func main() {
 	// TODO: Load config file
 	// TODO: Load env var
 
+	// 1. Initialize
 	// Write flags and help message to stdout, since it is easier to grep or pipe
 	flag.CommandLine.SetOutput(os.Stdout)
 	flag.Usage = usage
@@ -33,6 +34,7 @@ func main() {
 	buildinfo.Init()
 	logger.Init()
 
+	// 2. Start http server
 	listenAddrs := *httpListenAddrs
 	if len(listenAddrs) == 0 {
 		listenAddrs = []string{":8428"}
@@ -47,6 +49,7 @@ func main() {
 	})
 	logger.Infof("starting lcp-server in %.3f seconds", time.Since(startTime).Seconds())
 
+	// 3. Wait for signal to stop server
 	sig := procutil.WaitForSigterm()
 	logger.Infof("received signal: %v", sig)
 
