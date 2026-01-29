@@ -5,9 +5,9 @@ LCP
 
 ```bash
 lcp-server \
---httpListenerAddr=:8421 \
---httpListenerAddr=:8422 \
---httpListenerAddr=:8423
+-httpListenerAddr=:8421 \
+-httpListenerAddr=:8422 \
+-httpListenerAddr=:8423
 ```
 
 ## TODO
