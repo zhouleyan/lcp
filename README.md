@@ -12,5 +12,10 @@ lcp-server \
 
 ## TODO
 
-1. REST API routes
-2. http server plugins
+### REST API Routes
+
+http.Server.Handler -> APIServerHandler -> goRestfulContainer := restful.NewContainer(...)
+
+APIServerHandler.ServeHTTP(...) -> FullHandlerChain.ServeHTTP(...) -> director.ServeHTTP(...) -> goRestfulContainer.Dispatch(w, req) -> c.dispatch(w, req)
+
+### HTTP Server Plugins

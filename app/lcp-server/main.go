@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"lcp.io/lcp/app/lcp-server/handler"
 	"lcp.io/lcp/lib/buildinfo"
 	"lcp.io/lcp/lib/httpserver"
 	"lcp.io/lcp/lib/lflag"
@@ -18,6 +19,10 @@ import (
 var (
 	httpListenAddrs  = lflag.NewArrayString("httpListenerAddr", "The address to listen on for HTTP requests")
 	useProxyProtocol = lflag.NewArrayBool("httpListenerAddr.useProxyProtocol", "Whether to use proxy protocol for connections accepted at the corresponding -httpListenAddr")
+)
+
+const (
+	LCPAPIServer = "lcp-server"
 )
 
 func main() {
@@ -44,7 +49,12 @@ func main() {
 
 	startTime := time.Now()
 
-	go httpserver.Serve(listenAddrs, requestHandler, httpserver.ServerOptions{
+	apiHandler, err := handler.NewAPIServerHandler(LCPAPIServer)
+	if err != nil {
+		logger.Fatalf("cannot create API server handler: %v", err)
+	}
+
+	go httpserver.Serve(listenAddrs, apiHandler.RequestHandler, httpserver.ServerOptions{
 		UseProxyProtocol: useProxyProtocol,
 	})
 	logger.Infof("starting lcp-server in %.3f seconds", time.Since(startTime).Seconds())

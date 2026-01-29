@@ -172,6 +172,7 @@ func serve(addr string, rh RequestHandler, idx int, opts ServerOptions) {
 		}
 		tlsConfig = tc
 	}
+	
 	// create a TCP listener
 	ln, err := NewTCPListener(scheme, addr, useProxyProto, tlsConfig)
 	if err != nil {
