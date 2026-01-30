@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"lcp.io/lcp/app/lcp-server/rest"
 	"lcp.io/lcp/lib/httpserver/filters"
 	"lcp.io/lcp/lib/logger"
+	"lcp.io/lcp/lib/rest"
 )
 
 // APIServerHandler holds the different http.Handlers used by the API server
