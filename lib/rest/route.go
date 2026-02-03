@@ -22,3 +22,8 @@ func tokenizePath(path string) []string {
 	}
 	return strings.Split(strings.TrimLeft(path, "/"), "/")
 }
+
+// for debugging
+func (r *Route) String() string {
+	return r.Method + " " + r.Path
+}

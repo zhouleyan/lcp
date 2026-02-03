@@ -2,7 +2,6 @@ package rest
 
 import (
 	"net/http"
-	"strings"
 	"sync"
 
 	"lcp.io/lcp/lib/logger"
@@ -13,14 +12,12 @@ import (
 type Container struct {
 	webServicesLock sync.RWMutex
 	webServices     []*WebService
-	ServeMux        *http.ServeMux
 }
 
 // NewContainer creates a new Container using a new ServeMux and default router (CurlyRouter)
 func NewContainer() *Container {
 	return &Container{
 		webServices: []*WebService{},
-		ServeMux:    http.NewServeMux(),
 	}
 }
 
@@ -59,26 +56,17 @@ func (c *Container) Add(service *WebService) *Container {
 	return c
 }
 
-// addHandler may set a new HandlerFunc for the serveMux
-// this function must run inside the critical region protected by the webServicesLock
-// returns true if the function was registered on root ("/")
-func (c *Container) addHandler(service *WebService, serveMux *http.ServeMux) bool {
-	pattern := fixedPrefixPath(service.RootPath())
-	// check if root path registration is needed
-	if "/" == pattern || "" == pattern {
-		serveMux.HandleFunc("/", c.dispatch)
-		return true
+func (c *Container) Remove(service *WebService) error {
+	c.webServicesLock.Lock()
+	defer c.webServicesLock.Unlock()
+	var newServices []*WebService
+	for _, each := range c.webServices {
+		if each.rootPath != service.rootPath {
+			newServices = append(newServices, each)
+		}
 	}
-	return false
-}
-
-// fixedPrefixPath returns the fixed part of the pathSpec ; it may include template vars {}
-func fixedPrefixPath(pathSpec string) string {
-	varBegin := strings.Index(pathSpec, "{")
-	if -1 == varBegin {
-		return pathSpec
-	}
-	return pathSpec[:varBegin]
+	c.webServices = newServices
+	return nil
 }
 
 // RegisteredWebServices returns the collections of added WebServices
