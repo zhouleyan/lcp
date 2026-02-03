@@ -31,7 +31,7 @@ func templateToRegExp(template string) (expression string, literalCount int, var
 	var buf bytes.Buffer
 	varNames = []string{}
 	buf.WriteString("^")
-	tokens = TokenizePath(template)
+	tokens = tokenizePath(template)
 	for _, each := range tokens {
 		if each == "" {
 			continue
