@@ -21,8 +21,20 @@ func NewContainer() *Container {
 	}
 }
 
+func (c *Container) Dispatch(w http.ResponseWriter, r *http.Request) {
+	if w == nil {
+		panic("HTTP response writer cannot be nil")
+	}
+	if r == nil {
+		panic("HTTP request cannot be nil")
+	}
+	c.dispatch(w, r)
+}
+
 // dispatch the incoming HTTP Request to the appropriate WebService
 func (c *Container) dispatch(w http.ResponseWriter, r *http.Request) {
+
+	logger.Infof("dispatching request to %s", r.URL.Path)
 	//writer := w // TODO: wrap the w
 
 	// Find best match Route

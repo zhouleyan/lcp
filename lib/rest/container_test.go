@@ -8,7 +8,7 @@ import (
 
 func CreateWebService1() *WebService {
 	ws := new(WebService)
-	ws.Path("/api/v1")
+	ws.Path("/v1")
 	ws.Route(ws.GET("/users").To(UserList))
 	ws.Route(ws.GET("/users/{userId}").To(UserGet))
 	ws.Route(ws.POST("/users").To(UserCreate))

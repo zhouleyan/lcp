@@ -39,6 +39,7 @@ go.work.sum
 
 # Editor/IDE
 # .idea/
+.run/
 # .vscode/
 
 # Used during parts of the build process. Files _should_ get cleaned up automatically.

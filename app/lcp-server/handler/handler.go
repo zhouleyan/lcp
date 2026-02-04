@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"lcp.io/lcp/lib/httpserver/filters"
 	"lcp.io/lcp/lib/logger"
@@ -50,6 +51,17 @@ func (a *APIServerHandler) RequestHandler(w http.ResponseWriter, r *http.Request
 
 func (a *APIServerHandler) InstallAPIs() error {
 	logger.Infof("installing lcp-server APIs...")
+
+	ws := new(rest.WebService)
+	ws.Path("/apis/v1")
+	ws.Route(ws.GET("/users").To(FakeHandle))
+	ws.Route(ws.GET("/users/{userId}").To(FakeHandle))
+	ws.Route(ws.POST("/users").To(FakeHandle))
+	ws.Route(ws.GET("/users/{userId:[0-9]+}").To(FakeHandle))
+	ws.Route(ws.DELETE("/users/{userId}").To(FakeHandle))
+	ws.Route(ws.PUT("/users/{userId}").To(FakeHandle))
+
+	a.GoRestfulContainer.Add(ws)
 	return nil
 }
 
@@ -71,6 +83,24 @@ type director struct {
 func (d director) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	logger.Infof("Directing: %s %s", d.name, path)
+
+	for _, ws := range d.container.RegisteredWebServices() {
+		switch {
+		case ws.RootPath() == "/apis":
+			if path == "/apis" || path == "/apis/" {
+				logger.Infof("%v: %v %q satisfied by rest with web service %v", d.name, r.Method, path, ws.RootPath())
+				d.container.Dispatch(w, r)
+				return
+			}
+		case strings.HasPrefix(path, ws.RootPath()):
+			// ensure an exact match or a path boundary match
+			if len(path) == len(ws.RootPath()) || path[len(ws.RootPath())] == '/' {
+				logger.Infof("%v: %v %q satisfied by rest with web service %v", d.name, r.Method, path, ws.RootPath())
+				d.container.Dispatch(w, r)
+				return
+			}
+		}
+	}
 }
 
 func DefaultChainBuilder(apiHandler http.Handler) http.Handler {
@@ -80,3 +110,5 @@ func DefaultChainBuilder(apiHandler http.Handler) http.Handler {
 	handler = filters.WithRequestInfo(handler)
 	return handler
 }
+
+func FakeHandle(w http.ResponseWriter, r *http.Request) {}
