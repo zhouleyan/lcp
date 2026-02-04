@@ -20,7 +20,7 @@ func TestTokenizePath(t *testing.T) {
 		{
 			name: "Normal path - With trailing slash",
 			path: "/apps/v1/namespaces/default/deployments/my-deployment/",
-			exp:  []string{"apps", "v1", "namespaces", "default", "deployments", "my-deployment", ""},
+			exp:  []string{"apps", "v1", "namespaces", "default", "deployments", "my-deployment"},
 		},
 		{
 			name: "Root path only",

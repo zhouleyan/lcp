@@ -70,7 +70,7 @@ func (c *Container) Remove(service *WebService) error {
 }
 
 // RegisteredWebServices returns the collections of added WebServices
-func (c *Container) RegisteredWebServices(ws *WebService) []*WebService {
+func (c *Container) RegisteredWebServices() []*WebService {
 	c.webServicesLock.RLock()
 	defer c.webServicesLock.RUnlock()
 	result := make([]*WebService, len(c.webServices))
