@@ -75,6 +75,8 @@ func (b *RouteBuilder) Build() Route {
 	route := Route{
 		Method:       b.httpMethod,
 		Path:         concatPath(b.rootPath, b.currentPath),
+		Produces:     b.produces,
+		Consumes:     b.consumes,
 		Function:     b.function,
 		relativePath: b.currentPath,
 		pathExpr:     pathExpr,
