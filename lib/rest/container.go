@@ -8,7 +8,7 @@ import (
 	"lcp.io/lcp/lib/logger"
 )
 
-// Container holds a collection of WebServices and an http.ServeMux to dispatch HTTP requests
+// Container holds a collection of WebServices to dispatch HTTP requests
 // The requests are further dispatched to routes of WebServices using a RouteSelector
 type Container struct {
 	webServicesLock        sync.RWMutex
@@ -17,7 +17,7 @@ type Container struct {
 	serviceErrorHandleFunc ServiceErrorHandleFunction
 }
 
-// NewContainer creates a new Container using a new ServeMux and default router (CurlyRouter)
+// NewContainer creates a new Container using a default router (CurlyRouter)
 func NewContainer() *Container {
 	return &Container{
 		webServices:            []*WebService{},
