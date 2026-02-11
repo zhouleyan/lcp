@@ -65,7 +65,7 @@ func (c *Container) dispatch(w http.ResponseWriter, r *http.Request) {
 		pathProcessor = defaultPathProcessor{}
 	}
 	pathParams := pathProcessor.ExtractParameters(route, webService, r.URL.Path)
-	WithPathParams(r, pathParams)
+	r = WithPathParams(r, pathParams)
 	route.Function(w, r)
 }
 
@@ -134,6 +134,4 @@ func writeServiceError(err ServiceError, w http.ResponseWriter, r *http.Request)
 	}
 	w.WriteHeader(err.Code)
 	_, _ = w.Write([]byte(err.Message))
-
-	return
 }

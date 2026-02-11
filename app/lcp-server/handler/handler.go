@@ -111,4 +111,22 @@ func DefaultChainBuilder(apiHandler http.Handler) http.Handler {
 	return handler
 }
 
-func FakeHandle(w http.ResponseWriter, r *http.Request) {}
+func FakeHandle(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.Method)
+	fmt.Println(r.URL.Path)
+	for k, v := range r.Header {
+		fmt.Printf("%s: %s\n", k, v)
+	}
+
+	params := rest.PathParams(r)
+	for k, v := range params {
+		fmt.Printf("%s: %s\n", k, v)
+	}
+	userID := rest.PathParam(r, "userId")
+	fmt.Println(userID)
+	bar := rest.QueryParams(r, "foo")
+	fmt.Printf("Query Param foo: %s", bar)
+	// TODO: Extract Body Parameters r.ParseForm()
+	// TODO: Read Body
+	// TODO: Response Write(json,xml,text)
+}
