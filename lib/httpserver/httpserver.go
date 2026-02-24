@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"html"
 	"log"
 	"net"
 	"net/http"
@@ -301,10 +302,7 @@ func builtinRoutesHandler(s *server, r *http.Request, w http.ResponseWriter, rh 
 		}
 		// Return non-OK response during grace period before shutting down the server
 		// Load balancers must notify these responses and re-route new requests to other servers
-		d := time.Until(time.Unix(0, deadline))
-		if d < 0 {
-			d = 0
-		}
+		d := max(time.Until(time.Unix(0, deadline)), 0)
 		errMsg := fmt.Sprintf("The server is in delayed shutdown mode, which will end in %.3fs", d.Seconds())
 		http.Error(w, errMsg, http.StatusServiceUnavailable)
 		return true
@@ -524,8 +522,12 @@ func Errorf(w http.ResponseWriter, r *http.Request, format string, args ...any) 
 
 	if rwa, ok := w.(*responseWriterWithAbort); ok && rwa.sentHeaders {
 		// HTTP status code has been already sent to client, so it cannot be sent again.
-		// Just write errStr to the response and abort the client connection, so the client could notice the error.
-		_, _ = fmt.Fprintf(w, "\n%s\n", errStr)
+		// Just write errStr to the response and abort the client connection, so the client could notice the error
+
+		// HTML-escape the errStr in order to protect from possible XSS, since the errStr may contain user input
+		errStrEscaped := html.EscapeString(errStr)
+
+		_, _ = fmt.Fprintf(w, "\n%s\n", errStrEscaped)
 		rwa.abort()
 		return
 	}

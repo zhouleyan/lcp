@@ -1,8 +1,9 @@
 package fasttime
 
 import (
-	"lcp.io/lcp/lib/utils/atomicutil"
 	"time"
+
+	"lcp.io/lcp/lib/utils/atomicutil"
 )
 
 var currentTimestamp = func() *atomicutil.Uint64 {

@@ -1,10 +1,10 @@
 module lcp.io/lcp
 
-go 1.25
+go 1.26.0
 
 require (
-	github.com/VictoriaMetrics/metrics v1.40.2
-	github.com/VictoriaMetrics/metricsql v0.84.8
+	github.com/VictoriaMetrics/metrics v1.41.2
+	github.com/VictoriaMetrics/metricsql v0.85.0
 	github.com/klauspost/compress v1.18.4
 	github.com/pkg/profile v1.7.0
 	github.com/valyala/fasttemplate v1.2.2

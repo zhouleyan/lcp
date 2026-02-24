@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -18,14 +19,7 @@ func Usage(s string) {
 	}
 }
 
-func hasHelpFlag(args []string) bool {
-	for _, arg := range args {
-		if isHelpArg(arg) {
-			return true
-		}
-	}
-	return false
-}
+func hasHelpFlag(args []string) bool { return slices.ContainsFunc(args, isHelpArg) }
 
 func isHelpArg(arg string) bool {
 	if !strings.HasPrefix(arg, "-") {
