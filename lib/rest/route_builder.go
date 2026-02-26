@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"net/http"
 	"strings"
 
 	"lcp.io/lcp/lib/logger"
@@ -13,13 +14,13 @@ type RouteBuilder struct {
 	produces    []string
 	consumes    []string
 	httpMethod  string
-	function    RouteFunction
+	function    http.HandlerFunc
 }
 
 // To bind the route to a function
 // If this route is matched with the incoming HTTP request then call this function with the ResponseWriter, *Request pair
 // Required
-func (b *RouteBuilder) To(function RouteFunction) *RouteBuilder {
+func (b *RouteBuilder) To(function http.HandlerFunc) *RouteBuilder {
 	b.function = function
 	return b
 }

@@ -5,16 +5,13 @@ import (
 	"strings"
 )
 
-// RouteFunction is a function that can be called when a route is matched
-type RouteFunction func(w http.ResponseWriter, r *http.Request)
-
 // Route binds an HTTP Method, Path, Consumes combination to a RouteFunction
 type Route struct {
 	Method   string
 	Path     string // webservice root path + described path
 	Produces []string
 	Consumes []string
-	Function RouteFunction
+	Function http.HandlerFunc
 
 	// cached values for dispatching
 	relativePath string
@@ -69,7 +66,7 @@ func (r *Route) matchesContentType(mimeTypes string) bool {
 	for {
 		var mimeType string
 		mimeType, remaining = parseNextMimeType(remaining)
-		
+
 		for _, consumableType := range r.Consumes {
 			if consumableType == "*/*" || consumableType == mimeType {
 				return true

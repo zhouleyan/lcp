@@ -8,6 +8,7 @@ import (
 	"lcp.io/lcp/lib/httpserver/filters"
 	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/rest"
+	"lcp.io/lcp/lib/runtime"
 )
 
 // APIServerHandler holds the different http.Handlers used by the API server
@@ -53,13 +54,21 @@ func (a *APIServerHandler) InstallAPIs() error {
 	logger.Infof("installing lcp-server APIs...")
 
 	ws := new(rest.WebService)
-	ws.Path("/apis/v1")
+
+	ws.Path("/apis/v1").Produces("application/json", "application/yaml")
 	ws.Route(ws.GET("/users").To(FakeHandle))
 	ws.Route(ws.GET("/users/{userId}").To(FakeHandle))
 	ws.Route(ws.POST("/users").To(FakeHandle))
 	ws.Route(ws.GET("/users/{userId:[0-9]+}").To(FakeHandle))
 	ws.Route(ws.DELETE("/users/{userId}").To(FakeHandle))
 	ws.Route(ws.PUT("/users/{userId}").To(FakeHandle))
+
+	p := NewPod()
+	sc := &rest.RequestScope{
+		Name:       "pod",
+		Serializer: runtime.NewCodecFactory(),
+	}
+	ws.Route(ws.GET("/pods").To(rest.GetResource(sc, p.Get)))
 
 	a.GoRestfulContainer.Add(ws)
 	return nil
