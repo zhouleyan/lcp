@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"lcp.io/lcp/lib/fasttime"
 	"net"
 	"sync/atomic"
+
+	"lcp.io/lcp/lib/fasttime"
 
 	"github.com/VictoriaMetrics/metrics"
 )
@@ -57,8 +58,7 @@ func (sc *statConn) Read(p []byte) (int, error) {
 	sc.cm.readCalls.Inc()
 	sc.cm.readBytes.Add(n)
 	if err != nil && err != io.EOF {
-		var ne net.Error
-		if errors.As(err, &ne) && ne.Timeout() {
+		if ne, ok := errors.AsType[net.Error](err); ok && ne.Timeout() {
 			if fasttime.UnixTimestamp()-startTime > 1 {
 				sc.cm.readTimeouts.Inc()
 			}
@@ -74,8 +74,7 @@ func (sc *statConn) Write(p []byte) (int, error) {
 	sc.cm.writeCalls.Inc()
 	sc.cm.writtenBytes.Add(n)
 	if err != nil {
-		var ne net.Error
-		if errors.As(err, &ne) && ne.Timeout() {
+		if ne, ok := errors.AsType[net.Error](err); ok && ne.Timeout() {
 			sc.cm.writeTimeouts.Inc()
 		} else {
 			sc.cm.writeErrors.Inc()

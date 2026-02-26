@@ -53,8 +53,7 @@ func (c *Container) dispatch(w http.ResponseWriter, r *http.Request) {
 			r)
 	}()
 	if err != nil {
-		var ser ServiceError
-		if errors.As(err, &ser) {
+		if ser, ok := errors.AsType[ServiceError](err); ok {
 			c.serviceErrorHandleFunc(ser, w, r)
 		}
 		return

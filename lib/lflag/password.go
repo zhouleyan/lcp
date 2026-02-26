@@ -24,8 +24,7 @@ func NewPassword(name, description string) *Password {
 	p := &Password{
 		flagname: name,
 	}
-	s := ""
-	p.value.Store(&s)
+	p.value.Store(new(""))
 	flag.Var(p, name, description)
 	return p
 }
@@ -123,6 +122,5 @@ func (p *Password) initRandomValue() {
 		// cannot use lib/logger here, since it can be uninitialized yet
 		panic(fmt.Errorf("FATAL: cannot read random data: %s", err))
 	}
-	s := string(buf[:])
-	p.value.Store(&s)
+	p.value.Store(new(string(buf[:])))
 }

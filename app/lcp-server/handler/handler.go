@@ -71,7 +71,6 @@ type ChainBuilderFn func(apiHandler http.Handler) http.Handler
 
 // ServerHTTP makes it an http.Handler
 func (a *APIServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	_, _ = fmt.Fprintf(w, "APIServerHandler")
 	a.FullHandlerChain.ServeHTTP(w, r)
 }
 
@@ -129,4 +128,5 @@ func FakeHandle(w http.ResponseWriter, r *http.Request) {
 	// TODO: Extract Body Parameters r.ParseForm()
 	// TODO: Read Body
 	// TODO: Response Write(json,xml,text)
+	rest.WriteRawJSON(w, 200, r.Header)
 }

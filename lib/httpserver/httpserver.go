@@ -99,7 +99,11 @@ var hostname = func() string {
 }()
 
 var gzipHandlerWrapper = func() func(http.Handler) http.HandlerFunc {
-	hw, err := gzhttp.NewWrapper(gzhttp.CompressionLevel(1))
+	hw, err := gzhttp.NewWrapper(
+		gzhttp.CompressionLevel(1),
+		// Prefer gzip over zstd compression if the client supports both methods
+		gzhttp.PreferZstd(false),
+	)
 	if err != nil {
 		panic(fmt.Errorf("BUG: cannot initialize gzip http wrapper: %w", err))
 	}
@@ -236,8 +240,7 @@ func serveWithListener(addr string, ln net.Listener, rh RequestHandler, disableB
 			// when all the connections are established at the same time.
 			// See https://en.wikipedia.org/wiki/Thundering_herd_problem
 			jitterSec := fastrand.Uint32n(uint32(timeoutSec / 10))
-			deadline := fasttime.UnixTimestamp() + uint64(timeoutSec) + uint64(jitterSec)
-			return context.WithValue(ctx, connDeadlineTimeKey, &deadline)
+			return context.WithValue(ctx, connDeadlineTimeKey, new(fasttime.UnixTimestamp()+uint64(timeoutSec)+uint64(jitterSec)))
 		}
 	}
 

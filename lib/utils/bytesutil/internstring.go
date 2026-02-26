@@ -38,8 +38,7 @@ func newInternStringMap() *internStringMap {
 	m := &internStringMap{
 		mutable: make(map[string]string),
 	}
-	readonly := make(map[string]internStringMapEntry)
-	m.readonly.Store(&readonly)
+	m.readonly.Store(new(make(map[string]internStringMapEntry)))
 
 	go func() {
 		cleanupInterval := timeutil.AddJitterToDuration(*cacheExpireDuration) / 2
