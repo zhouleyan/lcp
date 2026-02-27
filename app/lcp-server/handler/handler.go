@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -9,6 +8,7 @@ import (
 	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/lib/runtime"
+	"lcp.io/lcp/lib/service"
 )
 
 // APIServerHandler holds the different http.Handlers used by the API server
@@ -21,9 +21,11 @@ type APIServerHandler struct {
 
 	// Director is here so that we can properly handle fall through and proxy cases
 	Director http.Handler
+
+	svc *service.Service
 }
 
-func NewAPIServerHandler(name string) (*APIServerHandler, error) {
+func NewAPIServerHandler(name string, svc *service.Service) (*APIServerHandler, error) {
 	// create REST API container
 	container := rest.NewContainer()
 
@@ -35,6 +37,7 @@ func NewAPIServerHandler(name string) (*APIServerHandler, error) {
 		FullHandlerChain:   DefaultChainBuilder(director),
 		GoRestfulContainer: container,
 		Director:           director,
+		svc:                svc,
 	}
 
 	// Install APIs
@@ -53,22 +56,35 @@ func (a *APIServerHandler) RequestHandler(w http.ResponseWriter, r *http.Request
 func (a *APIServerHandler) InstallAPIs() error {
 	logger.Infof("installing lcp-server APIs...")
 
+	codec := runtime.NewCodecFactory()
+
 	ws := new(rest.WebService)
+	ws.Path("/apis/v1").
+		Produces("application/json", "application/yaml").
+		Consumes("application/json", "application/yaml")
 
-	ws.Path("/apis/v1").Produces("application/json", "application/yaml")
-	ws.Route(ws.GET("/users").To(FakeHandle))
-	ws.Route(ws.GET("/users/{userId}").To(FakeHandle))
-	ws.Route(ws.POST("/users").To(FakeHandle))
-	ws.Route(ws.GET("/users/{userId:[0-9]+}").To(FakeHandle))
-	ws.Route(ws.DELETE("/users/{userId}").To(FakeHandle))
-	ws.Route(ws.PUT("/users/{userId}").To(FakeHandle))
+	// User routes
+	u := newUserHandler(a.svc)
+	userScope := &rest.RequestScope{Serializer: codec}
+	ws.Route(ws.POST("/users").To(rest.CreateResource(userScope, u.Create)))
+	ws.Route(ws.GET("/users/{userId}").To(rest.GetResourceWithID(userScope, "userId", u.Get)))
 
+	// Namespace routes
+	ns := newNamespaceHandler(a.svc)
+	nsScope := &rest.RequestScope{Serializer: codec}
+	ws.Route(ws.POST("/namespaces").To(rest.CreateResource(nsScope, ns.Create)))
+	ws.Route(ws.GET("/namespaces/{namespaceId}").To(rest.GetResourceWithID(nsScope, "namespaceId", ns.Get)))
+	ws.Route(ws.POST("/namespaces/{namespaceId}/members").To(
+		rest.CreateResourceWithID(nsScope, "namespaceId", ns.AddMemberCreator),
+	))
+
+	// Keep existing pod route
 	p := NewPod()
-	sc := &rest.RequestScope{
+	podScope := &rest.RequestScope{
 		Name:       "pod",
-		Serializer: runtime.NewCodecFactory(),
+		Serializer: codec,
 	}
-	ws.Route(ws.GET("/pods").To(rest.GetResource(sc, p.Get)))
+	ws.Route(ws.GET("/pods").To(rest.GetResource(podScope, p.Get)))
 
 	a.GoRestfulContainer.Add(ws)
 	return nil
@@ -117,25 +133,4 @@ func DefaultChainBuilder(apiHandler http.Handler) http.Handler {
 	// WithRequestInfo
 	handler = filters.WithRequestInfo(handler)
 	return handler
-}
-
-func FakeHandle(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.Method)
-	fmt.Println(r.URL.Path)
-	for k, v := range r.Header {
-		fmt.Printf("%s: %s\n", k, v)
-	}
-
-	params := rest.PathParams(r)
-	for k, v := range params {
-		fmt.Printf("%s: %s\n", k, v)
-	}
-	userID := rest.PathParam(r, "userId")
-	fmt.Println(userID)
-	bar := rest.QueryParams(r, "foo")
-	fmt.Printf("Query Param foo: %s", bar)
-	// TODO: Extract Body Parameters r.ParseForm()
-	// TODO: Read Body
-	// TODO: Response Write(json,xml,text)
-	rest.WriteRawJSON(w, 200, r.Header)
 }

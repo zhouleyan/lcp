@@ -49,7 +49,7 @@ func main() {
 
 	startTime := time.Now()
 
-	apiHandler, err := handler.NewAPIServerHandler(LCPAPIServer)
+	apiHandler, err := handler.NewAPIServerHandler(LCPAPIServer, nil)
 	if err != nil {
 		logger.Fatalf("cannot create API server handler: %v", err)
 	}
