@@ -3,9 +3,42 @@ package db
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// Sort field constants for User list queries.
+const (
+	UserSortUsername    = "username"
+	UserSortEmail      = "email"
+	UserSortDisplayName = "display_name"
+	UserSortCreatedAt  = "created_at"
+	UserSortStatus     = "status"
+)
+
+// Sort field constants for Namespace list queries.
+const (
+	NamespaceSortName       = "name"
+	NamespaceSortCreatedAt  = "created_at"
+	NamespaceSortVisibility = "visibility"
+	NamespaceSortStatus     = "status"
+)
+
+// Sort order constants.
+const (
+	SortAsc  = "asc"
+	SortDesc = "desc"
+)
+
+// EscapeLike escapes LIKE/ILIKE special characters (%, _, \) in a string
+// so they are treated as literals in filter queries.
+func EscapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
+}
 
 // Config holds PostgreSQL connection parameters.
 type Config struct {
@@ -42,7 +75,7 @@ func NewPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
 		poolCfg.MaxConns = cfg.MaxConns
 	}
 
-	pool, err := pgxpool.New(ctx, poolCfg.ConnString())
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, fmt.Errorf("create connection pool: %w", err)
 	}
