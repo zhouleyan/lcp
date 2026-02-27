@@ -1,0 +1,31 @@
+package types
+
+import "lcp.io/lcp/lib/runtime"
+
+// User is the API representation of a user resource.
+type User struct {
+	runtime.TypeMeta `json:",inline"`
+	ObjectMeta       `json:"metadata"`
+	Spec             UserSpec `json:"spec"`
+}
+
+func (u *User) GetTypeMeta() *runtime.TypeMeta { return &u.TypeMeta }
+
+// UserSpec holds user-specific fields.
+type UserSpec struct {
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+	DisplayName string `json:"displayName,omitempty"`
+	Phone       string `json:"phone,omitempty"`
+	AvatarURL   string `json:"avatarUrl,omitempty"`
+	Status      string `json:"status,omitempty"`
+}
+
+// UserList is a list of users.
+type UserList struct {
+	runtime.TypeMeta `json:",inline"`
+	Items            []User `json:"items"`
+	Total            int64  `json:"total"`
+}
+
+func (u *UserList) GetTypeMeta() *runtime.TypeMeta { return &u.TypeMeta }
