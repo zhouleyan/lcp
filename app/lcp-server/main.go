@@ -1,18 +1,23 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"lcp.io/lcp/app/lcp-server/handler"
 	"lcp.io/lcp/lib/buildinfo"
+	"lcp.io/lcp/lib/db"
 	"lcp.io/lcp/lib/httpserver"
 	"lcp.io/lcp/lib/lflag"
 	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/profile"
+	"lcp.io/lcp/lib/service"
+	storepg "lcp.io/lcp/lib/store/pg"
 	"lcp.io/lcp/lib/utils/procutil"
 )
 
@@ -39,6 +44,28 @@ func main() {
 	buildinfo.Init()
 	logger.Init()
 
+	// 1.5 Initialize database, store, and service
+	ctx := context.Background()
+	dbCfg := db.Config{
+		Host:     envOrDefault("DB_HOST", "localhost"),
+		Port:     envOrDefaultInt("DB_PORT", 5432),
+		User:     envOrDefault("DB_USER", "lcp"),
+		Password: envOrDefault("DB_PASSWORD", "lcp"),
+		DBName:   envOrDefault("DB_NAME", "lcp"),
+		SSLMode:  envOrDefault("DB_SSLMODE", "disable"),
+		MaxConns: int32(envOrDefaultInt("DB_MAX_CONNS", 10)),
+	}
+	pool, err := db.NewPool(ctx, dbCfg)
+	if err != nil {
+		logger.Fatalf("cannot create database pool: %v", err)
+	}
+	defer pool.Close()
+
+	s := storepg.New(pool)
+	defer s.Close()
+
+	svc := service.New(s)
+
 	// 2. Start http server
 	listenAddrs := *httpListenAddrs
 	if len(listenAddrs) == 0 {
@@ -49,7 +76,7 @@ func main() {
 
 	startTime := time.Now()
 
-	apiHandler, err := handler.NewAPIServerHandler(LCPAPIServer, nil)
+	apiHandler, err := handler.NewAPIServerHandler(LCPAPIServer, svc)
 	if err != nil {
 		logger.Fatalf("cannot create API server handler: %v", err)
 	}
@@ -88,4 +115,20 @@ lcp-server is a PaaS management solution.
 See the docs at https://docs.lcp.io/lcp/
 `
 	lflag.Usage(s)
+}
+
+func envOrDefault(key, defaultVal string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultVal
+}
+
+func envOrDefaultInt(key string, defaultVal int) int {
+	if v := os.Getenv(key); v != "" {
+		if i, err := strconv.Atoi(v); err == nil {
+			return i
+		}
+	}
+	return defaultVal
 }
