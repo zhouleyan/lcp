@@ -40,32 +40,37 @@ func WriteObjectNegotiated(
 	SerializeObject(result.MediaType, result.Serializer, w, statusCode, obj)
 }
 
-// ErrorNegotiated writes an error response through the same negotiation path
+// ErrorNegotiated writes an error response through the same negotiation path.
+// If the error implements GetStatus() int (e.g. *apierrors.StatusError), its
+// HTTP status code is used; otherwise a generic 500 is returned.
 func ErrorNegotiated(
 	w http.ResponseWriter,
 	req *http.Request,
 	ns runtime.NegotiatedSerializer,
 	err error,
 ) {
-	// Build a simple error object
-	errObj := &ErrorResponse{
-		TypeMeta: runtime.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Status",
-		},
-		Status:  "Failure",
-		Message: err.Error(),
-		Code:    http.StatusNotAcceptable,
+	var errObj runtime.Object
+	var code int
+
+	if se, ok := err.(interface{ GetStatus() int }); ok {
+		code = se.GetStatus()
+		errObj = err.(runtime.Object)
+	} else {
+		code = http.StatusInternalServerError
+		errObj = &ErrorResponse{
+			TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "Status"},
+			Status:   "Failure",
+			Message:  err.Error(),
+			Code:     code,
+		}
 	}
 
 	result, negErr := runtime.NegotiateOutputMediaType(req, ns)
 	if negErr != nil {
-		// Ultimate fallback: raw JSON
-		WriteRawJSON(w, http.StatusNotAcceptable, errObj)
+		WriteRawJSON(w, code, errObj)
 		return
 	}
-
-	SerializeObject(result.MediaType, result.Serializer, w, http.StatusNotAcceptable, errObj)
+	SerializeObject(result.MediaType, result.Serializer, w, code, errObj)
 }
 
 // SerializeObject encodes the object and writes the HTTP response
