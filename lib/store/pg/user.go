@@ -9,6 +9,14 @@ import (
 	"lcp.io/lcp/lib/store"
 )
 
+// toNullString 将字符串转为 *string，空字符串转为 nil
+func toNullString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 var userListSpec = db.ListSpec{
 	Fields: map[string]db.Field{
 		"status":       {Column: "u.status", Op: db.Eq},
@@ -79,6 +87,22 @@ func (s *pgUserStore) Update(ctx context.Context, user *store.User) (*store.User
 	return &row, nil
 }
 
+func (s *pgUserStore) Patch(ctx context.Context, id int64, user *store.User) (*store.User, error) {
+	row, err := s.queries.PatchUser(ctx, generated.PatchUserParams{
+		ID:          id,
+		Username:    toNullString(user.Username),
+		Email:       toNullString(user.Email),
+		DisplayName: toNullString(user.DisplayName),
+		Phone:       toNullString(user.Phone),
+		AvatarUrl:   toNullString(user.AvatarUrl),
+		Status:      toNullString(user.Status),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("patch user: %w", err)
+	}
+	return &row, nil
+}
+
 func (s *pgUserStore) UpdateLastLogin(ctx context.Context, id int64) error {
 	if err := s.queries.UpdateUserLastLogin(ctx, id); err != nil {
 		return fmt.Errorf("update user last login: %w", err)
@@ -91,6 +115,25 @@ func (s *pgUserStore) Delete(ctx context.Context, id int64) error {
 		return fmt.Errorf("delete user: %w", err)
 	}
 	return nil
+}
+
+func (s *pgUserStore) DeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
+	// 先查询存在的用户
+	existingUsers, err := s.queries.GetUsersByIDs(ctx, ids)
+	if err != nil {
+		return 0, fmt.Errorf("get users by ids: %w", err)
+	}
+
+	// 执行删除
+	if len(existingUsers) > 0 {
+		deletedIDs, err := s.queries.DeleteUsersByIDs(ctx, ids)
+		if err != nil {
+			return 0, fmt.Errorf("delete users by ids: %w", err)
+		}
+		return int64(len(deletedIDs)), nil
+	}
+
+	return 0, nil
 }
 
 func (s *pgUserStore) List(ctx context.Context, q store.ListQuery) (*store.ListResult[store.UserWithNamespaces], error) {
