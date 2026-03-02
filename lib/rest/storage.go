@@ -19,8 +19,8 @@ type Lister interface {
 	List(ctx context.Context, options *ListOptions) (runtime.Object, error)
 }
 
-// Creater 处理 POST 创建
-type Creater interface {
+// Creator 处理 POST 创建
+type Creator interface {
 	Create(ctx context.Context, obj runtime.Object, validate ValidateObjectFunc, options *CreateOptions) (runtime.Object, error)
 }
 
@@ -48,7 +48,7 @@ type CollectionDeleter interface {
 type StandardStorage interface {
 	Getter
 	Lister
-	Creater
+	Creator
 	Updater
 	Patcher
 	Deleter

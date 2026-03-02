@@ -8,6 +8,7 @@ import (
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/lib/runtime"
 	"lcp.io/lcp/lib/service"
+	"lcp.io/lcp/lib/store"
 )
 
 type userStorage struct {
@@ -25,7 +26,12 @@ func (s *userStorage) Get(ctx context.Context, id string) (runtime.Object, error
 
 // List 实现 rest.Lister
 func (s *userStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
-	return s.svc.Users().ListUsers(ctx, options.Filters, options.Pagination, options.SortBy, options.SortOrder)
+	// 转换 rest.Pagination 到 store.Pagination
+	pagination := store.Pagination{
+		Page:     options.Pagination.Page,
+		PageSize: options.Pagination.PageSize,
+	}
+	return s.svc.Users().ListUsers(ctx, options.Filters, pagination, options.SortBy, string(options.SortOrder))
 }
 
 // Create 实现 rest.Creater

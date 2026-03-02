@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 
 	"lcp.io/lcp/lib/runtime"
 )
@@ -83,7 +82,7 @@ func transformResponseObject(
 }
 
 // CreateResource 返回处理资源创建的 http.HandlerFunc
-func CreateResource(scope *RequestScope, storage Creater, validate ValidateObjectFunc) http.HandlerFunc {
+func CreateResource(scope *RequestScope, storage Creator, validate ValidateObjectFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 
@@ -96,7 +95,7 @@ func CreateResource(scope *RequestScope, storage Creater, validate ValidateObjec
 		defer req.Body.Close()
 
 		// 反序列化对象
-		obj, err := scope.Serializer.Decode(body, req.Header.Get("Content-Type"))
+		obj, err := DecodeBody(scope.Serializer, req, body, nil)
 		if err != nil {
 			scope.err(err, w, req)
 			return
@@ -114,14 +113,14 @@ func CreateResource(scope *RequestScope, storage Creater, validate ValidateObjec
 }
 
 // GetResource 返回处理获取单个资源的 http.HandlerFunc
-func GetResource(scope *RequestScope, storage Getter) http.HandlerFunc {
+func GetResource(scope *RequestScope, storage Getter, idKey string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		params := pathParamsFromRequest(req)
 
-		id := params["userId"] // TODO: 通用化参数名
+		id := params[idKey]
 		if id == "" {
-			scope.err(fmt.Errorf("missing resource id"), w, req)
+			scope.err(fmt.Errorf("missing resource id: %s", idKey), w, req)
 			return
 		}
 
@@ -141,37 +140,7 @@ func ListResource(scope *RequestScope, storage Lister) http.HandlerFunc {
 		ctx := req.Context()
 
 		// 解析查询参数
-		query := req.URL.Query()
-		options := &ListOptions{
-			Filters: make(map[string]string),
-			Pagination: Pagination{
-				Page:     1,
-				PageSize: 20,
-			},
-		}
-
-		// 解析过滤条件
-		for key, values := range query {
-			if len(values) > 0 && key != "page" && key != "pageSize" && key != "sortBy" && key != "sortOrder" {
-				options.Filters[key] = values[0]
-			}
-		}
-
-		// 解析分页
-		if page := query.Get("page"); page != "" {
-			if p, err := strconv.Atoi(page); err == nil && p > 0 {
-				options.Pagination.Page = p
-			}
-		}
-		if pageSize := query.Get("pageSize"); pageSize != "" {
-			if ps, err := strconv.Atoi(pageSize); err == nil && ps > 0 {
-				options.Pagination.PageSize = ps
-			}
-		}
-
-		// 解析排序
-		options.SortBy = query.Get("sortBy")
-		options.SortOrder = query.Get("sortOrder")
+		options := ParseListOptions(req.URL.Query())
 
 		result, err := storage.List(ctx, options)
 		if err != nil {
@@ -184,14 +153,14 @@ func ListResource(scope *RequestScope, storage Lister) http.HandlerFunc {
 }
 
 // UpdateResource 返回处理资源完整更新的 http.HandlerFunc
-func UpdateResource(scope *RequestScope, storage Updater, validate ValidateObjectFunc) http.HandlerFunc {
+func UpdateResource(scope *RequestScope, storage Updater, validate ValidateObjectFunc, idKey string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		params := pathParamsFromRequest(req)
 
-		id := params["userId"] // TODO: 通用化参数名
+		id := params[idKey]
 		if id == "" {
-			scope.err(fmt.Errorf("missing resource id"), w, req)
+			scope.err(fmt.Errorf("missing resource id: %s", idKey), w, req)
 			return
 		}
 
@@ -204,7 +173,7 @@ func UpdateResource(scope *RequestScope, storage Updater, validate ValidateObjec
 		defer req.Body.Close()
 
 		// 反序列化对象
-		obj, err := scope.Serializer.Decode(body, req.Header.Get("Content-Type"))
+		obj, err := DecodeBody(scope.Serializer, req, body, nil)
 		if err != nil {
 			scope.err(err, w, req)
 			return
@@ -222,14 +191,14 @@ func UpdateResource(scope *RequestScope, storage Updater, validate ValidateObjec
 }
 
 // PatchResource 返回处理资源部分更新的 http.HandlerFunc
-func PatchResource(scope *RequestScope, storage Patcher, validate ValidateObjectFunc) http.HandlerFunc {
+func PatchResource(scope *RequestScope, storage Patcher, validate ValidateObjectFunc, idKey string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		params := pathParamsFromRequest(req)
 
-		id := params["userId"] // TODO: 通用化参数名
+		id := params[idKey]
 		if id == "" {
-			scope.err(fmt.Errorf("missing resource id"), w, req)
+			scope.err(fmt.Errorf("missing resource id: %s", idKey), w, req)
 			return
 		}
 
@@ -242,7 +211,7 @@ func PatchResource(scope *RequestScope, storage Patcher, validate ValidateObject
 		defer req.Body.Close()
 
 		// 反序列化对象
-		obj, err := scope.Serializer.Decode(body, req.Header.Get("Content-Type"))
+		obj, err := DecodeBody(scope.Serializer, req, body, nil)
 		if err != nil {
 			scope.err(err, w, req)
 			return
@@ -260,14 +229,14 @@ func PatchResource(scope *RequestScope, storage Patcher, validate ValidateObject
 }
 
 // DeleteResource 返回处理删除单个资源的 http.HandlerFunc
-func DeleteResource(scope *RequestScope, storage Deleter, validate ValidateObjectFunc) http.HandlerFunc {
+func DeleteResource(scope *RequestScope, storage Deleter, validate ValidateObjectFunc, idKey string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		params := pathParamsFromRequest(req)
 
-		id := params["userId"] // TODO: 通用化参数名
+		id := params[idKey]
 		if id == "" {
-			scope.err(fmt.Errorf("missing resource id"), w, req)
+			scope.err(fmt.Errorf("missing resource id: %s", idKey), w, req)
 			return
 		}
 
@@ -318,6 +287,6 @@ func DeleteCollection(scope *RequestScope, storage CollectionDeleter, validate V
 			return
 		}
 
-		WriteObjectNegotiated(scope.Serializer, w, req, http.StatusOK, result)
+		WriteRawJSON(w, http.StatusOK, result)
 	}
 }

@@ -63,10 +63,15 @@ func (a *APIServerHandler) InstallAPIs() error {
 		Produces("application/json", "application/yaml").
 		Consumes("application/json", "application/yaml")
 
-	// User routes
-	u := newUserHandler(a.svc)
-	ws.Route(ws.POST("/users").To(rest.Handle(scope, http.StatusCreated, u.Create)))
-	ws.Route(ws.GET("/users/{userId}").To(rest.Handle(scope, http.StatusOK, u.Get)))
+	// User routes - 使用新的 RESTStorage 模式
+	userStorage := newUserStorage(a.svc)
+	ws.Route(ws.POST("/users").To(rest.CreateResource(scope, userStorage, validateUserCreate)))
+	ws.Route(ws.GET("/users").To(rest.ListResource(scope, userStorage)))
+	ws.Route(ws.GET("/users/{userId}").To(rest.GetResource(scope, userStorage, "userId")))
+	ws.Route(ws.PUT("/users/{userId}").To(rest.UpdateResource(scope, userStorage, validateUserUpdate, "userId")))
+	ws.Route(ws.PATCH("/users/{userId}").To(rest.PatchResource(scope, userStorage, validateUserPatch, "userId")))
+	ws.Route(ws.DELETE("/users/{userId}").To(rest.DeleteResource(scope, userStorage, validateUserDelete, "userId")))
+	ws.Route(ws.DELETE("/users").To(rest.DeleteCollection(scope, userStorage, validateUserDelete)))
 
 	// Namespace routes
 	ns := newNamespaceHandler(a.svc)
