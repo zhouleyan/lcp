@@ -10,6 +10,7 @@ import (
 	"lcp.io/lcp/lib/db/generated"
 )
 
+// 运行方式：先用 schema/schema.sql 建表，然后 go run ./lib/db/example/（需要本地 PostgreSQL）
 func main() {
 	ctx := context.Background()
 
@@ -199,14 +200,14 @@ func main() {
 	// ============================================================
 	activeStatus := "active"
 	users, err := queries.ListUsers(ctx, generated.ListUsersParams{
-		Status:    &activeStatus,       // 筛选 status = 'active'
-		Username:  nil,                 // 不筛选 username
-		Email:     nil,                 // 不筛选 email
-		DisplayName: nil,              // 不筛选 display_name
-		SortField: db.UserSortUsername, // 按 username 排序
-		SortOrder: db.SortAsc,         // 升序
-		PageSize:  10,                 // 每页 10 条
-		PageOffset: 0,                 // 第一页
+		Status:      &activeStatus, // 筛选 status = 'active'
+		Username:    nil,           // 不筛选 username
+		Email:       nil,           // 不筛选 email
+		DisplayName: nil,           // 不筛选 display_name
+		SortField:   "username",    // 按 username 排序
+		SortOrder:   "asc",         // 升序
+		PageSize:    10,            // 每页 10 条
+		PageOffset:  0,             // 第一页
 	})
 	if err != nil {
 		log.Fatalf("list users: %v", err)
@@ -219,11 +220,11 @@ func main() {
 	// 带模糊搜索的查询（使用 EscapeLike 防止 LIKE 注入）
 	searchName := db.EscapeLike("ali")
 	users, err = queries.ListUsers(ctx, generated.ListUsersParams{
-		Username:    &searchName,
-		SortField:   db.UserSortCreatedAt,
-		SortOrder:   db.SortDesc,
-		PageSize:    10,
-		PageOffset:  0,
+		Username:   &searchName,
+		SortField:  "created_at",
+		SortOrder:  "desc",
+		PageSize:   10,
+		PageOffset: 0,
 	})
 	if err != nil {
 		log.Fatalf("list users with search: %v", err)
@@ -248,9 +249,9 @@ func main() {
 	privateVis := "private"
 	namespaces, err := queries.ListNamespaces(ctx, generated.ListNamespacesParams{
 		Status:     &activeStatus,
-		Visibility: &privateVis,        // 筛选 visibility = 'private'
-		SortField:  db.NamespaceSortName,
-		SortOrder:  db.SortAsc,
+		Visibility: &privateVis, // 筛选 visibility = 'private'
+		SortField:  "name",
+		SortOrder:  "asc",
 		PageSize:   10,
 		PageOffset: 0,
 	})

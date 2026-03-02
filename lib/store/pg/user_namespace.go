@@ -12,16 +12,16 @@ type pgUserNamespaceStore struct {
 	queries *generated.Queries
 }
 
-func (s *pgUserNamespaceStore) Add(ctx context.Context, params store.AddUserNamespaceParams) (*store.UserNamespaceRole, error) {
+func (s *pgUserNamespaceStore) Add(ctx context.Context, rel *store.UserNamespaceRole) (*store.UserNamespaceRole, error) {
 	row, err := s.queries.AddUserToNamespace(ctx, generated.AddUserToNamespaceParams{
-		UserID:      params.UserID,
-		NamespaceID: params.NamespaceID,
-		Role:        params.Role,
+		UserID:      rel.UserID,
+		NamespaceID: rel.NamespaceID,
+		Role:        rel.Role,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("add user to namespace: %w", err)
 	}
-	return userNamespaceFromRow(row), nil
+	return &row, nil
 }
 
 func (s *pgUserNamespaceStore) Remove(ctx context.Context, userID, namespaceID int64) error {
@@ -34,16 +34,16 @@ func (s *pgUserNamespaceStore) Remove(ctx context.Context, userID, namespaceID i
 	return nil
 }
 
-func (s *pgUserNamespaceStore) UpdateRole(ctx context.Context, params store.UpdateRoleParams) (*store.UserNamespaceRole, error) {
+func (s *pgUserNamespaceStore) UpdateRole(ctx context.Context, rel *store.UserNamespaceRole) (*store.UserNamespaceRole, error) {
 	row, err := s.queries.UpdateUserNamespaceRole(ctx, generated.UpdateUserNamespaceRoleParams{
-		UserID:      params.UserID,
-		NamespaceID: params.NamespaceID,
-		Role:        params.Role,
+		UserID:      rel.UserID,
+		NamespaceID: rel.NamespaceID,
+		Role:        rel.Role,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("update user namespace role: %w", err)
 	}
-	return userNamespaceFromRow(row), nil
+	return &row, nil
 }
 
 func (s *pgUserNamespaceStore) Get(ctx context.Context, userID, namespaceID int64) (*store.UserNamespaceRole, error) {
@@ -54,7 +54,7 @@ func (s *pgUserNamespaceStore) Get(ctx context.Context, userID, namespaceID int6
 	if err != nil {
 		return nil, fmt.Errorf("get user namespace: %w", err)
 	}
-	return userNamespaceFromRow(row), nil
+	return &row, nil
 }
 
 func (s *pgUserNamespaceStore) ListByUserID(ctx context.Context, userID int64) ([]store.NamespaceWithRole, error) {
@@ -75,11 +75,11 @@ func (s *pgUserNamespaceStore) ListByUserID(ctx context.Context, userID int64) (
 				Visibility:  row.Visibility,
 				MaxMembers:  row.MaxMembers,
 				Status:      row.Status,
-				CreatedAt:   toTime(row.CreatedAt),
-				UpdatedAt:   toTime(row.UpdatedAt),
+				CreatedAt:   row.CreatedAt,
+				UpdatedAt:   row.UpdatedAt,
 			},
 			Role:     row.Role,
-			JoinedAt: toTime(row.JoinedAt),
+			JoinedAt: row.JoinedAt,
 		})
 	}
 	return items, nil
@@ -102,22 +102,13 @@ func (s *pgUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespaceI
 				Phone:       row.Phone,
 				AvatarUrl:   row.AvatarUrl,
 				Status:      row.Status,
-				LastLoginAt: toTimePtr(row.LastLoginAt),
-				CreatedAt:   toTime(row.CreatedAt),
-				UpdatedAt:   toTime(row.UpdatedAt),
+				LastLoginAt: row.LastLoginAt,
+				CreatedAt:   row.CreatedAt,
+				UpdatedAt:   row.UpdatedAt,
 			},
 			Role:     row.Role,
-			JoinedAt: toTime(row.JoinedAt),
+			JoinedAt: row.JoinedAt,
 		})
 	}
 	return items, nil
-}
-
-func userNamespaceFromRow(row generated.UserNamespace) *store.UserNamespaceRole {
-	return &store.UserNamespaceRole{
-		UserID:      row.UserID,
-		NamespaceID: row.NamespaceID,
-		Role:        row.Role,
-		CreatedAt:   toTime(row.CreatedAt),
-	}
 }

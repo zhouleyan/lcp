@@ -29,7 +29,7 @@ func (n *NamespaceService) CreateNamespace(ctx context.Context, ns *types.Namesp
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("owner user %d not found", ownerID), nil)
 	}
 
-	created, err := n.s.store.Namespaces().Create(ctx, store.CreateNamespaceParams{
+	created, err := n.s.store.Namespaces().Create(ctx, &store.Namespace{
 		Name:        ns.ObjectMeta.Name,
 		DisplayName: ns.Spec.DisplayName,
 		Description: ns.Spec.Description,
@@ -82,7 +82,7 @@ func (n *NamespaceService) AddMember(ctx context.Context, namespaceID string, me
 		return nil, apierrors.NewNotFound("Namespace", namespaceID)
 	}
 
-	role, err := n.s.store.UserNamespaces().Add(ctx, store.AddUserNamespaceParams{
+	role, err := n.s.store.UserNamespaces().Add(ctx, &store.UserNamespaceRole{
 		UserID:      userID,
 		NamespaceID: nsID,
 		Role:        member.Spec.Role,

@@ -5,38 +5,38 @@
 package generated
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 type Namespace struct {
-	ID          int64              `json:"id"`
-	Name        string             `json:"name"`
-	DisplayName string             `json:"display_name"`
-	Description string             `json:"description"`
-	OwnerID     int64              `json:"owner_id"`
-	Visibility  string             `json:"visibility"`
-	MaxMembers  int32              `json:"max_members"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	OwnerID     int64     `json:"owner_id"`
+	Visibility  string    `json:"visibility"`
+	MaxMembers  int32     `json:"max_members"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type User struct {
-	ID          int64              `json:"id"`
-	Username    string             `json:"username"`
-	Email       string             `json:"email"`
-	DisplayName string             `json:"display_name"`
-	Phone       string             `json:"phone"`
-	AvatarUrl   string             `json:"avatar_url"`
-	Status      string             `json:"status"`
-	LastLoginAt pgtype.Timestamptz `json:"last_login_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID          int64      `json:"id"`
+	Username    string     `json:"username"`
+	Email       string     `json:"email"`
+	DisplayName string     `json:"display_name"`
+	Phone       string     `json:"phone"`
+	AvatarUrl   string     `json:"avatar_url"`
+	Status      string     `json:"status"`
+	LastLoginAt *time.Time `json:"last_login_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 type UserNamespace struct {
-	UserID      int64              `json:"user_id"`
-	NamespaceID int64              `json:"namespace_id"`
-	Role        string             `json:"role"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UserID      int64     `json:"user_id"`
+	NamespaceID int64     `json:"namespace_id"`
+	Role        string    `json:"role"`
+	CreatedAt   time.Time `json:"created_at"`
 }

@@ -15,19 +15,19 @@ import (
 // --- mock stores ---
 
 type mockUserStore struct {
-	createFn      func(ctx context.Context, params store.CreateUserParams) (*store.User, error)
+	createFn      func(ctx context.Context, user *store.User) (*store.User, error)
 	getByIDFn     func(ctx context.Context, id int64) (*store.User, error)
 	getByUserFn   func(ctx context.Context, username string) (*store.User, error)
 	getByEmailFn  func(ctx context.Context, email string) (*store.User, error)
-	updateFn      func(ctx context.Context, params store.UpdateUserParams) (*store.User, error)
+	updateFn      func(ctx context.Context, user *store.User) (*store.User, error)
 	updateLoginFn func(ctx context.Context, id int64) error
 	deleteFn      func(ctx context.Context, id int64) error
-	listFn        func(ctx context.Context, params store.ListUsersParams) (*store.ListResult[store.UserWithNamespaces], error)
+	listFn        func(ctx context.Context, query store.ListQuery) (*store.ListResult[store.UserWithNamespaces], error)
 }
 
-func (m *mockUserStore) Create(ctx context.Context, params store.CreateUserParams) (*store.User, error) {
+func (m *mockUserStore) Create(ctx context.Context, user *store.User) (*store.User, error) {
 	if m.createFn != nil {
-		return m.createFn(ctx, params)
+		return m.createFn(ctx, user)
 	}
 	return nil, nil
 }
@@ -53,9 +53,9 @@ func (m *mockUserStore) GetByEmail(ctx context.Context, email string) (*store.Us
 	return nil, nil
 }
 
-func (m *mockUserStore) Update(ctx context.Context, params store.UpdateUserParams) (*store.User, error) {
+func (m *mockUserStore) Update(ctx context.Context, user *store.User) (*store.User, error) {
 	if m.updateFn != nil {
-		return m.updateFn(ctx, params)
+		return m.updateFn(ctx, user)
 	}
 	return nil, nil
 }
@@ -74,25 +74,25 @@ func (m *mockUserStore) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (m *mockUserStore) List(ctx context.Context, params store.ListUsersParams) (*store.ListResult[store.UserWithNamespaces], error) {
+func (m *mockUserStore) List(ctx context.Context, query store.ListQuery) (*store.ListResult[store.UserWithNamespaces], error) {
 	if m.listFn != nil {
-		return m.listFn(ctx, params)
+		return m.listFn(ctx, query)
 	}
 	return nil, nil
 }
 
 type mockNamespaceStore struct {
-	createFn  func(ctx context.Context, params store.CreateNamespaceParams) (*store.Namespace, error)
+	createFn  func(ctx context.Context, ns *store.Namespace) (*store.Namespace, error)
 	getByIDFn func(ctx context.Context, id int64) (*store.Namespace, error)
 	getByName func(ctx context.Context, name string) (*store.Namespace, error)
-	updateFn  func(ctx context.Context, params store.UpdateNamespaceParams) (*store.Namespace, error)
+	updateFn  func(ctx context.Context, ns *store.Namespace) (*store.Namespace, error)
 	deleteFn  func(ctx context.Context, id int64) error
-	listFn    func(ctx context.Context, params store.ListNamespacesParams) (*store.ListResult[store.NamespaceWithOwner], error)
+	listFn    func(ctx context.Context, query store.ListQuery) (*store.ListResult[store.NamespaceWithOwner], error)
 }
 
-func (m *mockNamespaceStore) Create(ctx context.Context, params store.CreateNamespaceParams) (*store.Namespace, error) {
+func (m *mockNamespaceStore) Create(ctx context.Context, ns *store.Namespace) (*store.Namespace, error) {
 	if m.createFn != nil {
-		return m.createFn(ctx, params)
+		return m.createFn(ctx, ns)
 	}
 	return nil, nil
 }
@@ -111,9 +111,9 @@ func (m *mockNamespaceStore) GetByName(ctx context.Context, name string) (*store
 	return nil, nil
 }
 
-func (m *mockNamespaceStore) Update(ctx context.Context, params store.UpdateNamespaceParams) (*store.Namespace, error) {
+func (m *mockNamespaceStore) Update(ctx context.Context, ns *store.Namespace) (*store.Namespace, error) {
 	if m.updateFn != nil {
-		return m.updateFn(ctx, params)
+		return m.updateFn(ctx, ns)
 	}
 	return nil, nil
 }
@@ -125,25 +125,25 @@ func (m *mockNamespaceStore) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (m *mockNamespaceStore) List(ctx context.Context, params store.ListNamespacesParams) (*store.ListResult[store.NamespaceWithOwner], error) {
+func (m *mockNamespaceStore) List(ctx context.Context, query store.ListQuery) (*store.ListResult[store.NamespaceWithOwner], error) {
 	if m.listFn != nil {
-		return m.listFn(ctx, params)
+		return m.listFn(ctx, query)
 	}
 	return nil, nil
 }
 
 type mockUserNamespaceStore struct {
-	addFn       func(ctx context.Context, params store.AddUserNamespaceParams) (*store.UserNamespaceRole, error)
-	removeFn    func(ctx context.Context, userID, namespaceID int64) error
-	updateFn    func(ctx context.Context, params store.UpdateRoleParams) (*store.UserNamespaceRole, error)
-	getFn       func(ctx context.Context, userID, namespaceID int64) (*store.UserNamespaceRole, error)
-	listByUser  func(ctx context.Context, userID int64) ([]store.NamespaceWithRole, error)
-	listByNsFn  func(ctx context.Context, namespaceID int64) ([]store.UserWithRole, error)
+	addFn      func(ctx context.Context, rel *store.UserNamespaceRole) (*store.UserNamespaceRole, error)
+	removeFn   func(ctx context.Context, userID, namespaceID int64) error
+	updateFn   func(ctx context.Context, rel *store.UserNamespaceRole) (*store.UserNamespaceRole, error)
+	getFn      func(ctx context.Context, userID, namespaceID int64) (*store.UserNamespaceRole, error)
+	listByUser func(ctx context.Context, userID int64) ([]store.NamespaceWithRole, error)
+	listByNsFn func(ctx context.Context, namespaceID int64) ([]store.UserWithRole, error)
 }
 
-func (m *mockUserNamespaceStore) Add(ctx context.Context, params store.AddUserNamespaceParams) (*store.UserNamespaceRole, error) {
+func (m *mockUserNamespaceStore) Add(ctx context.Context, rel *store.UserNamespaceRole) (*store.UserNamespaceRole, error) {
 	if m.addFn != nil {
-		return m.addFn(ctx, params)
+		return m.addFn(ctx, rel)
 	}
 	return nil, nil
 }
@@ -155,9 +155,9 @@ func (m *mockUserNamespaceStore) Remove(ctx context.Context, userID, namespaceID
 	return nil
 }
 
-func (m *mockUserNamespaceStore) UpdateRole(ctx context.Context, params store.UpdateRoleParams) (*store.UserNamespaceRole, error) {
+func (m *mockUserNamespaceStore) UpdateRole(ctx context.Context, rel *store.UserNamespaceRole) (*store.UserNamespaceRole, error) {
 	if m.updateFn != nil {
-		return m.updateFn(ctx, params)
+		return m.updateFn(ctx, rel)
 	}
 	return nil, nil
 }
@@ -189,24 +189,24 @@ type mockStore struct {
 	userNs     *mockUserNamespaceStore
 }
 
-func (m *mockStore) Users() store.UserStore           { return m.users }
-func (m *mockStore) Namespaces() store.NamespaceStore  { return m.namespaces }
-func (m *mockStore) UserNamespaces() store.UserNamespaceStore { return m.userNs }
+func (m *mockStore) Users() store.UserStore                    { return m.users }
+func (m *mockStore) Namespaces() store.NamespaceStore          { return m.namespaces }
+func (m *mockStore) UserNamespaces() store.UserNamespaceStore  { return m.userNs }
 func (m *mockStore) WithTx(_ context.Context, _ func(store.Store) error) error { return nil }
-func (m *mockStore) Close()                            {}
+func (m *mockStore) Close()                                    {}
 
 func TestCreateUser_Success(t *testing.T) {
 	now := time.Now()
 	ms := &mockStore{
 		users: &mockUserStore{
-			createFn: func(_ context.Context, p store.CreateUserParams) (*store.User, error) {
+			createFn: func(_ context.Context, u *store.User) (*store.User, error) {
 				return &store.User{
 					ID:          1,
-					Username:    p.Username,
-					Email:       p.Email,
-					DisplayName: p.DisplayName,
-					Phone:       p.Phone,
-					AvatarUrl:   p.AvatarUrl,
+					Username:    u.Username,
+					Email:       u.Email,
+					DisplayName: u.DisplayName,
+					Phone:       u.Phone,
+					AvatarUrl:   u.AvatarUrl,
 					Status:      "active",
 					CreatedAt:   now,
 					UpdatedAt:   now,
@@ -324,7 +324,7 @@ func TestGetUser_InvalidID(t *testing.T) {
 func TestCreateUser_StoreError(t *testing.T) {
 	ms := &mockStore{
 		users: &mockUserStore{
-			createFn: func(_ context.Context, _ store.CreateUserParams) (*store.User, error) {
+			createFn: func(_ context.Context, _ *store.User) (*store.User, error) {
 				return nil, errors.New("db connection failed")
 			},
 		},

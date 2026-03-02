@@ -7,8 +7,7 @@ package generated
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const addUserToNamespace = `-- name: AddUserToNamespace :one
@@ -96,18 +95,18 @@ ORDER BY un.created_at DESC
 `
 
 type ListNamespacesByUserIDRow struct {
-	ID          int64              `json:"id"`
-	Name        string             `json:"name"`
-	DisplayName string             `json:"display_name"`
-	Description string             `json:"description"`
-	OwnerID     int64              `json:"owner_id"`
-	Visibility  string             `json:"visibility"`
-	MaxMembers  int32              `json:"max_members"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Role        string             `json:"role"`
-	JoinedAt    pgtype.Timestamptz `json:"joined_at"`
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	OwnerID     int64     `json:"owner_id"`
+	Visibility  string    `json:"visibility"`
+	MaxMembers  int32     `json:"max_members"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Role        string    `json:"role"`
+	JoinedAt    time.Time `json:"joined_at"`
 }
 
 func (q *Queries) ListNamespacesByUserID(ctx context.Context, userID int64) ([]ListNamespacesByUserIDRow, error) {
@@ -155,18 +154,18 @@ ORDER BY un.created_at DESC
 `
 
 type ListUsersByNamespaceIDRow struct {
-	ID          int64              `json:"id"`
-	Username    string             `json:"username"`
-	Email       string             `json:"email"`
-	DisplayName string             `json:"display_name"`
-	Phone       string             `json:"phone"`
-	AvatarUrl   string             `json:"avatar_url"`
-	Status      string             `json:"status"`
-	LastLoginAt pgtype.Timestamptz `json:"last_login_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Role        string             `json:"role"`
-	JoinedAt    pgtype.Timestamptz `json:"joined_at"`
+	ID          int64      `json:"id"`
+	Username    string     `json:"username"`
+	Email       string     `json:"email"`
+	DisplayName string     `json:"display_name"`
+	Phone       string     `json:"phone"`
+	AvatarUrl   string     `json:"avatar_url"`
+	Status      string     `json:"status"`
+	LastLoginAt *time.Time `json:"last_login_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	Role        string     `json:"role"`
+	JoinedAt    time.Time  `json:"joined_at"`
 }
 
 func (q *Queries) ListUsersByNamespaceID(ctx context.Context, namespaceID int64) ([]ListUsersByNamespaceIDRow, error) {

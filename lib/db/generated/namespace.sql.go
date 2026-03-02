@@ -7,8 +7,7 @@ package generated
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const countNamespaces = `-- name: CountNamespaces :one
@@ -180,17 +179,17 @@ type ListNamespacesParams struct {
 }
 
 type ListNamespacesRow struct {
-	ID            int64              `json:"id"`
-	Name          string             `json:"name"`
-	DisplayName   string             `json:"display_name"`
-	Description   string             `json:"description"`
-	OwnerID       int64              `json:"owner_id"`
-	Visibility    string             `json:"visibility"`
-	MaxMembers    int32              `json:"max_members"`
-	Status        string             `json:"status"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	OwnerUsername string             `json:"owner_username"`
+	ID            int64     `json:"id"`
+	Name          string    `json:"name"`
+	DisplayName   string    `json:"display_name"`
+	Description   string    `json:"description"`
+	OwnerID       int64     `json:"owner_id"`
+	Visibility    string    `json:"visibility"`
+	MaxMembers    int32     `json:"max_members"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	OwnerUsername string    `json:"owner_username"`
 }
 
 func (q *Queries) ListNamespaces(ctx context.Context, arg ListNamespacesParams) ([]ListNamespacesRow, error) {

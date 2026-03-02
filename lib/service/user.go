@@ -20,7 +20,7 @@ func (u *UserService) CreateUser(ctx context.Context, user *types.User) (*types.
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
-	created, err := u.s.store.Users().Create(ctx, store.CreateUserParams{
+	created, err := u.s.store.Users().Create(ctx, &store.User{
 		Username:    user.Spec.Username,
 		Email:       user.Spec.Email,
 		DisplayName: user.Spec.DisplayName,

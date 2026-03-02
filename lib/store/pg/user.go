@@ -9,23 +9,34 @@ import (
 	"lcp.io/lcp/lib/store"
 )
 
+var userListSpec = db.ListSpec{
+	Fields: map[string]db.Field{
+		"status":       {Column: "u.status", Op: db.Eq},
+		"username":     {Column: "u.username", Op: db.Like},
+		"email":        {Column: "u.email", Op: db.Like},
+		"display_name": {Column: "u.display_name", Op: db.Like},
+	},
+	DefaultSort: "u.created_at",
+}
+
 type pgUserStore struct {
+	db      generated.DBTX
 	queries *generated.Queries
 }
 
-func (s *pgUserStore) Create(ctx context.Context, params store.CreateUserParams) (*store.User, error) {
+func (s *pgUserStore) Create(ctx context.Context, user *store.User) (*store.User, error) {
 	row, err := s.queries.CreateUser(ctx, generated.CreateUserParams{
-		Username:    params.Username,
-		Email:       params.Email,
-		DisplayName: params.DisplayName,
-		Phone:       params.Phone,
-		AvatarUrl:   params.AvatarUrl,
-		Status:      params.Status,
+		Username:    user.Username,
+		Email:       user.Email,
+		DisplayName: user.DisplayName,
+		Phone:       user.Phone,
+		AvatarUrl:   user.AvatarUrl,
+		Status:      user.Status,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
 	}
-	return userFromRow(row), nil
+	return &row, nil
 }
 
 func (s *pgUserStore) GetByID(ctx context.Context, id int64) (*store.User, error) {
@@ -33,7 +44,7 @@ func (s *pgUserStore) GetByID(ctx context.Context, id int64) (*store.User, error
 	if err != nil {
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
-	return userFromRow(row), nil
+	return &row, nil
 }
 
 func (s *pgUserStore) GetByUsername(ctx context.Context, username string) (*store.User, error) {
@@ -41,7 +52,7 @@ func (s *pgUserStore) GetByUsername(ctx context.Context, username string) (*stor
 	if err != nil {
 		return nil, fmt.Errorf("get user by username: %w", err)
 	}
-	return userFromRow(row), nil
+	return &row, nil
 }
 
 func (s *pgUserStore) GetByEmail(ctx context.Context, email string) (*store.User, error) {
@@ -49,23 +60,23 @@ func (s *pgUserStore) GetByEmail(ctx context.Context, email string) (*store.User
 	if err != nil {
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
-	return userFromRow(row), nil
+	return &row, nil
 }
 
-func (s *pgUserStore) Update(ctx context.Context, params store.UpdateUserParams) (*store.User, error) {
+func (s *pgUserStore) Update(ctx context.Context, user *store.User) (*store.User, error) {
 	row, err := s.queries.UpdateUser(ctx, generated.UpdateUserParams{
-		ID:          params.ID,
-		Username:    params.Username,
-		Email:       params.Email,
-		DisplayName: params.DisplayName,
-		Phone:       params.Phone,
-		AvatarUrl:   params.AvatarUrl,
-		Status:      params.Status,
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		DisplayName: user.DisplayName,
+		Phone:       user.Phone,
+		AvatarUrl:   user.AvatarUrl,
+		Status:      user.Status,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("update user: %w", err)
 	}
-	return userFromRow(row), nil
+	return &row, nil
 }
 
 func (s *pgUserStore) UpdateLastLogin(ctx context.Context, id int64) error {
@@ -82,93 +93,68 @@ func (s *pgUserStore) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *pgUserStore) List(ctx context.Context, params store.ListUsersParams) (*store.ListResult[store.UserWithNamespaces], error) {
-	offset, limit := paginationToOffsetLimit(params.Pagination)
+func (s *pgUserStore) List(ctx context.Context, q store.ListQuery) (*store.ListResult[store.UserWithNamespaces], error) {
+	offset, limit := paginationToOffsetLimit(q.Pagination)
+	where, args := db.BuildWhereClause(q.Filters, userListSpec, 1)
+	orderBy := db.BuildOrderBy(q.SortBy, q.SortOrder, userListSpec)
 
-	// Escape LIKE params
-	var username, email, displayName *string
-	if params.Username != nil {
-		v := db.EscapeLike(*params.Username)
-		username = &v
-	}
-	if params.Email != nil {
-		v := db.EscapeLike(*params.Email)
-		email = &v
-	}
-	if params.DisplayName != nil {
-		v := db.EscapeLike(*params.DisplayName)
-		displayName = &v
-	}
-
-	sortField := params.SortBy
-	if sortField == "" {
-		sortField = db.UserSortCreatedAt
-	}
-	sortOrder := params.SortOrder
-	if sortOrder == "" {
-		sortOrder = db.SortDesc
-	}
-
-	count, err := s.queries.CountUsers(ctx, generated.CountUsersParams{
-		Status:      params.Status,
-		Username:    username,
-		Email:       email,
-		DisplayName: displayName,
-	})
-	if err != nil {
+	// Count
+	var count int64
+	countSQL := "SELECT count(DISTINCT u.id) FROM users u" + where
+	if err := s.db.QueryRow(ctx, countSQL, args...).Scan(&count); err != nil {
 		return nil, fmt.Errorf("count users: %w", err)
 	}
 
-	rows, err := s.queries.ListUsers(ctx, generated.ListUsersParams{
-		Status:      params.Status,
-		Username:    username,
-		Email:       email,
-		DisplayName: displayName,
-		SortField:   sortField,
-		SortOrder:   sortOrder,
-		PageSize:    limit,
-		PageOffset:  offset,
-	})
+	// List with LEFT JOIN for namespace names
+	n := len(args)
+	listSQL := `SELECT
+    u.id, u.username, u.email, u.display_name, u.phone, u.avatar_url,
+    u.status, u.last_login_at, u.created_at, u.updated_at,
+    COALESCE(
+        array_agg(DISTINCT ns.name) FILTER (WHERE ns.name IS NOT NULL),
+        '{}'
+    )::TEXT[] AS namespace_names
+FROM users u
+LEFT JOIN user_namespaces un ON u.id = un.user_id
+LEFT JOIN namespaces ns ON un.namespace_id = ns.id` +
+		where +
+		` GROUP BY u.id, u.username, u.email, u.display_name, u.phone, u.avatar_url,
+         u.status, u.last_login_at, u.created_at, u.updated_at` +
+		orderBy +
+		fmt.Sprintf(" LIMIT $%d OFFSET $%d", n+1, n+2)
+
+	rows, err := s.db.Query(ctx, listSQL, append(args, limit, offset)...)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
+	defer rows.Close()
 
-	items := make([]store.UserWithNamespaces, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, store.UserWithNamespaces{
-			User: store.User{
-				ID:          row.ID,
-				Username:    row.Username,
-				Email:       row.Email,
-				DisplayName: row.DisplayName,
-				Phone:       row.Phone,
-				AvatarUrl:   row.AvatarUrl,
-				Status:      row.Status,
-				LastLoginAt: toTimePtr(row.LastLoginAt),
-				CreatedAt:   toTime(row.CreatedAt),
-				UpdatedAt:   toTime(row.UpdatedAt),
-			},
-			NamespaceNames: row.NamespaceNames,
-		})
+	items := []store.UserWithNamespaces{}
+	for rows.Next() {
+		var item store.UserWithNamespaces
+		if err := rows.Scan(
+			&item.ID,
+			&item.Username,
+			&item.Email,
+			&item.DisplayName,
+			&item.Phone,
+			&item.AvatarUrl,
+			&item.Status,
+			&item.LastLoginAt,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&item.NamespaceNames,
+		); err != nil {
+			return nil, fmt.Errorf("scan user row: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate user rows: %w", err)
 	}
 
 	return &store.ListResult[store.UserWithNamespaces]{
 		Items:      items,
 		TotalCount: count,
 	}, nil
-}
-
-func userFromRow(row generated.User) *store.User {
-	return &store.User{
-		ID:          row.ID,
-		Username:    row.Username,
-		Email:       row.Email,
-		DisplayName: row.DisplayName,
-		Phone:       row.Phone,
-		AvatarUrl:   row.AvatarUrl,
-		Status:      row.Status,
-		LastLoginAt: toTimePtr(row.LastLoginAt),
-		CreatedAt:   toTime(row.CreatedAt),
-		UpdatedAt:   toTime(row.UpdatedAt),
-	}
 }

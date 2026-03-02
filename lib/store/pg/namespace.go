@@ -9,19 +9,30 @@ import (
 	"lcp.io/lcp/lib/store"
 )
 
+var namespaceListSpec = db.ListSpec{
+	Fields: map[string]db.Field{
+		"status":     {Column: "ns.status", Op: db.Eq},
+		"name":       {Column: "ns.name", Op: db.Like},
+		"visibility": {Column: "ns.visibility", Op: db.Eq},
+		"owner_id":   {Column: "ns.owner_id", Op: db.Eq},
+	},
+	DefaultSort: "ns.created_at",
+}
+
 type pgNamespaceStore struct {
+	db      generated.DBTX
 	queries *generated.Queries
 }
 
-func (s *pgNamespaceStore) Create(ctx context.Context, params store.CreateNamespaceParams) (*store.Namespace, error) {
+func (s *pgNamespaceStore) Create(ctx context.Context, ns *store.Namespace) (*store.Namespace, error) {
 	row, err := s.queries.CreateNamespace(ctx, generated.CreateNamespaceParams{
-		Name:        params.Name,
-		DisplayName: params.DisplayName,
-		Description: params.Description,
-		OwnerID:     params.OwnerID,
-		Visibility:  params.Visibility,
-		MaxMembers:  params.MaxMembers,
-		Status:      params.Status,
+		Name:        ns.Name,
+		DisplayName: ns.DisplayName,
+		Description: ns.Description,
+		OwnerID:     ns.OwnerID,
+		Visibility:  ns.Visibility,
+		MaxMembers:  ns.MaxMembers,
+		Status:      ns.Status,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create namespace: %w", err)
@@ -29,7 +40,7 @@ func (s *pgNamespaceStore) Create(ctx context.Context, params store.CreateNamesp
 
 	// Business logic: auto-add owner as member with role "owner"
 	_, err = s.queries.AddUserToNamespace(ctx, generated.AddUserToNamespaceParams{
-		UserID:      params.OwnerID,
+		UserID:      ns.OwnerID,
 		NamespaceID: row.ID,
 		Role:        "owner",
 	})
@@ -37,7 +48,7 @@ func (s *pgNamespaceStore) Create(ctx context.Context, params store.CreateNamesp
 		return nil, fmt.Errorf("add owner to namespace: %w", err)
 	}
 
-	return namespaceFromRow(row), nil
+	return &row, nil
 }
 
 func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*store.Namespace, error) {
@@ -45,7 +56,7 @@ func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*store.Namesp
 	if err != nil {
 		return nil, fmt.Errorf("get namespace by id: %w", err)
 	}
-	return namespaceFromRow(row), nil
+	return &row, nil
 }
 
 func (s *pgNamespaceStore) GetByName(ctx context.Context, name string) (*store.Namespace, error) {
@@ -53,24 +64,24 @@ func (s *pgNamespaceStore) GetByName(ctx context.Context, name string) (*store.N
 	if err != nil {
 		return nil, fmt.Errorf("get namespace by name: %w", err)
 	}
-	return namespaceFromRow(row), nil
+	return &row, nil
 }
 
-func (s *pgNamespaceStore) Update(ctx context.Context, params store.UpdateNamespaceParams) (*store.Namespace, error) {
+func (s *pgNamespaceStore) Update(ctx context.Context, ns *store.Namespace) (*store.Namespace, error) {
 	row, err := s.queries.UpdateNamespace(ctx, generated.UpdateNamespaceParams{
-		ID:          params.ID,
-		Name:        params.Name,
-		DisplayName: params.DisplayName,
-		Description: params.Description,
-		OwnerID:     params.OwnerID,
-		Visibility:  params.Visibility,
-		MaxMembers:  params.MaxMembers,
-		Status:      params.Status,
+		ID:          ns.ID,
+		Name:        ns.Name,
+		DisplayName: ns.DisplayName,
+		Description: ns.Description,
+		OwnerID:     ns.OwnerID,
+		Visibility:  ns.Visibility,
+		MaxMembers:  ns.MaxMembers,
+		Status:      ns.Status,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("update namespace: %w", err)
 	}
-	return namespaceFromRow(row), nil
+	return &row, nil
 }
 
 func (s *pgNamespaceStore) Delete(ctx context.Context, id int64) error {
@@ -80,84 +91,62 @@ func (s *pgNamespaceStore) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *pgNamespaceStore) List(ctx context.Context, params store.ListNamespacesParams) (*store.ListResult[store.NamespaceWithOwner], error) {
-	offset, limit := paginationToOffsetLimit(params.Pagination)
+func (s *pgNamespaceStore) List(ctx context.Context, q store.ListQuery) (*store.ListResult[store.NamespaceWithOwner], error) {
+	offset, limit := paginationToOffsetLimit(q.Pagination)
+	where, args := db.BuildWhereClause(q.Filters, namespaceListSpec, 1)
+	orderBy := db.BuildOrderBy(q.SortBy, q.SortOrder, namespaceListSpec)
 
-	var name *string
-	if params.Name != nil {
-		v := db.EscapeLike(*params.Name)
-		name = &v
-	}
-
-	sortField := params.SortBy
-	if sortField == "" {
-		sortField = db.NamespaceSortCreatedAt
-	}
-	sortOrder := params.SortOrder
-	if sortOrder == "" {
-		sortOrder = db.SortDesc
-	}
-
-	count, err := s.queries.CountNamespaces(ctx, generated.CountNamespacesParams{
-		Status:     params.Status,
-		Name:       name,
-		Visibility: params.Visibility,
-		OwnerID:    params.OwnerID,
-	})
-	if err != nil {
+	// Count
+	var count int64
+	countSQL := "SELECT count(ns.id) FROM namespaces ns" + where
+	if err := s.db.QueryRow(ctx, countSQL, args...).Scan(&count); err != nil {
 		return nil, fmt.Errorf("count namespaces: %w", err)
 	}
 
-	rows, err := s.queries.ListNamespaces(ctx, generated.ListNamespacesParams{
-		Status:     params.Status,
-		Name:       name,
-		Visibility: params.Visibility,
-		OwnerID:    params.OwnerID,
-		SortField:  sortField,
-		SortOrder:  sortOrder,
-		PageSize:   limit,
-		PageOffset: offset,
-	})
+	// List with JOIN for owner username
+	n := len(args)
+	listSQL := `SELECT
+    ns.id, ns.name, ns.display_name, ns.description, ns.owner_id,
+    ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
+    u.username AS owner_username
+FROM namespaces ns
+JOIN users u ON ns.owner_id = u.id` +
+		where +
+		orderBy +
+		fmt.Sprintf(" LIMIT $%d OFFSET $%d", n+1, n+2)
+
+	rows, err := s.db.Query(ctx, listSQL, append(args, limit, offset)...)
 	if err != nil {
 		return nil, fmt.Errorf("list namespaces: %w", err)
 	}
+	defer rows.Close()
 
-	items := make([]store.NamespaceWithOwner, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, store.NamespaceWithOwner{
-			Namespace: store.Namespace{
-				ID:          row.ID,
-				Name:        row.Name,
-				DisplayName: row.DisplayName,
-				Description: row.Description,
-				OwnerID:     row.OwnerID,
-				Visibility:  row.Visibility,
-				MaxMembers:  row.MaxMembers,
-				Status:      row.Status,
-				CreatedAt:   toTime(row.CreatedAt),
-				UpdatedAt:   toTime(row.UpdatedAt),
-			},
-			OwnerUsername: row.OwnerUsername,
-		})
+	items := []store.NamespaceWithOwner{}
+	for rows.Next() {
+		var item store.NamespaceWithOwner
+		if err := rows.Scan(
+			&item.ID,
+			&item.Name,
+			&item.DisplayName,
+			&item.Description,
+			&item.OwnerID,
+			&item.Visibility,
+			&item.MaxMembers,
+			&item.Status,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&item.OwnerUsername,
+		); err != nil {
+			return nil, fmt.Errorf("scan namespace row: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate namespace rows: %w", err)
 	}
 
 	return &store.ListResult[store.NamespaceWithOwner]{
 		Items:      items,
 		TotalCount: count,
 	}, nil
-}
-
-func namespaceFromRow(row generated.Namespace) *store.Namespace {
-	return &store.Namespace{
-		ID:          row.ID,
-		Name:        row.Name,
-		DisplayName: row.DisplayName,
-		Description: row.Description,
-		OwnerID:     row.OwnerID,
-		Visibility:  row.Visibility,
-		MaxMembers:  row.MaxMembers,
-		Status:      row.Status,
-		CreatedAt:   toTime(row.CreatedAt),
-		UpdatedAt:   toTime(row.UpdatedAt),
-	}
 }

@@ -33,7 +33,7 @@ func main() {
 	defer s.Close()
 
 	// 3. 创建用户
-	alice, err := s.Users().Create(ctx, store.CreateUserParams{
+	alice, err := s.Users().Create(ctx, &store.User{
 		Username:    "alice",
 		Email:       "alice@example.com",
 		DisplayName: "Alice Wang",
@@ -45,7 +45,7 @@ func main() {
 	}
 	fmt.Printf("Created user: %s (id=%d)\n", alice.Username, alice.ID)
 
-	bob, err := s.Users().Create(ctx, store.CreateUserParams{
+	bob, err := s.Users().Create(ctx, &store.User{
 		Username:    "bob",
 		Email:       "bob@example.com",
 		DisplayName: "Bob Li",
@@ -60,7 +60,7 @@ func main() {
 	var ns *store.Namespace
 	err = s.WithTx(ctx, func(txStore store.Store) error {
 		var txErr error
-		ns, txErr = txStore.Namespaces().Create(ctx, store.CreateNamespaceParams{
+		ns, txErr = txStore.Namespaces().Create(ctx, &store.Namespace{
 			Name:        "team-alpha",
 			DisplayName: "Team Alpha",
 			Description: "The alpha team",
@@ -74,7 +74,7 @@ func main() {
 		}
 
 		// 在同一事务中添加 bob 为成员
-		_, txErr = txStore.UserNamespaces().Add(ctx, store.AddUserNamespaceParams{
+		_, txErr = txStore.UserNamespaces().Add(ctx, &store.UserNamespaceRole{
 			UserID:      bob.ID,
 			NamespaceID: ns.ID,
 			Role:        "member",
@@ -108,8 +108,10 @@ func main() {
 
 	// 7. 复杂查询：用户列表（筛选 + 排序 + 分页 + 关联 namespace）
 	activeStatus := "active"
-	result, err := s.Users().List(ctx, store.ListUsersParams{
-		Status: &activeStatus,
+	result, err := s.Users().List(ctx, store.ListQuery{
+		Filters: map[string]any{
+			"status": activeStatus,
+		},
 		Pagination: store.Pagination{
 			Page:      1,
 			PageSize:  10,
@@ -126,7 +128,7 @@ func main() {
 	}
 
 	// 8. 更新角色
-	_, err = s.UserNamespaces().UpdateRole(ctx, store.UpdateRoleParams{
+	_, err = s.UserNamespaces().UpdateRole(ctx, &store.UserNamespaceRole{
 		UserID:      bob.ID,
 		NamespaceID: ns.ID,
 		Role:        "admin",

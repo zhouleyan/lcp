@@ -8,29 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Sort field constants for User list queries.
-const (
-	UserSortUsername    = "username"
-	UserSortEmail      = "email"
-	UserSortDisplayName = "display_name"
-	UserSortCreatedAt  = "created_at"
-	UserSortStatus     = "status"
-)
-
-// Sort field constants for Namespace list queries.
-const (
-	NamespaceSortName       = "name"
-	NamespaceSortCreatedAt  = "created_at"
-	NamespaceSortVisibility = "visibility"
-	NamespaceSortStatus     = "status"
-)
-
-// Sort order constants.
-const (
-	SortAsc  = "asc"
-	SortDesc = "desc"
-)
-
 // EscapeLike escapes LIKE/ILIKE special characters (%, _, \) in a string
 // so they are treated as literals in filter queries.
 func EscapeLike(s string) string {

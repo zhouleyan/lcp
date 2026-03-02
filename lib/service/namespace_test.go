@@ -21,15 +21,15 @@ func TestCreateNamespace_Success(t *testing.T) {
 			},
 		},
 		namespaces: &mockNamespaceStore{
-			createFn: func(_ context.Context, p store.CreateNamespaceParams) (*store.Namespace, error) {
+			createFn: func(_ context.Context, ns *store.Namespace) (*store.Namespace, error) {
 				return &store.Namespace{
 					ID:          10,
-					Name:        p.Name,
-					DisplayName: p.DisplayName,
-					Description: p.Description,
-					OwnerID:     p.OwnerID,
-					Visibility:  p.Visibility,
-					MaxMembers:  p.MaxMembers,
+					Name:        ns.Name,
+					DisplayName: ns.DisplayName,
+					Description: ns.Description,
+					OwnerID:     ns.OwnerID,
+					Visibility:  ns.Visibility,
+					MaxMembers:  ns.MaxMembers,
 					Status:      "active",
 					CreatedAt:   now,
 					UpdatedAt:   now,
@@ -127,11 +127,11 @@ func TestAddMember_Success(t *testing.T) {
 			},
 		},
 		userNs: &mockUserNamespaceStore{
-			addFn: func(_ context.Context, p store.AddUserNamespaceParams) (*store.UserNamespaceRole, error) {
+			addFn: func(_ context.Context, rel *store.UserNamespaceRole) (*store.UserNamespaceRole, error) {
 				return &store.UserNamespaceRole{
-					UserID:      p.UserID,
-					NamespaceID: p.NamespaceID,
-					Role:        p.Role,
+					UserID:      rel.UserID,
+					NamespaceID: rel.NamespaceID,
+					Role:        rel.Role,
 					CreatedAt:   now,
 				}, nil
 			},

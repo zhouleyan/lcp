@@ -7,8 +7,7 @@ package generated
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const countUsers = `-- name: CountUsers :one
@@ -211,17 +210,17 @@ type ListUsersParams struct {
 }
 
 type ListUsersRow struct {
-	ID             int64              `json:"id"`
-	Username       string             `json:"username"`
-	Email          string             `json:"email"`
-	DisplayName    string             `json:"display_name"`
-	Phone          string             `json:"phone"`
-	AvatarUrl      string             `json:"avatar_url"`
-	Status         string             `json:"status"`
-	LastLoginAt    pgtype.Timestamptz `json:"last_login_at"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	NamespaceNames []string           `json:"namespace_names"`
+	ID             int64      `json:"id"`
+	Username       string     `json:"username"`
+	Email          string     `json:"email"`
+	DisplayName    string     `json:"display_name"`
+	Phone          string     `json:"phone"`
+	AvatarUrl      string     `json:"avatar_url"`
+	Status         string     `json:"status"`
+	LastLoginAt    *time.Time `json:"last_login_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	NamespaceNames []string   `json:"namespace_names"`
 }
 
 func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error) {
