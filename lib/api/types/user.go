@@ -28,7 +28,6 @@ type UserList struct {
 	TotalCount       int64  `json:"totalCount"`
 }
 
-// GetObjectKind 实现 runtime.Object
-func (u *UserList) GetObjectKind() *runtime.TypeMeta {
+func (u *UserList) GetTypeMeta() *runtime.TypeMeta {
 	return &u.TypeMeta
 }
