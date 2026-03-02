@@ -21,11 +21,14 @@ type UserSpec struct {
 	Status      string `json:"status,omitempty"`
 }
 
-// UserList is a list of users.
+// UserList 用户列表
 type UserList struct {
 	runtime.TypeMeta `json:",inline"`
 	Items            []User `json:"items"`
-	Total            int64  `json:"total"`
+	TotalCount       int64  `json:"totalCount"`
 }
 
-func (u *UserList) GetTypeMeta() *runtime.TypeMeta { return &u.TypeMeta }
+// GetObjectKind 实现 runtime.Object
+func (u *UserList) GetObjectKind() *runtime.TypeMeta {
+	return &u.TypeMeta
+}
