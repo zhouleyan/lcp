@@ -84,3 +84,22 @@ ORDER BY
     u.created_at DESC
 LIMIT sqlc.arg('page_size')::INT
 OFFSET sqlc.arg('page_offset')::INT;
+
+-- name: PatchUser :one
+UPDATE users
+SET username = COALESCE(sqlc.narg('username'), username),
+    email = COALESCE(sqlc.narg('email'), email),
+    display_name = COALESCE(sqlc.narg('display_name'), display_name),
+    phone = COALESCE(sqlc.narg('phone'), phone),
+    avatar_url = COALESCE(sqlc.narg('avatar_url'), avatar_url),
+    status = COALESCE(sqlc.narg('status'), status),
+    updated_at = now()
+WHERE id = @id
+RETURNING id, username, email, display_name, phone, avatar_url, status,
+          last_login_at, created_at, updated_at;
+
+-- name: DeleteUsersByIDs :exec
+DELETE FROM users WHERE id = ANY(@ids::BIGINT[]);
+
+-- name: GetUsersByIDs :many
+SELECT id FROM users WHERE id = ANY(@ids::BIGINT[]);

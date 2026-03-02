@@ -89,6 +89,15 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteUsersByIDs = `-- name: DeleteUsersByIDs :exec
+DELETE FROM users WHERE id = ANY($1::BIGINT[])
+`
+
+func (q *Queries) DeleteUsersByIDs(ctx context.Context, ids []int64) error {
+	_, err := q.db.Exec(ctx, deleteUsersByIDs, ids)
+	return err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, username, email, display_name, phone, avatar_url, status,
        last_login_at, created_at, updated_at
@@ -162,6 +171,30 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getUsersByIDs = `-- name: GetUsersByIDs :many
+SELECT id FROM users WHERE id = ANY($1::BIGINT[])
+`
+
+func (q *Queries) GetUsersByIDs(ctx context.Context, ids []int64) ([]int64, error) {
+	rows, err := q.db.Query(ctx, getUsersByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUsers = `-- name: ListUsers :many
@@ -262,6 +295,56 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 		return nil, err
 	}
 	return items, nil
+}
+
+const patchUser = `-- name: PatchUser :one
+UPDATE users
+SET username = COALESCE($1, username),
+    email = COALESCE($2, email),
+    display_name = COALESCE($3, display_name),
+    phone = COALESCE($4, phone),
+    avatar_url = COALESCE($5, avatar_url),
+    status = COALESCE($6, status),
+    updated_at = now()
+WHERE id = $7
+RETURNING id, username, email, display_name, phone, avatar_url, status,
+          last_login_at, created_at, updated_at
+`
+
+type PatchUserParams struct {
+	Username    *string `json:"username"`
+	Email       *string `json:"email"`
+	DisplayName *string `json:"display_name"`
+	Phone       *string `json:"phone"`
+	AvatarUrl   *string `json:"avatar_url"`
+	Status      *string `json:"status"`
+	ID          int64   `json:"id"`
+}
+
+func (q *Queries) PatchUser(ctx context.Context, arg PatchUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, patchUser,
+		arg.Username,
+		arg.Email,
+		arg.DisplayName,
+		arg.Phone,
+		arg.AvatarUrl,
+		arg.Status,
+		arg.ID,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.DisplayName,
+		&i.Phone,
+		&i.AvatarUrl,
+		&i.Status,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateUser = `-- name: UpdateUser :one
