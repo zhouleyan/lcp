@@ -10,7 +10,6 @@ import (
 
 // RequestScope encapsulates common fields across all RESTful handler methods
 type RequestScope struct {
-	Name       string
 	Serializer runtime.NegotiatedSerializer
 }
 
@@ -18,23 +17,55 @@ func (scope *RequestScope) err(err error, w http.ResponseWriter, r *http.Request
 	ErrorNegotiated(w, r, scope.Serializer, err)
 }
 
-type getterFunc func(ctx context.Context, name string) (runtime.Object, error)
+// pathParamsFromRequest extracts the path parameters map from the request context.
+// Returns an empty map if no path parameters are set.
+func pathParamsFromRequest(req *http.Request) map[string]string {
+	v := req.Context().Value(PathParamsKey)
+	if v == nil {
+		return map[string]string{}
+	}
+	params, ok := v.(map[string]string)
+	if !ok {
+		return map[string]string{}
+	}
+	return params
+}
 
-// CreatorFunc is the function signature for handlers that create a resource from a request body.
-type CreatorFunc func(ctx context.Context, body []byte) (runtime.Object, error)
+// HandlerFunc is the unified function signature for all request handlers.
+// Params are extracted from path; body is the raw request body (nil for bodiless requests).
+type HandlerFunc func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error)
 
-func GetResource(scope *RequestScope, getter getterFunc) http.HandlerFunc {
+// Handle returns an http.HandlerFunc that:
+//  1. Extracts path params from context
+//  2. Reads request body (if present)
+//  3. Calls fn
+//  4. Writes the response with the given statusCode (or 204 if result is nil)
+func Handle(scope *RequestScope, statusCode int, fn HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
+		params := pathParamsFromRequest(req)
 
-		name := scope.Name
+		var body []byte
+		if req.Body != nil && req.ContentLength != 0 {
+			var err error
+			body, err = io.ReadAll(req.Body)
+			if err != nil {
+				scope.err(err, w, req)
+				return
+			}
+			defer req.Body.Close()
+		}
 
-		result, err := getter(ctx, name)
+		result, err := fn(ctx, params, body)
 		if err != nil {
 			scope.err(err, w, req)
 			return
 		}
-		transformResponseObject(scope, req, w, http.StatusOK, result)
+		if result == nil {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		transformResponseObject(scope, req, w, statusCode, result)
 	}
 }
 
@@ -46,61 +77,4 @@ func transformResponseObject(
 	result runtime.Object,
 ) {
 	WriteObjectNegotiated(scope.Serializer, w, req, statusCode, result)
-}
-
-// CreateResource returns an http.HandlerFunc that reads the request body and
-// delegates to the given CreatorFunc to create a resource.
-func CreateResource(scope *RequestScope, creator CreatorFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		ctx := req.Context()
-		body, err := io.ReadAll(req.Body)
-		if err != nil {
-			scope.err(err, w, req)
-			return
-		}
-		defer req.Body.Close()
-		result, err := creator(ctx, body)
-		if err != nil {
-			scope.err(err, w, req)
-			return
-		}
-		transformResponseObject(scope, req, w, http.StatusCreated, result)
-	}
-}
-
-// GetResourceWithID returns an http.HandlerFunc that extracts a path parameter
-// by name and delegates to the getter.
-func GetResourceWithID(scope *RequestScope, paramName string, getter getterFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		ctx := req.Context()
-		id := PathParam(req, paramName)
-		result, err := getter(ctx, id)
-		if err != nil {
-			scope.err(err, w, req)
-			return
-		}
-		transformResponseObject(scope, req, w, http.StatusOK, result)
-	}
-}
-
-// CreateResourceWithID returns an http.HandlerFunc for nested resource creation
-// (e.g. POST /namespaces/{id}/members). It extracts the parent ID from the path
-// and uses creatorFactory to build a CreatorFunc scoped to that parent.
-func CreateResourceWithID(scope *RequestScope, paramName string, creatorFactory func(id string) CreatorFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		ctx := req.Context()
-		id := PathParam(req, paramName)
-		body, err := io.ReadAll(req.Body)
-		if err != nil {
-			scope.err(err, w, req)
-			return
-		}
-		defer req.Body.Close()
-		result, err := creatorFactory(id)(ctx, body)
-		if err != nil {
-			scope.err(err, w, req)
-			return
-		}
-		transformResponseObject(scope, req, w, http.StatusCreated, result)
-	}
 }

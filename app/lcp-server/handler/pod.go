@@ -6,10 +6,6 @@ import (
 	"lcp.io/lcp/lib/runtime"
 )
 
-type Getter interface {
-	Get(ctx context.Context, name string) (runtime.Object, error)
-}
-
 type ObjectMeta struct {
 	Name      string            `json:"name" yaml:"name"`
 	Namespace string            `json:"namespace" yaml:"namespace"`
@@ -24,7 +20,7 @@ type Pod struct {
 
 func (p *Pod) GetTypeMeta() *runtime.TypeMeta { return &p.TypeMeta }
 
-func (p *Pod) Get(ctx context.Context, name string) (runtime.Object, error) {
+func (p *Pod) Get(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
 	return p, nil
 }
 

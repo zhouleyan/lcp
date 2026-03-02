@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -19,46 +20,121 @@ type testObj struct {
 
 func (t *testObj) GetTypeMeta() *runtime.TypeMeta { return &t.TypeMeta }
 
-func TestGetResource(t *testing.T) {
+func TestHandle_Get(t *testing.T) {
 	scope := &RequestScope{Serializer: runtime.NewCodecFactory()}
-	getter := func(ctx context.Context, name string) (runtime.Object, error) {
+	fn := func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
 		return &testObj{TypeMeta: runtime.TypeMeta{Kind: "Test"}, Name: "hello"}, nil
 	}
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
-	GetResource(scope, getter)(w, req)
+	Handle(scope, http.StatusOK, fn)(w, req)
 	if w.Code != 200 {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 }
 
-func TestCreateResource(t *testing.T) {
+func TestHandle_GetWithPathParams(t *testing.T) {
 	scope := &RequestScope{Serializer: runtime.NewCodecFactory()}
-	creator := func(ctx context.Context, body []byte) (runtime.Object, error) {
+	fn := func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
+		name := params["userId"]
+		return &testObj{TypeMeta: runtime.TypeMeta{Kind: "User"}, Name: name}, nil
+	}
+	req := httptest.NewRequest("GET", "/users/alice", nil)
+	req = WithPathParams(req, map[string]string{"userId": "alice"})
+	w := httptest.NewRecorder()
+	Handle(scope, http.StatusOK, fn)(w, req)
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	respBody, _ := io.ReadAll(w.Body)
+	var obj testObj
+	json.Unmarshal(respBody, &obj)
+	if obj.Name != "alice" {
+		t.Errorf("expected name alice, got %s", obj.Name)
+	}
+}
+
+func TestHandle_List(t *testing.T) {
+	scope := &RequestScope{Serializer: runtime.NewCodecFactory()}
+	fn := func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
+		return &testObj{TypeMeta: runtime.TypeMeta{Kind: "TestList"}, Name: "list"}, nil
+	}
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	Handle(scope, http.StatusOK, fn)(w, req)
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestHandle_Create(t *testing.T) {
+	scope := &RequestScope{Serializer: runtime.NewCodecFactory()}
+	fn := func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
 		return &testObj{TypeMeta: runtime.TypeMeta{Kind: "Test"}, Name: "created"}, nil
 	}
 	body := strings.NewReader(`{"name":"test"}`)
 	req := httptest.NewRequest("POST", "/test", body)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
-	CreateResource(scope, creator)(w, req)
+	Handle(scope, http.StatusCreated, fn)(w, req)
 	if w.Code != 201 {
 		t.Errorf("expected 201, got %d", w.Code)
 	}
 }
 
-func TestCreateResource_ValidationError(t *testing.T) {
+func TestHandle_CreateValidationError(t *testing.T) {
 	scope := &RequestScope{Serializer: runtime.NewCodecFactory()}
-	creator := func(ctx context.Context, body []byte) (runtime.Object, error) {
+	fn := func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
 		return nil, apierrors.NewBadRequest("validation failed", nil)
 	}
 	body := strings.NewReader(`{"name":"test"}`)
 	req := httptest.NewRequest("POST", "/test", body)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
-	CreateResource(scope, creator)(w, req)
+	Handle(scope, http.StatusCreated, fn)(w, req)
 	if w.Code != 400 {
 		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestHandle_Put(t *testing.T) {
+	scope := &RequestScope{Serializer: runtime.NewCodecFactory()}
+	fn := func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
+		return &testObj{TypeMeta: runtime.TypeMeta{Kind: "Test"}, Name: "updated"}, nil
+	}
+	body := strings.NewReader(`{"name":"updated"}`)
+	req := httptest.NewRequest("PUT", "/test/1", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	Handle(scope, http.StatusOK, fn)(w, req)
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestHandle_DeleteWithBody(t *testing.T) {
+	scope := &RequestScope{Serializer: runtime.NewCodecFactory()}
+	fn := func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
+		return &testObj{TypeMeta: runtime.TypeMeta{Kind: "Test"}, Name: "deleted"}, nil
+	}
+	req := httptest.NewRequest("DELETE", "/test/1", nil)
+	w := httptest.NewRecorder()
+	Handle(scope, http.StatusOK, fn)(w, req)
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestHandle_DeleteNoContent(t *testing.T) {
+	scope := &RequestScope{Serializer: runtime.NewCodecFactory()}
+	fn := func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
+		return nil, nil
+	}
+	req := httptest.NewRequest("DELETE", "/test/1", nil)
+	w := httptest.NewRecorder()
+	Handle(scope, http.StatusOK, fn)(w, req)
+	if w.Code != 204 {
+		t.Errorf("expected 204, got %d", w.Code)
 	}
 }
 

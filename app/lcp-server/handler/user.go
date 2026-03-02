@@ -17,7 +17,7 @@ func newUserHandler(svc *service.Service) *userHandler {
 	return &userHandler{svc: svc}
 }
 
-func (h *userHandler) Create(ctx context.Context, body []byte) (runtime.Object, error) {
+func (h *userHandler) Create(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
 	var user types.User
 	if err := json.Unmarshal(body, &user); err != nil {
 		return nil, err
@@ -25,6 +25,6 @@ func (h *userHandler) Create(ctx context.Context, body []byte) (runtime.Object, 
 	return h.svc.Users().CreateUser(ctx, &user)
 }
 
-func (h *userHandler) Get(ctx context.Context, name string) (runtime.Object, error) {
-	return h.svc.Users().GetUser(ctx, name)
+func (h *userHandler) Get(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
+	return h.svc.Users().GetUser(ctx, params["userId"])
 }

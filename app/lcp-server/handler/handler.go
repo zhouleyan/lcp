@@ -56,7 +56,7 @@ func (a *APIServerHandler) RequestHandler(w http.ResponseWriter, r *http.Request
 func (a *APIServerHandler) InstallAPIs() error {
 	logger.Infof("installing lcp-server APIs...")
 
-	codec := runtime.NewCodecFactory()
+	scope := &rest.RequestScope{Serializer: runtime.NewCodecFactory()}
 
 	ws := new(rest.WebService)
 	ws.Path("/apis/v1").
@@ -65,26 +65,20 @@ func (a *APIServerHandler) InstallAPIs() error {
 
 	// User routes
 	u := newUserHandler(a.svc)
-	userScope := &rest.RequestScope{Serializer: codec}
-	ws.Route(ws.POST("/users").To(rest.CreateResource(userScope, u.Create)))
-	ws.Route(ws.GET("/users/{userId}").To(rest.GetResourceWithID(userScope, "userId", u.Get)))
+	ws.Route(ws.POST("/users").To(rest.Handle(scope, http.StatusCreated, u.Create)))
+	ws.Route(ws.GET("/users/{userId}").To(rest.Handle(scope, http.StatusOK, u.Get)))
 
 	// Namespace routes
 	ns := newNamespaceHandler(a.svc)
-	nsScope := &rest.RequestScope{Serializer: codec}
-	ws.Route(ws.POST("/namespaces").To(rest.CreateResource(nsScope, ns.Create)))
-	ws.Route(ws.GET("/namespaces/{namespaceId}").To(rest.GetResourceWithID(nsScope, "namespaceId", ns.Get)))
+	ws.Route(ws.POST("/namespaces").To(rest.Handle(scope, http.StatusCreated, ns.Create)))
+	ws.Route(ws.GET("/namespaces/{namespaceId}").To(rest.Handle(scope, http.StatusOK, ns.Get)))
 	ws.Route(ws.POST("/namespaces/{namespaceId}/members").To(
-		rest.CreateResourceWithID(nsScope, "namespaceId", ns.AddMemberCreator),
+		rest.Handle(scope, http.StatusCreated, ns.AddMember),
 	))
 
-	// Keep existing pod route
+	// Pod route
 	p := NewPod()
-	podScope := &rest.RequestScope{
-		Name:       "pod",
-		Serializer: codec,
-	}
-	ws.Route(ws.GET("/pods").To(rest.GetResource(podScope, p.Get)))
+	ws.Route(ws.GET("/pods").To(rest.Handle(scope, http.StatusOK, p.Get)))
 
 	a.GoRestfulContainer.Add(ws)
 	return nil
