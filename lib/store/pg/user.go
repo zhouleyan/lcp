@@ -118,22 +118,15 @@ func (s *pgUserStore) Delete(ctx context.Context, id int64) error {
 }
 
 func (s *pgUserStore) DeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
-	// 先查询存在的用户
-	existingUsers, err := s.queries.GetUsersByIDs(ctx, ids)
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	deletedIDs, err := s.queries.DeleteUsersByIDs(ctx, ids)
 	if err != nil {
-		return 0, fmt.Errorf("get users by ids: %w", err)
+		return 0, fmt.Errorf("delete users by ids: %w", err)
 	}
-
-	// 执行删除
-	if len(existingUsers) > 0 {
-		deletedIDs, err := s.queries.DeleteUsersByIDs(ctx, ids)
-		if err != nil {
-			return 0, fmt.Errorf("delete users by ids: %w", err)
-		}
-		return int64(len(deletedIDs)), nil
-	}
-
-	return 0, nil
+	return int64(len(deletedIDs)), nil
 }
 
 func (s *pgUserStore) List(ctx context.Context, q store.ListQuery) (*store.ListResult[store.UserWithNamespaces], error) {
