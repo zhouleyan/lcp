@@ -98,8 +98,11 @@ WHERE id = @id
 RETURNING id, username, email, display_name, phone, avatar_url, status,
           last_login_at, created_at, updated_at;
 
--- name: DeleteUsersByIDs :exec
-DELETE FROM users WHERE id = ANY(@ids::BIGINT[]);
+-- name: DeleteUsersByIDs :many
+DELETE FROM users WHERE id = ANY(@ids::BIGINT[])
+RETURNING id;
 
 -- name: GetUsersByIDs :many
-SELECT id FROM users WHERE id = ANY(@ids::BIGINT[]);
+SELECT id, username, email, display_name, phone, avatar_url, status,
+       last_login_at, created_at, updated_at
+FROM users WHERE id = ANY(@ids::BIGINT[]);

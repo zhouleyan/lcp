@@ -26,6 +26,22 @@ type ListQuery struct {
 	Pagination
 }
 
+// PaginationToOffsetLimit converts Pagination to offset and limit with defaults.
+func PaginationToOffsetLimit(p Pagination) (offset int32, limit int32) {
+	page := p.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := p.PageSize
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	return int32((page - 1) * pageSize), int32(pageSize)
+}
+
 // Base model types: aliases to sqlc-generated structs.
 type User = generated.User
 type Namespace = generated.Namespace

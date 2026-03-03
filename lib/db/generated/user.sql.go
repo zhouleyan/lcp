@@ -89,13 +89,29 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
 	return err
 }
 
-const deleteUsersByIDs = `-- name: DeleteUsersByIDs :exec
+const deleteUsersByIDs = `-- name: DeleteUsersByIDs :many
 DELETE FROM users WHERE id = ANY($1::BIGINT[])
+RETURNING id
 `
 
-func (q *Queries) DeleteUsersByIDs(ctx context.Context, ids []int64) error {
-	_, err := q.db.Exec(ctx, deleteUsersByIDs, ids)
-	return err
+func (q *Queries) DeleteUsersByIDs(ctx context.Context, ids []int64) ([]int64, error) {
+	rows, err := q.db.Query(ctx, deleteUsersByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
@@ -174,22 +190,35 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 }
 
 const getUsersByIDs = `-- name: GetUsersByIDs :many
-SELECT id FROM users WHERE id = ANY($1::BIGINT[])
+SELECT id, username, email, display_name, phone, avatar_url, status,
+       last_login_at, created_at, updated_at
+FROM users WHERE id = ANY($1::BIGINT[])
 `
 
-func (q *Queries) GetUsersByIDs(ctx context.Context, ids []int64) ([]int64, error) {
+func (q *Queries) GetUsersByIDs(ctx context.Context, ids []int64) ([]User, error) {
 	rows, err := q.db.Query(ctx, getUsersByIDs, ids)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []int64{}
+	items := []User{}
 	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.DisplayName,
+			&i.Phone,
+			&i.AvatarUrl,
+			&i.Status,
+			&i.LastLoginAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
-		items = append(items, id)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

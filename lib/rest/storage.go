@@ -6,45 +6,46 @@ import (
 	"lcp.io/lcp/lib/runtime"
 )
 
-// ValidateObjectFunc 验证函数类型
+// ValidateObjectFunc is kept for backward compatibility.
+// Deprecated: validation should be internal to Storage implementations.
 type ValidateObjectFunc func(ctx context.Context, obj runtime.Object) error
 
-// Getter 处理 GET 单个资源
+// Getter handles GET for a single resource.
 type Getter interface {
 	Get(ctx context.Context, id string) (runtime.Object, error)
 }
 
-// Lister 处理 GET 集合（支持过滤/分页/排序）
+// Lister handles GET for a collection (with filtering/pagination/sorting).
 type Lister interface {
 	List(ctx context.Context, options *ListOptions) (runtime.Object, error)
 }
 
-// Creator 处理 POST 创建
+// Creator handles POST to create a resource.
 type Creator interface {
-	Create(ctx context.Context, obj runtime.Object, validate ValidateObjectFunc, options *CreateOptions) (runtime.Object, error)
+	Create(ctx context.Context, obj runtime.Object, options *CreateOptions) (runtime.Object, error)
 }
 
-// Updater 处理 PUT 完整替换
+// Updater handles PUT to fully replace a resource.
 type Updater interface {
-	Update(ctx context.Context, id string, obj runtime.Object, validate ValidateObjectFunc, options *UpdateOptions) (runtime.Object, error)
+	Update(ctx context.Context, id string, obj runtime.Object, options *UpdateOptions) (runtime.Object, error)
 }
 
-// Patcher 处理 PATCH 部分更新（合并非空字段）
+// Patcher handles PATCH for partial updates.
 type Patcher interface {
-	Patch(ctx context.Context, id string, obj runtime.Object, validate ValidateObjectFunc, options *PatchOptions) (runtime.Object, error)
+	Patch(ctx context.Context, id string, obj runtime.Object, options *PatchOptions) (runtime.Object, error)
 }
 
-// Deleter 处理 DELETE 单个资源
+// Deleter handles DELETE for a single resource.
 type Deleter interface {
-	Delete(ctx context.Context, id string, validate ValidateObjectFunc, options *DeleteOptions) error
+	Delete(ctx context.Context, id string, options *DeleteOptions) error
 }
 
-// CollectionDeleter 处理批量删除（通过显式 ID 列表）
+// CollectionDeleter handles batch DELETE (by explicit ID list).
 type CollectionDeleter interface {
-	DeleteCollection(ctx context.Context, ids []string, validate ValidateObjectFunc, options *DeleteOptions) (*DeletionResult, error)
+	DeleteCollection(ctx context.Context, ids []string, options *DeleteOptions) (*DeletionResult, error)
 }
 
-// StandardStorage 组合所有操作
+// StandardStorage combines all operations.
 type StandardStorage interface {
 	Getter
 	Lister
@@ -55,9 +56,14 @@ type StandardStorage interface {
 	CollectionDeleter
 }
 
-// DeletionResult 批量删除结果
+// DeletionResult holds batch delete results.
 type DeletionResult struct {
 	SuccessCount int      `json:"successCount"`
 	FailedCount  int      `json:"failedCount"`
 	FailedIDs    []string `json:"failedIds,omitempty"`
+}
+
+// DeleteCollectionRequest is the request body for batch delete operations.
+type DeleteCollectionRequest struct {
+	IDs []string `json:"ids"`
 }

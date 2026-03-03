@@ -5,14 +5,21 @@ import (
 	"fmt"
 
 	"lcp.io/lcp/lib/db/generated"
-	"lcp.io/lcp/lib/store"
+	libstore "lcp.io/lcp/lib/store"
+
+	nsstore "lcp.io/lcp/pkg/modules/namespace/store"
 )
 
 type pgUserNamespaceStore struct {
 	queries *generated.Queries
 }
 
-func (s *pgUserNamespaceStore) Add(ctx context.Context, rel *store.UserNamespaceRole) (*store.UserNamespaceRole, error) {
+// NewUserNamespaceStore creates a new PostgreSQL-backed UserNamespaceStore.
+func NewUserNamespaceStore(queries *generated.Queries) nsstore.UserNamespaceStore {
+	return &pgUserNamespaceStore{queries: queries}
+}
+
+func (s *pgUserNamespaceStore) Add(ctx context.Context, rel *nsstore.UserNamespaceRole) (*nsstore.UserNamespaceRole, error) {
 	row, err := s.queries.AddUserToNamespace(ctx, generated.AddUserToNamespaceParams{
 		UserID:      rel.UserID,
 		NamespaceID: rel.NamespaceID,
@@ -34,7 +41,7 @@ func (s *pgUserNamespaceStore) Remove(ctx context.Context, userID, namespaceID i
 	return nil
 }
 
-func (s *pgUserNamespaceStore) UpdateRole(ctx context.Context, rel *store.UserNamespaceRole) (*store.UserNamespaceRole, error) {
+func (s *pgUserNamespaceStore) UpdateRole(ctx context.Context, rel *nsstore.UserNamespaceRole) (*nsstore.UserNamespaceRole, error) {
 	row, err := s.queries.UpdateUserNamespaceRole(ctx, generated.UpdateUserNamespaceRoleParams{
 		UserID:      rel.UserID,
 		NamespaceID: rel.NamespaceID,
@@ -46,7 +53,7 @@ func (s *pgUserNamespaceStore) UpdateRole(ctx context.Context, rel *store.UserNa
 	return &row, nil
 }
 
-func (s *pgUserNamespaceStore) Get(ctx context.Context, userID, namespaceID int64) (*store.UserNamespaceRole, error) {
+func (s *pgUserNamespaceStore) Get(ctx context.Context, userID, namespaceID int64) (*nsstore.UserNamespaceRole, error) {
 	row, err := s.queries.GetUserNamespace(ctx, generated.GetUserNamespaceParams{
 		UserID:      userID,
 		NamespaceID: namespaceID,
@@ -57,16 +64,16 @@ func (s *pgUserNamespaceStore) Get(ctx context.Context, userID, namespaceID int6
 	return &row, nil
 }
 
-func (s *pgUserNamespaceStore) ListByUserID(ctx context.Context, userID int64) ([]store.NamespaceWithRole, error) {
+func (s *pgUserNamespaceStore) ListByUserID(ctx context.Context, userID int64) ([]nsstore.NamespaceWithRole, error) {
 	rows, err := s.queries.ListNamespacesByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list namespaces by user: %w", err)
 	}
 
-	items := make([]store.NamespaceWithRole, 0, len(rows))
+	items := make([]nsstore.NamespaceWithRole, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, store.NamespaceWithRole{
-			Namespace: store.Namespace{
+		items = append(items, nsstore.NamespaceWithRole{
+			Namespace: libstore.Namespace{
 				ID:          row.ID,
 				Name:        row.Name,
 				DisplayName: row.DisplayName,
@@ -85,16 +92,16 @@ func (s *pgUserNamespaceStore) ListByUserID(ctx context.Context, userID int64) (
 	return items, nil
 }
 
-func (s *pgUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespaceID int64) ([]store.UserWithRole, error) {
+func (s *pgUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespaceID int64) ([]nsstore.UserWithRole, error) {
 	rows, err := s.queries.ListUsersByNamespaceID(ctx, namespaceID)
 	if err != nil {
 		return nil, fmt.Errorf("list users by namespace: %w", err)
 	}
 
-	items := make([]store.UserWithRole, 0, len(rows))
+	items := make([]nsstore.UserWithRole, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, store.UserWithRole{
-			User: store.User{
+		items = append(items, nsstore.UserWithRole{
+			User: libstore.User{
 				ID:          row.ID,
 				Username:    row.Username,
 				Email:       row.Email,

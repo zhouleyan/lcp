@@ -12,13 +12,17 @@ import (
 	"lcp.io/lcp/app/lcp-server/handler"
 	"lcp.io/lcp/lib/buildinfo"
 	"lcp.io/lcp/lib/db"
+	"lcp.io/lcp/lib/db/generated"
 	"lcp.io/lcp/lib/httpserver"
 	"lcp.io/lcp/lib/lflag"
 	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/profile"
-	"lcp.io/lcp/lib/service"
-	storepg "lcp.io/lcp/lib/store/pg"
 	"lcp.io/lcp/lib/utils/procutil"
+
+	nspkg "lcp.io/lcp/pkg/modules/namespace"
+	nspg "lcp.io/lcp/pkg/modules/namespace/store/pg"
+	userpkg "lcp.io/lcp/pkg/modules/user"
+	userpg "lcp.io/lcp/pkg/modules/user/store/pg"
 )
 
 var (
@@ -33,18 +37,14 @@ const (
 func main() {
 	defer profile.Profile().Stop()
 
-	// TODO: Load config file
-	// TODO: Load env var
-
 	// 1. Initialize
-	// Write flags and help message to stdout, since it is easier to grep or pipe
 	flag.CommandLine.SetOutput(os.Stdout)
 	flag.Usage = usage
 	lflag.Parse()
 	buildinfo.Init()
 	logger.Init()
 
-	// 1.5 Initialize database, store, and service
+	// 1.5 Initialize database
 	ctx := context.Background()
 	dbCfg := db.Config{
 		Host:     envOrDefault("DB_HOST", "localhost"),
@@ -61,10 +61,16 @@ func main() {
 	}
 	defer pool.Close()
 
-	s := storepg.New(pool)
-	defer s.Close()
+	// Initialize stores
+	queries := generated.New(pool)
+	userStore := userpg.NewUserStore(pool, queries)
+	nsStore := nspg.NewNamespaceStore(pool, queries)
+	unStore := nspg.NewUserNamespaceStore(queries)
+	userLookup := userpkg.NewLookup(userStore)
 
-	svc := service.New(s)
+	// Build API group infos
+	userGroup := userpkg.NewAPIGroupInfo(userStore)
+	nsGroup := nspkg.NewAPIGroupInfo(nsStore, unStore, userLookup)
 
 	// 2. Start http server
 	listenAddrs := *httpListenAddrs
@@ -76,7 +82,7 @@ func main() {
 
 	startTime := time.Now()
 
-	apiHandler, err := handler.NewAPIServerHandler(LCPAPIServer, svc)
+	apiHandler, err := handler.NewAPIServerHandler(LCPAPIServer, userGroup, nsGroup)
 	if err != nil {
 		logger.Fatalf("cannot create API server handler: %v", err)
 	}

@@ -6,7 +6,9 @@ import (
 
 	"lcp.io/lcp/lib/db"
 	"lcp.io/lcp/lib/db/generated"
-	"lcp.io/lcp/lib/store"
+	libstore "lcp.io/lcp/lib/store"
+
+	nsstore "lcp.io/lcp/pkg/modules/namespace/store"
 )
 
 var namespaceListSpec = db.ListSpec{
@@ -24,7 +26,12 @@ type pgNamespaceStore struct {
 	queries *generated.Queries
 }
 
-func (s *pgNamespaceStore) Create(ctx context.Context, ns *store.Namespace) (*store.Namespace, error) {
+// NewNamespaceStore creates a new PostgreSQL-backed NamespaceStore.
+func NewNamespaceStore(pool generated.DBTX, queries *generated.Queries) nsstore.NamespaceStore {
+	return &pgNamespaceStore{db: pool, queries: queries}
+}
+
+func (s *pgNamespaceStore) Create(ctx context.Context, ns *nsstore.Namespace) (*nsstore.Namespace, error) {
 	row, err := s.queries.CreateNamespace(ctx, generated.CreateNamespaceParams{
 		Name:        ns.Name,
 		DisplayName: ns.DisplayName,
@@ -38,7 +45,7 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *store.Namespace) (*st
 		return nil, fmt.Errorf("create namespace: %w", err)
 	}
 
-	// Business logic: auto-add owner as member with role "owner"
+	// Auto-add owner as member with role "owner"
 	_, err = s.queries.AddUserToNamespace(ctx, generated.AddUserToNamespaceParams{
 		UserID:      ns.OwnerID,
 		NamespaceID: row.ID,
@@ -51,7 +58,7 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *store.Namespace) (*st
 	return &row, nil
 }
 
-func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*store.Namespace, error) {
+func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*nsstore.Namespace, error) {
 	row, err := s.queries.GetNamespaceByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get namespace by id: %w", err)
@@ -59,7 +66,7 @@ func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*store.Namesp
 	return &row, nil
 }
 
-func (s *pgNamespaceStore) GetByName(ctx context.Context, name string) (*store.Namespace, error) {
+func (s *pgNamespaceStore) GetByName(ctx context.Context, name string) (*nsstore.Namespace, error) {
 	row, err := s.queries.GetNamespaceByName(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("get namespace by name: %w", err)
@@ -67,7 +74,7 @@ func (s *pgNamespaceStore) GetByName(ctx context.Context, name string) (*store.N
 	return &row, nil
 }
 
-func (s *pgNamespaceStore) Update(ctx context.Context, ns *store.Namespace) (*store.Namespace, error) {
+func (s *pgNamespaceStore) Update(ctx context.Context, ns *nsstore.Namespace) (*nsstore.Namespace, error) {
 	row, err := s.queries.UpdateNamespace(ctx, generated.UpdateNamespaceParams{
 		ID:          ns.ID,
 		Name:        ns.Name,
@@ -91,19 +98,17 @@ func (s *pgNamespaceStore) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *pgNamespaceStore) List(ctx context.Context, q store.ListQuery) (*store.ListResult[store.NamespaceWithOwner], error) {
-	offset, limit := paginationToOffsetLimit(q.Pagination)
+func (s *pgNamespaceStore) List(ctx context.Context, q libstore.ListQuery) (*libstore.ListResult[nsstore.NamespaceWithOwner], error) {
+	offset, limit := libstore.PaginationToOffsetLimit(q.Pagination)
 	where, args := db.BuildWhereClause(q.Filters, namespaceListSpec, 1)
 	orderBy := db.BuildOrderBy(q.SortBy, q.SortOrder, namespaceListSpec)
 
-	// Count
 	var count int64
 	countSQL := "SELECT count(ns.id) FROM namespaces ns" + where
 	if err := s.db.QueryRow(ctx, countSQL, args...).Scan(&count); err != nil {
 		return nil, fmt.Errorf("count namespaces: %w", err)
 	}
 
-	// List with JOIN for owner username
 	n := len(args)
 	listSQL := `SELECT
     ns.id, ns.name, ns.display_name, ns.description, ns.owner_id,
@@ -121,9 +126,9 @@ JOIN users u ON ns.owner_id = u.id` +
 	}
 	defer rows.Close()
 
-	items := []store.NamespaceWithOwner{}
+	items := []nsstore.NamespaceWithOwner{}
 	for rows.Next() {
-		var item store.NamespaceWithOwner
+		var item nsstore.NamespaceWithOwner
 		if err := rows.Scan(
 			&item.ID,
 			&item.Name,
@@ -145,7 +150,7 @@ JOIN users u ON ns.owner_id = u.id` +
 		return nil, fmt.Errorf("iterate namespace rows: %w", err)
 	}
 
-	return &store.ListResult[store.NamespaceWithOwner]{
+	return &libstore.ListResult[nsstore.NamespaceWithOwner]{
 		Items:      items,
 		TotalCount: count,
 	}, nil

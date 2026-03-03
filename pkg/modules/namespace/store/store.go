@@ -1,6 +1,20 @@
 package store
 
-import "context"
+import (
+	"context"
+
+	libstore "lcp.io/lcp/lib/store"
+)
+
+// NamespaceStore defines operations on namespaces.
+type NamespaceStore interface {
+	Create(ctx context.Context, ns *Namespace) (*Namespace, error)
+	GetByID(ctx context.Context, id int64) (*Namespace, error)
+	GetByName(ctx context.Context, name string) (*Namespace, error)
+	Update(ctx context.Context, ns *Namespace) (*Namespace, error)
+	Delete(ctx context.Context, id int64) error
+	List(ctx context.Context, query libstore.ListQuery) (*libstore.ListResult[NamespaceWithOwner], error)
+}
 
 // UserNamespaceStore defines operations on user-namespace relationships.
 type UserNamespaceStore interface {

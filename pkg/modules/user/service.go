@@ -1,26 +1,28 @@
-package service
+package user
 
 import (
 	"context"
 	"fmt"
 
 	apierrors "lcp.io/lcp/lib/api/errors"
-	"lcp.io/lcp/lib/api/types"
-	"lcp.io/lcp/lib/api/validation"
 	"lcp.io/lcp/lib/runtime"
 	"lcp.io/lcp/lib/store"
+
+	userstore "lcp.io/lcp/pkg/modules/user/store"
 )
 
+// UserService handles user business logic.
 type UserService struct {
-	s *Service
+	store userstore.UserStore
 }
 
-func (u *UserService) CreateUser(ctx context.Context, user *types.User) (*types.User, error) {
-	if errs := validation.ValidateUserCreate(&user.Spec); errs.HasErrors() {
-		return nil, apierrors.NewBadRequest("validation failed", errs)
-	}
+// NewUserService creates a new UserService.
+func NewUserService(s userstore.UserStore) *UserService {
+	return &UserService{store: s}
+}
 
-	created, err := u.s.store.Users().Create(ctx, &store.User{
+func (u *UserService) CreateUser(ctx context.Context, user *User) (*User, error) {
+	created, err := u.store.Create(ctx, &userstore.User{
 		Username:    user.Spec.Username,
 		Email:       user.Spec.Email,
 		DisplayName: user.Spec.DisplayName,
@@ -31,7 +33,6 @@ func (u *UserService) CreateUser(ctx context.Context, user *types.User) (*types.
 	if err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
 	}
-
 	return userToAPI(created), nil
 }
 
@@ -41,11 +42,10 @@ func (u *UserService) GetUser(ctx context.Context, id string) (runtime.Object, e
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", id), nil)
 	}
 
-	user, err := u.s.store.Users().GetByID(ctx, uid)
+	user, err := u.store.GetByID(ctx, uid)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
-
 	return userToAPI(user), nil
 }
 
@@ -54,13 +54,9 @@ func (u *UserService) ListUsers(ctx context.Context, filters map[string]string, 
 		Filters:    make(map[string]any),
 		Pagination: pagination,
 	}
-
-	// Convert string filters to any
 	for k, v := range filters {
 		query.Filters[k] = v
 	}
-
-	// Override pagination fields if provided
 	if sortBy != "" {
 		query.SortBy = sortBy
 	}
@@ -68,33 +64,30 @@ func (u *UserService) ListUsers(ctx context.Context, filters map[string]string, 
 		query.SortOrder = sortOrder
 	}
 
-	result, err := u.s.store.Users().List(ctx, query)
+	result, err := u.store.List(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
 
-	items := make([]types.User, len(result.Items))
+	items := make([]User, len(result.Items))
 	for i, item := range result.Items {
 		items[i] = *userWithNamespacesToAPI(&item)
 	}
 
-	return &types.UserList{
-		TypeMeta: runtime.TypeMeta{
-			Kind:       "UserList",
-			APIVersion: "v1",
-		},
-		Items:      items,
+	return &UserList{
+		TypeMeta: runtime.TypeMeta{Kind: "UserList", APIVersion: "v1"},
+		Items:    items,
 		TotalCount: result.TotalCount,
 	}, nil
 }
 
-func (u *UserService) UpdateUser(ctx context.Context, id string, user *types.User) (*types.User, error) {
+func (u *UserService) UpdateUser(ctx context.Context, id string, user *User) (*User, error) {
 	uid, err := parseID(id)
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", id), nil)
 	}
 
-	updated, err := u.s.store.Users().Update(ctx, &store.User{
+	updated, err := u.store.Update(ctx, &userstore.User{
 		ID:          uid,
 		Username:    user.Spec.Username,
 		Email:       user.Spec.Email,
@@ -106,17 +99,16 @@ func (u *UserService) UpdateUser(ctx context.Context, id string, user *types.Use
 	if err != nil {
 		return nil, fmt.Errorf("update user: %w", err)
 	}
-
 	return userToAPI(updated), nil
 }
 
-func (u *UserService) PatchUser(ctx context.Context, id string, user *types.User) (*types.User, error) {
+func (u *UserService) PatchUser(ctx context.Context, id string, user *User) (*User, error) {
 	uid, err := parseID(id)
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", id), nil)
 	}
 
-	patched, err := u.s.store.Users().Patch(ctx, uid, &store.User{
+	patched, err := u.store.Patch(ctx, uid, &userstore.User{
 		Username:    user.Spec.Username,
 		Email:       user.Spec.Email,
 		DisplayName: user.Spec.DisplayName,
@@ -127,7 +119,6 @@ func (u *UserService) PatchUser(ctx context.Context, id string, user *types.User
 	if err != nil {
 		return nil, fmt.Errorf("patch user: %w", err)
 	}
-
 	return userToAPI(patched), nil
 }
 
@@ -137,11 +128,17 @@ func (u *UserService) DeleteUser(ctx context.Context, id string) error {
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", id), nil)
 	}
 
-	if err := u.s.store.Users().Delete(ctx, uid); err != nil {
+	if err := u.store.Delete(ctx, uid); err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
-
 	return nil
+}
+
+// DeletionResult holds batch delete results.
+type DeletionResult struct {
+	SuccessCount int      `json:"successCount"`
+	FailedCount  int      `json:"failedCount"`
+	FailedIDs    []string `json:"failedIds,omitempty"`
 }
 
 func (u *UserService) DeleteUsers(ctx context.Context, ids []string) (*DeletionResult, error) {
@@ -154,7 +151,7 @@ func (u *UserService) DeleteUsers(ctx context.Context, ids []string) (*DeletionR
 		int64IDs = append(int64IDs, uid)
 	}
 
-	count, err := u.s.store.Users().DeleteByIDs(ctx, int64IDs)
+	count, err := u.store.DeleteByIDs(ctx, int64IDs)
 	if err != nil {
 		return nil, fmt.Errorf("delete users: %w", err)
 	}
@@ -163,17 +160,4 @@ func (u *UserService) DeleteUsers(ctx context.Context, ids []string) (*DeletionR
 		SuccessCount: int(count),
 		FailedCount:  len(ids) - int(count),
 	}, nil
-}
-
-// DeletionResult 批量删除结果
-type DeletionResult struct {
-	SuccessCount int      `json:"successCount"`
-	FailedCount  int      `json:"failedCount"`
-	FailedIDs    []string `json:"failedIds,omitempty"`
-}
-
-func userWithNamespacesToAPI(u *store.UserWithNamespaces) *types.User {
-	user := userToAPI(&u.User)
-	// 可以在这里添加 namespace 信息到 user 对象
-	return user
 }

@@ -1,11 +1,14 @@
-package types
+package user
 
-import "lcp.io/lcp/lib/runtime"
+import (
+	"lcp.io/lcp/lib/api/types"
+	"lcp.io/lcp/lib/runtime"
+)
 
 // User is the API representation of a user resource.
 type User struct {
 	runtime.TypeMeta `json:",inline"`
-	ObjectMeta       `json:"metadata"`
+	types.ObjectMeta `json:"metadata"`
 	Spec             UserSpec `json:"spec"`
 }
 
@@ -21,13 +24,11 @@ type UserSpec struct {
 	Status      string `json:"status,omitempty"`
 }
 
-// UserList 用户列表
+// UserList is a paginated list of users.
 type UserList struct {
 	runtime.TypeMeta `json:",inline"`
 	Items            []User `json:"items"`
 	TotalCount       int64  `json:"totalCount"`
 }
 
-func (u *UserList) GetTypeMeta() *runtime.TypeMeta {
-	return &u.TypeMeta
-}
+func (u *UserList) GetTypeMeta() *runtime.TypeMeta { return &u.TypeMeta }

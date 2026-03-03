@@ -6,16 +6,10 @@ import (
 
 	"lcp.io/lcp/lib/db"
 	"lcp.io/lcp/lib/db/generated"
-	"lcp.io/lcp/lib/store"
-)
+	libstore "lcp.io/lcp/lib/store"
 
-// toNullString 将字符串转为 *string，空字符串转为 nil
-func toNullString(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
+	userstore "lcp.io/lcp/pkg/modules/user/store"
+)
 
 var userListSpec = db.ListSpec{
 	Fields: map[string]db.Field{
@@ -32,7 +26,19 @@ type pgUserStore struct {
 	queries *generated.Queries
 }
 
-func (s *pgUserStore) Create(ctx context.Context, user *store.User) (*store.User, error) {
+// NewUserStore creates a new PostgreSQL-backed UserStore.
+func NewUserStore(pool generated.DBTX, queries *generated.Queries) userstore.UserStore {
+	return &pgUserStore{db: pool, queries: queries}
+}
+
+func toNullString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func (s *pgUserStore) Create(ctx context.Context, user *userstore.User) (*userstore.User, error) {
 	row, err := s.queries.CreateUser(ctx, generated.CreateUserParams{
 		Username:    user.Username,
 		Email:       user.Email,
@@ -47,7 +53,7 @@ func (s *pgUserStore) Create(ctx context.Context, user *store.User) (*store.User
 	return &row, nil
 }
 
-func (s *pgUserStore) GetByID(ctx context.Context, id int64) (*store.User, error) {
+func (s *pgUserStore) GetByID(ctx context.Context, id int64) (*userstore.User, error) {
 	row, err := s.queries.GetUserByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get user by id: %w", err)
@@ -55,7 +61,7 @@ func (s *pgUserStore) GetByID(ctx context.Context, id int64) (*store.User, error
 	return &row, nil
 }
 
-func (s *pgUserStore) GetByUsername(ctx context.Context, username string) (*store.User, error) {
+func (s *pgUserStore) GetByUsername(ctx context.Context, username string) (*userstore.User, error) {
 	row, err := s.queries.GetUserByUsername(ctx, username)
 	if err != nil {
 		return nil, fmt.Errorf("get user by username: %w", err)
@@ -63,7 +69,7 @@ func (s *pgUserStore) GetByUsername(ctx context.Context, username string) (*stor
 	return &row, nil
 }
 
-func (s *pgUserStore) GetByEmail(ctx context.Context, email string) (*store.User, error) {
+func (s *pgUserStore) GetByEmail(ctx context.Context, email string) (*userstore.User, error) {
 	row, err := s.queries.GetUserByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("get user by email: %w", err)
@@ -71,7 +77,7 @@ func (s *pgUserStore) GetByEmail(ctx context.Context, email string) (*store.User
 	return &row, nil
 }
 
-func (s *pgUserStore) Update(ctx context.Context, user *store.User) (*store.User, error) {
+func (s *pgUserStore) Update(ctx context.Context, user *userstore.User) (*userstore.User, error) {
 	row, err := s.queries.UpdateUser(ctx, generated.UpdateUserParams{
 		ID:          user.ID,
 		Username:    user.Username,
@@ -87,7 +93,7 @@ func (s *pgUserStore) Update(ctx context.Context, user *store.User) (*store.User
 	return &row, nil
 }
 
-func (s *pgUserStore) Patch(ctx context.Context, id int64, user *store.User) (*store.User, error) {
+func (s *pgUserStore) Patch(ctx context.Context, id int64, user *userstore.User) (*userstore.User, error) {
 	row, err := s.queries.PatchUser(ctx, generated.PatchUserParams{
 		ID:          id,
 		Username:    toNullString(user.Username),
@@ -129,8 +135,8 @@ func (s *pgUserStore) DeleteByIDs(ctx context.Context, ids []int64) (int64, erro
 	return int64(len(deletedIDs)), nil
 }
 
-func (s *pgUserStore) List(ctx context.Context, q store.ListQuery) (*store.ListResult[store.UserWithNamespaces], error) {
-	offset, limit := paginationToOffsetLimit(q.Pagination)
+func (s *pgUserStore) List(ctx context.Context, q libstore.ListQuery) (*libstore.ListResult[userstore.UserWithNamespaces], error) {
+	offset, limit := libstore.PaginationToOffsetLimit(q.Pagination)
 	where, args := db.BuildWhereClause(q.Filters, userListSpec, 1)
 	orderBy := db.BuildOrderBy(q.SortBy, q.SortOrder, userListSpec)
 
@@ -165,9 +171,9 @@ LEFT JOIN namespaces ns ON un.namespace_id = ns.id` +
 	}
 	defer rows.Close()
 
-	items := []store.UserWithNamespaces{}
+	items := []userstore.UserWithNamespaces{}
 	for rows.Next() {
-		var item store.UserWithNamespaces
+		var item userstore.UserWithNamespaces
 		if err := rows.Scan(
 			&item.ID,
 			&item.Username,
@@ -189,7 +195,7 @@ LEFT JOIN namespaces ns ON un.namespace_id = ns.id` +
 		return nil, fmt.Errorf("iterate user rows: %w", err)
 	}
 
-	return &store.ListResult[store.UserWithNamespaces]{
+	return &libstore.ListResult[userstore.UserWithNamespaces]{
 		Items:      items,
 		TotalCount: count,
 	}, nil
