@@ -40,6 +40,7 @@ func ParseAnnotations(doc *ast.CommentGroup) []Annotation {
 type PackageAnnotation struct {
 	GroupName    string // +openapi:groupName=...
 	GroupVersion string // +openapi:groupVersion=...
+	ModuleName   string // +openapi:moduleName=...
 }
 
 // ParsePackageAnnotations extracts package-level annotations from a file's doc comments.
@@ -55,6 +56,8 @@ func ParsePackageAnnotations(file *ast.File) PackageAnnotation {
 			pa.GroupName = ann.Value
 		case "groupVersion":
 			pa.GroupVersion = ann.Value
+		case "moduleName":
+			pa.ModuleName = ann.Value
 		}
 	}
 	return pa

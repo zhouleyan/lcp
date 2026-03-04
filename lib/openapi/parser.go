@@ -16,6 +16,7 @@ type TypeInfo struct {
 	Package     string
 	Fields      []FieldInfo
 	Annotations []Annotation
+	Description string
 	IsListType  bool
 }
 
@@ -32,6 +33,7 @@ type FieldInfo struct {
 type GroupInfo struct {
 	GroupName    string
 	GroupVersion string
+	ModuleName   string
 	Types        []TypeInfo
 }
 
@@ -46,6 +48,8 @@ func NewParser(rootDir string) *Parser {
 }
 
 // Parse scans the root directory for API type definitions.
+// It looks for Go files with +openapi: annotations in each resource directory
+// (e.g., pkg/apis/iam/) where doc.go and types.go define the API group.
 func (p *Parser) Parse() ([]GroupInfo, error) {
 	var groups []GroupInfo
 
@@ -59,40 +63,31 @@ func (p *Parser) Parse() ([]GroupInfo, error) {
 			continue
 		}
 
-		// Look for version subdirectories (e.g., v1, v2)
+		// Parse the resource directory itself (e.g., pkg/apis/iam/)
+		// which contains doc.go (with group annotations) and types.go (with type annotations)
 		resourceDir := filepath.Join(p.rootDir, entry.Name())
-		versionEntries, err := os.ReadDir(resourceDir)
+		group, err := p.parseGroup(resourceDir, entry.Name())
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("parse group %s: %w", entry.Name(), err)
 		}
-
-		for _, vEntry := range versionEntries {
-			if !vEntry.IsDir() || !strings.HasPrefix(vEntry.Name(), "v") {
-				continue
-			}
-
-			versionDir := filepath.Join(resourceDir, vEntry.Name())
-			group, err := p.parseGroup(versionDir)
-			if err != nil {
-				return nil, fmt.Errorf("parse group %s/%s: %w", entry.Name(), vEntry.Name(), err)
-			}
-			if group != nil {
-				groups = append(groups, *group)
-			}
+		if group != nil {
+			groups = append(groups, *group)
 		}
 	}
 
 	return groups, nil
 }
 
-func (p *Parser) parseGroup(dir string) (*GroupInfo, error) {
+func (p *Parser) parseGroup(dir string, dirName string) (*GroupInfo, error) {
 	fset := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fset, dir, nil, parser.ParseComments)
 	if err != nil {
 		return nil, fmt.Errorf("parse directory %s: %w", dir, err)
 	}
 
-	group := &GroupInfo{}
+	group := &GroupInfo{
+		ModuleName: dirName,
+	}
 
 	for _, pkg := range pkgs {
 		// Check for doc.go package annotations
@@ -101,6 +96,9 @@ func (p *Parser) parseGroup(dir string) (*GroupInfo, error) {
 			if pa.GroupVersion != "" {
 				group.GroupName = pa.GroupName
 				group.GroupVersion = pa.GroupVersion
+			}
+			if pa.ModuleName != "" {
+				group.ModuleName = pa.ModuleName
 			}
 		}
 
@@ -129,10 +127,20 @@ func (p *Parser) parseGroup(dir string) (*GroupInfo, error) {
 						continue
 					}
 
+					// Extract description from type-level annotations
+					var description string
+					for _, ann := range annotations {
+						if ann.Key == "description" {
+							description = ann.Value
+							break
+						}
+					}
+
 					typeInfo := TypeInfo{
 						Name:        typeSpec.Name.Name,
 						Package:     pkg.Name,
 						Annotations: annotations,
+						Description: description,
 						IsListType:  strings.HasSuffix(typeSpec.Name.Name, "List"),
 					}
 

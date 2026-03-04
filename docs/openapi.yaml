@@ -3,6 +3,13 @@ info:
   title: LCP API
   description: LCP Platform API
   version: v1
+tags:
+  - name: User
+    description: User is the API representation of a user resource.
+  - name: Namespace
+    description: Namespace is the API representation of a namespace resource.
+  - name: NamespaceMember
+    description: NamespaceMember is the API representation for a member in a namespace.
 paths:
   /api/v1/namespaces:
     get:
@@ -128,6 +135,169 @@ paths:
       tags:
         - Namespace
       parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/v1/namespaces/{namespaceId}/members:
+    get:
+      summary: List members
+      operationId: listNamespaceMember
+      tags:
+        - NamespaceMember
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NamespaceMemberList'
+    post:
+      summary: Create a NamespaceMember
+      operationId: createNamespaceMember
+      tags:
+        - NamespaceMember
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NamespaceMember'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NamespaceMember'
+  /api/v1/namespaces/{namespaceId}/members/{id}:
+    get:
+      summary: Get a NamespaceMember
+      operationId: getNamespaceMember
+      tags:
+        - NamespaceMember
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NamespaceMember'
+    put:
+      summary: Update a NamespaceMember
+      operationId: updateNamespaceMember
+      tags:
+        - NamespaceMember
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NamespaceMember'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NamespaceMember'
+    patch:
+      summary: Patch a NamespaceMember
+      operationId: patchNamespaceMember
+      tags:
+        - NamespaceMember
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NamespaceMember'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NamespaceMember'
+    delete:
+      summary: Delete a NamespaceMember
+      operationId: deleteNamespaceMember
+      tags:
+        - NamespaceMember
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
         - name: id
           in: path
           required: true
@@ -387,3 +557,9 @@ components:
       required:
         - username
         - email
+x-tagGroups:
+  - name: iam
+    tags:
+      - User
+      - Namespace
+      - NamespaceMember

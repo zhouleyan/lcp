@@ -58,9 +58,9 @@ func (r *Route) matchesContentType(mimeTypes string) bool {
 		if m == "GET" || m == "HEAD" || m == "OPTIONS" || m == "DELETE" || m == "TRACE" {
 			return true
 		}
+		// proceed with default
+		mimeTypes = MIME_OCTET
 	}
-	// proceed with default
-	mimeTypes = MIME_OCTET
 
 	remaining := mimeTypes
 	for {

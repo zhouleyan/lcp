@@ -2,14 +2,12 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"lcp.io/lcp/app/lcp-server/handler"
 	"lcp.io/lcp/lib/buildinfo"
+	"lcp.io/lcp/lib/config"
 	"lcp.io/lcp/lib/httpserver"
 	"lcp.io/lcp/lib/lflag"
 	"lcp.io/lcp/lib/logger"
@@ -23,6 +21,7 @@ import (
 var (
 	httpListenAddrs  = lflag.NewArrayString("httpListenerAddr", "The address to listen on for HTTP requests")
 	useProxyProtocol = lflag.NewArrayBool("httpListenerAddr.useProxyProtocol", "Whether to use proxy protocol for connections accepted at the corresponding -httpListenAddr")
+	configPath       = flag.String("config", "/etc/lcp/config.yaml", "Path to the YAML configuration file")
 )
 
 const (
@@ -36,27 +35,55 @@ func main() {
 	flag.CommandLine.SetOutput(os.Stdout)
 	flag.Usage = usage
 	lflag.Parse()
+	initCLIFlags()
 	buildinfo.Init()
 	logger.Init()
 
-	// Signal handling: returns cancellable context
+	// Signal handling: returns cancellable context for SIGTERM/SIGINT
 	ctx := procutil.SetupSignalContext()
 
-	// Database
-	dbCfg := db.Config{
-		Host:     envOrDefault("DB_HOST", "localhost"),
-		Port:     envOrDefaultInt("DB_PORT", 5432),
-		User:     envOrDefault("DB_USER", "lcp"),
-		Password: envOrDefault("DB_PASSWORD", "lcp"),
-		DBName:   envOrDefault("DB_NAME", "lcp"),
-		SSLMode:  envOrDefault("DB_SSLMODE", "disable"),
-		MaxConns: int32(envOrDefaultInt("DB_MAX_CONNS", 10)),
+	// Load configuration: file → defaults → env overrides → CLI overrides
+	cfg, err := config.LoadFromFile(*configPath)
+	if err != nil {
+		logger.Fatalf("cannot load config from %q: %v", *configPath, err)
 	}
+	config.ApplyEnvOverrides(cfg)
+	applyCLIOverrides(cfg)
+	config.Set(cfg)
+	logger.Infof("configuration loaded from %q", *configPath)
+
+	// Database
+	dbCfg := dbConfigFrom(cfg)
 	database, err := db.NewDB(ctx, dbCfg)
 	if err != nil {
 		logger.Fatalf("cannot create database: %v", err)
 	}
 	defer database.Close()
+
+	// Register reload callbacks
+	config.RegisterReloadCallback(func(c *config.Config) {
+		logger.Reload(c.Logger.Level, c.Logger.Format)
+		if err := database.Reload(ctx, dbConfigFrom(c)); err != nil {
+			logger.Errorf("failed to reload database config: %v", err)
+		}
+	})
+
+	// Start SIGHUP listener for hot-reload
+	sighupCh := procutil.NewSighupChan()
+	go func() {
+		for range sighupCh {
+			logger.Infof("received SIGHUP, reloading configuration from %q", *configPath)
+			newCfg, err := config.LoadFromFile(*configPath)
+			if err != nil {
+				logger.Errorf("failed to reload config: %v", err)
+				continue
+			}
+			config.ApplyEnvOverrides(newCfg)
+			applyCLIOverrides(newCfg)
+			config.Set(newCfg)
+			logger.Infof("configuration reloaded successfully")
+		}
+	}()
 
 	// API module registration
 	groups := apis.NewAPIGroupInfos(database)
@@ -92,11 +119,43 @@ func main() {
 	logger.Infof("successfully shut down lcp-server in %.3f seconds", time.Since(startTime).Seconds())
 }
 
-func requestHandler(w http.ResponseWriter, r *http.Request) bool {
-	if r.URL.Path == "/" {
-		_, _ = fmt.Fprintf(w, "ok")
+// cliFlags tracks which flags the user explicitly set on the command line.
+// Populated once at startup (after flag parsing) and reused on every SIGHUP
+// reload so that CLI values always take highest priority.
+var cliFlags map[string]string
+
+func initCLIFlags() {
+	cliFlags = make(map[string]string)
+	flag.Visit(func(f *flag.Flag) {
+		cliFlags[f.Name] = f.Value.String()
+	})
+}
+
+// applyCLIOverrides re-applies command-line flag values that were explicitly
+// set by the user, ensuring they always win over file and env values.
+func applyCLIOverrides(cfg *config.Config) {
+	for name, val := range cliFlags {
+		switch name {
+		case "loggerLevel":
+			cfg.Logger.Level = val
+		case "loggerFormat":
+			cfg.Logger.Format = val
+		}
+		// Database-related CLI flags could be added here in the future.
 	}
-	return true
+}
+
+// dbConfigFrom converts a config.Config into a db.Config.
+func dbConfigFrom(cfg *config.Config) db.Config {
+	return db.Config{
+		Host:     cfg.Database.Host,
+		Port:     cfg.Database.Port,
+		User:     cfg.Database.User,
+		Password: cfg.Database.Password,
+		DBName:   cfg.Database.DBName,
+		SSLMode:  cfg.Database.SSLMode,
+		MaxConns: cfg.Database.MaxConns,
+	}
 }
 
 func usage() {
@@ -106,20 +165,4 @@ lcp-server is a PaaS management solution.
 See the docs at https://docs.lcp.io/lcp/
 `
 	lflag.Usage(s)
-}
-
-func envOrDefault(key, defaultVal string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return defaultVal
-}
-
-func envOrDefaultInt(key string, defaultVal int) int {
-	if v := os.Getenv(key); v != "" {
-		if i, err := strconv.Atoi(v); err == nil {
-			return i
-		}
-	}
-	return defaultVal
 }

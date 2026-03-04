@@ -2,6 +2,7 @@ package openapi
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -32,14 +33,32 @@ func (g *Generator) Generate(groups []GroupInfo) *Document {
 		},
 	}
 
+	// Collect tags per module for x-tagGroups
+	moduleTags := make(map[string][]Tag)
+
 	for _, group := range groups {
-		g.processGroup(doc, group)
+		tags := g.processGroup(doc, group)
+		moduleTags[group.ModuleName] = append(moduleTags[group.ModuleName], tags...)
+	}
+
+	// Build document-level Tags and XTagGroups
+	for _, moduleName := range sortedKeys(moduleTags) {
+		tags := moduleTags[moduleName]
+		var tagNames []string
+		for _, t := range tags {
+			doc.Tags = append(doc.Tags, t)
+			tagNames = append(tagNames, t.Name)
+		}
+		doc.XTagGroups = append(doc.XTagGroups, TagGroup{
+			Name: moduleName,
+			Tags: tagNames,
+		})
 	}
 
 	return doc
 }
 
-func (g *Generator) processGroup(doc *Document, group GroupInfo) {
+func (g *Generator) processGroup(doc *Document, group GroupInfo) []Tag {
 	// Build base path
 	var basePath string
 	if group.GroupName == "" {
@@ -56,36 +75,52 @@ func (g *Generator) processGroup(doc *Document, group GroupInfo) {
 		}
 	}
 
-	// Detect sub-resource types: types whose Spec counterpart exists (e.g., NamespaceMemberSpec)
-	subResourceTypes := map[string]bool{}
+	// Detect sub-resource types and map them to their parent
+	subResourceTypes := map[string]string{} // sub-resource name -> parent name
 	for _, t := range group.Types {
-		if t.IsListType {
+		if t.IsListType || specTypes[t.Name] {
 			continue
 		}
-		if specTypes[t.Name] {
-			continue
-		}
-		// A type is a sub-resource if it contains a parent resource name as prefix
-		// e.g., "NamespaceMember" contains "Namespace" => sub-resource
 		for _, other := range group.Types {
 			if other.Name != t.Name && !other.IsListType && !specTypes[other.Name] &&
 				strings.HasPrefix(t.Name, other.Name) && t.Name != other.Name {
-				subResourceTypes[t.Name] = true
+				subResourceTypes[t.Name] = other.Name
 			}
 		}
 	}
 
+	// Phase 1: Register all schemas in components
+	typesByName := make(map[string]TypeInfo)
 	for _, t := range group.Types {
-		// Add schema to components
 		schema := g.typeToSchema(t)
 		doc.Components.Schemas[t.Name] = schema
-
-		// Generate paths only for main resource types (not List, Spec, Meta, or sub-resources)
-		if !t.IsListType && !specTypes[t.Name] && !subResourceTypes[t.Name] {
-			resourceName := strings.ToLower(t.Name) + "s"
-			g.generatePaths(doc, basePath, resourceName, t.Name, group.GroupVersion)
-		}
+		typesByName[t.Name] = t
 	}
+
+	// Phase 2: Generate paths for main resource types, collect tags
+	var tags []Tag
+	for _, t := range group.Types {
+		if t.IsListType || specTypes[t.Name] || subResourceTypes[t.Name] != "" {
+			continue
+		}
+		resourceName := strings.ToLower(t.Name) + "s"
+		tag := t.Name
+		g.generatePaths(doc, basePath, resourceName, t.Name, group.GroupVersion, tag)
+		tags = append(tags, Tag{Name: t.Name, Description: t.Description})
+	}
+
+	// Phase 3: Generate paths for sub-resource types
+	for _, t := range group.Types {
+		parentName, isSub := subResourceTypes[t.Name]
+		if !isSub || t.IsListType || specTypes[t.Name] {
+			continue
+		}
+		tag := t.Name
+		g.generateSubResourcePaths(doc, basePath, parentName, t.Name, group.GroupVersion, tag)
+		tags = append(tags, Tag{Name: t.Name, Description: t.Description})
+	}
+
+	return tags
 }
 
 func (g *Generator) typeToSchema(t TypeInfo) *Schema {
@@ -155,14 +190,12 @@ func goTypeToSchema(goType string) *Schema {
 	}
 }
 
-func (g *Generator) generatePaths(doc *Document, basePath, resourceName, typeName, version string) {
+func (g *Generator) generatePaths(doc *Document, basePath, resourceName, typeName, version, tag string) {
 	ref := &Schema{Ref: fmt.Sprintf("#/components/schemas/%s", typeName)}
 	listRef := &Schema{Ref: fmt.Sprintf("#/components/schemas/%sList", typeName)}
 
 	collectionPath := basePath + "/" + resourceName
 	itemPath := collectionPath + "/{id}"
-
-	tag := typeName
 
 	// Collection operations
 	pathItem := getOrCreatePathItem(doc, collectionPath)
@@ -272,6 +305,147 @@ func (g *Generator) generatePaths(doc *Document, basePath, resourceName, typeNam
 			"204": {Description: "No Content"},
 		},
 	}
+}
+
+func (g *Generator) generateSubResourcePaths(doc *Document, basePath, parentName, typeName, version, tag string) {
+	ref := &Schema{Ref: fmt.Sprintf("#/components/schemas/%s", typeName)}
+	listRef := &Schema{Ref: fmt.Sprintf("#/components/schemas/%sList", typeName)}
+
+	parentResource := strings.ToLower(parentName) + "s"
+	parentIDParam := strings.ToLower(parentName) + "Id"
+	// Sub-resource name: strip parent prefix and lowercase, e.g. "NamespaceMember" -> "members"
+	subName := strings.TrimPrefix(typeName, parentName)
+	subResource := strings.ToLower(subName) + "s"
+
+	collectionPath := fmt.Sprintf("%s/%s/{%s}/%s", basePath, parentResource, parentIDParam, subResource)
+	itemPath := collectionPath + "/{id}"
+
+	parentParam := Parameter{
+		Name:     parentIDParam,
+		In:       "path",
+		Required: true,
+		Schema:   &Schema{Type: "string"},
+	}
+
+	// Collection operations
+	pathItem := getOrCreatePathItem(doc, collectionPath)
+	pathItem.Get = &Operation{
+		Summary:     fmt.Sprintf("List %s", subResource),
+		OperationID: fmt.Sprintf("list%s", typeName),
+		Tags:        []string{tag},
+		Parameters: []Parameter{
+			parentParam,
+			{Name: "page", In: "query", Schema: &Schema{Type: "integer"}},
+			{Name: "pageSize", In: "query", Schema: &Schema{Type: "integer"}},
+			{Name: "sortBy", In: "query", Schema: &Schema{Type: "string"}},
+			{Name: "sortOrder", In: "query", Schema: &Schema{Type: "string", Enum: []string{"asc", "desc"}}},
+		},
+		Responses: map[string]*Response{
+			"200": {
+				Description: "OK",
+				Content: map[string]MediaType{
+					"application/json": {Schema: listRef},
+				},
+			},
+		},
+	}
+	pathItem.Post = &Operation{
+		Summary:     fmt.Sprintf("Create a %s", typeName),
+		OperationID: fmt.Sprintf("create%s", typeName),
+		Tags:        []string{tag},
+		Parameters:  []Parameter{parentParam},
+		RequestBody: &RequestBody{
+			Required: true,
+			Content: map[string]MediaType{
+				"application/json": {Schema: ref},
+			},
+		},
+		Responses: map[string]*Response{
+			"201": {
+				Description: "Created",
+				Content: map[string]MediaType{
+					"application/json": {Schema: ref},
+				},
+			},
+		},
+	}
+
+	// Item operations
+	itemPathItem := getOrCreatePathItem(doc, itemPath)
+	idParam := Parameter{Name: "id", In: "path", Required: true, Schema: &Schema{Type: "string"}}
+
+	itemPathItem.Get = &Operation{
+		Summary:     fmt.Sprintf("Get a %s", typeName),
+		OperationID: fmt.Sprintf("get%s", typeName),
+		Tags:        []string{tag},
+		Parameters:  []Parameter{parentParam, idParam},
+		Responses: map[string]*Response{
+			"200": {
+				Description: "OK",
+				Content: map[string]MediaType{
+					"application/json": {Schema: ref},
+				},
+			},
+		},
+	}
+	itemPathItem.Put = &Operation{
+		Summary:     fmt.Sprintf("Update a %s", typeName),
+		OperationID: fmt.Sprintf("update%s", typeName),
+		Tags:        []string{tag},
+		Parameters:  []Parameter{parentParam, idParam},
+		RequestBody: &RequestBody{
+			Required: true,
+			Content: map[string]MediaType{
+				"application/json": {Schema: ref},
+			},
+		},
+		Responses: map[string]*Response{
+			"200": {
+				Description: "OK",
+				Content: map[string]MediaType{
+					"application/json": {Schema: ref},
+				},
+			},
+		},
+	}
+	itemPathItem.Patch = &Operation{
+		Summary:     fmt.Sprintf("Patch a %s", typeName),
+		OperationID: fmt.Sprintf("patch%s", typeName),
+		Tags:        []string{tag},
+		Parameters:  []Parameter{parentParam, idParam},
+		RequestBody: &RequestBody{
+			Required: true,
+			Content: map[string]MediaType{
+				"application/json": {Schema: ref},
+			},
+		},
+		Responses: map[string]*Response{
+			"200": {
+				Description: "OK",
+				Content: map[string]MediaType{
+					"application/json": {Schema: ref},
+				},
+			},
+		},
+	}
+	itemPathItem.Delete = &Operation{
+		Summary:     fmt.Sprintf("Delete a %s", typeName),
+		OperationID: fmt.Sprintf("delete%s", typeName),
+		Tags:        []string{tag},
+		Parameters:  []Parameter{parentParam, idParam},
+		Responses: map[string]*Response{
+			"204": {Description: "No Content"},
+		},
+	}
+}
+
+func sortedKeys(m map[string][]Tag) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func getOrCreatePathItem(doc *Document, path string) *PathItem {

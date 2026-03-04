@@ -39,6 +39,21 @@ func (d *DB) Close() {
 	d.Pool.Close()
 }
 
+// Reload creates a new connection pool with the given config, verifies it,
+// then atomically replaces the old pool and queries. The old pool is closed
+// after the swap.
+func (d *DB) Reload(ctx context.Context, cfg Config) error {
+	newPool, err := NewPool(ctx, cfg)
+	if err != nil {
+		return fmt.Errorf("reload database: %w", err)
+	}
+	oldPool := d.Pool
+	d.Pool = newPool
+	d.Queries = generated.New(newPool)
+	oldPool.Close()
+	return nil
+}
+
 // Config holds PostgreSQL connection parameters.
 type Config struct {
 	Host     string

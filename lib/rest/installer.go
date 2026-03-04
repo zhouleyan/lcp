@@ -191,7 +191,12 @@ func (i *APIInstaller) createHandler(storage Creator) http.HandlerFunc {
 			return
 		}
 
-		obj, err := DecodeBody(i.serializer, req, body, nil)
+		var into runtime.Object
+		if oc, ok := storage.(ObjectCreator); ok {
+			into = oc.NewObject()
+		}
+
+		obj, err := DecodeBody(i.serializer, req, body, into)
 		if err != nil {
 			handleError(i.serializer, err, w, req)
 			return
@@ -253,7 +258,12 @@ func (i *APIInstaller) updateHandler(storage Updater) http.HandlerFunc {
 			return
 		}
 
-		obj, err := DecodeBody(i.serializer, req, body, nil)
+		var into runtime.Object
+		if oc, ok := storage.(ObjectCreator); ok {
+			into = oc.NewObject()
+		}
+
+		obj, err := DecodeBody(i.serializer, req, body, into)
 		if err != nil {
 			handleError(i.serializer, err, w, req)
 			return
@@ -281,7 +291,12 @@ func (i *APIInstaller) patchHandler(storage Patcher) http.HandlerFunc {
 			return
 		}
 
-		obj, err := DecodeBody(i.serializer, req, body, nil)
+		var into runtime.Object
+		if oc, ok := storage.(ObjectCreator); ok {
+			into = oc.NewObject()
+		}
+
+		obj, err := DecodeBody(i.serializer, req, body, into)
 		if err != nil {
 			handleError(i.serializer, err, w, req)
 			return

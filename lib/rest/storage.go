@@ -11,6 +11,13 @@ import (
 // Getter, Lister, Creator, Updater, Patcher, Deleter, CollectionDeleter.
 type Storage interface{}
 
+// ObjectCreator returns a new empty instance of the resource type managed
+// by this storage. It is used by handlers to provide a decode target when
+// deserializing request bodies.
+type ObjectCreator interface {
+	NewObject() runtime.Object
+}
+
 // Getter handles GET for a single resource.
 type Getter interface {
 	Get(ctx context.Context, options *GetOptions) (runtime.Object, error)

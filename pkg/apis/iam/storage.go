@@ -24,6 +24,8 @@ func NewUserStorage(dbStore UserStore) rest.StandardStorage {
 	return &userStorage{dbStore: dbStore}
 }
 
+func (s *userStorage) NewObject() runtime.Object { return &User{} }
+
 // Get implements rest.Getter.
 func (s *userStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["userId"]
@@ -236,6 +238,8 @@ type namespaceStorage struct {
 func NewNamespaceStorage(nsStore NamespaceStore, userStore UserStore) *namespaceStorage {
 	return &namespaceStorage{nsStore: nsStore, userStore: userStore}
 }
+
+func (s *namespaceStorage) NewObject() runtime.Object { return &Namespace{} }
 
 func (s *namespaceStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["namespaceId"]
@@ -456,6 +460,8 @@ type memberStorage struct {
 func NewMemberStorage(nsStore NamespaceStore, unStore UserNamespaceStore, userStore UserStore) *memberStorage {
 	return &memberStorage{nsStore: nsStore, unStore: unStore, userStore: userStore}
 }
+
+func (s *memberStorage) NewObject() runtime.Object { return &NamespaceMember{} }
 
 func (s *memberStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	namespaceID := options.PathParams["namespaceId"]

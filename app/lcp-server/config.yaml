@@ -1,0 +1,19 @@
+# lcp-server configuration file
+#
+# Priority order: command-line flags > environment variables > this file > defaults
+#
+# On SIGHUP, this file is re-read and merged with environment variables.
+# Command-line flags are NOT overridden by a reload.
+
+database:
+  host: "localhost"       # env: DB_HOST
+  port: 5432              # env: DB_PORT
+  user: "lcp"             # env: DB_USER
+  password: "lcp"         # env: DB_PASSWORD
+  dbName: "lcp"           # env: DB_NAME
+  sslMode: "disable"      # env: DB_SSL_MODE
+  maxConns: 10            # env: DB_MAX_CONNS
+
+logger:
+  level: "INFO"           # Possible values: INFO, WARN, ERROR, FATAL, PANIC
+  format: "default"       # Possible values: default, json

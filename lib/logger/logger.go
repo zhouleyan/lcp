@@ -57,6 +57,27 @@ func Init() {
 	fmt.Println("Init logger")
 }
 
+// Reload updates the logger level and format at runtime without restarting.
+// Invalid values are ignored and an error is logged.
+func Reload(level, format string) {
+	if level != "" {
+		switch level {
+		case "INFO", "WARN", "ERROR", "FATAL", "PANIC":
+			*loggerLevel = level
+		default:
+			Errorf("invalid logger level %q during reload, keeping %q", level, *loggerLevel)
+		}
+	}
+	if format != "" {
+		switch format {
+		case "default", "json":
+			*loggerFormat = format
+		default:
+			Errorf("invalid logger format %q during reload, keeping %q", format, *loggerFormat)
+		}
+	}
+}
+
 // Infof logs info message
 func Infof(format string, args ...any) {
 	logLevel("INFO", format, args)

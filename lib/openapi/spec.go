@@ -1,11 +1,25 @@
 package openapi
 
+// Tag represents an OpenAPI tag with optional description.
+type Tag struct {
+	Name        string `json:"name" yaml:"name"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+}
+
+// TagGroup represents a vendor extension for grouping tags (x-tagGroups).
+type TagGroup struct {
+	Name string   `json:"name" yaml:"name"`
+	Tags []string `json:"tags" yaml:"tags"`
+}
+
 // Document represents an OpenAPI 3.0 specification document.
 type Document struct {
-	OpenAPI    string                `json:"openapi" yaml:"openapi"`
-	Info       Info                  `json:"info" yaml:"info"`
+	OpenAPI    string               `json:"openapi" yaml:"openapi"`
+	Info       Info                 `json:"info" yaml:"info"`
+	Tags       []Tag                `json:"tags,omitempty" yaml:"tags,omitempty"`
 	Paths      map[string]*PathItem `json:"paths" yaml:"paths"`
-	Components *Components           `json:"components,omitempty" yaml:"components,omitempty"`
+	Components *Components          `json:"components,omitempty" yaml:"components,omitempty"`
+	XTagGroups []TagGroup           `json:"x-tagGroups,omitempty" yaml:"x-tagGroups,omitempty"`
 }
 
 // Info provides metadata about the API.
