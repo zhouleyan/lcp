@@ -12,6 +12,8 @@ import (
 
 // User
 // +openapi:description=User is the API representation of a user resource.
+// +openapi:path=/users
+// +openapi:path=/namespaces/{namespaceId}/users
 type User struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -56,6 +58,7 @@ func (u *UserList) GetTypeMeta() *runtime.TypeMeta { return &u.TypeMeta }
 
 // Namespace
 // +openapi:description=Namespace is the API representation of a namespace resource.
+// +openapi:path=/namespaces
 type Namespace struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -93,38 +96,6 @@ type NamespaceList struct {
 }
 
 func (n *NamespaceList) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
-
-// --- NamespaceMember types ---
-
-// NamespaceMember
-// +openapi:description=NamespaceMember is the API representation for a member in a namespace.
-type NamespaceMember struct {
-	runtime.TypeMeta `json:",inline"`
-	Spec             NamespaceMemberSpec `json:"spec"`
-}
-
-func (n *NamespaceMember) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
-
-// NamespaceMemberSpec
-// +openapi:description=NamespaceMemberSpec holds member-specific fields.
-type NamespaceMemberSpec struct {
-	// +openapi:required
-	// +openapi:description=ID of the user to add as a member
-	UserID string `json:"userId"`
-	// +openapi:required
-	// +openapi:description=Role of the member in the namespace
-	// +openapi:enum=admin,member,viewer
-	Role string `json:"role"`
-}
-
-// NamespaceMemberList
-// +openapi:description=NamespaceMemberList is a list of namespace members.
-type NamespaceMemberList struct {
-	runtime.TypeMeta `json:",inline"`
-	Items            []NamespaceMember `json:"items"`
-}
-
-func (n *NamespaceMemberList) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
 
 // --- DB type aliases ---
 

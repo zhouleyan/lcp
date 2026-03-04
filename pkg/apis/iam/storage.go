@@ -17,11 +17,13 @@ import (
 // userStorage implements rest.StandardStorage for users.
 type userStorage struct {
 	dbStore UserStore
+	unStore UserNamespaceStore
 }
 
 // NewUserStorage creates a new REST storage backed by the given UserStore.
-func NewUserStorage(dbStore UserStore) rest.StandardStorage {
-	return &userStorage{dbStore: dbStore}
+// The optional UserNamespaceStore enables namespace-scoped user listing.
+func NewUserStorage(dbStore UserStore, unStore UserNamespaceStore) rest.StandardStorage {
+	return &userStorage{dbStore: dbStore, unStore: unStore}
 }
 
 func (s *userStorage) NewObject() runtime.Object { return &User{} }
@@ -43,6 +45,11 @@ func (s *userStorage) Get(ctx context.Context, options *rest.GetOptions) (runtim
 
 // List implements rest.Lister.
 func (s *userStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	// If called via /namespaces/{namespaceId}/users, filter by namespace
+	if nsID, ok := options.PathParams["namespaceId"]; ok && nsID != "" {
+		return s.listByNamespace(ctx, nsID)
+	}
+
 	query := db.ListQuery{
 		Filters: make(map[string]any),
 		Pagination: db.Pagination{
@@ -74,6 +81,30 @@ func (s *userStorage) List(ctx context.Context, options *rest.ListOptions) (runt
 		TypeMeta:   runtime.TypeMeta{Kind: "UserList", APIVersion: "v1"},
 		Items:      items,
 		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// listByNamespace returns users belonging to a specific namespace.
+func (s *userStorage) listByNamespace(ctx context.Context, namespaceID string) (runtime.Object, error) {
+	nsID, err := parseID(namespaceID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid namespace ID: %s", namespaceID), nil)
+	}
+
+	members, err := s.unStore.ListByNamespaceID(ctx, nsID)
+	if err != nil {
+		return nil, fmt.Errorf("list namespace users: %w", err)
+	}
+
+	items := make([]User, len(members))
+	for i, m := range members {
+		items[i] = *userToAPI(&m.User)
+	}
+
+	return &UserList{
+		TypeMeta:   runtime.TypeMeta{Kind: "UserList", APIVersion: "v1"},
+		Items:      items,
+		TotalCount: int64(len(items)),
 	}, nil
 }
 
@@ -452,131 +483,6 @@ func (s *namespaceStorage) Delete(ctx context.Context, options *rest.DeleteOptio
 	return nil
 }
 
-// ===== memberStorage =====
-
-// memberStorage implements rest.Creator and rest.Lister for the members sub-resource.
-type memberStorage struct {
-	nsStore   NamespaceStore
-	unStore   UserNamespaceStore
-	userStore UserStore
-}
-
-func (s *memberStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *memberStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *memberStorage) Patch(ctx context.Context, obj runtime.Object, options *rest.PatchOptions) (runtime.Object, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *memberStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *memberStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-// NewMemberStorage creates a new REST storage for namespace members.
-func NewMemberStorage(nsStore NamespaceStore, unStore UserNamespaceStore, userStore UserStore) rest.StandardStorage {
-	return &memberStorage{nsStore: nsStore, unStore: unStore, userStore: userStore}
-}
-
-func (s *memberStorage) NewObject() runtime.Object { return &NamespaceMember{} }
-
-func (s *memberStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
-	namespaceID := options.PathParams["namespaceId"]
-	if namespaceID == "" {
-		return nil, apierrors.NewBadRequest("missing namespaceId in path", nil)
-	}
-
-	member, ok := obj.(*NamespaceMember)
-	if !ok {
-		return nil, fmt.Errorf("expected *NamespaceMember, got %T", obj)
-	}
-
-	if errs := ValidateNamespaceMember(&member.Spec); errs.HasErrors() {
-		return nil, apierrors.NewBadRequest("validation failed", errs)
-	}
-
-	if options.DryRun {
-		return member, nil
-	}
-
-	nsID, err := parseID(namespaceID)
-	if err != nil {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid namespace ID: %s", namespaceID), nil)
-	}
-
-	userID, err := parseID(member.Spec.UserID)
-	if err != nil {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid userId: %s", member.Spec.UserID), nil)
-	}
-
-	// Check user exists
-	if _, err := s.userStore.GetByID(ctx, userID); err != nil {
-		return nil, apierrors.NewNotFound("User", member.Spec.UserID)
-	}
-
-	// Check namespace exists
-	if _, err := s.nsStore.GetByID(ctx, nsID); err != nil {
-		return nil, apierrors.NewNotFound("Namespace", namespaceID)
-	}
-
-	role, err := s.unStore.Add(ctx, &DBUserNamespace{
-		UserID:      userID,
-		NamespaceID: nsID,
-		Role:        member.Spec.Role,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("add member: %w", err)
-	}
-
-	return memberToAPI(role), nil
-}
-
-func (s *memberStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
-	namespaceID := options.PathParams["namespaceId"]
-	if namespaceID == "" {
-		return nil, apierrors.NewBadRequest("missing namespaceId in path", nil)
-	}
-
-	nsID, err := parseID(namespaceID)
-	if err != nil {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid namespace ID: %s", namespaceID), nil)
-	}
-
-	members, err := s.unStore.ListByNamespaceID(ctx, nsID)
-	if err != nil {
-		return nil, fmt.Errorf("list members: %w", err)
-	}
-
-	items := make([]NamespaceMember, len(members))
-	for i, m := range members {
-		items[i] = NamespaceMember{
-			TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "NamespaceMember"},
-			Spec: NamespaceMemberSpec{
-				UserID: fmt.Sprintf("%d", m.User.ID),
-				Role:   m.Role,
-			},
-		}
-	}
-
-	return &NamespaceMemberList{
-		TypeMeta: runtime.TypeMeta{Kind: "NamespaceMemberList", APIVersion: "v1"},
-		Items:    items,
-	}, nil
-}
-
 // ===== helpers =====
 
 func userToAPI(u *DBUser) *User {
@@ -619,16 +525,6 @@ func namespaceToAPI(n *DBNamespace) *Namespace {
 			Visibility:  n.Visibility,
 			MaxMembers:  int(n.MaxMembers),
 			Status:      n.Status,
-		},
-	}
-}
-
-func memberToAPI(r *DBUserNamespace) *NamespaceMember {
-	return &NamespaceMember{
-		TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "NamespaceMember"},
-		Spec: NamespaceMemberSpec{
-			UserID: strconv.FormatInt(r.UserID, 10),
-			Role:   r.Role,
 		},
 	}
 }

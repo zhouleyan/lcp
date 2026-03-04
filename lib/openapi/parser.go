@@ -18,6 +18,7 @@ type TypeInfo struct {
 	Annotations []Annotation
 	Description string
 	IsListType  bool
+	Paths       []string // from +openapi:path annotations
 }
 
 // FieldInfo holds parsed information about a struct field.
@@ -127,12 +128,19 @@ func (p *Parser) parseGroup(dir string, dirName string) (*GroupInfo, error) {
 						continue
 					}
 
-					// Extract description from type-level annotations
+					// Extract description and paths from type-level annotations
 					var description string
+					var paths []string
 					for _, ann := range annotations {
-						if ann.Key == "description" {
-							description = ann.Value
-							break
+						switch ann.Key {
+						case "description":
+							if description == "" {
+								description = ann.Value
+							}
+						case "path":
+							if ann.Value != "" {
+								paths = append(paths, ann.Value)
+							}
 						}
 					}
 
@@ -142,6 +150,7 @@ func (p *Parser) parseGroup(dir string, dirName string) (*GroupInfo, error) {
 						Annotations: annotations,
 						Description: description,
 						IsListType:  strings.HasSuffix(typeSpec.Name.Name, "List"),
+						Paths:       paths,
 					}
 
 					for _, field := range structType.Fields.List {

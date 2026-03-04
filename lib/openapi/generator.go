@@ -2,6 +2,7 @@ package openapi
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -75,48 +76,29 @@ func (g *Generator) processGroup(doc *Document, group GroupInfo) []Tag {
 		}
 	}
 
-	// Detect sub-resource types and map them to their parent
-	subResourceTypes := map[string]string{} // sub-resource name -> parent name
+	// Phase 1: Register all schemas in components
+	for _, t := range group.Types {
+		schema := g.typeToSchema(t)
+		doc.Components.Schemas[t.Name] = schema
+	}
+
+	// Phase 2: Generate paths from +openapi:path annotations (or default)
+	var tags []Tag
 	for _, t := range group.Types {
 		if t.IsListType || specTypes[t.Name] {
 			continue
 		}
-		for _, other := range group.Types {
-			if other.Name != t.Name && !other.IsListType && !specTypes[other.Name] &&
-				strings.HasPrefix(t.Name, other.Name) && t.Name != other.Name {
-				subResourceTypes[t.Name] = other.Name
-			}
-		}
-	}
 
-	// Phase 1: Register all schemas in components
-	typesByName := make(map[string]TypeInfo)
-	for _, t := range group.Types {
-		schema := g.typeToSchema(t)
-		doc.Components.Schemas[t.Name] = schema
-		typesByName[t.Name] = t
-	}
-
-	// Phase 2: Generate paths for main resource types, collect tags
-	var tags []Tag
-	for _, t := range group.Types {
-		if t.IsListType || specTypes[t.Name] || subResourceTypes[t.Name] != "" {
-			continue
+		paths := t.Paths
+		if len(paths) == 0 {
+			// No annotation: derive default path from type name
+			paths = []string{"/" + strings.ToLower(t.Name) + "s"}
 		}
-		resourceName := strings.ToLower(t.Name) + "s"
+
 		tag := t.Name
-		g.generatePaths(doc, basePath, resourceName, t.Name, group.GroupVersion, tag)
-		tags = append(tags, Tag{Name: t.Name, Description: t.Description})
-	}
-
-	// Phase 3: Generate paths for sub-resource types
-	for _, t := range group.Types {
-		parentName, isSub := subResourceTypes[t.Name]
-		if !isSub || t.IsListType || specTypes[t.Name] {
-			continue
+		for _, p := range paths {
+			g.generatePathsForResource(doc, basePath, p, t.Name, group.GroupVersion, tag)
 		}
-		tag := t.Name
-		g.generateSubResourcePaths(doc, basePath, parentName, t.Name, group.GroupVersion, tag)
 		tags = append(tags, Tag{Name: t.Name, Description: t.Description})
 	}
 
@@ -190,25 +172,44 @@ func goTypeToSchema(goType string) *Schema {
 	}
 }
 
-func (g *Generator) generatePaths(doc *Document, basePath, resourceName, typeName, version, tag string) {
+// generatePathsForResource generates collection and item paths for a resource
+// at the given resourcePath. It extracts path parameters from the path template
+// and uses a single tag for all operations.
+func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePath, typeName, version, tag string) {
 	ref := &Schema{Ref: fmt.Sprintf("#/components/schemas/%s", typeName)}
 	listRef := &Schema{Ref: fmt.Sprintf("#/components/schemas/%sList", typeName)}
 
-	collectionPath := basePath + "/" + resourceName
-	itemPath := collectionPath + "/{id}"
+	collectionPath := basePath + resourcePath
+	idParam := deriveIDParam(resourcePath)
+	itemPath := collectionPath + "/{" + idParam + "}"
+
+	// Extract all {param} from the resource path as path parameters
+	pathParams := extractPathParams(resourcePath)
+
+	// Build a unique operation ID suffix from path segments to avoid collisions
+	opSuffix := operationSuffix(resourcePath, typeName)
 
 	// Collection operations
 	pathItem := getOrCreatePathItem(doc, collectionPath)
+
+	listParams := make([]Parameter, 0, len(pathParams)+4)
+	for _, pp := range pathParams {
+		listParams = append(listParams, Parameter{
+			Name: pp, In: "path", Required: true, Schema: &Schema{Type: "string"},
+		})
+	}
+	listParams = append(listParams,
+		Parameter{Name: "page", In: "query", Schema: &Schema{Type: "integer"}},
+		Parameter{Name: "pageSize", In: "query", Schema: &Schema{Type: "integer"}},
+		Parameter{Name: "sortBy", In: "query", Schema: &Schema{Type: "string"}},
+		Parameter{Name: "sortOrder", In: "query", Schema: &Schema{Type: "string", Enum: []string{"asc", "desc"}}},
+	)
+
 	pathItem.Get = &Operation{
-		Summary:     fmt.Sprintf("List %s", resourceName),
-		OperationID: fmt.Sprintf("list%s", typeName),
+		Summary:     fmt.Sprintf("List %s", lastSegment(resourcePath)),
+		OperationID: fmt.Sprintf("list%s", opSuffix),
 		Tags:        []string{tag},
-		Parameters: []Parameter{
-			{Name: "page", In: "query", Schema: &Schema{Type: "integer"}},
-			{Name: "pageSize", In: "query", Schema: &Schema{Type: "integer"}},
-			{Name: "sortBy", In: "query", Schema: &Schema{Type: "string"}},
-			{Name: "sortOrder", In: "query", Schema: &Schema{Type: "string", Enum: []string{"asc", "desc"}}},
-		},
+		Parameters:  listParams,
 		Responses: map[string]*Response{
 			"200": {
 				Description: "OK",
@@ -218,10 +219,18 @@ func (g *Generator) generatePaths(doc *Document, basePath, resourceName, typeNam
 			},
 		},
 	}
+
+	createParams := make([]Parameter, 0, len(pathParams))
+	for _, pp := range pathParams {
+		createParams = append(createParams, Parameter{
+			Name: pp, In: "path", Required: true, Schema: &Schema{Type: "string"},
+		})
+	}
 	pathItem.Post = &Operation{
 		Summary:     fmt.Sprintf("Create a %s", typeName),
-		OperationID: fmt.Sprintf("create%s", typeName),
+		OperationID: fmt.Sprintf("create%s", opSuffix),
 		Tags:        []string{tag},
+		Parameters:  createParams,
 		RequestBody: &RequestBody{
 			Required: true,
 			Content: map[string]MediaType{
@@ -240,13 +249,22 @@ func (g *Generator) generatePaths(doc *Document, basePath, resourceName, typeNam
 
 	// Item operations
 	itemPathItem := getOrCreatePathItem(doc, itemPath)
-	idParam := Parameter{Name: "id", In: "path", Required: true, Schema: &Schema{Type: "string"}}
+
+	itemParams := make([]Parameter, 0, len(pathParams)+1)
+	for _, pp := range pathParams {
+		itemParams = append(itemParams, Parameter{
+			Name: pp, In: "path", Required: true, Schema: &Schema{Type: "string"},
+		})
+	}
+	itemParams = append(itemParams, Parameter{
+		Name: idParam, In: "path", Required: true, Schema: &Schema{Type: "string"},
+	})
 
 	itemPathItem.Get = &Operation{
 		Summary:     fmt.Sprintf("Get a %s", typeName),
-		OperationID: fmt.Sprintf("get%s", typeName),
+		OperationID: fmt.Sprintf("get%s", opSuffix),
 		Tags:        []string{tag},
-		Parameters:  []Parameter{idParam},
+		Parameters:  itemParams,
 		Responses: map[string]*Response{
 			"200": {
 				Description: "OK",
@@ -258,9 +276,9 @@ func (g *Generator) generatePaths(doc *Document, basePath, resourceName, typeNam
 	}
 	itemPathItem.Put = &Operation{
 		Summary:     fmt.Sprintf("Update a %s", typeName),
-		OperationID: fmt.Sprintf("update%s", typeName),
+		OperationID: fmt.Sprintf("update%s", opSuffix),
 		Tags:        []string{tag},
-		Parameters:  []Parameter{idParam},
+		Parameters:  itemParams,
 		RequestBody: &RequestBody{
 			Required: true,
 			Content: map[string]MediaType{
@@ -278,9 +296,9 @@ func (g *Generator) generatePaths(doc *Document, basePath, resourceName, typeNam
 	}
 	itemPathItem.Patch = &Operation{
 		Summary:     fmt.Sprintf("Patch a %s", typeName),
-		OperationID: fmt.Sprintf("patch%s", typeName),
+		OperationID: fmt.Sprintf("patch%s", opSuffix),
 		Tags:        []string{tag},
-		Parameters:  []Parameter{idParam},
+		Parameters:  itemParams,
 		RequestBody: &RequestBody{
 			Required: true,
 			Content: map[string]MediaType{
@@ -298,145 +316,69 @@ func (g *Generator) generatePaths(doc *Document, basePath, resourceName, typeNam
 	}
 	itemPathItem.Delete = &Operation{
 		Summary:     fmt.Sprintf("Delete a %s", typeName),
-		OperationID: fmt.Sprintf("delete%s", typeName),
+		OperationID: fmt.Sprintf("delete%s", opSuffix),
 		Tags:        []string{tag},
-		Parameters:  []Parameter{idParam},
+		Parameters:  itemParams,
 		Responses: map[string]*Response{
 			"204": {Description: "No Content"},
 		},
 	}
 }
 
-func (g *Generator) generateSubResourcePaths(doc *Document, basePath, parentName, typeName, version, tag string) {
-	ref := &Schema{Ref: fmt.Sprintf("#/components/schemas/%s", typeName)}
-	listRef := &Schema{Ref: fmt.Sprintf("#/components/schemas/%sList", typeName)}
+var pathParamRegexp = regexp.MustCompile(`\{(\w+)\}`)
 
-	parentResource := strings.ToLower(parentName) + "s"
-	parentIDParam := strings.ToLower(parentName) + "Id"
-	// Sub-resource name: strip parent prefix and lowercase, e.g. "NamespaceMember" -> "members"
-	subName := strings.TrimPrefix(typeName, parentName)
-	subResource := strings.ToLower(subName) + "s"
+// extractPathParams returns all {param} names from a path template.
+func extractPathParams(path string) []string {
+	matches := pathParamRegexp.FindAllStringSubmatch(path, -1)
+	params := make([]string, 0, len(matches))
+	for _, m := range matches {
+		params = append(params, m[1])
+	}
+	return params
+}
 
-	collectionPath := fmt.Sprintf("%s/%s/{%s}/%s", basePath, parentResource, parentIDParam, subResource)
-	itemPath := collectionPath + "/{id}"
+// deriveIDParam derives the item ID parameter name from the last segment
+// of a resource path. e.g. "/users" -> "userId", "/namespaces/{namespaceId}/users" -> "userId"
+func deriveIDParam(resourcePath string) string {
+	seg := lastSegment(resourcePath)
+	// Singularize: strip trailing "s"
+	singular := strings.TrimSuffix(seg, "s")
+	return singular + "Id"
+}
 
-	parentParam := Parameter{
-		Name:     parentIDParam,
-		In:       "path",
-		Required: true,
-		Schema:   &Schema{Type: "string"},
+// lastSegment returns the last path segment (without leading slash).
+// e.g. "/namespaces/{namespaceId}/users" -> "users"
+func lastSegment(path string) string {
+	parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
+	for i := len(parts) - 1; i >= 0; i-- {
+		if parts[i] != "" && !strings.HasPrefix(parts[i], "{") {
+			return parts[i]
+		}
 	}
+	return ""
+}
 
-	// Collection operations
-	pathItem := getOrCreatePathItem(doc, collectionPath)
-	pathItem.Get = &Operation{
-		Summary:     fmt.Sprintf("List %s", subResource),
-		OperationID: fmt.Sprintf("list%s", typeName),
-		Tags:        []string{tag},
-		Parameters: []Parameter{
-			parentParam,
-			{Name: "page", In: "query", Schema: &Schema{Type: "integer"}},
-			{Name: "pageSize", In: "query", Schema: &Schema{Type: "integer"}},
-			{Name: "sortBy", In: "query", Schema: &Schema{Type: "string"}},
-			{Name: "sortOrder", In: "query", Schema: &Schema{Type: "string", Enum: []string{"asc", "desc"}}},
-		},
-		Responses: map[string]*Response{
-			"200": {
-				Description: "OK",
-				Content: map[string]MediaType{
-					"application/json": {Schema: listRef},
-				},
-			},
-		},
+// operationSuffix builds a unique operation ID suffix from the path.
+// For top-level "/users" → "User", for nested "/namespaces/{namespaceId}/users" → "NamespaceUser".
+func operationSuffix(resourcePath, typeName string) string {
+	parts := strings.Split(strings.Trim(resourcePath, "/"), "/")
+	// Collect non-param segments
+	var segments []string
+	for _, p := range parts {
+		if p != "" && !strings.HasPrefix(p, "{") {
+			segments = append(segments, p)
+		}
 	}
-	pathItem.Post = &Operation{
-		Summary:     fmt.Sprintf("Create a %s", typeName),
-		OperationID: fmt.Sprintf("create%s", typeName),
-		Tags:        []string{tag},
-		Parameters:  []Parameter{parentParam},
-		RequestBody: &RequestBody{
-			Required: true,
-			Content: map[string]MediaType{
-				"application/json": {Schema: ref},
-			},
-		},
-		Responses: map[string]*Response{
-			"201": {
-				Description: "Created",
-				Content: map[string]MediaType{
-					"application/json": {Schema: ref},
-				},
-			},
-		},
+	if len(segments) <= 1 {
+		return typeName
 	}
-
-	// Item operations
-	itemPathItem := getOrCreatePathItem(doc, itemPath)
-	idParam := Parameter{Name: "id", In: "path", Required: true, Schema: &Schema{Type: "string"}}
-
-	itemPathItem.Get = &Operation{
-		Summary:     fmt.Sprintf("Get a %s", typeName),
-		OperationID: fmt.Sprintf("get%s", typeName),
-		Tags:        []string{tag},
-		Parameters:  []Parameter{parentParam, idParam},
-		Responses: map[string]*Response{
-			"200": {
-				Description: "OK",
-				Content: map[string]MediaType{
-					"application/json": {Schema: ref},
-				},
-			},
-		},
+	// Build prefix from parent segments: "namespaces" → "Namespace"
+	var prefix string
+	for _, seg := range segments[:len(segments)-1] {
+		singular := strings.TrimSuffix(seg, "s")
+		prefix += strings.ToUpper(singular[:1]) + singular[1:]
 	}
-	itemPathItem.Put = &Operation{
-		Summary:     fmt.Sprintf("Update a %s", typeName),
-		OperationID: fmt.Sprintf("update%s", typeName),
-		Tags:        []string{tag},
-		Parameters:  []Parameter{parentParam, idParam},
-		RequestBody: &RequestBody{
-			Required: true,
-			Content: map[string]MediaType{
-				"application/json": {Schema: ref},
-			},
-		},
-		Responses: map[string]*Response{
-			"200": {
-				Description: "OK",
-				Content: map[string]MediaType{
-					"application/json": {Schema: ref},
-				},
-			},
-		},
-	}
-	itemPathItem.Patch = &Operation{
-		Summary:     fmt.Sprintf("Patch a %s", typeName),
-		OperationID: fmt.Sprintf("patch%s", typeName),
-		Tags:        []string{tag},
-		Parameters:  []Parameter{parentParam, idParam},
-		RequestBody: &RequestBody{
-			Required: true,
-			Content: map[string]MediaType{
-				"application/json": {Schema: ref},
-			},
-		},
-		Responses: map[string]*Response{
-			"200": {
-				Description: "OK",
-				Content: map[string]MediaType{
-					"application/json": {Schema: ref},
-				},
-			},
-		},
-	}
-	itemPathItem.Delete = &Operation{
-		Summary:     fmt.Sprintf("Delete a %s", typeName),
-		OperationID: fmt.Sprintf("delete%s", typeName),
-		Tags:        []string{tag},
-		Parameters:  []Parameter{parentParam, idParam},
-		Responses: map[string]*Response{
-			"204": {Description: "No Content"},
-		},
-	}
+	return prefix + typeName
 }
 
 func sortedKeys(m map[string][]Tag) []string {

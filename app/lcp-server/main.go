@@ -42,15 +42,7 @@ func main() {
 	// Signal handling: returns cancellable context for SIGTERM/SIGINT
 	ctx := procutil.SetupSignalContext()
 
-	// Load configuration: file → defaults → env overrides → CLI overrides
-	cfg, err := config.LoadFromFile(*configPath)
-	if err != nil {
-		logger.Fatalf("cannot load config from %q: %v", *configPath, err)
-	}
-	config.ApplyEnvOverrides(cfg)
-	applyCLIOverrides(cfg)
-	config.Set(cfg)
-	logger.Infof("configuration loaded from %q", *configPath)
+	cfg := loadConfig()
 
 	// Database
 	dbCfg := dbConfigFrom(cfg)
@@ -117,6 +109,20 @@ func main() {
 	}
 	database.Close()
 	logger.Infof("successfully shut down lcp-server in %.3f seconds", time.Since(startTime).Seconds())
+}
+
+// loadConfig
+func loadConfig() *config.Config {
+	// Load configuration: file → defaults → env overrides → CLI overrides
+	cfg, err := config.LoadFromFile(*configPath)
+	if err != nil {
+		logger.Fatalf("cannot load config from %q: %v", *configPath, err)
+	}
+	config.ApplyEnvOverrides(cfg)
+	applyCLIOverrides(cfg)
+	config.Set(cfg)
+	logger.Infof("configuration loaded from %q", *configPath)
+	return cfg
 }
 
 // cliFlags tracks which flags the user explicitly set on the command line.

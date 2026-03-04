@@ -69,20 +69,3 @@ func ValidateNamespaceCreate(name string, spec *NamespaceSpec) validation.ErrorL
 
 	return errs
 }
-
-// ValidateNamespaceMember validates adding a member to a namespace.
-func ValidateNamespaceMember(spec *NamespaceMemberSpec) validation.ErrorList {
-	var errs validation.ErrorList
-
-	if spec.UserID == "" {
-		errs = append(errs, validation.FieldError{Field: "spec.userId", Message: "is required"})
-	}
-
-	if spec.Role == "" {
-		errs = append(errs, validation.FieldError{Field: "spec.role", Message: "is required"})
-	} else if spec.Role != "admin" && spec.Role != "member" && spec.Role != "viewer" {
-		errs = append(errs, validation.FieldError{Field: "spec.role", Message: "must be 'admin', 'member', or 'viewer'"})
-	}
-
-	return errs
-}

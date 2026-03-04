@@ -8,8 +8,6 @@ tags:
     description: User is the API representation of a user resource.
   - name: Namespace
     description: Namespace is the API representation of a namespace resource.
-  - name: NamespaceMember
-    description: NamespaceMember is the API representation for a member in a namespace.
 paths:
   /api/v1/namespaces:
     get:
@@ -62,14 +60,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Namespace'
-  /api/v1/namespaces/{id}:
+  /api/v1/namespaces/{namespaceId}:
     get:
       summary: Get a Namespace
       operationId: getNamespace
       tags:
         - Namespace
       parameters:
-        - name: id
+        - name: namespaceId
           in: path
           required: true
           schema:
@@ -87,7 +85,7 @@ paths:
       tags:
         - Namespace
       parameters:
-        - name: id
+        - name: namespaceId
           in: path
           required: true
           schema:
@@ -111,7 +109,7 @@ paths:
       tags:
         - Namespace
       parameters:
-        - name: id
+        - name: namespaceId
           in: path
           required: true
           schema:
@@ -135,7 +133,7 @@ paths:
       tags:
         - Namespace
       parameters:
-        - name: id
+        - name: namespaceId
           in: path
           required: true
           schema:
@@ -143,12 +141,12 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/v1/namespaces/{namespaceId}/members:
+  /api/v1/namespaces/{namespaceId}/users:
     get:
-      summary: List members
-      operationId: listNamespaceMember
+      summary: List users
+      operationId: listNamespaceUser
       tags:
-        - NamespaceMember
+        - User
       parameters:
         - name: namespaceId
           in: path
@@ -180,12 +178,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NamespaceMemberList'
+                $ref: '#/components/schemas/UserList'
     post:
-      summary: Create a NamespaceMember
-      operationId: createNamespaceMember
+      summary: Create a User
+      operationId: createNamespaceUser
       tags:
-        - NamespaceMember
+        - User
       parameters:
         - name: namespaceId
           in: path
@@ -197,27 +195,27 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/NamespaceMember'
+              $ref: '#/components/schemas/User'
       responses:
         "201":
           description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NamespaceMember'
-  /api/v1/namespaces/{namespaceId}/members/{id}:
+                $ref: '#/components/schemas/User'
+  /api/v1/namespaces/{namespaceId}/users/{userId}:
     get:
-      summary: Get a NamespaceMember
-      operationId: getNamespaceMember
+      summary: Get a User
+      operationId: getNamespaceUser
       tags:
-        - NamespaceMember
+        - User
       parameters:
         - name: namespaceId
           in: path
           required: true
           schema:
             type: string
-        - name: id
+        - name: userId
           in: path
           required: true
           schema:
@@ -228,19 +226,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NamespaceMember'
+                $ref: '#/components/schemas/User'
     put:
-      summary: Update a NamespaceMember
-      operationId: updateNamespaceMember
+      summary: Update a User
+      operationId: updateNamespaceUser
       tags:
-        - NamespaceMember
+        - User
       parameters:
         - name: namespaceId
           in: path
           required: true
           schema:
             type: string
-        - name: id
+        - name: userId
           in: path
           required: true
           schema:
@@ -250,26 +248,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/NamespaceMember'
+              $ref: '#/components/schemas/User'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NamespaceMember'
+                $ref: '#/components/schemas/User'
     patch:
-      summary: Patch a NamespaceMember
-      operationId: patchNamespaceMember
+      summary: Patch a User
+      operationId: patchNamespaceUser
       tags:
-        - NamespaceMember
+        - User
       parameters:
         - name: namespaceId
           in: path
           required: true
           schema:
             type: string
-        - name: id
+        - name: userId
           in: path
           required: true
           schema:
@@ -279,26 +277,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/NamespaceMember'
+              $ref: '#/components/schemas/User'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NamespaceMember'
+                $ref: '#/components/schemas/User'
     delete:
-      summary: Delete a NamespaceMember
-      operationId: deleteNamespaceMember
+      summary: Delete a User
+      operationId: deleteNamespaceUser
       tags:
-        - NamespaceMember
+        - User
       parameters:
         - name: namespaceId
           in: path
           required: true
           schema:
             type: string
-        - name: id
+        - name: userId
           in: path
           required: true
           schema:
@@ -357,14 +355,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-  /api/v1/users/{id}:
+  /api/v1/users/{userId}:
     get:
       summary: Get a User
       operationId: getUser
       tags:
         - User
       parameters:
-        - name: id
+        - name: userId
           in: path
           required: true
           schema:
@@ -382,7 +380,7 @@ paths:
       tags:
         - User
       parameters:
-        - name: id
+        - name: userId
           in: path
           required: true
           schema:
@@ -406,7 +404,7 @@ paths:
       tags:
         - User
       parameters:
-        - name: id
+        - name: userId
           in: path
           required: true
           schema:
@@ -430,7 +428,7 @@ paths:
       tags:
         - User
       parameters:
-        - name: id
+        - name: userId
           in: path
           required: true
           schema:
@@ -455,34 +453,6 @@ components:
         totalCount:
           type: integer
           format: int64
-    NamespaceMember:
-      type: object
-      properties:
-        spec:
-          $ref: '#/components/schemas/NamespaceMemberSpec'
-    NamespaceMemberList:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/NamespaceMember'
-    NamespaceMemberSpec:
-      type: object
-      properties:
-        role:
-          type: string
-          description: Role of the member in the namespace
-          enum:
-            - admin
-            - member
-            - viewer
-        userId:
-          type: string
-          description: ID of the user to add as a member
-      required:
-        - userId
-        - role
     NamespaceSpec:
       type: object
       properties:
@@ -562,4 +532,3 @@ x-tagGroups:
     tags:
       - User
       - Namespace
-      - NamespaceMember
