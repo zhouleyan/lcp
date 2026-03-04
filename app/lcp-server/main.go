@@ -58,7 +58,6 @@ func main() {
 	if err != nil {
 		logger.Fatalf("cannot create database: %v", err)
 	}
-	defer database.Close()
 
 	// Register reload callbacks
 	config.RegisterReloadCallback(func(c *config.Config) {
@@ -116,12 +115,13 @@ func main() {
 	if err := httpserver.Stop(listenAddrs); err != nil {
 		logger.Fatalf("cannot stop the lcp-server: %s", err)
 	}
+	database.Close()
 	logger.Infof("successfully shut down lcp-server in %.3f seconds", time.Since(startTime).Seconds())
 }
 
 // cliFlags tracks which flags the user explicitly set on the command line.
 // Populated once at startup (after flag parsing) and reused on every SIGHUP
-// reload so that CLI values always take highest priority.
+// reload so that CLI values always take the highest priority.
 var cliFlags map[string]string
 
 func initCLIFlags() {

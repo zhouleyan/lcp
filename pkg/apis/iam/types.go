@@ -10,6 +10,7 @@ import (
 
 // --- User types ---
 
+// User
 // +openapi:description=User is the API representation of a user resource.
 type User struct {
 	runtime.TypeMeta `json:",inline"`
@@ -19,6 +20,7 @@ type User struct {
 
 func (u *User) GetTypeMeta() *runtime.TypeMeta { return &u.TypeMeta }
 
+// UserSpec
 // +openapi:description=UserSpec holds user-specific fields.
 type UserSpec struct {
 	// +openapi:required
@@ -40,6 +42,7 @@ type UserSpec struct {
 	Status string `json:"status,omitempty"`
 }
 
+// UserList
 // +openapi:description=UserList is a paginated list of users.
 type UserList struct {
 	runtime.TypeMeta `json:",inline"`
@@ -51,6 +54,7 @@ func (u *UserList) GetTypeMeta() *runtime.TypeMeta { return &u.TypeMeta }
 
 // --- Namespace types ---
 
+// Namespace
 // +openapi:description=Namespace is the API representation of a namespace resource.
 type Namespace struct {
 	runtime.TypeMeta `json:",inline"`
@@ -60,6 +64,7 @@ type Namespace struct {
 
 func (n *Namespace) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
 
+// NamespaceSpec
 // +openapi:description=NamespaceSpec holds namespace-specific fields.
 type NamespaceSpec struct {
 	// +openapi:description=Display name for the namespace
@@ -79,6 +84,7 @@ type NamespaceSpec struct {
 	Status string `json:"status,omitempty"`
 }
 
+// NamespaceList
 // +openapi:description=NamespaceList is a paginated list of namespaces.
 type NamespaceList struct {
 	runtime.TypeMeta `json:",inline"`
@@ -90,6 +96,7 @@ func (n *NamespaceList) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
 
 // --- NamespaceMember types ---
 
+// NamespaceMember
 // +openapi:description=NamespaceMember is the API representation for a member in a namespace.
 type NamespaceMember struct {
 	runtime.TypeMeta `json:",inline"`
@@ -98,6 +105,7 @@ type NamespaceMember struct {
 
 func (n *NamespaceMember) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
 
+// NamespaceMemberSpec
 // +openapi:description=NamespaceMemberSpec holds member-specific fields.
 type NamespaceMemberSpec struct {
 	// +openapi:required
@@ -109,6 +117,7 @@ type NamespaceMemberSpec struct {
 	Role string `json:"role"`
 }
 
+// NamespaceMemberList
 // +openapi:description=NamespaceMemberList is a list of namespace members.
 type NamespaceMemberList struct {
 	runtime.TypeMeta `json:",inline"`

@@ -27,7 +27,7 @@ func main() {
 	parser := openapi.NewParser(apisDir)
 	groups, err := parser.Parse()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing API types: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error parsing API types: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -38,10 +38,12 @@ func main() {
 	if output != "" {
 		w, err = os.Create(output)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating output file: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Error creating output file: %v\n", err)
 			os.Exit(1)
 		}
-		defer w.Close()
+		defer func(w *os.File) {
+			_ = w.Close()
+		}(w)
 	} else {
 		w = os.Stdout
 	}
@@ -49,12 +51,12 @@ func main() {
 	switch format {
 	case "yaml":
 		if err := openapi.WriteYAML(w, doc); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing YAML: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Error writing YAML: %v\n", err)
 			os.Exit(1)
 		}
 	default:
 		if err := openapi.WriteJSON(w, doc); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing JSON: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Error writing JSON: %v\n", err)
 			os.Exit(1)
 		}
 	}

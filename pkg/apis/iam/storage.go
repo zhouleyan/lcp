@@ -234,8 +234,13 @@ type namespaceStorage struct {
 	userStore UserStore
 }
 
+func (s *namespaceStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // NewNamespaceStorage creates a new REST storage for namespaces.
-func NewNamespaceStorage(nsStore NamespaceStore, userStore UserStore) *namespaceStorage {
+func NewNamespaceStorage(nsStore NamespaceStore, userStore UserStore) rest.StandardStorage {
 	return &namespaceStorage{nsStore: nsStore, userStore: userStore}
 }
 
@@ -456,8 +461,33 @@ type memberStorage struct {
 	userStore UserStore
 }
 
+func (s *memberStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *memberStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *memberStorage) Patch(ctx context.Context, obj runtime.Object, options *rest.PatchOptions) (runtime.Object, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *memberStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *memberStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // NewMemberStorage creates a new REST storage for namespace members.
-func NewMemberStorage(nsStore NamespaceStore, unStore UserNamespaceStore, userStore UserStore) *memberStorage {
+func NewMemberStorage(nsStore NamespaceStore, unStore UserNamespaceStore, userStore UserStore) rest.StandardStorage {
 	return &memberStorage{nsStore: nsStore, unStore: unStore, userStore: userStore}
 }
 
@@ -550,15 +580,13 @@ func (s *memberStorage) List(ctx context.Context, options *rest.ListOptions) (ru
 // ===== helpers =====
 
 func userToAPI(u *DBUser) *User {
-	createdAt := u.CreatedAt
-	updatedAt := u.UpdatedAt
 	return &User{
 		TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "User"},
 		ObjectMeta: types.ObjectMeta{
 			ID:        strconv.FormatInt(u.ID, 10),
 			Name:      u.Username,
-			CreatedAt: &createdAt,
-			UpdatedAt: &updatedAt,
+			CreatedAt: new(u.CreatedAt),
+			UpdatedAt: new(u.UpdatedAt),
 		},
 		Spec: UserSpec{
 			Username:    u.Username,
@@ -576,15 +604,13 @@ func userWithNamespacesToAPI(u *DBUserWithNamespaces) *User {
 }
 
 func namespaceToAPI(n *DBNamespace) *Namespace {
-	createdAt := n.CreatedAt
-	updatedAt := n.UpdatedAt
 	return &Namespace{
 		TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
 		ObjectMeta: types.ObjectMeta{
 			ID:        strconv.FormatInt(n.ID, 10),
 			Name:      n.Name,
-			CreatedAt: &createdAt,
-			UpdatedAt: &updatedAt,
+			CreatedAt: new(n.CreatedAt),
+			UpdatedAt: new(n.UpdatedAt),
 		},
 		Spec: NamespaceSpec{
 			DisplayName: n.DisplayName,

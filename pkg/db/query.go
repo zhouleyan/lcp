@@ -10,7 +10,7 @@ type FieldOp int
 
 const (
 	Eq   FieldOp = iota // col = $N
-	Like                 // col ILIKE '%' || $N || '%'
+	Like                // col ILIKE '%' || $N || '%'
 )
 
 // Field maps a filter key to a SQL column and match operation.
@@ -87,7 +87,7 @@ func BuildOrderBy(sortBy, sortOrder string, spec ListSpec) string {
 
 // Pagination holds common pagination and sorting parameters.
 type Pagination struct {
-	Page      int    `json:"page"`       // starts from 1
+	Page      int    `json:"page"` // starts from 1
 	PageSize  int    `json:"page_size"`
 	SortBy    string `json:"sort_by"`
 	SortOrder string `json:"sort_order"` // "asc" or "desc"
