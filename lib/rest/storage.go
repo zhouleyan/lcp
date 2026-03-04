@@ -6,13 +6,14 @@ import (
 	"lcp.io/lcp/lib/runtime"
 )
 
-// ValidateObjectFunc is kept for backward compatibility.
-// Deprecated: validation should be internal to Storage implementations.
-type ValidateObjectFunc func(ctx context.Context, obj runtime.Object) error
+// Storage is a marker interface for resource storage implementations.
+// Concrete types should implement one or more of:
+// Getter, Lister, Creator, Updater, Patcher, Deleter, CollectionDeleter.
+type Storage interface{}
 
 // Getter handles GET for a single resource.
 type Getter interface {
-	Get(ctx context.Context, id string) (runtime.Object, error)
+	Get(ctx context.Context, options *GetOptions) (runtime.Object, error)
 }
 
 // Lister handles GET for a collection (with filtering/pagination/sorting).
@@ -27,17 +28,17 @@ type Creator interface {
 
 // Updater handles PUT to fully replace a resource.
 type Updater interface {
-	Update(ctx context.Context, id string, obj runtime.Object, options *UpdateOptions) (runtime.Object, error)
+	Update(ctx context.Context, obj runtime.Object, options *UpdateOptions) (runtime.Object, error)
 }
 
 // Patcher handles PATCH for partial updates.
 type Patcher interface {
-	Patch(ctx context.Context, id string, obj runtime.Object, options *PatchOptions) (runtime.Object, error)
+	Patch(ctx context.Context, obj runtime.Object, options *PatchOptions) (runtime.Object, error)
 }
 
 // Deleter handles DELETE for a single resource.
 type Deleter interface {
-	Delete(ctx context.Context, id string, options *DeleteOptions) error
+	Delete(ctx context.Context, options *DeleteOptions) error
 }
 
 // CollectionDeleter handles batch DELETE (by explicit ID list).

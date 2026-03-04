@@ -11,4 +11,8 @@ lcp-server:
 	CGO_ENABLED=1 go build $(RACE) -ldflags "$(GO_BUILD_INFO)" -tags "$(EXTRA_GO_BUILD_TAGS)" -o bin/$(APP_NAME)$(RACE) $(PKG_PREFIX)/app/$(APP_NAME)
 
 sqlc-generate:
-	cd lib/db && sqlc generate
+	cd pkg/db && sqlc generate
+
+openapi-gen:
+	go run $(PKG_PREFIX)/cmd/openapi-gen -apis-dir pkg/apis -output docs/openapi.json -format json
+	go run $(PKG_PREFIX)/cmd/openapi-gen -apis-dir pkg/apis -output docs/openapi.yaml -format yaml

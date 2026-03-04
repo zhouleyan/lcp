@@ -5,18 +5,14 @@ import (
 	"strings"
 
 	"lcp.io/lcp/lib/logger"
+	"lcp.io/lcp/lib/runtime"
 )
 
 // APIInstaller registers routes for an APIGroupInfo on a WebService.
 type APIInstaller struct {
-	group *APIGroupInfo
-	ws    *WebService
-	scope *RequestScope
-}
-
-// NewAPIInstaller creates a new installer for the given group, web service and scope.
-func NewAPIInstaller(group *APIGroupInfo, ws *WebService, scope *RequestScope) *APIInstaller {
-	return &APIInstaller{group: group, ws: ws, scope: scope}
+	group      *APIGroupInfo
+	ws         *WebService
+	serializer runtime.NegotiatedSerializer
 }
 
 // Install registers all resource and sub-resource routes.
@@ -27,10 +23,7 @@ func (i *APIInstaller) Install() {
 }
 
 func (i *APIInstaller) installResource(res ResourceInfo) {
-	idParam := res.IDParam
-	if idParam == "" {
-		idParam = defaultIDParam(res.Name)
-	}
+	idParam := defaultIDParam(res.Name)
 
 	basePath := "/" + res.Name
 	itemPath := basePath + "/{" + idParam + "}"
@@ -39,51 +32,56 @@ func (i *APIInstaller) installResource(res ResourceInfo) {
 
 	// POST /{resources}
 	if s, ok := storage.(Creator); ok {
-		handler := createHandler(i.scope, s)
+		handler := i.createHandler(s)
 		i.ws.Route(i.ws.POST(basePath).To(handler))
 		logger.Infof("  POST   %s%s", i.ws.RootPath(), basePath)
 	}
 
 	// GET /{resources}
 	if s, ok := storage.(Lister); ok {
-		handler := listHandler(i.scope, s)
+		handler := i.listHandler(s)
 		i.ws.Route(i.ws.GET(basePath).To(handler))
 		logger.Infof("  GET    %s%s", i.ws.RootPath(), basePath)
 	}
 
 	// GET /{resources}/{id}
 	if s, ok := storage.(Getter); ok {
-		handler := getHandler(i.scope, s, idParam)
+		handler := i.getHandler(s)
 		i.ws.Route(i.ws.GET(itemPath).To(handler))
 		logger.Infof("  GET    %s%s", i.ws.RootPath(), itemPath)
 	}
 
 	// PUT /{resources}/{id}
 	if s, ok := storage.(Updater); ok {
-		handler := updateHandler(i.scope, s, idParam)
+		handler := i.updateHandler(s)
 		i.ws.Route(i.ws.PUT(itemPath).To(handler))
 		logger.Infof("  PUT    %s%s", i.ws.RootPath(), itemPath)
 	}
 
 	// PATCH /{resources}/{id}
 	if s, ok := storage.(Patcher); ok {
-		handler := patchHandler(i.scope, s, idParam)
+		handler := i.patchHandler(s)
 		i.ws.Route(i.ws.PATCH(itemPath).To(handler))
 		logger.Infof("  PATCH  %s%s", i.ws.RootPath(), itemPath)
 	}
 
 	// DELETE /{resources}/{id}
 	if s, ok := storage.(Deleter); ok {
-		handler := deleteHandler(i.scope, s, idParam)
+		handler := i.deleteHandler(s)
 		i.ws.Route(i.ws.DELETE(itemPath).To(handler))
 		logger.Infof("  DELETE %s%s", i.ws.RootPath(), itemPath)
 	}
 
 	// DELETE /{resources} (collection)
 	if s, ok := storage.(CollectionDeleter); ok {
-		handler := deleteCollectionHandler(i.scope, s)
+		handler := i.deleteCollectionHandler(s)
 		i.ws.Route(i.ws.DELETE(basePath).To(handler))
 		logger.Infof("  DELETE %s%s (collection)", i.ws.RootPath(), basePath)
+	}
+
+	// Actions on item
+	for _, action := range res.Actions {
+		i.installAction(itemPath, action)
 	}
 
 	// Sub-resources
@@ -92,11 +90,8 @@ func (i *APIInstaller) installResource(res ResourceInfo) {
 	}
 }
 
-func (i *APIInstaller) installSubResource(parentItemPath string, sub SubResourceInfo) {
-	subIDParam := sub.IDParam
-	if subIDParam == "" {
-		subIDParam = defaultIDParam(sub.Name)
-	}
+func (i *APIInstaller) installSubResource(parentItemPath string, sub ResourceInfo) {
+	subIDParam := defaultIDParam(sub.Name)
 
 	basePath := parentItemPath + "/" + sub.Name
 	itemPath := basePath + "/{" + subIDParam + "}"
@@ -104,46 +99,68 @@ func (i *APIInstaller) installSubResource(parentItemPath string, sub SubResource
 	storage := sub.Storage
 
 	if s, ok := storage.(Creator); ok {
-		handler := createHandler(i.scope, s)
+		handler := i.createHandler(s)
 		i.ws.Route(i.ws.POST(basePath).To(handler))
 		logger.Infof("  POST   %s%s", i.ws.RootPath(), basePath)
 	}
 
 	if s, ok := storage.(Lister); ok {
-		handler := listHandler(i.scope, s)
+		handler := i.listHandler(s)
 		i.ws.Route(i.ws.GET(basePath).To(handler))
 		logger.Infof("  GET    %s%s", i.ws.RootPath(), basePath)
 	}
 
 	if s, ok := storage.(Getter); ok {
-		handler := getHandler(i.scope, s, subIDParam)
+		handler := i.getHandler(s)
 		i.ws.Route(i.ws.GET(itemPath).To(handler))
 		logger.Infof("  GET    %s%s", i.ws.RootPath(), itemPath)
 	}
 
 	if s, ok := storage.(Updater); ok {
-		handler := updateHandler(i.scope, s, subIDParam)
+		handler := i.updateHandler(s)
 		i.ws.Route(i.ws.PUT(itemPath).To(handler))
 		logger.Infof("  PUT    %s%s", i.ws.RootPath(), itemPath)
 	}
 
 	if s, ok := storage.(Patcher); ok {
-		handler := patchHandler(i.scope, s, subIDParam)
+		handler := i.patchHandler(s)
 		i.ws.Route(i.ws.PATCH(itemPath).To(handler))
 		logger.Infof("  PATCH  %s%s", i.ws.RootPath(), itemPath)
 	}
 
 	if s, ok := storage.(Deleter); ok {
-		handler := deleteHandler(i.scope, s, subIDParam)
+		handler := i.deleteHandler(s)
 		i.ws.Route(i.ws.DELETE(itemPath).To(handler))
 		logger.Infof("  DELETE %s%s", i.ws.RootPath(), itemPath)
 	}
 
 	if s, ok := storage.(CollectionDeleter); ok {
-		handler := deleteCollectionHandler(i.scope, s)
+		handler := i.deleteCollectionHandler(s)
 		i.ws.Route(i.ws.DELETE(basePath).To(handler))
 		logger.Infof("  DELETE %s%s (collection)", i.ws.RootPath(), basePath)
 	}
+
+	// Actions on sub-resource item
+	for _, action := range sub.Actions {
+		i.installAction(itemPath, action)
+	}
+
+	// Recursive sub-resources
+	for _, nested := range sub.SubResources {
+		i.installSubResource(itemPath, nested)
+	}
+}
+
+// installAction registers a custom action route on a resource item.
+func (i *APIInstaller) installAction(parentItemPath string, action ActionInfo) {
+	actionPath := parentItemPath + "/" + action.Name
+	statusCode := action.StatusCode
+	if statusCode == 0 {
+		statusCode = http.StatusOK
+	}
+	handler := Handle(i.serializer, statusCode, action.Handler)
+	i.ws.Route(i.ws.METHOD(action.Method, actionPath).To(handler))
+	logger.Infof("  %s %s%s (action)", action.Method, i.ws.RootPath(), actionPath)
 }
 
 // defaultIDParam derives an ID parameter name from a plural resource name.
@@ -163,153 +180,132 @@ func defaultIDParam(plural string) string {
 }
 
 // createHandler returns an http.HandlerFunc for POST (create).
-func createHandler(scope *RequestScope, storage Creator) http.HandlerFunc {
+func (i *APIInstaller) createHandler(storage Creator) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
+		params := pathParamsFromRequest(req)
 
 		body, err := readBody(req)
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
-		obj, err := DecodeBody(scope.Serializer, req, body, nil)
+		obj, err := DecodeBody(i.serializer, req, body, nil)
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
-		result, err := storage.Create(ctx, obj, &CreateOptions{})
+		result, err := storage.Create(ctx, obj, &CreateOptions{PathParams: params})
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
-		WriteObjectNegotiated(scope.Serializer, w, req, http.StatusCreated, result)
+		WriteObjectNegotiated(i.serializer, w, req, http.StatusCreated, result)
 	}
 }
 
 // listHandler returns an http.HandlerFunc for GET (list).
-func listHandler(scope *RequestScope, storage Lister) http.HandlerFunc {
+func (i *APIInstaller) listHandler(storage Lister) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
+		params := pathParamsFromRequest(req)
 		options := ParseListOptions(req.URL.Query())
+		options.PathParams = params
 
 		result, err := storage.List(ctx, options)
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
-		WriteObjectNegotiated(scope.Serializer, w, req, http.StatusOK, result)
+		WriteObjectNegotiated(i.serializer, w, req, http.StatusOK, result)
 	}
 }
 
 // getHandler returns an http.HandlerFunc for GET (single resource).
-func getHandler(scope *RequestScope, storage Getter, idKey string) http.HandlerFunc {
+func (i *APIInstaller) getHandler(storage Getter) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		params := pathParamsFromRequest(req)
 
-		id := params[idKey]
-		if id == "" {
-			scope.err(errMissingID(idKey), w, req)
-			return
-		}
-
-		result, err := storage.Get(ctx, id)
+		result, err := storage.Get(ctx, &GetOptions{PathParams: params})
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
-		WriteObjectNegotiated(scope.Serializer, w, req, http.StatusOK, result)
+		WriteObjectNegotiated(i.serializer, w, req, http.StatusOK, result)
 	}
 }
 
 // updateHandler returns an http.HandlerFunc for PUT (full update).
-func updateHandler(scope *RequestScope, storage Updater, idKey string) http.HandlerFunc {
+func (i *APIInstaller) updateHandler(storage Updater) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		params := pathParamsFromRequest(req)
 
-		id := params[idKey]
-		if id == "" {
-			scope.err(errMissingID(idKey), w, req)
-			return
-		}
-
 		body, err := readBody(req)
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
-		obj, err := DecodeBody(scope.Serializer, req, body, nil)
+		obj, err := DecodeBody(i.serializer, req, body, nil)
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
-		result, err := storage.Update(ctx, id, obj, &UpdateOptions{})
+		result, err := storage.Update(ctx, obj, &UpdateOptions{PathParams: params})
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
-		WriteObjectNegotiated(scope.Serializer, w, req, http.StatusOK, result)
+		WriteObjectNegotiated(i.serializer, w, req, http.StatusOK, result)
 	}
 }
 
 // patchHandler returns an http.HandlerFunc for PATCH (partial update).
-func patchHandler(scope *RequestScope, storage Patcher, idKey string) http.HandlerFunc {
+func (i *APIInstaller) patchHandler(storage Patcher) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		params := pathParamsFromRequest(req)
 
-		id := params[idKey]
-		if id == "" {
-			scope.err(errMissingID(idKey), w, req)
-			return
-		}
-
 		body, err := readBody(req)
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
-		obj, err := DecodeBody(scope.Serializer, req, body, nil)
+		obj, err := DecodeBody(i.serializer, req, body, nil)
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
-		result, err := storage.Patch(ctx, id, obj, &PatchOptions{})
+		result, err := storage.Patch(ctx, obj, &PatchOptions{PathParams: params})
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
-		WriteObjectNegotiated(scope.Serializer, w, req, http.StatusOK, result)
+		WriteObjectNegotiated(i.serializer, w, req, http.StatusOK, result)
 	}
 }
 
 // deleteHandler returns an http.HandlerFunc for DELETE (single resource).
-func deleteHandler(scope *RequestScope, storage Deleter, idKey string) http.HandlerFunc {
+func (i *APIInstaller) deleteHandler(storage Deleter) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		params := pathParamsFromRequest(req)
 
-		id := params[idKey]
-		if id == "" {
-			scope.err(errMissingID(idKey), w, req)
-			return
-		}
-
-		err := storage.Delete(ctx, id, &DeleteOptions{})
+		err := storage.Delete(ctx, &DeleteOptions{PathParams: params})
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
@@ -318,30 +314,30 @@ func deleteHandler(scope *RequestScope, storage Deleter, idKey string) http.Hand
 }
 
 // deleteCollectionHandler returns an http.HandlerFunc for DELETE (collection).
-func deleteCollectionHandler(scope *RequestScope, storage CollectionDeleter) http.HandlerFunc {
+func (i *APIInstaller) deleteCollectionHandler(storage CollectionDeleter) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 
 		body, err := readBody(req)
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
 		var deleteReq DeleteCollectionRequest
 		if err := jsonUnmarshal(body, &deleteReq); err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 
 		if len(deleteReq.IDs) == 0 {
-			scope.err(errNoIDs(), w, req)
+			handleError(i.serializer, errNoIDs(), w, req)
 			return
 		}
 
 		result, err := storage.DeleteCollection(ctx, deleteReq.IDs, &DeleteOptions{})
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(i.serializer, err, w, req)
 			return
 		}
 

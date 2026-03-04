@@ -21,28 +21,38 @@ const (
 	SortOrderDesc SortOrder = "desc"
 )
 
+// GetOptions 获取选项
+type GetOptions struct {
+	PathParams map[string]string
+}
+
 // CreateOptions 创建选项
 type CreateOptions struct {
-	DryRun bool // 是否只验证不执行
+	PathParams map[string]string
+	DryRun     bool // 是否只验证不执行
 }
 
 // UpdateOptions 更新选项
 type UpdateOptions struct {
-	DryRun bool
+	PathParams map[string]string
+	DryRun     bool
 }
 
 // PatchOptions 补丁选项
 type PatchOptions struct {
-	DryRun bool
+	PathParams map[string]string
+	DryRun     bool
 }
 
 // DeleteOptions 删除选项
 type DeleteOptions struct {
-	DryRun bool
+	PathParams map[string]string
+	DryRun     bool
 }
 
 // ListOptions 列表查询选项
 type ListOptions struct {
+	PathParams map[string]string // 路径参数
 	Filters    map[string]string // 过滤条件
 	Pagination Pagination        // 分页参数
 	SortBy     string            // 排序字段

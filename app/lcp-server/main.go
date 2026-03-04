@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"net/http"
@@ -11,18 +10,14 @@ import (
 
 	"lcp.io/lcp/app/lcp-server/handler"
 	"lcp.io/lcp/lib/buildinfo"
-	"lcp.io/lcp/lib/db"
-	"lcp.io/lcp/lib/db/generated"
 	"lcp.io/lcp/lib/httpserver"
 	"lcp.io/lcp/lib/lflag"
 	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/profile"
 	"lcp.io/lcp/lib/utils/procutil"
 
-	nspkg "lcp.io/lcp/pkg/modules/namespace"
-	nspg "lcp.io/lcp/pkg/modules/namespace/store/pg"
-	userpkg "lcp.io/lcp/pkg/modules/user"
-	userpg "lcp.io/lcp/pkg/modules/user/store/pg"
+	"lcp.io/lcp/pkg/apis"
+	"lcp.io/lcp/pkg/db"
 )
 
 var (
@@ -44,8 +39,10 @@ func main() {
 	buildinfo.Init()
 	logger.Init()
 
-	// 1.5 Initialize database
-	ctx := context.Background()
+	// Signal handling: returns cancellable context
+	ctx := procutil.SetupSignalContext()
+
+	// Database
 	dbCfg := db.Config{
 		Host:     envOrDefault("DB_HOST", "localhost"),
 		Port:     envOrDefaultInt("DB_PORT", 5432),
@@ -55,22 +52,14 @@ func main() {
 		SSLMode:  envOrDefault("DB_SSLMODE", "disable"),
 		MaxConns: int32(envOrDefaultInt("DB_MAX_CONNS", 10)),
 	}
-	pool, err := db.NewPool(ctx, dbCfg)
+	database, err := db.NewDB(ctx, dbCfg)
 	if err != nil {
-		logger.Fatalf("cannot create database pool: %v", err)
+		logger.Fatalf("cannot create database: %v", err)
 	}
-	defer pool.Close()
+	defer database.Close()
 
-	// Initialize stores
-	queries := generated.New(pool)
-	userStore := userpg.NewUserStore(pool, queries)
-	nsStore := nspg.NewNamespaceStore(pool, queries)
-	unStore := nspg.NewUserNamespaceStore(queries)
-	userLookup := userpkg.NewLookup(userStore)
-
-	// Build API group infos
-	userGroup := userpkg.NewAPIGroupInfo(userStore)
-	nsGroup := nspkg.NewAPIGroupInfo(nsStore, unStore, userLookup)
+	// API module registration
+	groups := apis.NewAPIGroupInfos(database)
 
 	// 2. Start http server
 	listenAddrs := *httpListenAddrs
@@ -82,7 +71,7 @@ func main() {
 
 	startTime := time.Now()
 
-	apiHandler, err := handler.NewAPIServerHandler(LCPAPIServer, userGroup, nsGroup)
+	apiHandler, err := handler.NewAPIServerHandler(LCPAPIServer, groups...)
 	if err != nil {
 		logger.Fatalf("cannot create API server handler: %v", err)
 	}
@@ -92,9 +81,8 @@ func main() {
 	})
 	logger.Infof("starting lcp-server in %.3f seconds", time.Since(startTime).Seconds())
 
-	// 3. Wait for signal to stop server
-	sig := procutil.WaitForSigterm()
-	logger.Infof("received signal: %v", sig)
+	// 3. Wait for shutdown signal
+	<-ctx.Done()
 
 	logger.Infof("gracefully shutting down lcp-server at %q", listenAddrs)
 	startTime = time.Now()
@@ -102,9 +90,6 @@ func main() {
 		logger.Fatalf("cannot stop the lcp-server: %s", err)
 	}
 	logger.Infof("successfully shut down lcp-server in %.3f seconds", time.Since(startTime).Seconds())
-
-	logger.Infof("the lcp-server has been stopped in %.3f seconds", time.Since(startTime).Seconds())
-
 }
 
 func requestHandler(w http.ResponseWriter, r *http.Request) bool {

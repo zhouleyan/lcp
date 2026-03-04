@@ -3,11 +3,35 @@
 package procutil
 
 import (
-	"lcp.io/lcp/lib/logger"
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"lcp.io/lcp/lib/logger"
 )
+
+var onlyOneSignalHandler = make(chan struct{})
+
+// SetupSignalContext registers for SIGTERM and SIGINT.
+// A context is returned which is cancelled on one of these signals.
+// If a second signal is caught, the program is terminated with exit code 1.
+func SetupSignalContext() context.Context {
+	close(onlyOneSignalHandler) // panics if called twice
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ch := make(chan os.Signal, 2)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		sig := <-ch
+		logger.Infof("received signal: %v, shutting down", sig)
+		cancel()
+		sig = <-ch
+		logger.Infof("received second signal: %v, forcing exit", sig)
+		os.Exit(1)
+	}()
+	return ctx
+}
 
 // WaitForSigterm waits for either SIGTERM or SIGINT
 // Returns the caught signal

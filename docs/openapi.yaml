@@ -1,0 +1,389 @@
+openapi: 3.0.3
+info:
+  title: LCP API
+  description: LCP Platform API
+  version: v1
+paths:
+  /api/v1/namespaces:
+    get:
+      summary: List namespaces
+      operationId: listNamespace
+      tags:
+        - Namespace
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NamespaceList'
+    post:
+      summary: Create a Namespace
+      operationId: createNamespace
+      tags:
+        - Namespace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Namespace'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Namespace'
+  /api/v1/namespaces/{id}:
+    get:
+      summary: Get a Namespace
+      operationId: getNamespace
+      tags:
+        - Namespace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Namespace'
+    put:
+      summary: Update a Namespace
+      operationId: updateNamespace
+      tags:
+        - Namespace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Namespace'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Namespace'
+    patch:
+      summary: Patch a Namespace
+      operationId: patchNamespace
+      tags:
+        - Namespace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Namespace'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Namespace'
+    delete:
+      summary: Delete a Namespace
+      operationId: deleteNamespace
+      tags:
+        - Namespace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/v1/users:
+    get:
+      summary: List users
+      operationId: listUser
+      tags:
+        - User
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserList'
+    post:
+      summary: Create a User
+      operationId: createUser
+      tags:
+        - User
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /api/v1/users/{id}:
+    get:
+      summary: Get a User
+      operationId: getUser
+      tags:
+        - User
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    put:
+      summary: Update a User
+      operationId: updateUser
+      tags:
+        - User
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    patch:
+      summary: Patch a User
+      operationId: patchUser
+      tags:
+        - User
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    delete:
+      summary: Delete a User
+      operationId: deleteUser
+      tags:
+        - User
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+components:
+  schemas:
+    Namespace:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/NamespaceSpec'
+    NamespaceList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Namespace'
+        totalCount:
+          type: integer
+          format: int64
+    NamespaceMember:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/NamespaceMemberSpec'
+    NamespaceMemberList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NamespaceMember'
+    NamespaceMemberSpec:
+      type: object
+      properties:
+        role:
+          type: string
+          description: Role of the member in the namespace
+          enum:
+            - admin
+            - member
+            - viewer
+        userId:
+          type: string
+          description: ID of the user to add as a member
+      required:
+        - userId
+        - role
+    NamespaceSpec:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Description of the namespace
+        displayName:
+          type: string
+          description: Display name for the namespace
+        maxMembers:
+          type: integer
+          format: int
+          description: Maximum number of members allowed
+        ownerId:
+          type: string
+          description: ID of the namespace owner
+        status:
+          type: string
+          description: Namespace status
+          enum:
+            - active
+            - inactive
+        visibility:
+          type: string
+          description: Namespace visibility
+          enum:
+            - public
+            - private
+      required:
+        - ownerId
+    User:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/UserSpec'
+    UserList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        totalCount:
+          type: integer
+          format: int64
+    UserSpec:
+      type: object
+      properties:
+        avatarUrl:
+          type: string
+          format: uri
+          description: URL to the user's avatar image
+        displayName:
+          type: string
+          description: Display name for the user
+        email:
+          type: string
+          format: email
+          description: Valid email address
+        phone:
+          type: string
+          description: Phone number in E.164 format
+        status:
+          type: string
+          description: Account status
+          enum:
+            - active
+            - inactive
+        username:
+          type: string
+          description: Username must be 3-50 alphanumeric characters or underscores
+      required:
+        - username
+        - email

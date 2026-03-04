@@ -137,3 +137,8 @@ func (w *WebService) DELETE(subPath string) *RouteBuilder {
 func (w *WebService) OPTIONS(subPath string) *RouteBuilder {
 	return new(RouteBuilder).servicePath(w.rootPath).Method(http.MethodOptions).Path(subPath)
 }
+
+// METHOD creates a RouteBuilder for an arbitrary HTTP method.
+func (w *WebService) METHOD(method, subPath string) *RouteBuilder {
+	return new(RouteBuilder).servicePath(w.rootPath).Method(method).Path(subPath)
+}

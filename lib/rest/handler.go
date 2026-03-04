@@ -10,13 +10,9 @@ import (
 	"lcp.io/lcp/lib/runtime"
 )
 
-// RequestScope encapsulates common fields across all RESTful handler methods.
-type RequestScope struct {
-	Serializer runtime.NegotiatedSerializer
-}
-
-func (scope *RequestScope) err(err error, w http.ResponseWriter, r *http.Request) {
-	ErrorNegotiated(w, r, scope.Serializer, err)
+// handleError writes an error response using content negotiation.
+func handleError(ns runtime.NegotiatedSerializer, err error, w http.ResponseWriter, r *http.Request) {
+	ErrorNegotiated(w, r, ns, err)
 }
 
 // PathParamsFromContext extracts path parameters from the request context.
@@ -45,7 +41,7 @@ type HandlerFunc func(ctx context.Context, params map[string]string, body []byte
 //  2. Reads request body (if present)
 //  3. Calls fn
 //  4. Writes the response with the given statusCode (or 204 if result is nil)
-func Handle(scope *RequestScope, statusCode int, fn HandlerFunc) http.HandlerFunc {
+func Handle(ns runtime.NegotiatedSerializer, statusCode int, fn HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		params := pathParamsFromRequest(req)
@@ -55,7 +51,7 @@ func Handle(scope *RequestScope, statusCode int, fn HandlerFunc) http.HandlerFun
 			var err error
 			body, err = io.ReadAll(req.Body)
 			if err != nil {
-				scope.err(err, w, req)
+				handleError(ns, err, w, req)
 				return
 			}
 			defer req.Body.Close()
@@ -63,25 +59,25 @@ func Handle(scope *RequestScope, statusCode int, fn HandlerFunc) http.HandlerFun
 
 		result, err := fn(ctx, params, body)
 		if err != nil {
-			scope.err(err, w, req)
+			handleError(ns, err, w, req)
 			return
 		}
 		if result == nil {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		transformResponseObject(scope, req, w, statusCode, result)
+		transformResponseObject(ns, req, w, statusCode, result)
 	}
 }
 
 func transformResponseObject(
-	scope *RequestScope,
+	ns runtime.NegotiatedSerializer,
 	req *http.Request,
 	w http.ResponseWriter,
 	statusCode int,
 	result runtime.Object,
 ) {
-	WriteObjectNegotiated(scope.Serializer, w, req, statusCode, result)
+	WriteObjectNegotiated(ns, w, req, statusCode, result)
 }
 
 // readBody reads the full request body.
@@ -96,10 +92,6 @@ func readBody(req *http.Request) ([]byte, error) {
 // jsonUnmarshal is a thin wrapper to avoid importing encoding/json in installer.go.
 func jsonUnmarshal(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
-}
-
-func errMissingID(idKey string) error {
-	return fmt.Errorf("missing resource id: %s", idKey)
 }
 
 func errNoIDs() error {

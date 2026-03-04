@@ -16,7 +16,8 @@ type APIServerHandler struct {
 	GoRestfulContainer *rest.Container
 	Director           http.Handler
 
-	groups []*rest.APIGroupInfo
+	serializer runtime.NegotiatedSerializer
+	groups     []*rest.APIGroupInfo
 }
 
 func NewAPIServerHandler(name string, groups ...*rest.APIGroupInfo) (*APIServerHandler, error) {
@@ -30,6 +31,7 @@ func NewAPIServerHandler(name string, groups ...*rest.APIGroupInfo) (*APIServerH
 		FullHandlerChain:   DefaultChainBuilder(director),
 		GoRestfulContainer: container,
 		Director:           director,
+		serializer:         runtime.NewCodecFactory(),
 		groups:             groups,
 	}
 
@@ -47,40 +49,7 @@ func (a *APIServerHandler) RequestHandler(w http.ResponseWriter, r *http.Request
 
 func (a *APIServerHandler) InstallAPIs() error {
 	logger.Infof("installing lcp-server APIs...")
-
-	scope := &rest.RequestScope{Serializer: runtime.NewCodecFactory()}
-
-	// Install module-based API groups
-	for _, group := range a.groups {
-		prefix := "/apis/" + group.Version
-		ws := a.findOrCreateWebService(prefix)
-		installer := rest.NewAPIInstaller(group, ws, scope)
-		installer.Install()
-	}
-
-	// Pod (legacy mock, not migrated)
-	ws := a.findOrCreateWebService("/apis/v1")
-	p := NewPod()
-	ws.Route(ws.GET("/pods").To(rest.Handle(scope, http.StatusOK, p.Get)))
-	logger.Infof("  GET    /apis/v1/pods (legacy)")
-
-	return nil
-}
-
-// findOrCreateWebService returns the existing WebService for the given root path,
-// or creates and registers a new one.
-func (a *APIServerHandler) findOrCreateWebService(rootPath string) *rest.WebService {
-	for _, ws := range a.GoRestfulContainer.RegisteredWebServices() {
-		if ws.RootPath() == rootPath {
-			return ws
-		}
-	}
-	ws := new(rest.WebService)
-	ws.Path(rootPath).
-		Produces("application/json", "application/yaml").
-		Consumes("application/json", "application/yaml")
-	a.GoRestfulContainer.Add(ws)
-	return ws
+	return rest.InstallAPIGroups(a.GoRestfulContainer, a.serializer, a.groups...)
 }
 
 // ServeHTTP makes it an http.Handler.
