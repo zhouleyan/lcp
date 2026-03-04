@@ -54,7 +54,9 @@ func Handle(ns runtime.NegotiatedSerializer, statusCode int, fn HandlerFunc) htt
 				handleError(ns, err, w, req)
 				return
 			}
-			defer req.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(req.Body)
 		}
 
 		result, err := fn(ctx, params, body)
@@ -85,7 +87,9 @@ func readBody(req *http.Request) ([]byte, error) {
 	if req.Body == nil {
 		return nil, nil
 	}
-	defer req.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(req.Body)
 	return io.ReadAll(req.Body)
 }
 

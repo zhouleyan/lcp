@@ -162,7 +162,7 @@ LEFT JOIN namespaces ns ON un.namespace_id = ns.id` +
 	}
 	defer rows.Close()
 
-	items := []iam.DBUserWithNamespaces{}
+	var items []iam.DBUserWithNamespaces
 	for rows.Next() {
 		var item iam.DBUserWithNamespaces
 		if err := rows.Scan(

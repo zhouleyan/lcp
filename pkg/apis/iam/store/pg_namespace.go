@@ -126,7 +126,7 @@ JOIN users u ON ns.owner_id = u.id` +
 	}
 	defer rows.Close()
 
-	items := []iam.DBNamespaceWithOwner{}
+	var items []iam.DBNamespaceWithOwner
 	for rows.Next() {
 		var item iam.DBNamespaceWithOwner
 		if err := rows.Scan(
