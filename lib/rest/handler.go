@@ -15,24 +15,6 @@ func handleError(ns runtime.NegotiatedSerializer, err error, w http.ResponseWrit
 	ErrorNegotiated(w, r, ns, err)
 }
 
-// PathParamsFromContext extracts path parameters from the request context.
-func PathParamsFromContext(ctx context.Context) map[string]string {
-	v := ctx.Value(PathParamsKey)
-	if v == nil {
-		return map[string]string{}
-	}
-	params, ok := v.(map[string]string)
-	if !ok {
-		return map[string]string{}
-	}
-	return params
-}
-
-// pathParamsFromRequest extracts the path parameters map from the request context.
-func pathParamsFromRequest(req *http.Request) map[string]string {
-	return PathParamsFromContext(req.Context())
-}
-
 // HandlerFunc is the unified function signature for all request handlers.
 type HandlerFunc func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error)
 
@@ -44,7 +26,7 @@ type HandlerFunc func(ctx context.Context, params map[string]string, body []byte
 func Handle(ns runtime.NegotiatedSerializer, statusCode int, fn HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		params := pathParamsFromRequest(req)
+		params := PathParams(req)
 
 		var body []byte
 		if req.Body != nil && req.ContentLength != 0 {

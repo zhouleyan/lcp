@@ -183,7 +183,7 @@ func defaultIDParam(plural string) string {
 func (i *APIInstaller) createHandler(storage Creator) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		params := pathParamsFromRequest(req)
+		params := PathParams(req)
 
 		body, err := readBody(req)
 		if err != nil {
@@ -216,7 +216,7 @@ func (i *APIInstaller) createHandler(storage Creator) http.HandlerFunc {
 func (i *APIInstaller) listHandler(storage Lister) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		params := pathParamsFromRequest(req)
+		params := PathParams(req)
 		options := ParseListOptions(req.URL.Query())
 		options.PathParams = params
 
@@ -234,7 +234,7 @@ func (i *APIInstaller) listHandler(storage Lister) http.HandlerFunc {
 func (i *APIInstaller) getHandler(storage Getter) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		params := pathParamsFromRequest(req)
+		params := PathParams(req)
 
 		result, err := storage.Get(ctx, &GetOptions{PathParams: params})
 		if err != nil {
@@ -250,7 +250,7 @@ func (i *APIInstaller) getHandler(storage Getter) http.HandlerFunc {
 func (i *APIInstaller) updateHandler(storage Updater) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		params := pathParamsFromRequest(req)
+		params := PathParams(req)
 
 		body, err := readBody(req)
 		if err != nil {
@@ -283,7 +283,7 @@ func (i *APIInstaller) updateHandler(storage Updater) http.HandlerFunc {
 func (i *APIInstaller) patchHandler(storage Patcher) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		params := pathParamsFromRequest(req)
+		params := PathParams(req)
 
 		body, err := readBody(req)
 		if err != nil {
@@ -316,7 +316,7 @@ func (i *APIInstaller) patchHandler(storage Patcher) http.HandlerFunc {
 func (i *APIInstaller) deleteHandler(storage Deleter) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		params := pathParamsFromRequest(req)
+		params := PathParams(req)
 
 		err := storage.Delete(ctx, &DeleteOptions{PathParams: params})
 		if err != nil {
