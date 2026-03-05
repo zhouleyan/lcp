@@ -1613,7 +1613,7 @@ components:
           description: 授权请求 ID，由 /oidc/authorize 重定向时传入。提供时完成 OIDC 授权流程，否则执行直接登录
         username:
           type: string
-          description: 用户名
+          description: 用户名或邮箱
       required:
         - username
         - password

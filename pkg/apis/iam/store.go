@@ -18,7 +18,7 @@ type UserStore interface {
 	Delete(ctx context.Context, id int64) error
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBUserWithNamespaces], error)
-	GetUserForAuth(ctx context.Context, username string) (*DBUserForAuth, error)
+	GetUserForAuth(ctx context.Context, identifier string) (*DBUserForAuth, error)
 	SetPasswordHash(ctx context.Context, id int64, hash string) error
 }
 

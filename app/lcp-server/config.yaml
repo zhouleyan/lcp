@@ -25,7 +25,7 @@ oidc:
   accessTokenTTL: "1h"
   refreshTokenTTL: "168h"
   authCodeTTL: "5m"
-  loginUrl: "/login"
+  loginUrl: "http://localhost:5173/login"
   clients:
     - id: "lcp-ui"
       public: true

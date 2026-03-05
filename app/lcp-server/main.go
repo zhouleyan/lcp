@@ -16,6 +16,7 @@ import (
 	"lcp.io/lcp/lib/profile"
 	"lcp.io/lcp/lib/utils/procutil"
 
+	"lcp.io/lcp/docs"
 	"lcp.io/lcp/pkg/apis"
 	"lcp.io/lcp/pkg/apis/iam"
 	"lcp.io/lcp/pkg/db"
@@ -108,6 +109,12 @@ func main() {
 		// Route OIDC endpoints to public mux (no auth middleware)
 		if oidcMux != nil && (strings.HasPrefix(path, "/.well-known/") || strings.HasPrefix(path, "/oidc/")) {
 			oidcMux.ServeHTTP(w, r)
+			return true
+		}
+		// Serve OpenAPI spec (no auth)
+		if path == "/docs/openapi.json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(docs.OpenAPISpec)
 			return true
 		}
 		// All other requests go through the API handler (with auth middleware)

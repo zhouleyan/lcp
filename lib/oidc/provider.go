@@ -27,7 +27,7 @@ type OIDCUser struct {
 
 // UserLookup provides user data to the OIDC provider.
 type UserLookup interface {
-	GetByUsername(ctx context.Context, username string) (*OIDCUser, error)
+	GetByIdentifier(ctx context.Context, identifier string) (*OIDCUser, error)
 	GetByID(ctx context.Context, id int64) (*OIDCUser, error)
 	UpdateLastLogin(ctx context.Context, id int64) error
 }
@@ -72,14 +72,17 @@ func (p *Provider) SetClients(clients map[string]*Client) {
 	p.clientsMu.Unlock()
 }
 
+// LoginURL returns the configured login URL.
+func (p *Provider) LoginURL() string { return p.config.LoginURL }
+
 // PasswordService returns the password service for external use (e.g., user creation).
 func (p *Provider) PasswordService() *PasswordService {
 	return p.password
 }
 
 // Login authenticates a user and creates a session.
-func (p *Provider) Login(ctx context.Context, username, password string) (*Session, *OIDCUser, error) {
-	user, err := p.users.GetByUsername(ctx, username)
+func (p *Provider) Login(ctx context.Context, identifier, password string) (*Session, *OIDCUser, error) {
+	user, err := p.users.GetByIdentifier(ctx, identifier)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid credentials")
 	}

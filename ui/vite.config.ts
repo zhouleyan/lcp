@@ -13,7 +13,19 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": {
+      "/api/": {
+        target: "http://localhost:8428",
+        changeOrigin: true,
+      },
+      "/docs": {
+        target: "http://localhost:8428",
+        changeOrigin: true,
+      },
+      "/oidc": {
+        target: "http://localhost:8428",
+        changeOrigin: true,
+      },
+      "/.well-known": {
         target: "http://localhost:8428",
         changeOrigin: true,
       },

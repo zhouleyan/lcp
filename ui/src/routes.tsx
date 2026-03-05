@@ -2,6 +2,8 @@ import type { RouteObject } from "react-router"
 import RootLayout from "@/layouts/root-layout"
 import WorkspaceLayout from "@/layouts/workspace-layout"
 import LoginPage from "@/pages/login"
+import ApiDocsPage from "@/pages/api-docs"
+import AuthCallbackPage from "@/pages/auth-callback"
 import WorkspaceListPage from "@/pages/workspaces/list"
 import WorkspaceDetailPage from "@/pages/workspaces/detail"
 import NamespaceListPage from "@/pages/namespaces/list"
@@ -11,6 +13,14 @@ export const routes: RouteObject[] = [
   {
     path: "/login",
     element: <LoginPage />,
+  },
+  {
+    path: "/api-docs",
+    element: <ApiDocsPage />,
+  },
+  {
+    path: "/auth/callback",
+    element: <AuthCallbackPage />,
   },
   {
     path: "/",

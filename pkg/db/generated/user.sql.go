@@ -243,7 +243,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (GetUs
 
 const getUserForAuth = `-- name: GetUserForAuth :one
 SELECT id, username, email, display_name, phone, status, password_hash
-FROM users WHERE username = $1
+FROM users WHERE username = $1 OR email = $1
 `
 
 type GetUserForAuthRow struct {
@@ -256,8 +256,8 @@ type GetUserForAuthRow struct {
 	PasswordHash string `json:"password_hash"`
 }
 
-func (q *Queries) GetUserForAuth(ctx context.Context, username string) (GetUserForAuthRow, error) {
-	row := q.db.QueryRow(ctx, getUserForAuth, username)
+func (q *Queries) GetUserForAuth(ctx context.Context, identifier string) (GetUserForAuthRow, error) {
+	row := q.db.QueryRow(ctx, getUserForAuth, identifier)
 	var i GetUserForAuthRow
 	err := row.Scan(
 		&i.ID,

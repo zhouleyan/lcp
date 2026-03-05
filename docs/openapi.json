@@ -2583,7 +2583,7 @@
           },
           "username": {
             "type": "string",
-            "description": "用户名"
+            "description": "用户名或邮箱"
           }
         },
         "required": [

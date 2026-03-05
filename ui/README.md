@@ -71,3 +71,5 @@ export default defineConfig([
   },
 ])
 ```
+
+Login with admin / Admin123!.

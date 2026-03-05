@@ -22,6 +22,7 @@ const enUS: Messages = {
   "nav.workspaces": "Workspaces",
   "nav.namespaces": "Namespaces",
   "nav.users": "Users",
+  "nav.apiDocs": "API Docs",
 
   // workspace
   "workspace.title": "Workspaces",

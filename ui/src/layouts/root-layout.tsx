@@ -1,9 +1,17 @@
+import { useEffect } from "react"
 import { Link, Outlet, useLocation } from "react-router"
-import { LayoutDashboard, Users, Building2, FolderKanban } from "lucide-react"
+import {
+  LayoutDashboard,
+  Users,
+  Building2,
+  FolderKanban,
+  FileText,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { useTranslation } from "@/i18n"
+import { isAuthenticated, startAuthFlow } from "@/lib/auth"
 
 const navItems = [
   { to: "/workspaces", labelKey: "nav.workspaces", icon: Building2 },
@@ -14,6 +22,16 @@ const navItems = [
 export default function RootLayout() {
   const location = useLocation()
   const { t } = useTranslation()
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      startAuthFlow()
+    }
+  }, [])
+
+  if (!isAuthenticated()) {
+    return null
+  }
 
   return (
     <TooltipProvider>
@@ -44,7 +62,16 @@ export default function RootLayout() {
           </nav>
         </aside>
         <div className="flex flex-1 flex-col">
-          <header className="flex h-14 items-center justify-end border-b px-6">
+          <header className="flex h-14 items-center justify-end gap-2 border-b px-6">
+            <a
+              href="/api-docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors"
+              title={t("nav.apiDocs")}
+            >
+              <FileText className="h-4 w-4" />
+            </a>
             <LanguageSwitcher />
           </header>
           <main className="flex-1 overflow-auto">

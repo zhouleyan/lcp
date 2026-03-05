@@ -144,7 +144,7 @@ func handleAuthorize(provider *oidc.Provider) http.HandlerFunc {
 		}
 
 		// Redirect to login page with request_id
-		loginURL := provider.DiscoveryDocument().Issuer + "/login?request_id=" + requestID
+		loginURL := provider.LoginURL() + "?request_id=" + requestID
 		http.Redirect(w, r, loginURL, http.StatusFound)
 	}
 }

@@ -17,8 +17,8 @@ func NewUserLookupAdapter(store UserStore) oidc.UserLookup {
 	return &userLookupAdapter{store: store}
 }
 
-func (a *userLookupAdapter) GetByUsername(ctx context.Context, username string) (*oidc.OIDCUser, error) {
-	row, err := a.store.GetUserForAuth(ctx, username)
+func (a *userLookupAdapter) GetByIdentifier(ctx context.Context, identifier string) (*oidc.OIDCUser, error) {
+	row, err := a.store.GetUserForAuth(ctx, identifier)
 	if err != nil {
 		return nil, err
 	}

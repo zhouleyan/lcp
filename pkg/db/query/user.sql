@@ -109,7 +109,7 @@ FROM users WHERE id = ANY(@ids::BIGINT[]);
 
 -- name: GetUserForAuth :one
 SELECT id, username, email, display_name, phone, status, password_hash
-FROM users WHERE username = @username;
+FROM users WHERE username = @identifier OR email = @identifier;
 
 -- name: SetPasswordHash :exec
 UPDATE users SET password_hash = @password_hash, updated_at = now()

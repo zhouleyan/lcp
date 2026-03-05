@@ -207,11 +207,11 @@ func (s *pgUserStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[
 	}, nil
 }
 
-func (s *pgUserStore) GetUserForAuth(ctx context.Context, username string) (*iam.DBUserForAuth, error) {
-	row, err := s.queries.GetUserForAuth(ctx, username)
+func (s *pgUserStore) GetUserForAuth(ctx context.Context, identifier string) (*iam.DBUserForAuth, error) {
+	row, err := s.queries.GetUserForAuth(ctx, identifier)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apierrors.NewNotFound("user", username)
+			return nil, apierrors.NewNotFound("user", identifier)
 		}
 		return nil, fmt.Errorf("get user for auth: %w", err)
 	}

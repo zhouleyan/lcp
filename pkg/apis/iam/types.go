@@ -156,7 +156,7 @@ func (b *BatchRequest) GetTypeMeta() *runtime.TypeMeta { return &b.TypeMeta }
 // +openapi:description=OIDC 登录请求
 type OIDCLoginRequest struct {
 	// +openapi:required
-	// +openapi:description=用户名
+	// +openapi:description=用户名或邮箱
 	Username string `json:"username"`
 	// +openapi:required
 	// +openapi:description=密码
