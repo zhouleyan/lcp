@@ -9,16 +9,6 @@ import (
 	"lcp.io/lcp/pkg/db/generated"
 )
 
-var userListSpec = db.ListSpec{
-	Fields: map[string]db.Field{
-		"status":       {Column: "u.status", Op: db.Eq},
-		"username":     {Column: "u.username", Op: db.Like},
-		"email":        {Column: "u.email", Op: db.Like},
-		"display_name": {Column: "u.display_name", Op: db.Like},
-	},
-	DefaultSort: "u.created_at",
-}
-
 type pgUserStore struct {
 	db      generated.DBTX
 	queries *generated.Queries
@@ -128,62 +118,64 @@ func (s *pgUserStore) DeleteByIDs(ctx context.Context, ids []int64) (int64, erro
 
 func (s *pgUserStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[iam.DBUserWithNamespaces], error) {
 	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
-	where, args := db.BuildWhereClause(q.Filters, userListSpec, 1)
-	orderBy := db.BuildOrderBy(q.SortBy, q.SortOrder, userListSpec)
 
-	// Count
-	var count int64
-	countSQL := "SELECT count(DISTINCT u.id) FROM users u" + where
-	if err := s.db.QueryRow(ctx, countSQL, args...).Scan(&count); err != nil {
+	filterStr := func(key string) *string {
+		if v, ok := q.Filters[key]; ok {
+			if s, ok := v.(string); ok {
+				return &s
+			}
+		}
+		return nil
+	}
+
+	filterParams := generated.CountUsersParams{
+		Status:      filterStr("status"),
+		Username:    filterStr("username"),
+		Email:       filterStr("email"),
+		DisplayName: filterStr("display_name"),
+	}
+
+	count, err := s.queries.CountUsers(ctx, filterParams)
+	if err != nil {
 		return nil, fmt.Errorf("count users: %w", err)
 	}
 
-	// List with LEFT JOIN for namespace names
-	n := len(args)
-	listSQL := `SELECT
-    u.id, u.username, u.email, u.display_name, u.phone, u.avatar_url,
-    u.status, u.last_login_at, u.created_at, u.updated_at,
-    COALESCE(
-        array_agg(DISTINCT ns.name) FILTER (WHERE ns.name IS NOT NULL),
-        '{}'
-    )::TEXT[] AS namespace_names
-FROM users u
-LEFT JOIN user_namespaces un ON u.id = un.user_id
-LEFT JOIN namespaces ns ON un.namespace_id = ns.id` +
-		where +
-		` GROUP BY u.id, u.username, u.email, u.display_name, u.phone, u.avatar_url,
-         u.status, u.last_login_at, u.created_at, u.updated_at` +
-		orderBy +
-		fmt.Sprintf(" LIMIT $%d OFFSET $%d", n+1, n+2)
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
 
-	rows, err := s.db.Query(ctx, listSQL, append(args, limit, offset)...)
+	rows, err := s.queries.ListUsers(ctx, generated.ListUsersParams{
+		Status:      filterParams.Status,
+		Username:    filterParams.Username,
+		Email:       filterParams.Email,
+		DisplayName: filterParams.DisplayName,
+		SortField:   q.SortBy,
+		SortOrder:   sortOrder,
+		PageOffset:  offset,
+		PageSize:    limit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
-	defer rows.Close()
 
-	var items []iam.DBUserWithNamespaces
-	for rows.Next() {
-		var item iam.DBUserWithNamespaces
-		if err := rows.Scan(
-			&item.ID,
-			&item.Username,
-			&item.Email,
-			&item.DisplayName,
-			&item.Phone,
-			&item.AvatarUrl,
-			&item.Status,
-			&item.LastLoginAt,
-			&item.CreatedAt,
-			&item.UpdatedAt,
-			&item.NamespaceNames,
-		); err != nil {
-			return nil, fmt.Errorf("scan user row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate user rows: %w", err)
+	items := make([]iam.DBUserWithNamespaces, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, iam.DBUserWithNamespaces{
+			User: generated.User{
+				ID:          r.ID,
+				Username:    r.Username,
+				Email:       r.Email,
+				DisplayName: r.DisplayName,
+				Phone:       r.Phone,
+				AvatarUrl:   r.AvatarUrl,
+				Status:      r.Status,
+				LastLoginAt: r.LastLoginAt,
+				CreatedAt:   r.CreatedAt,
+				UpdatedAt:   r.UpdatedAt,
+			},
+			NamespaceNames: r.NamespaceNames,
+		})
 	}
 
 	return &db.ListResult[iam.DBUserWithNamespaces]{
