@@ -22,17 +22,29 @@ type Namespace struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+type RefreshToken struct {
+	ID        int64     `json:"id"`
+	TokenHash string    `json:"token_hash"`
+	UserID    int64     `json:"user_id"`
+	ClientID  string    `json:"client_id"`
+	Scope     string    `json:"scope"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Revoked   bool      `json:"revoked"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type User struct {
-	ID          int64      `json:"id"`
-	Username    string     `json:"username"`
-	Email       string     `json:"email"`
-	DisplayName string     `json:"display_name"`
-	Phone       string     `json:"phone"`
-	AvatarUrl   string     `json:"avatar_url"`
-	Status      string     `json:"status"`
-	LastLoginAt *time.Time `json:"last_login_at"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID           int64      `json:"id"`
+	Username     string     `json:"username"`
+	Email        string     `json:"email"`
+	DisplayName  string     `json:"display_name"`
+	Phone        string     `json:"phone"`
+	AvatarUrl    string     `json:"avatar_url"`
+	Status       string     `json:"status"`
+	PasswordHash string     `json:"password_hash"`
+	LastLoginAt  *time.Time `json:"last_login_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 type UserNamespace struct {

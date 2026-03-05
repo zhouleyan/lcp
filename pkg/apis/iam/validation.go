@@ -12,6 +12,9 @@ var (
 	phoneRegexp         = regexp.MustCompile(`^\+[1-9]\d{6,14}$`)
 	workspaceNameRegexp = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
 	namespaceNameRegexp = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
+	passwordUpperRegexp = regexp.MustCompile(`[A-Z]`)
+	passwordLowerRegexp = regexp.MustCompile(`[a-z]`)
+	passwordDigitRegexp = regexp.MustCompile(`[0-9]`)
 )
 
 // ValidateUserCreate validates a UserSpec for creation.
@@ -93,5 +96,24 @@ func ValidateNamespaceCreate(name string, spec *NamespaceSpec) validation.ErrorL
 		errs = append(errs, validation.FieldError{Field: "spec.maxMembers", Message: "must be >= 0"})
 	}
 
+	return errs
+}
+
+// ValidatePassword validates a password string.
+func ValidatePassword(password string) validation.ErrorList {
+	var errs validation.ErrorList
+	if len(password) < 8 || len(password) > 128 {
+		errs = append(errs, validation.FieldError{Field: "spec.password", Message: "must be 8-128 characters"})
+		return errs
+	}
+	if !passwordUpperRegexp.MatchString(password) {
+		errs = append(errs, validation.FieldError{Field: "spec.password", Message: "must contain at least one uppercase letter"})
+	}
+	if !passwordLowerRegexp.MatchString(password) {
+		errs = append(errs, validation.FieldError{Field: "spec.password", Message: "must contain at least one lowercase letter"})
+	}
+	if !passwordDigitRegexp.MatchString(password) {
+		errs = append(errs, validation.FieldError{Field: "spec.password", Message: "must contain at least one digit"})
+	}
 	return errs
 }

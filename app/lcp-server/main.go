@@ -2,7 +2,9 @@ package main
 
 import (
 	"flag"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"lcp.io/lcp/app/lcp-server/handler"
@@ -15,6 +17,7 @@ import (
 	"lcp.io/lcp/lib/utils/procutil"
 
 	"lcp.io/lcp/pkg/apis"
+	"lcp.io/lcp/pkg/apis/iam"
 	"lcp.io/lcp/pkg/db"
 )
 
@@ -76,8 +79,8 @@ func main() {
 		}
 	}()
 
-	// API module registration
-	groups := apis.NewAPIGroupInfos(database)
+	// API module registration (includes OIDC provider setup)
+	groups, oidcProvider := apis.NewAPIGroupInfos(database, cfg)
 
 	// 2. Start http server
 	listenAddrs := *httpListenAddrs
@@ -89,12 +92,29 @@ func main() {
 
 	startTime := time.Now()
 
-	apiHandler, err := handler.NewAPIServerHandler(LCPAPIServer, groups...)
+	apiHandler, err := handler.NewAPIServerHandler(LCPAPIServer, oidcProvider, groups...)
 	if err != nil {
 		logger.Fatalf("cannot create API server handler: %v", err)
 	}
 
-	go httpserver.Serve(listenAddrs, apiHandler.RequestHandler, httpserver.ServerOptions{
+	// Build request handler: OIDC public endpoints + authenticated API
+	var oidcMux http.Handler
+	if oidcProvider != nil {
+		oidcMux = iam.NewOIDCMux(oidcProvider)
+	}
+
+	requestHandler := func(w http.ResponseWriter, r *http.Request) bool {
+		path := r.URL.Path
+		// Route OIDC endpoints to public mux (no auth middleware)
+		if oidcMux != nil && (strings.HasPrefix(path, "/.well-known/") || strings.HasPrefix(path, "/oidc/")) {
+			oidcMux.ServeHTTP(w, r)
+			return true
+		}
+		// All other requests go through the API handler (with auth middleware)
+		return apiHandler.RequestHandler(w, r)
+	}
+
+	go httpserver.Serve(listenAddrs, requestHandler, httpserver.ServerOptions{
 		UseProxyProtocol: useProxyProtocol,
 	})
 	logger.Infof("starting lcp-server in %.3f seconds", time.Since(startTime).Seconds())

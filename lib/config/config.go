@@ -14,6 +14,28 @@ import (
 type Config struct {
 	Database DatabaseConfig `yaml:"database"`
 	Logger   LoggerConfig   `yaml:"logger"`
+	OIDC     OIDCConfig     `yaml:"oidc"`
+}
+
+// OIDCConfig holds OIDC provider configuration.
+type OIDCConfig struct {
+	Issuer          string         `yaml:"issuer"`
+	PrivateKeyFile  string         `yaml:"privateKeyFile"`
+	PublicKeyFile   string         `yaml:"publicKeyFile"`
+	AccessTokenTTL  string         `yaml:"accessTokenTTL"`
+	RefreshTokenTTL string         `yaml:"refreshTokenTTL"`
+	AuthCodeTTL     string         `yaml:"authCodeTTL"`
+	LoginURL        string         `yaml:"loginUrl"`
+	Clients         []ClientConfig `yaml:"clients"`
+}
+
+// ClientConfig holds OAuth2 client configuration.
+type ClientConfig struct {
+	ID           string   `yaml:"id"`
+	Secret       string   `yaml:"secret"`
+	RedirectURIs []string `yaml:"redirectUris"`
+	Scopes       []string `yaml:"scopes"`
+	Public       bool     `yaml:"public"`
 }
 
 // DatabaseConfig holds PostgreSQL connection parameters.
@@ -92,6 +114,18 @@ func SetDefaults(cfg *Config) {
 	}
 	if cfg.Logger.Format == "" {
 		cfg.Logger.Format = "default"
+	}
+	if cfg.OIDC.AccessTokenTTL == "" {
+		cfg.OIDC.AccessTokenTTL = "1h"
+	}
+	if cfg.OIDC.RefreshTokenTTL == "" {
+		cfg.OIDC.RefreshTokenTTL = "168h"
+	}
+	if cfg.OIDC.AuthCodeTTL == "" {
+		cfg.OIDC.AuthCodeTTL = "5m"
+	}
+	if cfg.OIDC.LoginURL == "" {
+		cfg.OIDC.LoginURL = "/login"
 	}
 }
 

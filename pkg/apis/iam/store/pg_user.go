@@ -33,7 +33,8 @@ func (s *pgUserStore) Create(ctx context.Context, user *iam.DBUser) (*iam.DBUser
 	if err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
 	}
-	return &row, nil
+	u := createRowToUser(row)
+	return &u, nil
 }
 
 func (s *pgUserStore) GetByID(ctx context.Context, id int64) (*iam.DBUser, error) {
@@ -44,7 +45,8 @@ func (s *pgUserStore) GetByID(ctx context.Context, id int64) (*iam.DBUser, error
 		}
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
-	return &row, nil
+	u := getByIDRowToUser(row)
+	return &u, nil
 }
 
 func (s *pgUserStore) GetByUsername(ctx context.Context, username string) (*iam.DBUser, error) {
@@ -55,7 +57,8 @@ func (s *pgUserStore) GetByUsername(ctx context.Context, username string) (*iam.
 		}
 		return nil, fmt.Errorf("get user by username: %w", err)
 	}
-	return &row, nil
+	u := getByUsernameRowToUser(row)
+	return &u, nil
 }
 
 func (s *pgUserStore) GetByEmail(ctx context.Context, email string) (*iam.DBUser, error) {
@@ -66,7 +69,8 @@ func (s *pgUserStore) GetByEmail(ctx context.Context, email string) (*iam.DBUser
 		}
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
-	return &row, nil
+	u := getByEmailRowToUser(row)
+	return &u, nil
 }
 
 func (s *pgUserStore) Update(ctx context.Context, user *iam.DBUser) (*iam.DBUser, error) {
@@ -85,7 +89,8 @@ func (s *pgUserStore) Update(ctx context.Context, user *iam.DBUser) (*iam.DBUser
 		}
 		return nil, fmt.Errorf("update user: %w", err)
 	}
-	return &row, nil
+	u := updateRowToUser(row)
+	return &u, nil
 }
 
 func (s *pgUserStore) Patch(ctx context.Context, id int64, user *iam.DBUser) (*iam.DBUser, error) {
@@ -104,7 +109,8 @@ func (s *pgUserStore) Patch(ctx context.Context, id int64, user *iam.DBUser) (*i
 		}
 		return nil, fmt.Errorf("patch user: %w", err)
 	}
-	return &row, nil
+	u := patchRowToUser(row)
+	return &u, nil
 }
 
 func (s *pgUserStore) UpdateLastLogin(ctx context.Context, id int64) error {
@@ -199,4 +205,83 @@ func (s *pgUserStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[
 		Items:      items,
 		TotalCount: count,
 	}, nil
+}
+
+func (s *pgUserStore) GetUserForAuth(ctx context.Context, username string) (*iam.DBUserForAuth, error) {
+	row, err := s.queries.GetUserForAuth(ctx, username)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("user", username)
+		}
+		return nil, fmt.Errorf("get user for auth: %w", err)
+	}
+	return &row, nil
+}
+
+func (s *pgUserStore) SetPasswordHash(ctx context.Context, id int64, hash string) error {
+	if err := s.queries.SetPasswordHash(ctx, generated.SetPasswordHashParams{
+		ID:           id,
+		PasswordHash: hash,
+	}); err != nil {
+		return fmt.Errorf("set password hash: %w", err)
+	}
+	return nil
+}
+
+// Row-to-User conversion helpers. These exist because sqlc generates separate
+// Row types when the query's column list doesn't match the full table schema
+// (the users table has password_hash which is excluded from standard queries).
+
+func createRowToUser(r generated.CreateUserRow) generated.User {
+	return generated.User{
+		ID: r.ID, Username: r.Username, Email: r.Email,
+		DisplayName: r.DisplayName, Phone: r.Phone, AvatarUrl: r.AvatarUrl,
+		Status: r.Status, LastLoginAt: r.LastLoginAt,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+	}
+}
+
+func getByIDRowToUser(r generated.GetUserByIDRow) generated.User {
+	return generated.User{
+		ID: r.ID, Username: r.Username, Email: r.Email,
+		DisplayName: r.DisplayName, Phone: r.Phone, AvatarUrl: r.AvatarUrl,
+		Status: r.Status, LastLoginAt: r.LastLoginAt,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+	}
+}
+
+func getByUsernameRowToUser(r generated.GetUserByUsernameRow) generated.User {
+	return generated.User{
+		ID: r.ID, Username: r.Username, Email: r.Email,
+		DisplayName: r.DisplayName, Phone: r.Phone, AvatarUrl: r.AvatarUrl,
+		Status: r.Status, LastLoginAt: r.LastLoginAt,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+	}
+}
+
+func getByEmailRowToUser(r generated.GetUserByEmailRow) generated.User {
+	return generated.User{
+		ID: r.ID, Username: r.Username, Email: r.Email,
+		DisplayName: r.DisplayName, Phone: r.Phone, AvatarUrl: r.AvatarUrl,
+		Status: r.Status, LastLoginAt: r.LastLoginAt,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+	}
+}
+
+func updateRowToUser(r generated.UpdateUserRow) generated.User {
+	return generated.User{
+		ID: r.ID, Username: r.Username, Email: r.Email,
+		DisplayName: r.DisplayName, Phone: r.Phone, AvatarUrl: r.AvatarUrl,
+		Status: r.Status, LastLoginAt: r.LastLoginAt,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+	}
+}
+
+func patchRowToUser(r generated.PatchUserRow) generated.User {
+	return generated.User{
+		ID: r.ID, Username: r.Username, Email: r.Email,
+		DisplayName: r.DisplayName, Phone: r.Phone, AvatarUrl: r.AvatarUrl,
+		Status: r.Status, LastLoginAt: r.LastLoginAt,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+	}
 }

@@ -11,9 +11,7 @@ import (
 // --- User types ---
 
 // User
-// +openapi:description=User is the API representation of a user resource.
-// +openapi:path=/users
-// +openapi:path=/namespaces/{namespaceId}/users
+// +openapi:description=用户管理：平台用户的增删改查，支持密码设置与修改。用户可被添加为工作空间或项目的成员。
 type User struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -23,31 +21,34 @@ type User struct {
 func (u *User) GetTypeMeta() *runtime.TypeMeta { return &u.TypeMeta }
 
 // UserSpec
-// +openapi:description=UserSpec holds user-specific fields.
+// +openapi:description=用户属性：包含用户名、邮箱、显示名称、手机号、头像、密码等字段。
 type UserSpec struct {
 	// +openapi:required
-	// +openapi:description=Username must be 3-50 alphanumeric characters or underscores
+	// +openapi:description=用户名，3-50个字符，仅支持小写字母、数字和下划线
 	Username string `json:"username"`
 	// +openapi:required
-	// +openapi:description=Valid email address
+	// +openapi:description=邮箱地址
 	// +openapi:format=email
 	Email string `json:"email"`
-	// +openapi:description=Display name for the user
+	// +openapi:description=用户显示名称
 	DisplayName string `json:"displayName,omitempty"`
-	// +openapi:description=Phone number in E.164 format
+	// +openapi:description=手机号码
 	Phone string `json:"phone,omitempty"`
-	// +openapi:description=URL to the user's avatar image
+	// +openapi:description=用户头像 URL
 	// +openapi:format=uri
 	AvatarURL string `json:"avatarUrl,omitempty"`
-	// +openapi:description=Account status
+	// +openapi:description=用户密码（只写字段，创建时设置，响应中不返回）
+	// +openapi:format=password
+	Password string `json:"password,omitempty"`
+	// +openapi:description=账户状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
-	// +openapi:description=Namespaces the user belongs to (populated in list responses)
+	// +openapi:description=用户所属的项目列表（仅在列表查询时返回）
 	Namespaces []string `json:"namespaces,omitempty"`
 }
 
 // UserList
-// +openapi:description=UserList is a paginated list of users.
+// +openapi:description=用户列表：分页返回的用户集合。
 type UserList struct {
 	runtime.TypeMeta `json:",inline"`
 	Items            []User `json:"items"`
@@ -59,8 +60,7 @@ func (u *UserList) GetTypeMeta() *runtime.TypeMeta { return &u.TypeMeta }
 // --- Workspace types ---
 
 // Workspace
-// +openapi:description=Workspace is the API representation of a workspace (tenant) resource.
-// +openapi:path=/workspaces
+// +openapi:description=工作空间管理：工作空间是平台的顶层租户/组织单元，包含多个项目（Namespace）和成员。创建工作空间时会自动创建默认项目并将创建者设为所有者。
 type Workspace struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -70,22 +70,22 @@ type Workspace struct {
 func (w *Workspace) GetTypeMeta() *runtime.TypeMeta { return &w.TypeMeta }
 
 // WorkspaceSpec
-// +openapi:description=WorkspaceSpec holds workspace-specific fields.
+// +openapi:description=工作空间属性：包含显示名称、描述、所有者和状态。
 type WorkspaceSpec struct {
-	// +openapi:description=Display name for the workspace
+	// +openapi:description=工作空间显示名称
 	DisplayName string `json:"displayName,omitempty"`
-	// +openapi:description=Description of the workspace
+	// +openapi:description=工作空间描述
 	Description string `json:"description,omitempty"`
 	// +openapi:required
-	// +openapi:description=ID of the workspace owner
+	// +openapi:description=工作空间所有者的用户 ID
 	OwnerID string `json:"ownerId"`
-	// +openapi:description=Workspace status
+	// +openapi:description=工作空间状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
 }
 
 // WorkspaceList
-// +openapi:description=WorkspaceList is a paginated list of workspaces.
+// +openapi:description=工作空间列表：分页返回的工作空间集合。
 type WorkspaceList struct {
 	runtime.TypeMeta `json:",inline"`
 	Items            []Workspace `json:"items"`
@@ -97,9 +97,7 @@ func (w *WorkspaceList) GetTypeMeta() *runtime.TypeMeta { return &w.TypeMeta }
 // --- Namespace types ---
 
 // Namespace
-// +openapi:description=Namespace is the API representation of a namespace resource.
-// +openapi:path=/namespaces
-// +openapi:path=/workspaces/{workspaceId}/namespaces
+// +openapi:description=项目管理：项目（Namespace）是工作空间下的子单元，用于组织团队和资源。项目归属于某个工作空间，拥有独立的成员列表。添加项目成员时会自动将其加入父工作空间。
 type Namespace struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -109,30 +107,30 @@ type Namespace struct {
 func (n *Namespace) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
 
 // NamespaceSpec
-// +openapi:description=NamespaceSpec holds namespace-specific fields.
+// +openapi:description=项目属性：包含显示名称、描述、所属工作空间、所有者、可见性、成员上限和状态。
 type NamespaceSpec struct {
-	// +openapi:description=Display name for the namespace
+	// +openapi:description=项目显示名称
 	DisplayName string `json:"displayName,omitempty"`
-	// +openapi:description=Description of the namespace
+	// +openapi:description=项目描述
 	Description string `json:"description,omitempty"`
 	// +openapi:required
-	// +openapi:description=ID of the workspace this namespace belongs to
+	// +openapi:description=所属工作空间 ID
 	WorkspaceID string `json:"workspaceId"`
 	// +openapi:required
-	// +openapi:description=ID of the namespace owner
+	// +openapi:description=项目所有者的用户 ID
 	OwnerID string `json:"ownerId"`
-	// +openapi:description=Namespace visibility
+	// +openapi:description=项目可见性
 	// +openapi:enum=public,private
 	Visibility string `json:"visibility,omitempty"`
-	// +openapi:description=Maximum number of members allowed
+	// +openapi:description=项目最大成员数（0 表示不限制）
 	MaxMembers int `json:"maxMembers,omitempty"`
-	// +openapi:description=Namespace status
+	// +openapi:description=项目状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
 }
 
 // NamespaceList
-// +openapi:description=NamespaceList is a paginated list of namespaces.
+// +openapi:description=项目列表：分页返回的项目集合。
 type NamespaceList struct {
 	runtime.TypeMeta `json:",inline"`
 	Items            []Namespace `json:"items"`
@@ -143,7 +141,7 @@ func (n *NamespaceList) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
 
 // --- Batch request type ---
 
-// BatchRequest is used for batch add/remove user operations.
+// BatchRequest 批量操作请求：用于批量添加或移除成员。
 type BatchRequest struct {
 	runtime.TypeMeta `json:",inline"`
 	IDs              []string `json:"ids"`
@@ -206,3 +204,9 @@ type DBUserWithRole struct {
 	Role     string    `json:"role"`
 	JoinedAt time.Time `json:"joined_at"`
 }
+
+// DBRefreshToken is an alias for the sqlc-generated RefreshToken model.
+type DBRefreshToken = generated.RefreshToken
+
+// DBUserForAuth is an alias for the sqlc-generated GetUserForAuthRow.
+type DBUserForAuth = generated.GetUserForAuthRow

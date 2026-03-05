@@ -8,17 +8,21 @@
   "tags": [
     {
       "name": "User",
-      "description": "User is the API representation of a user resource."
+      "description": "用户管理：平台用户的增删改查，支持密码设置与修改。用户可被添加为工作空间或项目的成员。"
+    },
+    {
+      "name": "Workspace",
+      "description": "工作空间管理：工作空间是平台的顶层租户/组织单元，包含多个项目（Namespace）和成员。创建工作空间时会自动创建默认项目并将创建者设为所有者。"
     },
     {
       "name": "Namespace",
-      "description": "Namespace is the API representation of a namespace resource."
+      "description": "项目管理：项目（Namespace）是工作空间下的子单元，用于组织团队和资源。项目归属于某个工作空间，拥有独立的成员列表。添加项目成员时会自动将其加入父工作空间。"
     }
   ],
   "paths": {
     "/api/v1/namespaces": {
       "get": {
-        "summary": "List namespaces",
+        "summary": "获取项目列表",
         "operationId": "listNamespace",
         "tags": [
           "Namespace"
@@ -71,7 +75,7 @@
         }
       },
       "post": {
-        "summary": "Create a Namespace",
+        "summary": "创建项目",
         "operationId": "createNamespace",
         "tags": [
           "Namespace"
@@ -98,11 +102,41 @@
             }
           }
         }
+      },
+      "delete": {
+        "summary": "批量删除项目",
+        "operationId": "deleteCollectionNamespace",
+        "tags": [
+          "Namespace"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
     "/api/v1/namespaces/{namespaceId}": {
       "get": {
-        "summary": "Get a Namespace",
+        "summary": "获取项目详情",
         "operationId": "getNamespace",
         "tags": [
           "Namespace"
@@ -131,7 +165,7 @@
         }
       },
       "put": {
-        "summary": "Update a Namespace",
+        "summary": "更新项目信息（全量）",
         "operationId": "updateNamespace",
         "tags": [
           "Namespace"
@@ -170,7 +204,7 @@
         }
       },
       "patch": {
-        "summary": "Patch a Namespace",
+        "summary": "更新项目信息（部分）",
         "operationId": "patchNamespace",
         "tags": [
           "Namespace"
@@ -209,7 +243,7 @@
         }
       },
       "delete": {
-        "summary": "Delete a Namespace",
+        "summary": "删除项目",
         "operationId": "deleteNamespace",
         "tags": [
           "Namespace"
@@ -233,7 +267,7 @@
     },
     "/api/v1/namespaces/{namespaceId}/users": {
       "get": {
-        "summary": "List users",
+        "summary": "获取项目成员列表",
         "operationId": "listNamespaceUser",
         "tags": [
           "User"
@@ -294,7 +328,7 @@
         }
       },
       "post": {
-        "summary": "Create a User",
+        "summary": "批量添加项目成员",
         "operationId": "createNamespaceUser",
         "tags": [
           "User"
@@ -331,11 +365,51 @@
             }
           }
         }
+      },
+      "delete": {
+        "summary": "批量移除项目成员",
+        "operationId": "deleteCollectionNamespaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
     "/api/v1/namespaces/{namespaceId}/users/{userId}": {
       "get": {
-        "summary": "Get a User",
+        "summary": "获取用户详情",
         "operationId": "getNamespaceUser",
         "tags": [
           "User"
@@ -372,7 +446,7 @@
         }
       },
       "put": {
-        "summary": "Update a User",
+        "summary": "更新用户信息（全量）",
         "operationId": "updateNamespaceUser",
         "tags": [
           "User"
@@ -419,7 +493,7 @@
         }
       },
       "patch": {
-        "summary": "Patch a User",
+        "summary": "更新用户信息（部分）",
         "operationId": "patchNamespaceUser",
         "tags": [
           "User"
@@ -466,7 +540,7 @@
         }
       },
       "delete": {
-        "summary": "Delete a User",
+        "summary": "删除用户",
         "operationId": "deleteNamespaceUser",
         "tags": [
           "User"
@@ -496,9 +570,51 @@
         }
       }
     },
+    "/api/v1/namespaces/{namespaceId}/users/{userId}/change-password": {
+      "post": {
+        "summary": "修改用户密码",
+        "operationId": "changePasswordNamespaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/users": {
       "get": {
-        "summary": "List users",
+        "summary": "获取用户列表",
         "operationId": "listUser",
         "tags": [
           "User"
@@ -551,7 +667,7 @@
         }
       },
       "post": {
-        "summary": "Create a User",
+        "summary": "创建用户",
         "operationId": "createUser",
         "tags": [
           "User"
@@ -578,11 +694,41 @@
             }
           }
         }
+      },
+      "delete": {
+        "summary": "批量删除用户",
+        "operationId": "deleteCollectionUser",
+        "tags": [
+          "User"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
     "/api/v1/users/{userId}": {
       "get": {
-        "summary": "Get a User",
+        "summary": "获取用户详情",
         "operationId": "getUser",
         "tags": [
           "User"
@@ -611,7 +757,7 @@
         }
       },
       "put": {
-        "summary": "Update a User",
+        "summary": "更新用户信息（全量）",
         "operationId": "updateUser",
         "tags": [
           "User"
@@ -650,7 +796,7 @@
         }
       },
       "patch": {
-        "summary": "Patch a User",
+        "summary": "更新用户信息（部分）",
         "operationId": "patchUser",
         "tags": [
           "User"
@@ -689,7 +835,7 @@
         }
       },
       "delete": {
-        "summary": "Delete a User",
+        "summary": "删除用户",
         "operationId": "deleteUser",
         "tags": [
           "User"
@@ -707,6 +853,1348 @@
         "responses": {
           "204": {
             "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/v1/users/{userId}/change-password": {
+      "post": {
+        "summary": "修改用户密码",
+        "operationId": "changePasswordUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces": {
+      "get": {
+        "summary": "获取工作空间列表",
+        "operationId": "listWorkspace",
+        "tags": [
+          "Workspace"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "创建工作空间",
+        "operationId": "createWorkspace",
+        "tags": [
+          "Workspace"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Workspace"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "批量删除工作空间",
+        "operationId": "deleteCollectionWorkspace",
+        "tags": [
+          "Workspace"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}": {
+      "get": {
+        "summary": "获取工作空间详情",
+        "operationId": "getWorkspace",
+        "tags": [
+          "Workspace"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "更新工作空间信息（全量）",
+        "operationId": "updateWorkspace",
+        "tags": [
+          "Workspace"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Workspace"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "更新工作空间信息（部分）",
+        "operationId": "patchWorkspace",
+        "tags": [
+          "Workspace"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Workspace"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除工作空间",
+        "operationId": "deleteWorkspace",
+        "tags": [
+          "Workspace"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/namespaces": {
+      "get": {
+        "summary": "获取工作空间下的项目列表",
+        "operationId": "listWorkspaceNamespace",
+        "tags": [
+          "Namespace"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NamespaceList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "在工作空间下创建项目",
+        "operationId": "createWorkspaceNamespace",
+        "tags": [
+          "Namespace"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Namespace"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Namespace"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "批量删除工作空间下的项目",
+        "operationId": "deleteCollectionWorkspaceNamespace",
+        "tags": [
+          "Namespace"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}": {
+      "get": {
+        "summary": "获取工作空间下的项目详情",
+        "operationId": "getWorkspaceNamespace",
+        "tags": [
+          "Namespace"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Namespace"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "更新工作空间下的项目信息（全量）",
+        "operationId": "updateWorkspaceNamespace",
+        "tags": [
+          "Namespace"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Namespace"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Namespace"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "更新工作空间下的项目信息（部分）",
+        "operationId": "patchWorkspaceNamespace",
+        "tags": [
+          "Namespace"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Namespace"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Namespace"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除工作空间下的项目",
+        "operationId": "deleteWorkspaceNamespace",
+        "tags": [
+          "Namespace"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users": {
+      "get": {
+        "summary": "获取工作空间下项目的成员列表",
+        "operationId": "listWorkspaceNamespaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "批量添加工作空间下项目的成员",
+        "operationId": "createWorkspaceNamespaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "批量移除工作空间下项目的成员",
+        "operationId": "deleteCollectionWorkspaceNamespaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}": {
+      "get": {
+        "summary": "获取用户详情",
+        "operationId": "getWorkspaceNamespaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "更新用户信息（全量）",
+        "operationId": "updateWorkspaceNamespaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "更新用户信息（部分）",
+        "operationId": "patchWorkspaceNamespaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除用户",
+        "operationId": "deleteWorkspaceNamespaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}/change-password": {
+      "post": {
+        "summary": "修改用户密码",
+        "operationId": "changePasswordWorkspaceNamespaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/users": {
+      "get": {
+        "summary": "获取工作空间成员列表",
+        "operationId": "listWorkspaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "批量添加工作空间成员",
+        "operationId": "createWorkspaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "批量移除工作空间成员",
+        "operationId": "deleteCollectionWorkspaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/users/{userId}": {
+      "get": {
+        "summary": "获取用户详情",
+        "operationId": "getWorkspaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "更新用户信息（全量）",
+        "operationId": "updateWorkspaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "更新用户信息（部分）",
+        "operationId": "patchWorkspaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除用户",
+        "operationId": "deleteWorkspaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/users/{userId}/change-password": {
+      "post": {
+        "summary": "修改用户密码",
+        "operationId": "changePasswordWorkspaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -742,24 +2230,24 @@
         "properties": {
           "description": {
             "type": "string",
-            "description": "Description of the namespace"
+            "description": "项目描述"
           },
           "displayName": {
             "type": "string",
-            "description": "Display name for the namespace"
+            "description": "项目显示名称"
           },
           "maxMembers": {
             "type": "integer",
             "format": "int",
-            "description": "Maximum number of members allowed"
+            "description": "项目最大成员数（0 表示不限制）"
           },
           "ownerId": {
             "type": "string",
-            "description": "ID of the namespace owner"
+            "description": "项目所有者的用户 ID"
           },
           "status": {
             "type": "string",
-            "description": "Namespace status",
+            "description": "项目状态",
             "enum": [
               "active",
               "inactive"
@@ -767,14 +2255,19 @@
           },
           "visibility": {
             "type": "string",
-            "description": "Namespace visibility",
+            "description": "项目可见性",
             "enum": [
               "public",
               "private"
             ]
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "所属工作空间 ID"
           }
         },
         "required": [
+          "workspaceId",
           "ownerId"
         ]
       },
@@ -807,24 +2300,36 @@
           "avatarUrl": {
             "type": "string",
             "format": "uri",
-            "description": "URL to the user's avatar image"
+            "description": "用户头像 URL"
           },
           "displayName": {
             "type": "string",
-            "description": "Display name for the user"
+            "description": "用户显示名称"
           },
           "email": {
             "type": "string",
             "format": "email",
-            "description": "Valid email address"
+            "description": "邮箱地址"
+          },
+          "namespaces": {
+            "type": "array",
+            "description": "用户所属的项目列表（仅在列表查询时返回）",
+            "items": {
+              "type": "string"
+            }
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "description": "用户密码（只写字段，创建时设置，响应中不返回）"
           },
           "phone": {
             "type": "string",
-            "description": "Phone number in E.164 format"
+            "description": "手机号码"
           },
           "status": {
             "type": "string",
-            "description": "Account status",
+            "description": "账户状态",
             "enum": [
               "active",
               "inactive"
@@ -832,12 +2337,63 @@
           },
           "username": {
             "type": "string",
-            "description": "Username must be 3-50 alphanumeric characters or underscores"
+            "description": "用户名，3-50个字符，仅支持小写字母、数字和下划线"
           }
         },
         "required": [
           "username",
           "email"
+        ]
+      },
+      "Workspace": {
+        "type": "object",
+        "properties": {
+          "spec": {
+            "$ref": "#/components/schemas/WorkspaceSpec"
+          }
+        }
+      },
+      "WorkspaceList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Workspace"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "WorkspaceSpec": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "工作空间描述"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "工作空间显示名称"
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "工作空间所有者的用户 ID"
+          },
+          "status": {
+            "type": "string",
+            "description": "工作空间状态",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          }
+        },
+        "required": [
+          "ownerId"
         ]
       }
     }
@@ -847,6 +2403,7 @@
       "name": "iam",
       "tags": [
         "User",
+        "Workspace",
         "Namespace"
       ]
     }

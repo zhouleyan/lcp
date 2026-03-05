@@ -12,13 +12,15 @@ import (
 
 // TypeInfo holds parsed information about an API type.
 type TypeInfo struct {
-	Name        string
-	Package     string
-	Fields      []FieldInfo
-	Annotations []Annotation
-	Description string
-	IsListType  bool
-	Paths       []string // from +openapi:path annotations
+	Name             string
+	Package          string
+	Fields           []FieldInfo
+	Annotations      []Annotation
+	Description      string
+	IsListType       bool
+	Paths            []string          // from +openapi:path annotations
+	OperationSummary map[string]string // from +openapi:summary.METHOD= (e.g. "list", "create", "get", "update", "patch", "delete", "deleteCollection")
+	ActionSummary    map[string]string // from +openapi:action.NAME.summary= (e.g. "change-password")
 }
 
 // FieldInfo holds parsed information about a struct field.
@@ -122,35 +124,51 @@ func (p *Parser) parseGroup(dir string, dirName string) (*GroupInfo, error) {
 						continue
 					}
 
+					// Skip unexported types (storage types handled separately)
+					if !typeSpec.Name.IsExported() {
+						continue
+					}
+
 					annotations := ParseAnnotations(genDecl.Doc)
 					if len(annotations) == 0 {
 						// Skip types without +openapi: annotations
 						continue
 					}
 
-					// Extract description and paths from type-level annotations
+					// Extract description, paths, operation summaries, and action summaries
 					var description string
 					var paths []string
+					opSummary := make(map[string]string)
+					actionSummary := make(map[string]string)
 					for _, ann := range annotations {
-						switch ann.Key {
-						case "description":
+						switch {
+						case ann.Key == "description":
 							if description == "" {
 								description = ann.Value
 							}
-						case "path":
+						case ann.Key == "path":
 							if ann.Value != "" {
 								paths = append(paths, ann.Value)
 							}
+						case strings.HasPrefix(ann.Key, "summary."):
+							method := strings.TrimPrefix(ann.Key, "summary.")
+							opSummary[method] = ann.Value
+						case strings.HasPrefix(ann.Key, "action.") && strings.HasSuffix(ann.Key, ".summary"):
+							actionName := strings.TrimPrefix(ann.Key, "action.")
+							actionName = strings.TrimSuffix(actionName, ".summary")
+							actionSummary[actionName] = ann.Value
 						}
 					}
 
 					typeInfo := TypeInfo{
-						Name:        typeSpec.Name.Name,
-						Package:     pkg.Name,
-						Annotations: annotations,
-						Description: description,
-						IsListType:  strings.HasSuffix(typeSpec.Name.Name, "List"),
-						Paths:       paths,
+						Name:             typeSpec.Name.Name,
+						Package:          pkg.Name,
+						Annotations:      annotations,
+						Description:      description,
+						IsListType:       strings.HasSuffix(typeSpec.Name.Name, "List"),
+						Paths:            paths,
+						OperationSummary: opSummary,
+						ActionSummary:    actionSummary,
 					}
 
 					for _, field := range structType.Fields.List {
@@ -166,11 +184,248 @@ func (p *Parser) parseGroup(dir string, dirName string) (*GroupInfo, error) {
 		}
 	}
 
+	// Phase 2: Scan storage types, methods, and standalone functions
+	// to collect operation-level annotations and merge into TypeInfo.
+	mergeStorageAnnotations(group, pkgs)
+
 	if len(group.Types) == 0 {
 		return nil, nil
 	}
 
 	return group, nil
+}
+
+// mergeStorageAnnotations scans for storage types (*Storage structs),
+// their methods, and standalone functions with +openapi: annotations,
+// then merges the derived paths and summaries into the corresponding TypeInfo.
+func mergeStorageAnnotations(group *GroupInfo, pkgs map[string]*ast.Package) {
+	// Build index: resource name → TypeInfo position
+	typeIndex := make(map[string]int)
+	for i, t := range group.Types {
+		typeIndex[t.Name] = i
+	}
+
+	type storageInfo struct {
+		resourceName    string
+		derivedPath     string
+		qualifiedPrefix string
+		extraPaths      []string
+	}
+	storageTypes := make(map[string]*storageInfo)
+
+	for _, pkg := range pkgs {
+		// Scan all struct types ending with "Storage"
+		for _, file := range pkg.Files {
+			for _, decl := range file.Decls {
+				genDecl, ok := decl.(*ast.GenDecl)
+				if !ok || genDecl.Tok != token.TYPE {
+					continue
+				}
+				for _, spec := range genDecl.Specs {
+					typeSpec, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					name := typeSpec.Name.Name
+					if !strings.HasSuffix(name, "Storage") || typeSpec.Name.IsExported() {
+						continue
+					}
+					baseName := strings.TrimSuffix(name, "Storage")
+					segments := splitCamelCase(baseName)
+					resource, path := deriveResourceAndPath(segments)
+					prefix := pathToQualifiedPrefix(path)
+
+					var extraPaths []string
+					for _, ann := range ParseAnnotations(genDecl.Doc) {
+						if ann.Key == "path" && ann.Value != "" {
+							extraPaths = append(extraPaths, ann.Value)
+						}
+					}
+
+					storageTypes[name] = &storageInfo{
+						resourceName:    resource,
+						derivedPath:     path,
+						qualifiedPrefix: prefix,
+						extraPaths:      extraPaths,
+					}
+				}
+			}
+		}
+
+		// Merge storage paths into TypeInfo
+		for _, st := range storageTypes {
+			idx, ok := typeIndex[st.resourceName]
+			if !ok {
+				continue
+			}
+			group.Types[idx].Paths = appendUnique(group.Types[idx].Paths, st.derivedPath)
+			for _, ep := range st.extraPaths {
+				group.Types[idx].Paths = appendUnique(group.Types[idx].Paths, ep)
+			}
+		}
+
+		// Scan methods for +openapi:summary= annotations
+		for _, file := range pkg.Files {
+			for _, decl := range file.Decls {
+				funcDecl, ok := decl.(*ast.FuncDecl)
+				if !ok {
+					continue
+				}
+
+				if funcDecl.Recv != nil {
+					// Method: check if receiver is a storage type
+					recvType := receiverTypeName(funcDecl.Recv)
+					st, ok := storageTypes[recvType]
+					if !ok {
+						continue
+					}
+					op, ok := methodToOperation(funcDecl.Name.Name)
+					if !ok {
+						continue
+					}
+					annotations := ParseAnnotations(funcDecl.Doc)
+					if len(annotations) == 0 {
+						continue
+					}
+					idx, ok := typeIndex[st.resourceName]
+					if !ok {
+						continue
+					}
+					for _, ann := range annotations {
+						switch {
+						case ann.Key == "summary":
+							key := operationKey(st.qualifiedPrefix, op)
+							group.Types[idx].OperationSummary[key] = ann.Value
+						case strings.HasPrefix(ann.Key, "summary."):
+							qualifier := strings.TrimPrefix(ann.Key, "summary.")
+							key := qualifier + "." + op
+							group.Types[idx].OperationSummary[key] = ann.Value
+						}
+					}
+				} else {
+					// Standalone function: check for +openapi:action=
+					annotations := ParseAnnotations(funcDecl.Doc)
+					if len(annotations) == 0 {
+						continue
+					}
+					var actionName, summary, resource string
+					for _, ann := range annotations {
+						switch ann.Key {
+						case "action":
+							actionName = ann.Value
+						case "summary":
+							summary = ann.Value
+						case "resource":
+							resource = ann.Value
+						}
+					}
+					if actionName != "" && resource != "" {
+						if idx, ok := typeIndex[resource]; ok && summary != "" {
+							group.Types[idx].ActionSummary[actionName] = summary
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// splitCamelCase splits a camelCase name into lowercase segments.
+// e.g., "workspaceUser" → ["workspace", "user"]
+func splitCamelCase(s string) []string {
+	var segments []string
+	start := 0
+	for i := 1; i < len(s); i++ {
+		if s[i] >= 'A' && s[i] <= 'Z' {
+			segments = append(segments, strings.ToLower(s[start:i]))
+			start = i
+		}
+	}
+	segments = append(segments, strings.ToLower(s[start:]))
+	return segments
+}
+
+// deriveResourceAndPath derives the resource type name and API path from
+// camelCase-split storage name segments.
+// e.g., ["workspace", "user"] → ("User", "/workspaces/{workspaceId}/users")
+func deriveResourceAndPath(segments []string) (resource, path string) {
+	if len(segments) == 0 {
+		return "", ""
+	}
+	last := segments[len(segments)-1]
+	resource = strings.ToUpper(last[:1]) + last[1:]
+
+	var parts []string
+	for _, seg := range segments[:len(segments)-1] {
+		parts = append(parts, seg+"s", "{"+seg+"Id}")
+	}
+	parts = append(parts, last+"s")
+	path = "/" + strings.Join(parts, "/")
+	return
+}
+
+// pathToQualifiedPrefix converts a path to a dotted qualifier prefix.
+// e.g., "/workspaces/{workspaceId}/users" → "workspaces.users"
+// Single-segment paths like "/users" return "".
+func pathToQualifiedPrefix(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	var segments []string
+	for _, p := range parts {
+		if p != "" && !strings.HasPrefix(p, "{") {
+			segments = append(segments, p)
+		}
+	}
+	if len(segments) <= 1 {
+		return ""
+	}
+	return strings.Join(segments, ".")
+}
+
+// operationKey builds the OperationSummary map key from a qualified prefix and operation.
+func operationKey(qualifiedPrefix, op string) string {
+	if qualifiedPrefix == "" {
+		return op
+	}
+	return qualifiedPrefix + "." + op
+}
+
+// receiverTypeName extracts the type name from a method receiver.
+func receiverTypeName(recv *ast.FieldList) string {
+	if recv == nil || len(recv.List) == 0 {
+		return ""
+	}
+	t := recv.List[0].Type
+	if star, ok := t.(*ast.StarExpr); ok {
+		t = star.X
+	}
+	if ident, ok := t.(*ast.Ident); ok {
+		return ident.Name
+	}
+	return ""
+}
+
+// methodToOperation maps Go method names to OpenAPI operation keys.
+func methodToOperation(name string) (string, bool) {
+	ops := map[string]string{
+		"List":             "list",
+		"Create":           "create",
+		"Get":              "get",
+		"Update":           "update",
+		"Patch":            "patch",
+		"Delete":           "delete",
+		"DeleteCollection": "deleteCollection",
+	}
+	op, ok := ops[name]
+	return op, ok
+}
+
+func appendUnique(slice []string, val string) []string {
+	for _, s := range slice {
+		if s == val {
+			return slice
+		}
+	}
+	return append(slice, val)
 }
 
 func parseField(field *ast.Field) *FieldInfo {

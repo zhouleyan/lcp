@@ -7,6 +7,7 @@ CREATE TABLE users (
     phone         VARCHAR(50)  NOT NULL DEFAULT '',
     avatar_url    VARCHAR(512) NOT NULL DEFAULT '',
     status        VARCHAR(20)  NOT NULL DEFAULT 'active',
+    password_hash VARCHAR(255) NOT NULL DEFAULT '',
     last_login_at TIMESTAMPTZ,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
@@ -76,3 +77,18 @@ CREATE TABLE user_namespaces (
 
 CREATE INDEX idx_user_namespaces_namespace_id ON user_namespaces(namespace_id);
 CREATE INDEX idx_user_namespaces_role ON user_namespaces(role);
+
+-- refresh_tokens table
+CREATE TABLE refresh_tokens (
+    id         BIGSERIAL    PRIMARY KEY,
+    token_hash VARCHAR(255) NOT NULL UNIQUE,
+    user_id    BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_id  VARCHAR(255) NOT NULL,
+    scope      TEXT         NOT NULL DEFAULT '',
+    expires_at TIMESTAMPTZ  NOT NULL,
+    revoked    BOOLEAN      NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);

@@ -97,7 +97,7 @@ func (g *Generator) processGroup(doc *Document, group GroupInfo) []Tag {
 
 		tag := t.Name
 		for _, p := range paths {
-			g.generatePathsForResource(doc, basePath, p, t.Name, group.GroupVersion, tag)
+			g.generatePathsForResource(doc, basePath, p, t, group.GroupVersion, tag)
 		}
 		tags = append(tags, Tag{Name: t.Name, Description: t.Description})
 	}
@@ -175,7 +175,8 @@ func goTypeToSchema(goType string) *Schema {
 // generatePathsForResource generates collection and item paths for a resource
 // at the given resourcePath. It extracts path parameters from the path template
 // and uses a single tag for all operations.
-func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePath, typeName, version, tag string) {
+func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePath string, typeInfo TypeInfo, version, tag string) {
+	typeName := typeInfo.Name
 	ref := &Schema{Ref: fmt.Sprintf("#/components/schemas/%s", typeName)}
 	listRef := &Schema{Ref: fmt.Sprintf("#/components/schemas/%sList", typeName)}
 
@@ -188,6 +189,33 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 
 	// Build a unique operation ID suffix from path segments to avoid collisions
 	opSuffix := operationSuffix(resourcePath, typeName)
+
+	// Helper to resolve operation summary: use annotation if present, otherwise default
+	summary := func(op, defaultSummary string) string {
+		if s, ok := typeInfo.OperationSummary[op]; ok {
+			return s
+		}
+		return defaultSummary
+	}
+
+	// Qualified operation key for nested resources (e.g., "workspaces.namespaces.list")
+	qualifiedSummary := func(op, defaultSummary string) string {
+		// Try qualified key first (e.g., "workspaces.users.list"), then plain key
+		qualifiedKey := resourcePath + "." + op
+		// Normalize: strip leading /, replace {param}/ segments
+		parts := strings.Split(strings.Trim(qualifiedKey, "/"), "/")
+		var segments []string
+		for _, p := range parts {
+			if !strings.HasPrefix(p, "{") {
+				segments = append(segments, p)
+			}
+		}
+		qualified := strings.Join(segments, ".") // e.g. "workspaces.namespaces.users.list"
+		if s, ok := typeInfo.OperationSummary[qualified]; ok {
+			return s
+		}
+		return summary(op, defaultSummary)
+	}
 
 	// Collection operations
 	pathItem := getOrCreatePathItem(doc, collectionPath)
@@ -206,7 +234,7 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 	)
 
 	pathItem.Get = &Operation{
-		Summary:     fmt.Sprintf("List %s", lastSegment(resourcePath)),
+		Summary:     qualifiedSummary("list", fmt.Sprintf("List %s", lastSegment(resourcePath))),
 		OperationID: fmt.Sprintf("list%s", opSuffix),
 		Tags:        []string{tag},
 		Parameters:  listParams,
@@ -227,7 +255,7 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 		})
 	}
 	pathItem.Post = &Operation{
-		Summary:     fmt.Sprintf("Create a %s", typeName),
+		Summary:     qualifiedSummary("create", fmt.Sprintf("Create a %s", typeName)),
 		OperationID: fmt.Sprintf("create%s", opSuffix),
 		Tags:        []string{tag},
 		Parameters:  createParams,
@@ -247,6 +275,28 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 		},
 	}
 
+	// Delete collection
+	pathItem.Delete = &Operation{
+		Summary:     qualifiedSummary("deleteCollection", fmt.Sprintf("Batch delete %s", lastSegment(resourcePath))),
+		OperationID: fmt.Sprintf("deleteCollection%s", opSuffix),
+		Tags:        []string{tag},
+		Parameters:  createParams,
+		RequestBody: &RequestBody{
+			Required: true,
+			Content: map[string]MediaType{
+				"application/json": {Schema: &Schema{
+					Type: "object",
+					Properties: map[string]*Schema{
+						"ids": {Type: "array", Items: &Schema{Type: "string"}},
+					},
+				}},
+			},
+		},
+		Responses: map[string]*Response{
+			"200": {Description: "OK"},
+		},
+	}
+
 	// Item operations
 	itemPathItem := getOrCreatePathItem(doc, itemPath)
 
@@ -261,7 +311,7 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 	})
 
 	itemPathItem.Get = &Operation{
-		Summary:     fmt.Sprintf("Get a %s", typeName),
+		Summary:     qualifiedSummary("get", fmt.Sprintf("Get a %s", typeName)),
 		OperationID: fmt.Sprintf("get%s", opSuffix),
 		Tags:        []string{tag},
 		Parameters:  itemParams,
@@ -275,7 +325,7 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 		},
 	}
 	itemPathItem.Put = &Operation{
-		Summary:     fmt.Sprintf("Update a %s", typeName),
+		Summary:     qualifiedSummary("update", fmt.Sprintf("Update a %s", typeName)),
 		OperationID: fmt.Sprintf("update%s", opSuffix),
 		Tags:        []string{tag},
 		Parameters:  itemParams,
@@ -295,7 +345,7 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 		},
 	}
 	itemPathItem.Patch = &Operation{
-		Summary:     fmt.Sprintf("Patch a %s", typeName),
+		Summary:     qualifiedSummary("patch", fmt.Sprintf("Patch a %s", typeName)),
 		OperationID: fmt.Sprintf("patch%s", opSuffix),
 		Tags:        []string{tag},
 		Parameters:  itemParams,
@@ -315,13 +365,34 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 		},
 	}
 	itemPathItem.Delete = &Operation{
-		Summary:     fmt.Sprintf("Delete a %s", typeName),
+		Summary:     qualifiedSummary("delete", fmt.Sprintf("Delete a %s", typeName)),
 		OperationID: fmt.Sprintf("delete%s", opSuffix),
 		Tags:        []string{tag},
 		Parameters:  itemParams,
 		Responses: map[string]*Response{
 			"204": {Description: "No Content"},
 		},
+	}
+
+	// Action operations
+	for actionName, actionSummary := range typeInfo.ActionSummary {
+		actionPath := itemPath + "/" + actionName
+		actionPathItem := getOrCreatePathItem(doc, actionPath)
+		actionPathItem.Post = &Operation{
+			Summary:     actionSummary,
+			OperationID: fmt.Sprintf("%s%s", toCamelCase(actionName), opSuffix),
+			Tags:        []string{tag},
+			Parameters:  itemParams,
+			RequestBody: &RequestBody{
+				Required: true,
+				Content: map[string]MediaType{
+					"application/json": {Schema: &Schema{Type: "object"}},
+				},
+			},
+			Responses: map[string]*Response{
+				"200": {Description: "OK"},
+			},
+		}
 	}
 }
 
@@ -388,6 +459,17 @@ func sortedKeys(m map[string][]Tag) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// toCamelCase converts "change-password" to "changePassword".
+func toCamelCase(s string) string {
+	parts := strings.Split(s, "-")
+	for i := 1; i < len(parts); i++ {
+		if len(parts[i]) > 0 {
+			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
+		}
+	}
+	return strings.Join(parts, "")
 }
 
 func getOrCreatePathItem(doc *Document, path string) *PathItem {

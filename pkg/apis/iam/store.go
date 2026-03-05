@@ -18,6 +18,18 @@ type UserStore interface {
 	Delete(ctx context.Context, id int64) error
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBUserWithNamespaces], error)
+	GetUserForAuth(ctx context.Context, username string) (*DBUserForAuth, error)
+	SetPasswordHash(ctx context.Context, id int64, hash string) error
+}
+
+// RefreshTokenStore defines database operations on refresh tokens.
+type RefreshTokenStore interface {
+	Create(ctx context.Context, token *DBRefreshToken) (*DBRefreshToken, error)
+	GetByHash(ctx context.Context, tokenHash string) (*DBRefreshToken, error)
+	ConsumeByHash(ctx context.Context, tokenHash string) (*DBRefreshToken, error)
+	Revoke(ctx context.Context, tokenHash string) error
+	RevokeByUserID(ctx context.Context, userID int64) error
+	DeleteExpired(ctx context.Context) error
 }
 
 // WorkspaceStore defines database operations on workspaces.

@@ -11,8 +11,10 @@ The project has a custom-built REST API framework (inspired by Kubernetes apiser
 ```
 app/lcp-server/       # Main server entry point (config, wiring, HTTP listener)
 lib/                  # Internal framework libraries (REST framework, runtime, config, logger, etc.)
+lib/oidc/             # OIDC provider: JWT tokens, auth codes, sessions, keys, password hashing
+lib/httpserver/filters/ # HTTP middleware (request logging, authentication)
 pkg/apis/             # Business logic: API types, store interfaces, REST storage, validation
-pkg/apis/iam/         # IAM module: users, workspaces, namespaces, memberships
+pkg/apis/iam/         # IAM module: users, workspaces, namespaces, memberships, OIDC handlers
 pkg/apis/iam/store/   # PostgreSQL store implementations (pg_*.go)
 pkg/apis/iam/v1/      # Route registration (install.go)
 pkg/db/               # Database: connection pool, pagination helpers, sqlc config
@@ -138,18 +140,65 @@ type Xxx struct {
 func (x *Xxx) GetTypeMeta() *runtime.TypeMeta { return &x.TypeMeta }
 ```
 
-Use `+openapi:` annotations for spec generation:
+### OpenAPI Annotation Pattern
+
+Annotations are split across types and storage methods:
+
+**types.go** — resource description + field-level annotations only:
 ```go
-// +openapi:description=...
-// +openapi:required
-// +openapi:enum=active,inactive
-// +openapi:format=email
+// Xxx
+// +openapi:description=资源描述
+type Xxx struct { ... }
+
+type XxxSpec struct {
+    // +openapi:required
+    // +openapi:description=字段描述
+    // +openapi:enum=active,inactive
+    // +openapi:format=email
+    Field string `json:"field"`
+}
 ```
+
+**storage.go** — operation summaries on methods, paths auto-derived from storage type name:
+```go
+// Storage type name convention: {parent}{resource}Storage
+// - userStorage       → resource=User,  path=/users
+// - workspaceStorage  → resource=Workspace, path=/workspaces
+// - workspaceUserStorage → resource=User, path=/workspaces/{workspaceId}/users
+
+// Extra paths declared on the struct (auto-derived primary path needs no annotation):
+// +openapi:path=/workspaces/{workspaceId}/namespaces
+type namespaceStorage struct { ... }
+
+// Simple summary (applies to auto-derived path):
+// +openapi:summary=获取项目列表
+// Qualified summary (applies to the extra path):
+// +openapi:summary.workspaces.namespaces=获取工作空间下的项目列表
+func (s *namespaceStorage) List(...) { ... }
+
+// Standalone action function:
+// +openapi:action=change-password
+// +openapi:resource=User
+// +openapi:summary=修改用户密码
+func NewChangePasswordHandler(...) rest.HandlerFunc { ... }
+```
+
+Method name → operation mapping: `List→list`, `Create→create`, `Get→get`, `Update→update`, `Patch→patch`, `Delete→delete`, `DeleteCollection→deleteCollection`.
 
 ## Current API Routes
 
 ```
+# OIDC (public, no authentication)
+GET  /.well-known/openid-configuration                            # OIDC discovery
+GET  /.well-known/jwks.json                                       # JSON Web Key Set
+GET  /oidc/authorize                                              # Authorization endpoint
+POST /oidc/login                                                  # Login (username+password)
+POST /oidc/token                                                  # Token exchange
+GET  /oidc/userinfo                                               # User info
+
+# Business API (authenticated via Bearer token when OIDC is enabled)
 /api/v1/users                                                    # CRUD + batch delete
+/api/v1/users/{userId}/change-password                           # POST change password
 /api/v1/workspaces                                               # CRUD + batch delete
 /api/v1/workspaces/{workspaceId}/namespaces                      # CRUD + batch delete
 /api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users  # list + batch add/remove
@@ -182,3 +231,25 @@ Workspace (tenant/organization)
 Priority: CLI flags > env vars > `config.yaml` > defaults. Supports SIGHUP hot-reload.
 
 Key env vars: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL_MODE`, `DB_MAX_CONNS`.
+
+### OIDC Configuration
+
+OIDC is enabled by providing ECDSA P-256 key file paths in `config.yaml`. Without keys, authentication is disabled and all API endpoints are open.
+
+```yaml
+oidc:
+  issuer: "http://localhost:8428"
+  privateKeyFile: "./oidc-private.pem"
+  publicKeyFile: "./oidc-public.pem"
+  accessTokenTTL: "1h"
+  refreshTokenTTL: "168h"
+  authCodeTTL: "5m"
+  loginUrl: "/login"
+  clients:
+    - id: "lcp-ui"
+      public: true
+      redirectUris: ["http://localhost:5173/auth/callback"]
+      scopes: ["openid", "profile", "email", "phone"]
+```
+
+Generate keys: `openssl ecparam -name prime256v1 -genkey -noout -out oidc-private.pem && openssl ec -in oidc-private.pem -pubout -out oidc-public.pem`

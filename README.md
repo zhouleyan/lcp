@@ -201,7 +201,6 @@ make sqlc-generate
 
 // Project
 // +openapi:description=Project is the API representation of a project resource.
-// +openapi:path=/projects
 type Project struct {
     runtime.TypeMeta `json:",inline"`
     types.ObjectMeta `json:"metadata"`
@@ -210,11 +209,21 @@ type Project struct {
 
 func (p *Project) GetTypeMeta() *runtime.TypeMeta { return &p.TypeMeta }
 
+// ProjectSpec
+// +openapi:description=项目属性
 type ProjectSpec struct {
+    // +openapi:description=项目显示名称
     DisplayName string `json:"displayName,omitempty"`
+    // +openapi:description=项目描述
     Description string `json:"description,omitempty"`
+    // +openapi:required
+    // +openapi:description=所属工作空间 ID
     WorkspaceID string `json:"workspaceId"`
+    // +openapi:required
+    // +openapi:description=项目所有者的用户 ID
     OwnerID     string `json:"ownerId"`
+    // +openapi:description=项目状态
+    // +openapi:enum=active,inactive
     Status      string `json:"status,omitempty"`
 }
 
@@ -233,7 +242,8 @@ type DBProject = generated.Project
 **类型规范：**
 - API 类型统一用 `TypeMeta`（承载 apiVersion/kind） + `ObjectMeta`（承载 id/name/时间戳） + `Spec` 三层结构
 - DB 层 ID 为 `int64`，API 层为 `string`，转换在 Storage 层完成
-- `+openapi:` 注释用于自动生成 OpenAPI 文档
+- `+openapi:description=` 写在类型上描述资源，字段级注解（`required`/`enum`/`format`）写在字段上
+- **路径和操作摘要不写在类型上**，而是写在 `storage.go` 的方法注释上（见 Step 8）
 
 ### Step 5：定义 Store 接口
 
@@ -308,8 +318,12 @@ func ValidateProjectCreate(name string, spec *ProjectSpec) validation.ErrorList 
 - 调用验证函数
 - DB 类型 ↔ API 类型转换
 - 处理 `DryRun` 选项
+- **承载 OpenAPI 操作级注解**（路径自动推导 + 方法级摘要）
 
 ```go
+// 存储类型名 projectStorage 自动推导：
+//   resource = Project, path = /projects
+// 无需 +openapi:path= 注解（主路径自动推导）
 type projectStorage struct {
     projStore ProjectStore
     userStore UserStore
@@ -321,6 +335,7 @@ func NewProjectStorage(projStore ProjectStore, userStore UserStore) rest.Standar
 
 func (s *projectStorage) NewObject() runtime.Object { return &Project{} }
 
+// +openapi:summary=获取项目详情
 func (s *projectStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
     id := options.PathParams["projectId"]
     pid, err := parseID(id)
@@ -334,8 +349,20 @@ func (s *projectStorage) Get(ctx context.Context, options *rest.GetOptions) (run
     return projectToAPI(p), nil
 }
 
-// List, Create, Update, Patch, Delete, DeleteCollection 同理...
+// +openapi:summary=获取项目列表
+func (s *projectStorage) List(...) { ... }
+// +openapi:summary=创建项目
+func (s *projectStorage) Create(...) { ... }
+// 其他方法同理，每个方法加 +openapi:summary=...
 ```
+
+**OpenAPI 注解规则：**
+- **路径自动推导**：存储类型名按 camelCase 拆分 → 最后一段为资源名，前面的段为父资源路径
+  - `projectStorage` → `/projects`
+  - `workspaceProjectStorage` → `/workspaces/{workspaceId}/projects`
+- **额外路径**：同一 Storage 服务多条路径时，仅需在 struct 上声明额外路径：`// +openapi:path=/workspaces/{workspaceId}/projects`
+- **摘要**：`// +openapi:summary=...` 应用于主路径，`// +openapi:summary.workspaces.projects=...` 应用于额外路径
+- **自定义操作**：独立函数用 `// +openapi:action=change-password` + `// +openapi:resource=Project` + `// +openapi:summary=...`
 
 **根据需要实现的接口选择能力：**
 

@@ -6,6 +6,7 @@ import (
 
 	"lcp.io/lcp/lib/httpserver/filters"
 	"lcp.io/lcp/lib/logger"
+	"lcp.io/lcp/lib/oidc"
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/lib/runtime"
 )
@@ -20,7 +21,7 @@ type APIServerHandler struct {
 	groups     []*rest.APIGroupInfo
 }
 
-func NewAPIServerHandler(name string, groups ...*rest.APIGroupInfo) (*APIServerHandler, error) {
+func NewAPIServerHandler(name string, oidcProvider *oidc.Provider, groups ...*rest.APIGroupInfo) (*APIServerHandler, error) {
 	container := rest.NewContainer()
 
 	director := director{
@@ -28,7 +29,7 @@ func NewAPIServerHandler(name string, groups ...*rest.APIGroupInfo) (*APIServerH
 		container: container,
 	}
 	a := &APIServerHandler{
-		FullHandlerChain:   DefaultChainBuilder(director),
+		FullHandlerChain:   DefaultChainBuilder(director, oidcProvider),
 		GoRestfulContainer: container,
 		Director:           director,
 		serializer:         runtime.NewCodecFactory(),
@@ -84,8 +85,11 @@ func (d director) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func DefaultChainBuilder(apiHandler http.Handler) http.Handler {
+func DefaultChainBuilder(apiHandler http.Handler, oidcProvider *oidc.Provider) http.Handler {
 	handler := apiHandler
+	if oidcProvider != nil {
+		handler = filters.WithAuthentication(oidcProvider)(handler)
+	}
 	handler = filters.WithRequestLog(handler)
 	return handler
 }

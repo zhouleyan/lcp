@@ -47,3 +47,7 @@ go.work.sum
 tmp
 
 .claude/
+
+# Frontend
+ui/node_modules/
+ui/dist/
