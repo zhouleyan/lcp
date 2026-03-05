@@ -17,9 +17,56 @@
     {
       "name": "Namespace",
       "description": "项目管理：项目（Namespace）是工作空间下的子单元，用于组织团队和资源。项目归属于某个工作空间，拥有独立的成员列表。添加项目成员时会自动将其加入父工作空间。"
+    },
+    {
+      "name": "OIDC"
     }
   ],
   "paths": {
+    "/.well-known/jwks.json": {
+      "get": {
+        "summary": "JSON Web Key Set",
+        "description": "返回用于验证 JWT 签名的 ECDSA 公钥集",
+        "operationId": "getJWKS",
+        "tags": [
+          "OIDC"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/openid-configuration": {
+      "get": {
+        "summary": "OIDC 发现文档",
+        "description": "返回 OpenID Connect 发现文档，包含授权、令牌、JWKS 等端点地址",
+        "operationId": "getOIDCDiscovery",
+        "tags": [
+          "OIDC"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OIDCDiscoveryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/namespaces": {
       "get": {
         "summary": "获取项目列表",
@@ -2198,6 +2245,167 @@
           }
         }
       }
+    },
+    "/oidc/authorize": {
+      "get": {
+        "summary": "授权端点",
+        "description": "发起 OAuth2 Authorization Code Flow，验证参数后重定向到登录页面",
+        "operationId": "oidcAuthorize",
+        "tags": [
+          "OIDC"
+        ],
+        "responses": {
+          "302": {
+            "description": "重定向到登录页面"
+          }
+        }
+      }
+    },
+    "/oidc/login": {
+      "post": {
+        "summary": "用户登录",
+        "description": "验证用户名和密码，完成授权流程或直接登录",
+        "operationId": "oidcLogin",
+        "tags": [
+          "OIDC"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OIDCLoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OIDCLoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OIDCErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oidc/token": {
+      "post": {
+        "summary": "令牌端点",
+        "description": "用授权码或刷新令牌换取访问令牌",
+        "operationId": "oidcToken",
+        "tags": [
+          "OIDC"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/OIDCTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "令牌签发成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OIDCTokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OIDCErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oidc/userinfo": {
+      "get": {
+        "summary": "用户信息端点",
+        "description": "通过 Bearer Token 获取当前认证用户的信息",
+        "operationId": "getOIDCUserInfo",
+        "tags": [
+          "OIDC"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OIDCUserInfoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "令牌无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OIDCErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "用户信息端点（POST）",
+        "description": "通过 Bearer Token 获取当前认证用户的信息（POST 方法）",
+        "operationId": "postOIDCUserInfo",
+        "tags": [
+          "OIDC"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OIDCUserInfoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "令牌无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OIDCErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2269,6 +2477,239 @@
         "required": [
           "workspaceId",
           "ownerId"
+        ]
+      },
+      "OIDCDiscoveryResponse": {
+        "type": "object",
+        "properties": {
+          "authorization_endpoint": {
+            "type": "string",
+            "description": "授权端点"
+          },
+          "code_challenge_methods_supported": {
+            "type": "array",
+            "description": "支持的 PKCE 挑战方法",
+            "items": {
+              "type": "string"
+            }
+          },
+          "grant_types_supported": {
+            "type": "array",
+            "description": "支持的授权类型",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id_token_signing_alg_values_supported": {
+            "type": "array",
+            "description": "支持的 ID Token 签名算法",
+            "items": {
+              "type": "string"
+            }
+          },
+          "issuer": {
+            "type": "string",
+            "description": "签发者标识"
+          },
+          "jwks_uri": {
+            "type": "string",
+            "description": "JSON Web Key Set 地址"
+          },
+          "response_types_supported": {
+            "type": "array",
+            "description": "支持的响应类型",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scopes_supported": {
+            "type": "array",
+            "description": "支持的权限范围",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subject_types_supported": {
+            "type": "array",
+            "description": "支持的主体标识类型",
+            "items": {
+              "type": "string"
+            }
+          },
+          "token_endpoint": {
+            "type": "string",
+            "description": "令牌端点"
+          },
+          "userinfo_endpoint": {
+            "type": "string",
+            "description": "用户信息端点"
+          }
+        },
+        "required": [
+          "issuer",
+          "authorization_endpoint",
+          "token_endpoint",
+          "userinfo_endpoint",
+          "jwks_uri"
+        ]
+      },
+      "OIDCErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "错误码"
+          },
+          "error_description": {
+            "type": "string",
+            "description": "错误描述"
+          }
+        },
+        "required": [
+          "error",
+          "error_description"
+        ]
+      },
+      "OIDCLoginRequest": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "description": "密码"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "授权请求 ID，由 /oidc/authorize 重定向时传入。提供时完成 OIDC 授权流程，否则执行直接登录"
+          },
+          "username": {
+            "type": "string",
+            "description": "用户名"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "OIDCLoginResponse": {
+        "type": "object",
+        "properties": {
+          "redirectUri": {
+            "type": "string",
+            "description": "授权回调重定向地址（授权流程模式）"
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "会话 ID（直接登录模式）"
+          },
+          "userId": {
+            "type": "string",
+            "description": "用户 ID（直接登录模式）"
+          }
+        }
+      },
+      "OIDCTokenRequest": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "客户端 ID"
+          },
+          "client_secret": {
+            "type": "string",
+            "description": "客户端密钥（机密客户端必填）"
+          },
+          "code": {
+            "type": "string",
+            "description": "授权码（grant_type=authorization_code 时必填）"
+          },
+          "code_verifier": {
+            "type": "string",
+            "description": "PKCE 验证码（公开客户端必填）"
+          },
+          "grant_type": {
+            "type": "string",
+            "description": "授权类型：authorization_code 或 refresh_token",
+            "enum": [
+              "authorization_code",
+              "refresh_token"
+            ]
+          },
+          "redirect_uri": {
+            "type": "string",
+            "description": "重定向地址（grant_type=authorization_code 时需与授权请求一致）"
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "刷新令牌（grant_type=refresh_token 时必填）"
+          },
+          "scope": {
+            "type": "string",
+            "description": "请求的权限范围"
+          }
+        },
+        "required": [
+          "grant_type",
+          "client_id"
+        ]
+      },
+      "OIDCTokenResponse": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "访问令牌"
+          },
+          "expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "访问令牌过期时间（秒）"
+          },
+          "id_token": {
+            "type": "string",
+            "description": "ID 令牌"
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "刷新令牌"
+          },
+          "scope": {
+            "type": "string",
+            "description": "授权范围"
+          },
+          "token_type": {
+            "type": "string",
+            "description": "令牌类型，固定为 Bearer"
+          }
+        },
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_in"
+        ]
+      },
+      "OIDCUserInfoResponse": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "邮箱地址"
+          },
+          "name": {
+            "type": "string",
+            "description": "用户名称"
+          },
+          "phone_number": {
+            "type": "string",
+            "description": "手机号码"
+          },
+          "sub": {
+            "type": "string",
+            "description": "用户唯一标识"
+          }
+        },
+        "required": [
+          "sub"
         ]
       },
       "User": {
@@ -2404,7 +2845,8 @@
       "tags": [
         "User",
         "Workspace",
-        "Namespace"
+        "Namespace",
+        "OIDC"
       ]
     }
   ]

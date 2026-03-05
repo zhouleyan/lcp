@@ -60,6 +60,9 @@ func (g *Generator) Generate(groups []GroupInfo) *Document {
 }
 
 func (g *Generator) processGroup(doc *Document, group GroupInfo) []Tag {
+	// Process standalone endpoints first
+	endpointTags := g.processEndpoints(doc, group.Endpoints)
+
 	// Build base path
 	var basePath string
 	if group.GroupName == "" {
@@ -85,7 +88,7 @@ func (g *Generator) processGroup(doc *Document, group GroupInfo) []Tag {
 	// Phase 2: Generate paths from +openapi:path annotations (or default)
 	var tags []Tag
 	for _, t := range group.Types {
-		if t.IsListType || specTypes[t.Name] {
+		if t.IsListType || t.SchemaOnly || specTypes[t.Name] {
 			continue
 		}
 
@@ -100,6 +103,113 @@ func (g *Generator) processGroup(doc *Document, group GroupInfo) []Tag {
 			g.generatePathsForResource(doc, basePath, p, t, group.GroupVersion, tag)
 		}
 		tags = append(tags, Tag{Name: t.Name, Description: t.Description})
+	}
+
+	// Merge endpoint tags (deduplicated)
+	existingTags := make(map[string]bool)
+	for _, t := range tags {
+		existingTags[t.Name] = true
+	}
+	for _, t := range endpointTags {
+		if !existingTags[t.Name] {
+			tags = append(tags, t)
+			existingTags[t.Name] = true
+		}
+	}
+
+	return tags
+}
+
+// processEndpoints generates OpenAPI paths for standalone endpoint annotations.
+// These endpoints use their path as-is (no basePath prefix).
+func (g *Generator) processEndpoints(doc *Document, endpoints []EndpointInfo) []Tag {
+	tagSet := make(map[string]bool)
+	var tags []Tag
+
+	for _, ep := range endpoints {
+		pathItem := getOrCreatePathItem(doc, ep.Path)
+
+		op := &Operation{
+			Summary:     ep.Summary,
+			Description: ep.Description,
+			OperationID: ep.OperationID,
+		}
+		if ep.Tag != "" {
+			op.Tags = []string{ep.Tag}
+			if !tagSet[ep.Tag] {
+				tagSet[ep.Tag] = true
+				tags = append(tags, Tag{Name: ep.Tag})
+			}
+		}
+
+		// Request body
+		if ep.RequestBody != nil {
+			contentType := ep.RequestBody.ContentType
+			if contentType == "" {
+				contentType = "application/json"
+			}
+			var schema *Schema
+			if ep.RequestBody.SchemaRef != "" {
+				schema = &Schema{Ref: "#/components/schemas/" + ep.RequestBody.SchemaRef}
+			} else {
+				schema = &Schema{Type: "object"}
+			}
+			op.RequestBody = &RequestBody{
+				Required: true,
+				Content: map[string]MediaType{
+					contentType: {Schema: schema},
+				},
+			}
+		}
+
+		// Responses
+		if len(ep.Responses) > 0 {
+			op.Responses = make(map[string]*Response)
+			for _, r := range ep.Responses {
+				resp := &Response{Description: r.Description}
+				if r.ContentType != "" || r.SchemaRef != "" {
+					ct := r.ContentType
+					if ct == "" {
+						ct = "application/json"
+					}
+					var schema *Schema
+					if r.SchemaRef != "" {
+						schema = &Schema{Ref: "#/components/schemas/" + r.SchemaRef}
+					} else {
+						schema = &Schema{Type: "object"}
+					}
+					resp.Content = map[string]MediaType{
+						ct: {Schema: schema},
+					}
+				}
+				op.Responses[r.StatusCode] = resp
+			}
+		} else {
+			op.Responses = map[string]*Response{
+				"200": {Description: "OK"},
+			}
+		}
+
+		// Path parameters
+		params := extractPathParams(ep.Path)
+		for _, p := range params {
+			op.Parameters = append(op.Parameters, Parameter{
+				Name: p, In: "path", Required: true, Schema: &Schema{Type: "string"},
+			})
+		}
+
+		switch ep.Method {
+		case "GET":
+			pathItem.Get = op
+		case "POST":
+			pathItem.Post = op
+		case "PUT":
+			pathItem.Put = op
+		case "PATCH":
+			pathItem.Patch = op
+		case "DELETE":
+			pathItem.Delete = op
+		}
 	}
 
 	return tags

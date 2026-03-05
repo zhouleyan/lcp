@@ -18,6 +18,7 @@ type TypeInfo struct {
 	Annotations      []Annotation
 	Description      string
 	IsListType       bool
+	SchemaOnly       bool              // +openapi:schema — register in components/schemas but do not generate CRUD paths
 	Paths            []string          // from +openapi:path annotations
 	OperationSummary map[string]string // from +openapi:summary.METHOD= (e.g. "list", "create", "get", "update", "patch", "delete", "deleteCollection")
 	ActionSummary    map[string]string // from +openapi:action.NAME.summary= (e.g. "change-password")
@@ -32,12 +33,40 @@ type FieldInfo struct {
 	Annotations FieldAnnotations
 }
 
+// EndpointInfo holds parsed information about a standalone HTTP endpoint
+// defined via +openapi:endpoint annotations on functions.
+type EndpointInfo struct {
+	Path        string            // +openapi:path=...
+	Method      string            // +openapi:method=GET|POST|PUT|PATCH|DELETE
+	Summary     string            // +openapi:summary=...
+	Description string            // +openapi:description=...
+	Tag         string            // +openapi:tag=...
+	OperationID string            // +openapi:operationId=...
+	RequestBody *EndpointBody     // +openapi:requestBody.contentType=... and +openapi:requestBody.schema=...
+	Responses   []EndpointResponse // +openapi:response.CODE.description=...
+}
+
+// EndpointBody describes the request body of a standalone endpoint.
+type EndpointBody struct {
+	ContentType string // e.g. "application/x-www-form-urlencoded", "application/json"
+	SchemaRef   string // reference name or empty for generic object
+}
+
+// EndpointResponse describes a response of a standalone endpoint.
+type EndpointResponse struct {
+	StatusCode  string
+	Description string
+	ContentType string
+	SchemaRef   string
+}
+
 // GroupInfo holds parsed information about an API group.
 type GroupInfo struct {
 	GroupName    string
 	GroupVersion string
 	ModuleName   string
 	Types        []TypeInfo
+	Endpoints    []EndpointInfo // standalone endpoints from +openapi:endpoint
 }
 
 // Parser scans Go source files for OpenAPI type definitions.
@@ -135,13 +164,16 @@ func (p *Parser) parseGroup(dir string, dirName string) (*GroupInfo, error) {
 						continue
 					}
 
-					// Extract description, paths, operation summaries, and action summaries
+					// Extract description, paths, operation summaries, action summaries, and schema flag
 					var description string
 					var paths []string
+					var schemaOnly bool
 					opSummary := make(map[string]string)
 					actionSummary := make(map[string]string)
 					for _, ann := range annotations {
 						switch {
+						case ann.Key == "schema":
+							schemaOnly = true
 						case ann.Key == "description":
 							if description == "" {
 								description = ann.Value
@@ -166,6 +198,7 @@ func (p *Parser) parseGroup(dir string, dirName string) (*GroupInfo, error) {
 						Annotations:      annotations,
 						Description:      description,
 						IsListType:       strings.HasSuffix(typeSpec.Name.Name, "List"),
+						SchemaOnly:       schemaOnly,
 						Paths:            paths,
 						OperationSummary: opSummary,
 						ActionSummary:    actionSummary,
@@ -187,6 +220,9 @@ func (p *Parser) parseGroup(dir string, dirName string) (*GroupInfo, error) {
 	// Phase 2: Scan storage types, methods, and standalone functions
 	// to collect operation-level annotations and merge into TypeInfo.
 	mergeStorageAnnotations(group, pkgs)
+
+	// Phase 3: Scan for standalone endpoint annotations (+openapi:endpoint)
+	group.Endpoints = parseEndpointAnnotations(pkgs)
 
 	if len(group.Types) == 0 {
 		return nil, nil
@@ -426,6 +462,105 @@ func appendUnique(slice []string, val string) []string {
 		}
 	}
 	return append(slice, val)
+}
+
+// parseEndpointAnnotations scans all functions for +openapi:endpoint annotations
+// and builds EndpointInfo entries from them.
+func parseEndpointAnnotations(pkgs map[string]*ast.Package) []EndpointInfo {
+	var endpoints []EndpointInfo
+
+	for _, pkg := range pkgs {
+		for _, file := range pkg.Files {
+			for _, decl := range file.Decls {
+				funcDecl, ok := decl.(*ast.FuncDecl)
+				if !ok || funcDecl.Recv != nil {
+					continue
+				}
+
+				annotations := ParseAnnotations(funcDecl.Doc)
+				if len(annotations) == 0 {
+					continue
+				}
+
+				// Check if this function has +openapi:endpoint
+				isEndpoint := false
+				for _, ann := range annotations {
+					if ann.Key == "endpoint" {
+						isEndpoint = true
+						break
+					}
+				}
+				if !isEndpoint {
+					continue
+				}
+
+				ep := EndpointInfo{}
+				var responses []EndpointResponse
+				for _, ann := range annotations {
+					switch {
+					case ann.Key == "path":
+						ep.Path = ann.Value
+					case ann.Key == "method":
+						ep.Method = strings.ToUpper(ann.Value)
+					case ann.Key == "summary":
+						ep.Summary = ann.Value
+					case ann.Key == "description":
+						ep.Description = ann.Value
+					case ann.Key == "tag":
+						ep.Tag = ann.Value
+					case ann.Key == "operationId":
+						ep.OperationID = ann.Value
+					case ann.Key == "requestBody.contentType":
+						if ep.RequestBody == nil {
+							ep.RequestBody = &EndpointBody{}
+						}
+						ep.RequestBody.ContentType = ann.Value
+					case ann.Key == "requestBody.schema":
+						if ep.RequestBody == nil {
+							ep.RequestBody = &EndpointBody{}
+						}
+						ep.RequestBody.SchemaRef = ann.Value
+					case strings.HasPrefix(ann.Key, "response."):
+						// +openapi:response.200.description=OK
+						// +openapi:response.200.contentType=application/json
+						// +openapi:response.200.schema=TokenResponse
+						rest := strings.TrimPrefix(ann.Key, "response.")
+						code, field, ok := strings.Cut(rest, ".")
+						if !ok {
+							continue
+						}
+						// Find or create response entry
+						var resp *EndpointResponse
+						for i := range responses {
+							if responses[i].StatusCode == code {
+								resp = &responses[i]
+								break
+							}
+						}
+						if resp == nil {
+							responses = append(responses, EndpointResponse{StatusCode: code})
+							resp = &responses[len(responses)-1]
+						}
+						switch field {
+						case "description":
+							resp.Description = ann.Value
+						case "contentType":
+							resp.ContentType = ann.Value
+						case "schema":
+							resp.SchemaRef = ann.Value
+						}
+					}
+				}
+
+				ep.Responses = responses
+				if ep.Path != "" && ep.Method != "" {
+					endpoints = append(endpoints, ep)
+				}
+			}
+		}
+	}
+
+	return endpoints
 }
 
 func parseField(field *ast.Field) *FieldInfo {

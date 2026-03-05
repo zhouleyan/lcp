@@ -149,6 +149,140 @@ type BatchRequest struct {
 
 func (b *BatchRequest) GetTypeMeta() *runtime.TypeMeta { return &b.TypeMeta }
 
+// --- OIDC request/response types (for OpenAPI documentation) ---
+
+// OIDCLoginRequest
+// +openapi:schema
+// +openapi:description=OIDC 登录请求
+type OIDCLoginRequest struct {
+	// +openapi:required
+	// +openapi:description=用户名
+	Username string `json:"username"`
+	// +openapi:required
+	// +openapi:description=密码
+	Password string `json:"password"`
+	// +openapi:description=授权请求 ID，由 /oidc/authorize 重定向时传入。提供时完成 OIDC 授权流程，否则执行直接登录
+	RequestID string `json:"requestId"`
+}
+
+// OIDCLoginResponse
+// +openapi:schema
+// +openapi:description=OIDC 登录响应（授权流程模式返回重定向地址，直接登录模式返回会话信息）
+type OIDCLoginResponse struct {
+	// +openapi:description=授权回调重定向地址（授权流程模式）
+	RedirectURI string `json:"redirectUri,omitempty"`
+	// +openapi:description=会话 ID（直接登录模式）
+	SessionID string `json:"sessionId,omitempty"`
+	// +openapi:description=用户 ID（直接登录模式）
+	UserID string `json:"userId,omitempty"`
+}
+
+// OIDCTokenRequest
+// +openapi:schema
+// +openapi:description=OIDC 令牌请求（application/x-www-form-urlencoded）
+type OIDCTokenRequest struct {
+	// +openapi:required
+	// +openapi:description=授权类型：authorization_code 或 refresh_token
+	// +openapi:enum=authorization_code,refresh_token
+	GrantType string `json:"grant_type"`
+	// +openapi:description=授权码（grant_type=authorization_code 时必填）
+	Code string `json:"code,omitempty"`
+	// +openapi:description=重定向地址（grant_type=authorization_code 时需与授权请求一致）
+	RedirectURI string `json:"redirect_uri,omitempty"`
+	// +openapi:required
+	// +openapi:description=客户端 ID
+	ClientID string `json:"client_id"`
+	// +openapi:description=客户端密钥（机密客户端必填）
+	ClientSecret string `json:"client_secret,omitempty"`
+	// +openapi:description=PKCE 验证码（公开客户端必填）
+	CodeVerifier string `json:"code_verifier,omitempty"`
+	// +openapi:description=刷新令牌（grant_type=refresh_token 时必填）
+	RefreshToken string `json:"refresh_token,omitempty"`
+	// +openapi:description=请求的权限范围
+	Scope string `json:"scope,omitempty"`
+}
+
+// OIDCTokenResponse
+// +openapi:schema
+// +openapi:description=OIDC 令牌响应
+type OIDCTokenResponse struct {
+	// +openapi:required
+	// +openapi:description=访问令牌
+	AccessToken string `json:"access_token"`
+	// +openapi:description=ID 令牌
+	IDToken string `json:"id_token,omitempty"`
+	// +openapi:description=刷新令牌
+	RefreshToken string `json:"refresh_token,omitempty"`
+	// +openapi:required
+	// +openapi:description=令牌类型，固定为 Bearer
+	TokenType string `json:"token_type"`
+	// +openapi:required
+	// +openapi:description=访问令牌过期时间（秒）
+	ExpiresIn int64 `json:"expires_in"`
+	// +openapi:description=授权范围
+	Scope string `json:"scope,omitempty"`
+}
+
+// OIDCUserInfoResponse
+// +openapi:schema
+// +openapi:description=OIDC 用户信息响应
+type OIDCUserInfoResponse struct {
+	// +openapi:required
+	// +openapi:description=用户唯一标识
+	Sub string `json:"sub"`
+	// +openapi:description=用户名称
+	Name string `json:"name,omitempty"`
+	// +openapi:description=邮箱地址
+	Email string `json:"email,omitempty"`
+	// +openapi:description=手机号码
+	PhoneNumber string `json:"phone_number,omitempty"`
+}
+
+// OIDCDiscoveryResponse
+// +openapi:schema
+// +openapi:description=OpenID Connect 发现文档
+type OIDCDiscoveryResponse struct {
+	// +openapi:required
+	// +openapi:description=签发者标识
+	Issuer string `json:"issuer"`
+	// +openapi:required
+	// +openapi:description=授权端点
+	AuthorizationEndpoint string `json:"authorization_endpoint"`
+	// +openapi:required
+	// +openapi:description=令牌端点
+	TokenEndpoint string `json:"token_endpoint"`
+	// +openapi:required
+	// +openapi:description=用户信息端点
+	UserinfoEndpoint string `json:"userinfo_endpoint"`
+	// +openapi:required
+	// +openapi:description=JSON Web Key Set 地址
+	JwksURI string `json:"jwks_uri"`
+	// +openapi:description=支持的响应类型
+	ResponseTypesSupported []string `json:"response_types_supported"`
+	// +openapi:description=支持的主体标识类型
+	SubjectTypesSupported []string `json:"subject_types_supported"`
+	// +openapi:description=支持的 ID Token 签名算法
+	IDTokenSigningAlgValuesSupported []string `json:"id_token_signing_alg_values_supported"`
+	// +openapi:description=支持的权限范围
+	ScopesSupported []string `json:"scopes_supported"`
+	// +openapi:description=支持的授权类型
+	GrantTypesSupported []string `json:"grant_types_supported"`
+	// +openapi:description=支持的 PKCE 挑战方法
+	CodeChallengeMethodsSupported []string `json:"code_challenge_methods_supported"`
+}
+
+// OIDCErrorResponse
+// +openapi:schema
+// +openapi:description=OAuth2 标准错误响应
+type OIDCErrorResponse struct {
+	// +openapi:required
+	// +openapi:description=错误码
+	Error string `json:"error"`
+	// +openapi:required
+	// +openapi:description=错误描述
+	ErrorDescription string `json:"error_description"`
+}
+
 // --- DB type aliases ---
 
 // DBUser is an alias for the sqlc-generated User model.

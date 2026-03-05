@@ -32,6 +32,16 @@ func NewOIDCMux(provider *oidc.Provider) http.Handler {
 }
 
 // handleDiscovery 返回 OIDC 发现文档（RFC 8414），包含授权、令牌、JWKS 等端点地址。
+// +openapi:endpoint
+// +openapi:method=GET
+// +openapi:path=/.well-known/openid-configuration
+// +openapi:summary=OIDC 发现文档
+// +openapi:description=返回 OpenID Connect 发现文档，包含授权、令牌、JWKS 等端点地址
+// +openapi:tag=OIDC
+// +openapi:operationId=getOIDCDiscovery
+// +openapi:response.200.description=OK
+// +openapi:response.200.contentType=application/json
+// +openapi:response.200.schema=OIDCDiscoveryResponse
 func handleDiscovery(provider *oidc.Provider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -41,6 +51,15 @@ func handleDiscovery(provider *oidc.Provider) http.HandlerFunc {
 }
 
 // handleJWKS 返回 JSON Web Key Set，包含用于验证 JWT 签名的 ECDSA 公钥。
+// +openapi:endpoint
+// +openapi:method=GET
+// +openapi:path=/.well-known/jwks.json
+// +openapi:summary=JSON Web Key Set
+// +openapi:description=返回用于验证 JWT 签名的 ECDSA 公钥集
+// +openapi:tag=OIDC
+// +openapi:operationId=getJWKS
+// +openapi:response.200.description=OK
+// +openapi:response.200.contentType=application/json
 func handleJWKS(provider *oidc.Provider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -51,6 +70,14 @@ func handleJWKS(provider *oidc.Provider) http.HandlerFunc {
 
 // handleAuthorize 处理 OAuth2 授权请求。验证 client_id、redirect_uri 和 PKCE 参数后，
 // 将请求存储为待处理状态，并重定向用户到登录页面。
+// +openapi:endpoint
+// +openapi:method=GET
+// +openapi:path=/oidc/authorize
+// +openapi:summary=授权端点
+// +openapi:description=发起 OAuth2 Authorization Code Flow，验证参数后重定向到登录页面
+// +openapi:tag=OIDC
+// +openapi:operationId=oidcAuthorize
+// +openapi:response.302.description=重定向到登录页面
 func handleAuthorize(provider *oidc.Provider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
@@ -125,6 +152,21 @@ func handleAuthorize(provider *oidc.Provider) http.HandlerFunc {
 // handleLogin 处理用户登录请求。验证用户名和密码后：
 // - 如果提供了 requestId，完成 OIDC 授权流程，生成授权码并返回回调 URL；
 // - 如果未提供 requestId，执行直接登录，返回会话信息。
+// +openapi:endpoint
+// +openapi:method=POST
+// +openapi:path=/oidc/login
+// +openapi:summary=用户登录
+// +openapi:description=验证用户名和密码，完成授权流程或直接登录
+// +openapi:tag=OIDC
+// +openapi:operationId=oidcLogin
+// +openapi:requestBody.contentType=application/json
+// +openapi:requestBody.schema=OIDCLoginRequest
+// +openapi:response.200.description=登录成功
+// +openapi:response.200.contentType=application/json
+// +openapi:response.200.schema=OIDCLoginResponse
+// +openapi:response.401.description=认证失败
+// +openapi:response.401.contentType=application/json
+// +openapi:response.401.schema=OIDCErrorResponse
 func handleLogin(provider *oidc.Provider) http.HandlerFunc {
 	type loginRequest struct {
 		Username  string `json:"username"`
@@ -185,6 +227,21 @@ func handleLogin(provider *oidc.Provider) http.HandlerFunc {
 // handleToken 处理令牌请求，支持两种授权类型：
 // - authorization_code：用授权码换取访问令牌、ID 令牌和刷新令牌；
 // - refresh_token：用刷新令牌获取新的令牌对（令牌轮换）。
+// +openapi:endpoint
+// +openapi:method=POST
+// +openapi:path=/oidc/token
+// +openapi:summary=令牌端点
+// +openapi:description=用授权码或刷新令牌换取访问令牌
+// +openapi:tag=OIDC
+// +openapi:operationId=oidcToken
+// +openapi:requestBody.contentType=application/x-www-form-urlencoded
+// +openapi:requestBody.schema=OIDCTokenRequest
+// +openapi:response.200.description=令牌签发成功
+// +openapi:response.200.contentType=application/json
+// +openapi:response.200.schema=OIDCTokenResponse
+// +openapi:response.400.description=请求无效
+// +openapi:response.400.contentType=application/json
+// +openapi:response.400.schema=OIDCErrorResponse
 func handleToken(provider *oidc.Provider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
@@ -287,6 +344,19 @@ func handleRefreshToken(w http.ResponseWriter, r *http.Request, provider *oidc.P
 }
 
 // handleUserInfo 通过 Bearer Token 获取当前认证用户的信息。根据令牌中的 scope 返回相应的 claims。
+// +openapi:endpoint
+// +openapi:method=GET
+// +openapi:path=/oidc/userinfo
+// +openapi:summary=用户信息端点
+// +openapi:description=通过 Bearer Token 获取当前认证用户的信息
+// +openapi:tag=OIDC
+// +openapi:operationId=getOIDCUserInfo
+// +openapi:response.200.description=OK
+// +openapi:response.200.contentType=application/json
+// +openapi:response.200.schema=OIDCUserInfoResponse
+// +openapi:response.401.description=令牌无效
+// +openapi:response.401.contentType=application/json
+// +openapi:response.401.schema=OIDCErrorResponse
 func handleUserInfo(provider *oidc.Provider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -308,6 +378,22 @@ func handleUserInfo(provider *oidc.Provider) http.HandlerFunc {
 		_ = json.NewEncoder(w).Encode(userInfo)
 	}
 }
+
+// handleUserInfoPost 同 handleUserInfo，支持 POST 方法。
+// +openapi:endpoint
+// +openapi:method=POST
+// +openapi:path=/oidc/userinfo
+// +openapi:summary=用户信息端点（POST）
+// +openapi:description=通过 Bearer Token 获取当前认证用户的信息（POST 方法）
+// +openapi:tag=OIDC
+// +openapi:operationId=postOIDCUserInfo
+// +openapi:response.200.description=OK
+// +openapi:response.200.contentType=application/json
+// +openapi:response.200.schema=OIDCUserInfoResponse
+// +openapi:response.401.description=令牌无效
+// +openapi:response.401.contentType=application/json
+// +openapi:response.401.schema=OIDCErrorResponse
+func handleUserInfoPost() {} //nolint:unused // OpenAPI annotation target only
 
 // oidcError 写入标准 OAuth2 错误响应（RFC 6749 Section 5.2）。
 func oidcError(w http.ResponseWriter, errCode, description string, statusCode int) {
