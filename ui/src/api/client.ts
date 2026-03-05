@@ -1,5 +1,5 @@
 import ky from "ky"
-import { getAccessToken, refreshAccessToken, logout } from "@/lib/auth"
+import { getAccessToken, refreshAccessToken } from "@/lib/auth"
 
 export const api = ky.create({
   prefixUrl: "/api/v1",
@@ -23,7 +23,11 @@ export const api = ky.create({
             }
             return ky(request)
           }
-          logout()
+          window.location.href = "/error?status=401"
+          return response
+        }
+        if (response.status === 403 || response.status >= 500) {
+          window.location.href = `/error?status=${response.status}`
         }
         return response
       },

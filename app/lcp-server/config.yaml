@@ -25,10 +25,10 @@ oidc:
   accessTokenTTL: "1h"
   refreshTokenTTL: "168h"
   authCodeTTL: "5m"
-  loginUrl: "http://localhost:5173/login"
+  loginUrl: "/login"
   clients:
     - id: "lcp-ui"
       public: true
       redirectUris:
-        - "http://localhost:5173/auth/callback"
+        - "http://localhost:8428/auth/callback"
       scopes: ["openid", "profile", "email", "phone"]

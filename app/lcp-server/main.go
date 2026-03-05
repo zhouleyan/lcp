@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"io/fs"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	"lcp.io/lcp/pkg/apis"
 	"lcp.io/lcp/pkg/apis/iam"
 	"lcp.io/lcp/pkg/db"
+	ui "lcp.io/lcp/ui"
 )
 
 var (
@@ -104,21 +107,34 @@ func main() {
 		oidcMux = iam.NewOIDCMux(oidcProvider)
 	}
 
+	// Embedded frontend static files
+	distFS, err := fs.Sub(ui.DistFS, "dist")
+	if err != nil {
+		logger.Fatalf("cannot load embedded frontend: %v", err)
+	}
+	staticHandler := http.FileServer(http.FS(distFS))
+
 	requestHandler := func(w http.ResponseWriter, r *http.Request) bool {
-		path := r.URL.Path
+		urlPath := r.URL.Path
 		// Route OIDC endpoints to public mux (no auth middleware)
-		if oidcMux != nil && (strings.HasPrefix(path, "/.well-known/") || strings.HasPrefix(path, "/oidc/")) {
+		if oidcMux != nil && (strings.HasPrefix(urlPath, "/.well-known/") || strings.HasPrefix(urlPath, "/oidc/")) {
 			oidcMux.ServeHTTP(w, r)
 			return true
 		}
 		// Serve OpenAPI spec (no auth)
-		if path == "/docs/openapi.json" {
+		if urlPath == "/docs/openapi.json" {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(docs.OpenAPISpec)
 			return true
 		}
-		// All other requests go through the API handler (with auth middleware)
-		return apiHandler.RequestHandler(w, r)
+		// API requests go through the API handler (with auth middleware)
+		if strings.HasPrefix(urlPath, "/api/") {
+			apiHandler.RequestHandler(w, r)
+			return true
+		}
+		// Serve frontend static files; fallback to index.html for SPA routes
+		serveFrontend(w, r, distFS, staticHandler)
+		return true
 	}
 
 	go httpserver.Serve(listenAddrs, requestHandler, httpserver.ServerOptions{
@@ -189,6 +205,28 @@ func dbConfigFrom(cfg *config.Config) db.Config {
 		SSLMode:  cfg.Database.SSLMode,
 		MaxConns: cfg.Database.MaxConns,
 	}
+}
+
+// serveFrontend serves static files from the embedded frontend.
+// If the requested file exists, it is served directly.
+// Otherwise, index.html is served to support SPA client-side routing.
+func serveFrontend(w http.ResponseWriter, r *http.Request, distFS fs.FS, staticHandler http.Handler) {
+	// Clean the path and try to find a real file
+	filePath := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+	if filePath == "" {
+		filePath = "index.html"
+	}
+
+	// Check if the file exists in the embedded FS
+	if f, err := distFS.Open(filePath); err == nil {
+		f.Close()
+		staticHandler.ServeHTTP(w, r)
+		return
+	}
+
+	// SPA fallback: serve index.html for all non-file routes
+	r.URL.Path = "/"
+	staticHandler.ServeHTTP(w, r)
 }
 
 func usage() {

@@ -7,13 +7,16 @@ RACE ?= -race
 EXTRA_GO_BUILD_TAGS ?=
 GO_BUILD_INFO = -X '$(PKG_PREFIX)/lib/buildinfo.Version=$(APP_NAME)-$(DATE_INFO_TAG)-$(BUILD_INFO_TAG)'
 
-.PHONY: lcp-server lcp-server-prod sqlc-generate openapi-gen test lint fmt vet clean ui-install ui-dev ui-build ui-lint dev
+.PHONY: lcp-server lcp-server-prod build sqlc-generate openapi-gen test lint fmt vet clean ui-install ui-dev ui-build ui-lint dev
 
 lcp-server:
 	CGO_ENABLED=1 go build $(RACE) -ldflags "$(GO_BUILD_INFO)" -tags "$(EXTRA_GO_BUILD_TAGS)" -o bin/$(APP_NAME)$(RACE) $(PKG_PREFIX)/app/$(APP_NAME)
 
 lcp-server-prod:
 	CGO_ENABLED=0 go build -ldflags "$(GO_BUILD_INFO)" -tags "$(EXTRA_GO_BUILD_TAGS)" -o bin/$(APP_NAME) $(PKG_PREFIX)/app/$(APP_NAME)
+
+# ./bin/lcp-server -config ./app/lcp-server/config.yaml
+build: ui-build lcp-server-prod
 
 sqlc-generate:
 	cd pkg/db && sqlc generate
@@ -51,6 +54,6 @@ ui-lint:
 
 dev:
 	@trap 'kill 0' EXIT; \
-	go run $(PKG_PREFIX)/app/$(APP_NAME) -config ./app/$(APP_NAME)/config.yaml & \
+	go run $(PKG_PREFIX)/app/$(APP_NAME) -config ./app/$(APP_NAME)/config.dev.yaml & \
 	cd ui && pnpm dev & \
 	wait

@@ -54,6 +54,19 @@ const enUS: Messages = {
   "user.noData": "No users found.",
   "user.username": "Username",
   "user.email": "Email",
+
+  // error
+  "error.400.title": "Bad Request",
+  "error.400.desc": "The request could not be understood. Please try again.",
+  "error.401.title": "Unauthorized",
+  "error.401.desc": "Please sign in to continue.",
+  "error.403.title": "Forbidden",
+  "error.403.desc": "You don't have permission to access this page.",
+  "error.404.title": "Not Found",
+  "error.404.desc": "The page you are looking for does not exist.",
+  "error.500.title": "Server Error",
+  "error.500.desc": "Something went wrong. Please try again later.",
+  "error.backHome": "Back to Home",
 }
 
 export default enUS

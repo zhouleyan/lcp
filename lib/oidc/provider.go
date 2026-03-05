@@ -173,7 +173,7 @@ func (p *Provider) ExchangeCode(ctx context.Context, req *CodeExchangeRequest) (
 	if code.ClientID != req.ClientID {
 		return nil, errors.New("client_id mismatch")
 	}
-	if code.RedirectURI != req.RedirectURI {
+	if req.RedirectURI != "" && code.RedirectURI != req.RedirectURI {
 		return nil, errors.New("redirect_uri mismatch")
 	}
 

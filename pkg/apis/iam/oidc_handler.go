@@ -91,13 +91,13 @@ func handleAuthorize(provider *oidc.Provider) http.HandlerFunc {
 		codeChallengeMethod := q.Get("code_challenge_method")
 
 		if responseType != "code" {
-			oidcError(w, "unsupported_response_type", "only 'code' response_type is supported", http.StatusBadRequest)
+			http.Redirect(w, r, "/error?status=400", http.StatusFound)
 			return
 		}
 
 		client, ok := provider.GetClient(clientID)
 		if !ok {
-			oidcError(w, "invalid_request", "unknown client_id", http.StatusBadRequest)
+			http.Redirect(w, r, "/error?status=400", http.StatusFound)
 			return
 		}
 
@@ -105,24 +105,24 @@ func handleAuthorize(provider *oidc.Provider) http.HandlerFunc {
 			if len(client.RedirectURIs) > 0 {
 				redirectURI = client.RedirectURIs[0]
 			} else {
-				oidcError(w, "invalid_request", "redirect_uri is required", http.StatusBadRequest)
+				http.Redirect(w, r, "/error?status=400", http.StatusFound)
 				return
 			}
 		}
 
 		if !provider.ValidateRedirectURI(client, redirectURI) {
-			oidcError(w, "invalid_request", "redirect_uri is not registered", http.StatusBadRequest)
+			http.Redirect(w, r, "/error?status=403", http.StatusFound)
 			return
 		}
 
 		// Public clients must use PKCE
 		if client.Public && codeChallenge == "" {
-			oidcError(w, "invalid_request", "code_challenge is required for public clients", http.StatusBadRequest)
+			http.Redirect(w, r, "/error?status=400", http.StatusFound)
 			return
 		}
 
 		if codeChallenge != "" && codeChallengeMethod != "S256" {
-			oidcError(w, "invalid_request", "only S256 code_challenge_method is supported", http.StatusBadRequest)
+			http.Redirect(w, r, "/error?status=400", http.StatusFound)
 			return
 		}
 
@@ -139,7 +139,7 @@ func handleAuthorize(provider *oidc.Provider) http.HandlerFunc {
 
 		requestID, err := provider.StorePendingAuthorize(req)
 		if err != nil {
-			oidcError(w, "server_error", "failed to process authorization request", http.StatusInternalServerError)
+			http.Redirect(w, r, "/error?status=500", http.StatusFound)
 			return
 		}
 

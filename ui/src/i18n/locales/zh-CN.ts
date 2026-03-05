@@ -54,6 +54,19 @@ const zhCN: Messages = {
   "user.noData": "暂无用户。",
   "user.username": "用户名",
   "user.email": "邮箱",
+
+  // error
+  "error.400.title": "请求错误",
+  "error.400.desc": "请求无法处理，请重试。",
+  "error.401.title": "未授权",
+  "error.401.desc": "请登录后继续。",
+  "error.403.title": "禁止访问",
+  "error.403.desc": "您没有权限访问此页面。",
+  "error.404.title": "页面不存在",
+  "error.404.desc": "您访问的页面不存在。",
+  "error.500.title": "服务器错误",
+  "error.500.desc": "系统出现问题，请稍后再试。",
+  "error.backHome": "返回首页",
 }
 
 export default zhCN

@@ -29,7 +29,10 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const redirectUri = await loginWithCredentials(username, password, requestId)
-      window.location.href = redirectUri
+      // Navigate using relative path to stay on the same origin,
+      // preserving sessionStorage (PKCE code_verifier) across the redirect.
+      const url = new URL(redirectUri)
+      window.location.href = url.pathname + url.search
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed")
     } finally {
