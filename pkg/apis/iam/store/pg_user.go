@@ -2,21 +2,23 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/pkg/apis/iam"
 	"lcp.io/lcp/pkg/db"
 	"lcp.io/lcp/pkg/db/generated"
 )
 
 type pgUserStore struct {
-	db      generated.DBTX
 	queries *generated.Queries
 }
 
 // NewPGUserStore creates a new PostgreSQL-backed UserStore.
-func NewPGUserStore(pool generated.DBTX, queries *generated.Queries) iam.UserStore {
-	return &pgUserStore{db: pool, queries: queries}
+func NewPGUserStore(queries *generated.Queries) iam.UserStore {
+	return &pgUserStore{queries: queries}
 }
 
 func (s *pgUserStore) Create(ctx context.Context, user *iam.DBUser) (*iam.DBUser, error) {
@@ -37,6 +39,9 @@ func (s *pgUserStore) Create(ctx context.Context, user *iam.DBUser) (*iam.DBUser
 func (s *pgUserStore) GetByID(ctx context.Context, id int64) (*iam.DBUser, error) {
 	row, err := s.queries.GetUserByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("user", fmt.Sprintf("%d", id))
+		}
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 	return &row, nil
@@ -45,6 +50,9 @@ func (s *pgUserStore) GetByID(ctx context.Context, id int64) (*iam.DBUser, error
 func (s *pgUserStore) GetByUsername(ctx context.Context, username string) (*iam.DBUser, error) {
 	row, err := s.queries.GetUserByUsername(ctx, username)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("user", username)
+		}
 		return nil, fmt.Errorf("get user by username: %w", err)
 	}
 	return &row, nil
@@ -53,6 +61,9 @@ func (s *pgUserStore) GetByUsername(ctx context.Context, username string) (*iam.
 func (s *pgUserStore) GetByEmail(ctx context.Context, email string) (*iam.DBUser, error) {
 	row, err := s.queries.GetUserByEmail(ctx, email)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("user", email)
+		}
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
 	return &row, nil
@@ -69,6 +80,9 @@ func (s *pgUserStore) Update(ctx context.Context, user *iam.DBUser) (*iam.DBUser
 		Status:      user.Status,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("user", fmt.Sprintf("%d", user.ID))
+		}
 		return nil, fmt.Errorf("update user: %w", err)
 	}
 	return &row, nil
@@ -85,6 +99,9 @@ func (s *pgUserStore) Patch(ctx context.Context, id int64, user *iam.DBUser) (*i
 		Status:      toNullString(user.Status),
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("user", fmt.Sprintf("%d", id))
+		}
 		return nil, fmt.Errorf("patch user: %w", err)
 	}
 	return &row, nil

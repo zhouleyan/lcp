@@ -33,6 +33,10 @@ RETURNING id, name, display_name, description, owner_id, visibility, max_members
 -- name: DeleteNamespace :exec
 DELETE FROM namespaces WHERE id = @id;
 
+-- name: DeleteNamespacesByIDs :many
+DELETE FROM namespaces WHERE id = ANY(@ids::BIGINT[])
+RETURNING id;
+
 -- name: CountNamespaces :one
 SELECT count(id)
 FROM namespaces

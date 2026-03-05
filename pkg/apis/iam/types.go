@@ -42,6 +42,8 @@ type UserSpec struct {
 	// +openapi:description=Account status
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
+	// +openapi:description=Namespaces the user belongs to (populated in list responses)
+	Namespaces []string `json:"namespaces,omitempty"`
 }
 
 // UserList

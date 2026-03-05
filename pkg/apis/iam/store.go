@@ -27,6 +27,7 @@ type NamespaceStore interface {
 	GetByName(ctx context.Context, name string) (*DBNamespace, error)
 	Update(ctx context.Context, ns *DBNamespace) (*DBNamespace, error)
 	Delete(ctx context.Context, id int64) error
+	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwner], error)
 }
 

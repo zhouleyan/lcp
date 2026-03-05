@@ -91,6 +91,31 @@ func (q *Queries) DeleteNamespace(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteNamespacesByIDs = `-- name: DeleteNamespacesByIDs :many
+DELETE FROM namespaces WHERE id = ANY($1::BIGINT[])
+RETURNING id
+`
+
+func (q *Queries) DeleteNamespacesByIDs(ctx context.Context, ids []int64) ([]int64, error) {
+	rows, err := q.db.Query(ctx, deleteNamespacesByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getNamespaceByID = `-- name: GetNamespaceByID :one
 SELECT id, name, display_name, description, owner_id, visibility, max_members, status,
        created_at, updated_at

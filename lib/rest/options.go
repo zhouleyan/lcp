@@ -7,13 +7,13 @@ import (
 )
 
 var (
-	// ErrInvalidPage 页码无效
+	// ErrInvalidPage indicates an invalid page number.
 	ErrInvalidPage = errors.New("page must be greater than 0")
-	// ErrInvalidPageSize 每页大小无效
+	// ErrInvalidPageSize indicates an invalid page size.
 	ErrInvalidPageSize = errors.New("page size must be between 1 and 100")
 )
 
-// SortOrder 排序方向
+// SortOrder defines sort direction.
 type SortOrder string
 
 const (
@@ -21,51 +21,51 @@ const (
 	SortOrderDesc SortOrder = "desc"
 )
 
-// GetOptions 获取选项
+// GetOptions holds options for getting a single resource.
 type GetOptions struct {
 	PathParams map[string]string
 }
 
-// CreateOptions 创建选项
+// CreateOptions holds options for creating a resource.
 type CreateOptions struct {
 	PathParams map[string]string
-	DryRun     bool // 是否只验证不执行
+	DryRun     bool // validate only, do not persist
 }
 
-// UpdateOptions 更新选项
+// UpdateOptions holds options for updating a resource.
 type UpdateOptions struct {
 	PathParams map[string]string
 	DryRun     bool
 }
 
-// PatchOptions 补丁选项
+// PatchOptions holds options for patching a resource.
 type PatchOptions struct {
 	PathParams map[string]string
 	DryRun     bool
 }
 
-// DeleteOptions 删除选项
+// DeleteOptions holds options for deleting a resource.
 type DeleteOptions struct {
 	PathParams map[string]string
 	DryRun     bool
 }
 
-// ListOptions 列表查询选项
+// ListOptions holds options for listing resources.
 type ListOptions struct {
-	PathParams map[string]string // 路径参数
-	Filters    map[string]string // 过滤条件
-	Pagination Pagination        // 分页参数
-	SortBy     string            // 排序字段
-	SortOrder  SortOrder         // 排序方向 (asc/desc)
+	PathParams map[string]string // path parameters
+	Filters    map[string]string // filter conditions
+	Pagination Pagination        // pagination parameters
+	SortBy     string            // sort field
+	SortOrder  SortOrder         // sort direction (asc/desc)
 }
 
-// Pagination 分页参数
+// Pagination holds pagination parameters.
 type Pagination struct {
-	Page     int // 页码，从 1 开始
-	PageSize int // 每页大小
+	Page     int // page number, starting from 1
+	PageSize int // items per page
 }
 
-// Validate 验证分页参数
+// Validate checks that pagination parameters are within valid ranges.
 func (p Pagination) Validate() error {
 	if p.Page < 1 {
 		return ErrInvalidPage
@@ -76,7 +76,7 @@ func (p Pagination) Validate() error {
 	return nil
 }
 
-// ReservedQueryParams 保留的查询参数名称，不应作为过滤条件
+// ReservedQueryParams are query parameter names that should not be used as filters.
 var ReservedQueryParams = map[string]bool{
 	"page":      true,
 	"pageSize":  true,
@@ -84,7 +84,7 @@ var ReservedQueryParams = map[string]bool{
 	"sortOrder": true,
 }
 
-// ParseListOptions 从 URL 查询参数解析 ListOptions
+// ParseListOptions parses ListOptions from URL query parameters.
 func ParseListOptions(query url.Values) *ListOptions {
 	options := &ListOptions{
 		Filters: make(map[string]string),
@@ -94,14 +94,14 @@ func ParseListOptions(query url.Values) *ListOptions {
 		},
 	}
 
-	// 解析过滤条件（排除保留参数）
+	// Parse filter conditions (exclude reserved parameters)
 	for key, values := range query {
 		if len(values) > 0 && !ReservedQueryParams[key] {
 			options.Filters[key] = values[0]
 		}
 	}
 
-	// 解析分页
+	// Parse pagination
 	if page := query.Get("page"); page != "" {
 		if p, err := strconv.Atoi(page); err == nil && p > 0 {
 			options.Pagination.Page = p
@@ -113,7 +113,7 @@ func ParseListOptions(query url.Values) *ListOptions {
 		}
 	}
 
-	// 解析排序
+	// Parse sorting
 	options.SortBy = query.Get("sortBy")
 	if sortOrder := query.Get("sortOrder"); sortOrder != "" {
 		options.SortOrder = SortOrder(sortOrder)

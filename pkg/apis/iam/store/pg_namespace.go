@@ -2,37 +2,40 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/pkg/apis/iam"
 	"lcp.io/lcp/pkg/db"
 	"lcp.io/lcp/pkg/db/generated"
 )
 
-var namespaceListSpec = db.ListSpec{
-	Fields: map[string]db.Field{
-		"status":     {Column: "ns.status", Op: db.Eq},
-		"name":       {Column: "ns.name", Op: db.Like},
-		"visibility": {Column: "ns.visibility", Op: db.Eq},
-		"owner_id":   {Column: "ns.owner_id", Op: db.Eq},
-	},
-	DefaultSort: "ns.created_at",
-}
-
 // ===== pgNamespaceStore =====
 
 type pgNamespaceStore struct {
-	db      generated.DBTX
+	db      *pgxpool.Pool
 	queries *generated.Queries
 }
 
 // NewPGNamespaceStore creates a new PostgreSQL-backed NamespaceStore.
-func NewPGNamespaceStore(pool generated.DBTX, queries *generated.Queries) iam.NamespaceStore {
+func NewPGNamespaceStore(pool *pgxpool.Pool, queries *generated.Queries) iam.NamespaceStore {
 	return &pgNamespaceStore{db: pool, queries: queries}
 }
 
 func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*iam.DBNamespace, error) {
-	row, err := s.queries.CreateNamespace(ctx, generated.CreateNamespaceParams{
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	qtx := s.queries.WithTx(tx)
+
+	row, err := qtx.CreateNamespace(ctx, generated.CreateNamespaceParams{
 		Name:        ns.Name,
 		DisplayName: ns.DisplayName,
 		Description: ns.Description,
@@ -46,7 +49,7 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 	}
 
 	// Auto-add owner as member with role "owner"
-	_, err = s.queries.AddUserToNamespace(ctx, generated.AddUserToNamespaceParams{
+	_, err = qtx.AddUserToNamespace(ctx, generated.AddUserToNamespaceParams{
 		UserID:      ns.OwnerID,
 		NamespaceID: row.ID,
 		Role:        "owner",
@@ -55,12 +58,19 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 		return nil, fmt.Errorf("add owner to namespace: %w", err)
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit transaction: %w", err)
+	}
+
 	return &row, nil
 }
 
 func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*iam.DBNamespace, error) {
 	row, err := s.queries.GetNamespaceByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("namespace", fmt.Sprintf("%d", id))
+		}
 		return nil, fmt.Errorf("get namespace by id: %w", err)
 	}
 	return &row, nil
@@ -69,6 +79,9 @@ func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*iam.DBNamesp
 func (s *pgNamespaceStore) GetByName(ctx context.Context, name string) (*iam.DBNamespace, error) {
 	row, err := s.queries.GetNamespaceByName(ctx, name)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("namespace", name)
+		}
 		return nil, fmt.Errorf("get namespace by name: %w", err)
 	}
 	return &row, nil
@@ -86,6 +99,9 @@ func (s *pgNamespaceStore) Update(ctx context.Context, ns *iam.DBNamespace) (*ia
 		Status:      ns.Status,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("namespace", fmt.Sprintf("%d", ns.ID))
+		}
 		return nil, fmt.Errorf("update namespace: %w", err)
 	}
 	return &row, nil
@@ -98,56 +114,91 @@ func (s *pgNamespaceStore) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (s *pgNamespaceStore) DeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	deletedIDs, err := s.queries.DeleteNamespacesByIDs(ctx, ids)
+	if err != nil {
+		return 0, fmt.Errorf("delete namespaces by ids: %w", err)
+	}
+	return int64(len(deletedIDs)), nil
+}
+
 func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[iam.DBNamespaceWithOwner], error) {
 	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
-	where, args := db.BuildWhereClause(q.Filters, namespaceListSpec, 1)
-	orderBy := db.BuildOrderBy(q.SortBy, q.SortOrder, namespaceListSpec)
 
-	var count int64
-	countSQL := "SELECT count(ns.id) FROM namespaces ns" + where
-	if err := s.db.QueryRow(ctx, countSQL, args...).Scan(&count); err != nil {
+	filterStr := func(key string) *string {
+		if v, ok := q.Filters[key]; ok {
+			if s, ok := v.(string); ok {
+				return &s
+			}
+		}
+		return nil
+	}
+
+	filterInt64 := func(key string) *int64 {
+		if v, ok := q.Filters[key]; ok {
+			switch val := v.(type) {
+			case int64:
+				return &val
+			case string:
+				if i, err := strconv.ParseInt(val, 10, 64); err == nil {
+					return &i
+				}
+			}
+		}
+		return nil
+	}
+
+	countParams := generated.CountNamespacesParams{
+		Status:     filterStr("status"),
+		Name:       filterStr("name"),
+		Visibility: filterStr("visibility"),
+		OwnerID:    filterInt64("owner_id"),
+	}
+
+	count, err := s.queries.CountNamespaces(ctx, countParams)
+	if err != nil {
 		return nil, fmt.Errorf("count namespaces: %w", err)
 	}
 
-	n := len(args)
-	listSQL := `SELECT
-    ns.id, ns.name, ns.display_name, ns.description, ns.owner_id,
-    ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
-    u.username AS owner_username
-FROM namespaces ns
-JOIN users u ON ns.owner_id = u.id` +
-		where +
-		orderBy +
-		fmt.Sprintf(" LIMIT $%d OFFSET $%d", n+1, n+2)
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
 
-	rows, err := s.db.Query(ctx, listSQL, append(args, limit, offset)...)
+	rows, err := s.queries.ListNamespaces(ctx, generated.ListNamespacesParams{
+		Status:     countParams.Status,
+		Name:       countParams.Name,
+		Visibility: countParams.Visibility,
+		OwnerID:    countParams.OwnerID,
+		SortField:  q.SortBy,
+		SortOrder:  sortOrder,
+		PageOffset: offset,
+		PageSize:   limit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list namespaces: %w", err)
 	}
-	defer rows.Close()
 
-	var items []iam.DBNamespaceWithOwner
-	for rows.Next() {
-		var item iam.DBNamespaceWithOwner
-		if err := rows.Scan(
-			&item.ID,
-			&item.Name,
-			&item.DisplayName,
-			&item.Description,
-			&item.OwnerID,
-			&item.Visibility,
-			&item.MaxMembers,
-			&item.Status,
-			&item.CreatedAt,
-			&item.UpdatedAt,
-			&item.OwnerUsername,
-		); err != nil {
-			return nil, fmt.Errorf("scan namespace row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate namespace rows: %w", err)
+	items := make([]iam.DBNamespaceWithOwner, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, iam.DBNamespaceWithOwner{
+			Namespace: generated.Namespace{
+				ID:          r.ID,
+				Name:        r.Name,
+				DisplayName: r.DisplayName,
+				Description: r.Description,
+				OwnerID:     r.OwnerID,
+				Visibility:  r.Visibility,
+				MaxMembers:  r.MaxMembers,
+				Status:      r.Status,
+				CreatedAt:   r.CreatedAt,
+				UpdatedAt:   r.UpdatedAt,
+			},
+			OwnerUsername: r.OwnerUsername,
+		})
 	}
 
 	return &db.ListResult[iam.DBNamespaceWithOwner]{

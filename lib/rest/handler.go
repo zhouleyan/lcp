@@ -18,6 +18,9 @@ func handleError(ns runtime.NegotiatedSerializer, err error, w http.ResponseWrit
 // HandlerFunc is the unified function signature for all request handlers.
 type HandlerFunc func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error)
 
+// maxRequestBodySize is the maximum allowed request body size (1 MB).
+const maxRequestBodySize = 1 << 20
+
 // Handle returns an http.HandlerFunc that:
 //  1. Extracts path params from context
 //  2. Reads request body (if present)
@@ -30,6 +33,7 @@ func Handle(ns runtime.NegotiatedSerializer, statusCode int, fn HandlerFunc) htt
 
 		var body []byte
 		if req.Body != nil && req.ContentLength != 0 {
+			req.Body = http.MaxBytesReader(w, req.Body, maxRequestBodySize)
 			var err error
 			body, err = io.ReadAll(req.Body)
 			if err != nil {
@@ -64,7 +68,7 @@ func transformResponseObject(
 	WriteObjectNegotiated(ns, w, req, statusCode, result)
 }
 
-// readBody reads the full request body.
+// readBody reads the full request body with a size limit.
 func readBody(req *http.Request) ([]byte, error) {
 	if req.Body == nil {
 		return nil, nil
@@ -72,7 +76,7 @@ func readBody(req *http.Request) ([]byte, error) {
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
 	}(req.Body)
-	return io.ReadAll(req.Body)
+	return io.ReadAll(io.LimitReader(req.Body, maxRequestBodySize+1))
 }
 
 // jsonUnmarshal is a thin wrapper to avoid importing encoding/json in installer.go.

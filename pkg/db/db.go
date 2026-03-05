@@ -3,23 +3,16 @@ package db
 import (
 	"context"
 	"fmt"
-	"strings"
+	"net/url"
+	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"lcp.io/lcp/pkg/db/generated"
 )
 
-// EscapeLike escapes LIKE/ILIKE special characters (%, _, \) in a string
-// so they are treated as literals in filter queries.
-func EscapeLike(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, `%`, `\%`)
-	s = strings.ReplaceAll(s, `_`, `\_`)
-	return s
-}
-
 // DB holds the database connection pool and query interface.
 type DB struct {
+	mu      sync.RWMutex
 	Pool    *pgxpool.Pool
 	Queries *generated.Queries
 }
@@ -36,7 +29,23 @@ func NewDB(ctx context.Context, cfg Config) (*DB, error) {
 
 // Close closes the underlying connection pool.
 func (d *DB) Close() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.Pool.Close()
+}
+
+// GetPool returns the current connection pool in a thread-safe manner.
+func (d *DB) GetPool() *pgxpool.Pool {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.Pool
+}
+
+// GetQueries returns the current queries instance in a thread-safe manner.
+func (d *DB) GetQueries() *generated.Queries {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.Queries
 }
 
 // Reload creates a new connection pool with the given config, verifies it,
@@ -47,9 +56,13 @@ func (d *DB) Reload(ctx context.Context, cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("reload database: %w", err)
 	}
+
+	d.mu.Lock()
 	oldPool := d.Pool
 	d.Pool = newPool
 	d.Queries = generated.New(newPool)
+	d.mu.Unlock()
+
 	oldPool.Close()
 	return nil
 }
@@ -65,7 +78,7 @@ type Config struct {
 	MaxConns int32
 }
 
-// DSN returns the PostgreSQL connection string.
+// DSN returns the PostgreSQL connection string with the password masked.
 func (c Config) DSN() string {
 	sslMode := c.SSLMode
 	if sslMode == "" {
@@ -76,7 +89,21 @@ func (c Config) DSN() string {
 		port = 5432
 	}
 	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		c.User, c.Password, c.Host, port, c.DBName, sslMode)
+		c.User, url.QueryEscape(c.Password), c.Host, port, c.DBName, sslMode)
+}
+
+// RedactedDSN returns the DSN with the password replaced for safe logging.
+func (c Config) RedactedDSN() string {
+	sslMode := c.SSLMode
+	if sslMode == "" {
+		sslMode = "disable"
+	}
+	port := c.Port
+	if port == 0 {
+		port = 5432
+	}
+	return fmt.Sprintf("postgres://%s:***@%s:%d/%s?sslmode=%s",
+		c.User, c.Host, port, c.DBName, sslMode)
 }
 
 // NewPool creates a new pgx connection pool and verifies connectivity.

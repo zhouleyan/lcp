@@ -131,9 +131,9 @@ func (c CurlyRouter) matchesRouteByPathTokens(routeTokens, requestTokens []strin
 
 		if strings.HasPrefix(routeToken, "{") {
 			paramCount++
-			if colon := strings.Index(requestToken, ":"); colon != -1 {
+			if colon := strings.Index(routeToken, ":"); colon != -1 {
 				// match by regex
-				matchesToken, matchesRemainder := c.regularMatchesPathToken(requestToken, colon, requestToken)
+				matchesToken, matchesRemainder := c.regularMatchesPathToken(routeToken, colon, requestToken)
 				if !matchesToken {
 					return false, 0, 0
 				}
@@ -166,7 +166,7 @@ func (c CurlyRouter) regularMatchesPathToken(routeToken string, colon int, reque
 	}
 
 	// Compile the regex
-	regex, err := regexp.Compile(requestToken)
+	regex, err := regexp.Compile(regPart)
 	if err != nil {
 		return false, false
 	}

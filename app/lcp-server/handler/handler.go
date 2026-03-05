@@ -67,19 +67,16 @@ type director struct {
 
 func (d director) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
-	logger.Infof("Directing: %s %s", d.name, path)
 
 	for _, ws := range d.container.RegisteredWebServices() {
 		switch {
 		case ws.RootPath() == "/apis":
 			if path == "/apis" || path == "/apis/" {
-				logger.Infof("%v: %v %q satisfied by rest with web service %v", d.name, r.Method, path, ws.RootPath())
 				d.container.Dispatch(w, r)
 				return
 			}
 		case strings.HasPrefix(path, ws.RootPath()):
 			if len(path) == len(ws.RootPath()) || path[len(ws.RootPath())] == '/' {
-				logger.Infof("%v: %v %q satisfied by rest with web service %v", d.name, r.Method, path, ws.RootPath())
 				d.container.Dispatch(w, r)
 				return
 			}
@@ -89,6 +86,6 @@ func (d director) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func DefaultChainBuilder(apiHandler http.Handler) http.Handler {
 	handler := apiHandler
-	handler = filters.WithRequestInfo(handler)
+	handler = filters.WithRequestLog(handler)
 	return handler
 }

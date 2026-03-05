@@ -23,7 +23,10 @@ func (i *APIInstaller) Install() {
 }
 
 func (i *APIInstaller) installResource(res ResourceInfo) {
-	idParam := defaultIDParam(res.Name)
+	idParam := res.IDParam
+	if idParam == "" {
+		idParam = defaultIDParam(res.Name)
+	}
 
 	basePath := "/" + res.Name
 	itemPath := basePath + "/{" + idParam + "}"
@@ -91,7 +94,10 @@ func (i *APIInstaller) installResource(res ResourceInfo) {
 }
 
 func (i *APIInstaller) installSubResource(parentItemPath string, sub ResourceInfo) {
-	subIDParam := defaultIDParam(sub.Name)
+	subIDParam := sub.IDParam
+	if subIDParam == "" {
+		subIDParam = defaultIDParam(sub.Name)
+	}
 
 	basePath := parentItemPath + "/" + sub.Name
 	itemPath := basePath + "/{" + subIDParam + "}"
@@ -166,16 +172,15 @@ func (i *APIInstaller) installAction(parentItemPath string, action ActionInfo) {
 // defaultIDParam derives an ID parameter name from a plural resource name.
 // "users" -> "userId", "namespaces" -> "namespaceId", "members" -> "memberId"
 func defaultIDParam(plural string) string {
-	singular := strings.TrimSuffix(plural, "s")
-	if strings.HasSuffix(singular, "se") {
-		// e.g. "namespaces" -> "namespace" (not "namespacese" -> trim "s")
+	var singular string
+	if strings.HasSuffix(plural, "ses") || strings.HasSuffix(plural, "xes") || strings.HasSuffix(plural, "zes") {
 		singular = strings.TrimSuffix(plural, "es")
-		if singular == "" {
-			singular = plural
-		}
+	} else {
+		singular = strings.TrimSuffix(plural, "s")
 	}
-	// Simple heuristic
-	singular = strings.TrimSuffix(plural, "s")
+	if singular == "" {
+		singular = plural
+	}
 	return singular + "Id"
 }
 
@@ -356,6 +361,6 @@ func (i *APIInstaller) deleteCollectionHandler(storage CollectionDeleter) http.H
 			return
 		}
 
-		WriteRawJSON(w, http.StatusOK, result)
+		WriteObjectNegotiated(i.serializer, w, req, http.StatusOK, result)
 	}
 }

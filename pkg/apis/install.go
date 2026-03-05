@@ -12,7 +12,7 @@ import (
 // *db.DB is consumed here; downstream packages only see Store interfaces.
 func NewAPIGroupInfos(database *db.DB) []*rest.APIGroupInfo {
 	iamProvider := iam.NewRESTStorageProvider(
-		iamstore.NewPGUserStore(database.Pool, database.Queries),
+		iamstore.NewPGUserStore(database.Queries),
 		iamstore.NewPGNamespaceStore(database.Pool, database.Queries),
 		iamstore.NewPGUserNamespaceStore(database.Queries),
 	)

@@ -27,6 +27,7 @@ type ActionInfo struct {
 // ResourceInfo describes a single resource and its sub-resources.
 type ResourceInfo struct {
 	Name         string         // plural resource name, e.g. "users"
+	IDParam      string         // path parameter name for this resource's primary key, e.g. "namespaceId"; if empty, derived from Name via defaultIDParam()
 	Storage      Storage        // implements Getter/Lister/Creator etc.
 	SubResources []ResourceInfo // optional nested sub-resources
 	Actions      []ActionInfo   // optional custom actions

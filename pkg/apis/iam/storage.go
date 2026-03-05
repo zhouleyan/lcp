@@ -38,7 +38,7 @@ func (s *userStorage) Get(ctx context.Context, options *rest.GetOptions) (runtim
 
 	user, err := s.dbStore.GetByID(ctx, uid)
 	if err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
+		return nil, err
 	}
 	return userToAPI(user), nil
 }
@@ -69,7 +69,7 @@ func (s *userStorage) List(ctx context.Context, options *rest.ListOptions) (runt
 
 	result, err := s.dbStore.List(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("list users: %w", err)
+		return nil, err
 	}
 
 	items := make([]User, len(result.Items))
@@ -93,7 +93,7 @@ func (s *userStorage) listByNamespace(ctx context.Context, namespaceID string) (
 
 	members, err := s.unStore.ListByNamespaceID(ctx, nsID)
 	if err != nil {
-		return nil, fmt.Errorf("list namespace users: %w", err)
+		return nil, err
 	}
 
 	items := make([]User, len(members))
@@ -132,7 +132,7 @@ func (s *userStorage) Create(ctx context.Context, obj runtime.Object, options *r
 		Status:      user.Spec.Status,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create user: %w", err)
+		return nil, err
 	}
 	return userToAPI(created), nil
 }
@@ -168,7 +168,7 @@ func (s *userStorage) Update(ctx context.Context, obj runtime.Object, options *r
 		Status:      user.Spec.Status,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("update user: %w", err)
+		return nil, err
 	}
 	return userToAPI(updated), nil
 }
@@ -204,7 +204,7 @@ func (s *userStorage) Patch(ctx context.Context, obj runtime.Object, options *re
 		Status:      user.Spec.Status,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("patch user: %w", err)
+		return nil, err
 	}
 	return userToAPI(patched), nil
 }
@@ -222,7 +222,7 @@ func (s *userStorage) Delete(ctx context.Context, options *rest.DeleteOptions) e
 	}
 
 	if err := s.dbStore.Delete(ctx, uid); err != nil {
-		return fmt.Errorf("delete user: %w", err)
+		return err
 	}
 	return nil
 }
@@ -247,7 +247,7 @@ func (s *userStorage) DeleteCollection(ctx context.Context, ids []string, option
 
 	count, err := s.dbStore.DeleteByIDs(ctx, int64IDs)
 	if err != nil {
-		return nil, fmt.Errorf("delete users: %w", err)
+		return nil, err
 	}
 
 	return &rest.DeletionResult{
@@ -266,8 +266,31 @@ type namespaceStorage struct {
 }
 
 func (s *namespaceStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
-	//TODO implement me
-	panic("implement me")
+	if options.DryRun {
+		return &rest.DeletionResult{
+			SuccessCount: len(ids),
+			FailedCount:  0,
+		}, nil
+	}
+
+	int64IDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		nid, err := parseID(id)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid namespace ID: %s", id), nil)
+		}
+		int64IDs = append(int64IDs, nid)
+	}
+
+	count, err := s.nsStore.DeleteByIDs(ctx, int64IDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &rest.DeletionResult{
+		SuccessCount: int(count),
+		FailedCount:  len(ids) - int(count),
+	}, nil
 }
 
 // NewNamespaceStorage creates a new REST storage for namespaces.
@@ -286,7 +309,7 @@ func (s *namespaceStorage) Get(ctx context.Context, options *rest.GetOptions) (r
 
 	ns, err := s.nsStore.GetByID(ctx, nid)
 	if err != nil {
-		return nil, fmt.Errorf("get namespace: %w", err)
+		return nil, err
 	}
 
 	return namespaceToAPI(ns), nil
@@ -312,7 +335,7 @@ func (s *namespaceStorage) List(ctx context.Context, options *rest.ListOptions) 
 
 	result, err := s.nsStore.List(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("list namespaces: %w", err)
+		return nil, err
 	}
 
 	items := make([]Namespace, len(result.Items))
@@ -361,7 +384,7 @@ func (s *namespaceStorage) Create(ctx context.Context, obj runtime.Object, optio
 		Status:      ns.Spec.Status,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create namespace: %w", err)
+		return nil, err
 	}
 
 	return namespaceToAPI(created), nil
@@ -399,7 +422,7 @@ func (s *namespaceStorage) Update(ctx context.Context, obj runtime.Object, optio
 		Status:      ns.Spec.Status,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("update namespace: %w", err)
+		return nil, err
 	}
 
 	return namespaceToAPI(updated), nil
@@ -429,7 +452,7 @@ func (s *namespaceStorage) Patch(ctx context.Context, obj runtime.Object, option
 	// Fetch existing and merge
 	existing, err := s.nsStore.GetByID(ctx, nid)
 	if err != nil {
-		return nil, fmt.Errorf("get namespace for patch: %w", err)
+		return nil, err
 	}
 
 	if ns.ObjectMeta.Name != "" {
@@ -460,7 +483,7 @@ func (s *namespaceStorage) Patch(ctx context.Context, obj runtime.Object, option
 
 	updated, err := s.nsStore.Update(ctx, existing)
 	if err != nil {
-		return nil, fmt.Errorf("patch namespace: %w", err)
+		return nil, err
 	}
 
 	return namespaceToAPI(updated), nil
@@ -478,7 +501,7 @@ func (s *namespaceStorage) Delete(ctx context.Context, options *rest.DeleteOptio
 	}
 
 	if err := s.nsStore.Delete(ctx, nid); err != nil {
-		return fmt.Errorf("delete namespace: %w", err)
+		return err
 	}
 	return nil
 }
@@ -506,7 +529,11 @@ func userToAPI(u *DBUser) *User {
 }
 
 func userWithNamespacesToAPI(u *DBUserWithNamespaces) *User {
-	return userToAPI(&u.User)
+	user := userToAPI(&u.User)
+	if len(u.NamespaceNames) > 0 {
+		user.Spec.Namespaces = u.NamespaceNames
+	}
+	return user
 }
 
 func namespaceToAPI(n *DBNamespace) *Namespace {

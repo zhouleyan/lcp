@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/lib/runtime"
 )
 
@@ -57,12 +58,7 @@ func ErrorNegotiated(
 		errObj = err.(runtime.Object)
 	} else {
 		code = http.StatusInternalServerError
-		errObj = &ErrorResponse{
-			TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "Status"},
-			Status:   "Failure",
-			Message:  err.Error(),
-			Code:     code,
-		}
+		errObj = apierrors.NewInternalError(err)
 	}
 
 	result, negErr := runtime.NegotiateOutputMediaType(req, ns)
@@ -110,19 +106,6 @@ func WriteRawJSON(w http.ResponseWriter, statusCode int, object any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	_, _ = w.Write(output)
-}
-
-// ErrorResponse is a simplified API error status object
-type ErrorResponse struct {
-	runtime.TypeMeta `json:",inline" yaml:",inline"`
-	Status           string `json:"status" yaml:"status"`
-	Message          string `json:"message" yaml:"message"`
-	Code             int    `json:"code" yaml:"code"`
-}
-
-// GetTypeMeta implements runtime.Object.
-func (e *ErrorResponse) GetTypeMeta() *runtime.TypeMeta {
-	return &e.TypeMeta
 }
 
 func isErrorStatusCode(code int) bool {

@@ -6,6 +6,8 @@ import (
 	"lcp.io/lcp/lib/runtime"
 )
 
+var _ runtime.Object = (*DeletionResult)(nil)
+
 // Storage is a marker interface for resource storage implementations.
 // Concrete types should implement one or more of:
 // Getter, Lister, Creator, Updater, Patcher, Deleter, CollectionDeleter.
@@ -66,10 +68,14 @@ type StandardStorage interface {
 
 // DeletionResult holds batch delete results.
 type DeletionResult struct {
-	SuccessCount int      `json:"successCount"`
-	FailedCount  int      `json:"failedCount"`
-	FailedIDs    []string `json:"failedIds,omitempty"`
+	runtime.TypeMeta `json:",inline"`
+	SuccessCount     int      `json:"successCount"`
+	FailedCount      int      `json:"failedCount"`
+	FailedIDs        []string `json:"failedIds,omitempty"`
 }
+
+// GetTypeMeta implements runtime.Object.
+func (d *DeletionResult) GetTypeMeta() *runtime.TypeMeta { return &d.TypeMeta }
 
 // DeleteCollectionRequest is the request body for batch delete operations.
 type DeleteCollectionRequest struct {
