@@ -18,13 +18,15 @@ WHERE
     AND ($2::VARCHAR IS NULL OR name ILIKE '%' || $2 || '%')
     AND ($3::VARCHAR IS NULL OR visibility = $3)
     AND ($4::BIGINT IS NULL OR owner_id = $4)
+    AND ($5::BIGINT IS NULL OR workspace_id = $5)
 `
 
 type CountNamespacesParams struct {
-	Status     *string `json:"status"`
-	Name       *string `json:"name"`
-	Visibility *string `json:"visibility"`
-	OwnerID    *int64  `json:"owner_id"`
+	Status      *string `json:"status"`
+	Name        *string `json:"name"`
+	Visibility  *string `json:"visibility"`
+	OwnerID     *int64  `json:"owner_id"`
+	WorkspaceID *int64  `json:"workspace_id"`
 }
 
 func (q *Queries) CountNamespaces(ctx context.Context, arg CountNamespacesParams) (int64, error) {
@@ -33,16 +35,30 @@ func (q *Queries) CountNamespaces(ctx context.Context, arg CountNamespacesParams
 		arg.Name,
 		arg.Visibility,
 		arg.OwnerID,
+		arg.WorkspaceID,
 	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
+const countUsersByNamespaceID = `-- name: CountUsersByNamespaceID :one
+SELECT count(user_id)
+FROM user_namespaces
+WHERE namespace_id = $1
+`
+
+func (q *Queries) CountUsersByNamespaceID(ctx context.Context, namespaceID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countUsersByNamespaceID, namespaceID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createNamespace = `-- name: CreateNamespace :one
-INSERT INTO namespaces (name, display_name, description, owner_id, visibility, max_members, status)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, name, display_name, description, owner_id, visibility, max_members, status,
+INSERT INTO namespaces (name, display_name, description, workspace_id, owner_id, visibility, max_members, status)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status,
           created_at, updated_at
 `
 
@@ -50,6 +66,7 @@ type CreateNamespaceParams struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"display_name"`
 	Description string `json:"description"`
+	WorkspaceID int64  `json:"workspace_id"`
 	OwnerID     int64  `json:"owner_id"`
 	Visibility  string `json:"visibility"`
 	MaxMembers  int32  `json:"max_members"`
@@ -61,6 +78,7 @@ func (q *Queries) CreateNamespace(ctx context.Context, arg CreateNamespaceParams
 		arg.Name,
 		arg.DisplayName,
 		arg.Description,
+		arg.WorkspaceID,
 		arg.OwnerID,
 		arg.Visibility,
 		arg.MaxMembers,
@@ -72,6 +90,7 @@ func (q *Queries) CreateNamespace(ctx context.Context, arg CreateNamespaceParams
 		&i.Name,
 		&i.DisplayName,
 		&i.Description,
+		&i.WorkspaceID,
 		&i.OwnerID,
 		&i.Visibility,
 		&i.MaxMembers,
@@ -117,7 +136,7 @@ func (q *Queries) DeleteNamespacesByIDs(ctx context.Context, ids []int64) ([]int
 }
 
 const getNamespaceByID = `-- name: GetNamespaceByID :one
-SELECT id, name, display_name, description, owner_id, visibility, max_members, status,
+SELECT id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status,
        created_at, updated_at
 FROM namespaces
 WHERE id = $1
@@ -131,6 +150,7 @@ func (q *Queries) GetNamespaceByID(ctx context.Context, id int64) (Namespace, er
 		&i.Name,
 		&i.DisplayName,
 		&i.Description,
+		&i.WorkspaceID,
 		&i.OwnerID,
 		&i.Visibility,
 		&i.MaxMembers,
@@ -142,7 +162,7 @@ func (q *Queries) GetNamespaceByID(ctx context.Context, id int64) (Namespace, er
 }
 
 const getNamespaceByName = `-- name: GetNamespaceByName :one
-SELECT id, name, display_name, description, owner_id, visibility, max_members, status,
+SELECT id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status,
        created_at, updated_at
 FROM namespaces
 WHERE name = $1
@@ -156,6 +176,7 @@ func (q *Queries) GetNamespaceByName(ctx context.Context, name string) (Namespac
 		&i.Name,
 		&i.DisplayName,
 		&i.Description,
+		&i.WorkspaceID,
 		&i.OwnerID,
 		&i.Visibility,
 		&i.MaxMembers,
@@ -168,7 +189,7 @@ func (q *Queries) GetNamespaceByName(ctx context.Context, name string) (Namespac
 
 const listNamespaces = `-- name: ListNamespaces :many
 SELECT
-    ns.id, ns.name, ns.display_name, ns.description, ns.owner_id,
+    ns.id, ns.name, ns.display_name, ns.description, ns.workspace_id, ns.owner_id,
     ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
     u.username AS owner_username
 FROM namespaces ns
@@ -178,29 +199,31 @@ WHERE
     AND ($2::VARCHAR IS NULL OR ns.name ILIKE '%' || $2 || '%')
     AND ($3::VARCHAR IS NULL OR ns.visibility = $3)
     AND ($4::BIGINT IS NULL OR ns.owner_id = $4)
+    AND ($5::BIGINT IS NULL OR ns.workspace_id = $5)
 ORDER BY
-    CASE WHEN $5::VARCHAR = 'name' AND $6::VARCHAR = 'asc' THEN ns.name END ASC,
-    CASE WHEN $5::VARCHAR = 'name' AND $6::VARCHAR = 'desc' THEN ns.name END DESC,
-    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'asc' THEN ns.created_at END ASC,
-    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'desc' THEN ns.created_at END DESC,
-    CASE WHEN $5::VARCHAR = 'visibility' AND $6::VARCHAR = 'asc' THEN ns.visibility END ASC,
-    CASE WHEN $5::VARCHAR = 'visibility' AND $6::VARCHAR = 'desc' THEN ns.visibility END DESC,
-    CASE WHEN $5::VARCHAR = 'status' AND $6::VARCHAR = 'asc' THEN ns.status END ASC,
-    CASE WHEN $5::VARCHAR = 'status' AND $6::VARCHAR = 'desc' THEN ns.status END DESC,
+    CASE WHEN $6::VARCHAR = 'name' AND $7::VARCHAR = 'asc' THEN ns.name END ASC,
+    CASE WHEN $6::VARCHAR = 'name' AND $7::VARCHAR = 'desc' THEN ns.name END DESC,
+    CASE WHEN $6::VARCHAR = 'created_at' AND $7::VARCHAR = 'asc' THEN ns.created_at END ASC,
+    CASE WHEN $6::VARCHAR = 'created_at' AND $7::VARCHAR = 'desc' THEN ns.created_at END DESC,
+    CASE WHEN $6::VARCHAR = 'visibility' AND $7::VARCHAR = 'asc' THEN ns.visibility END ASC,
+    CASE WHEN $6::VARCHAR = 'visibility' AND $7::VARCHAR = 'desc' THEN ns.visibility END DESC,
+    CASE WHEN $6::VARCHAR = 'status' AND $7::VARCHAR = 'asc' THEN ns.status END ASC,
+    CASE WHEN $6::VARCHAR = 'status' AND $7::VARCHAR = 'desc' THEN ns.status END DESC,
     ns.created_at DESC
-LIMIT $8::INT
-OFFSET $7::INT
+LIMIT $9::INT
+OFFSET $8::INT
 `
 
 type ListNamespacesParams struct {
-	Status     *string `json:"status"`
-	Name       *string `json:"name"`
-	Visibility *string `json:"visibility"`
-	OwnerID    *int64  `json:"owner_id"`
-	SortField  string  `json:"sort_field"`
-	SortOrder  string  `json:"sort_order"`
-	PageOffset int32   `json:"page_offset"`
-	PageSize   int32   `json:"page_size"`
+	Status      *string `json:"status"`
+	Name        *string `json:"name"`
+	Visibility  *string `json:"visibility"`
+	OwnerID     *int64  `json:"owner_id"`
+	WorkspaceID *int64  `json:"workspace_id"`
+	SortField   string  `json:"sort_field"`
+	SortOrder   string  `json:"sort_order"`
+	PageOffset  int32   `json:"page_offset"`
+	PageSize    int32   `json:"page_size"`
 }
 
 type ListNamespacesRow struct {
@@ -208,6 +231,7 @@ type ListNamespacesRow struct {
 	Name          string    `json:"name"`
 	DisplayName   string    `json:"display_name"`
 	Description   string    `json:"description"`
+	WorkspaceID   int64     `json:"workspace_id"`
 	OwnerID       int64     `json:"owner_id"`
 	Visibility    string    `json:"visibility"`
 	MaxMembers    int32     `json:"max_members"`
@@ -223,6 +247,7 @@ func (q *Queries) ListNamespaces(ctx context.Context, arg ListNamespacesParams) 
 		arg.Name,
 		arg.Visibility,
 		arg.OwnerID,
+		arg.WorkspaceID,
 		arg.SortField,
 		arg.SortOrder,
 		arg.PageOffset,
@@ -240,6 +265,7 @@ func (q *Queries) ListNamespaces(ctx context.Context, arg ListNamespacesParams) 
 			&i.Name,
 			&i.DisplayName,
 			&i.Description,
+			&i.WorkspaceID,
 			&i.OwnerID,
 			&i.Visibility,
 			&i.MaxMembers,
@@ -263,13 +289,14 @@ UPDATE namespaces
 SET name = $1,
     display_name = $2,
     description = $3,
-    owner_id = $4,
-    visibility = $5,
-    max_members = $6,
-    status = $7,
+    workspace_id = $4,
+    owner_id = $5,
+    visibility = $6,
+    max_members = $7,
+    status = $8,
     updated_at = now()
-WHERE id = $8
-RETURNING id, name, display_name, description, owner_id, visibility, max_members, status,
+WHERE id = $9
+RETURNING id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status,
           created_at, updated_at
 `
 
@@ -277,6 +304,7 @@ type UpdateNamespaceParams struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"display_name"`
 	Description string `json:"description"`
+	WorkspaceID int64  `json:"workspace_id"`
 	OwnerID     int64  `json:"owner_id"`
 	Visibility  string `json:"visibility"`
 	MaxMembers  int32  `json:"max_members"`
@@ -289,6 +317,7 @@ func (q *Queries) UpdateNamespace(ctx context.Context, arg UpdateNamespaceParams
 		arg.Name,
 		arg.DisplayName,
 		arg.Description,
+		arg.WorkspaceID,
 		arg.OwnerID,
 		arg.Visibility,
 		arg.MaxMembers,
@@ -301,6 +330,7 @@ func (q *Queries) UpdateNamespace(ctx context.Context, arg UpdateNamespaceParams
 		&i.Name,
 		&i.DisplayName,
 		&i.Description,
+		&i.WorkspaceID,
 		&i.OwnerID,
 		&i.Visibility,
 		&i.MaxMembers,

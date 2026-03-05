@@ -13,6 +13,7 @@ type Namespace struct {
 	Name        string    `json:"name"`
 	DisplayName string    `json:"display_name"`
 	Description string    `json:"description"`
+	WorkspaceID int64     `json:"workspace_id"`
 	OwnerID     int64     `json:"owner_id"`
 	Visibility  string    `json:"visibility"`
 	MaxMembers  int32     `json:"max_members"`
@@ -39,4 +40,22 @@ type UserNamespace struct {
 	NamespaceID int64     `json:"namespace_id"`
 	Role        string    `json:"role"`
 	CreatedAt   time.Time `json:"created_at"`
+}
+
+type UserWorkspace struct {
+	UserID      int64     `json:"user_id"`
+	WorkspaceID int64     `json:"workspace_id"`
+	Role        string    `json:"role"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type Workspace struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	OwnerID     int64     `json:"owner_id"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }

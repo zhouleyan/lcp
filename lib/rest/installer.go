@@ -355,7 +355,8 @@ func (i *APIInstaller) deleteCollectionHandler(storage CollectionDeleter) http.H
 			return
 		}
 
-		result, err := storage.DeleteCollection(ctx, deleteReq.IDs, &DeleteOptions{})
+		params := PathParams(req)
+		result, err := storage.DeleteCollection(ctx, deleteReq.IDs, &DeleteOptions{PathParams: params})
 		if err != nil {
 			handleError(i.serializer, err, w, req)
 			return

@@ -56,11 +56,50 @@ type UserList struct {
 
 func (u *UserList) GetTypeMeta() *runtime.TypeMeta { return &u.TypeMeta }
 
+// --- Workspace types ---
+
+// Workspace
+// +openapi:description=Workspace is the API representation of a workspace (tenant) resource.
+// +openapi:path=/workspaces
+type Workspace struct {
+	runtime.TypeMeta `json:",inline"`
+	types.ObjectMeta `json:"metadata"`
+	Spec             WorkspaceSpec `json:"spec"`
+}
+
+func (w *Workspace) GetTypeMeta() *runtime.TypeMeta { return &w.TypeMeta }
+
+// WorkspaceSpec
+// +openapi:description=WorkspaceSpec holds workspace-specific fields.
+type WorkspaceSpec struct {
+	// +openapi:description=Display name for the workspace
+	DisplayName string `json:"displayName,omitempty"`
+	// +openapi:description=Description of the workspace
+	Description string `json:"description,omitempty"`
+	// +openapi:required
+	// +openapi:description=ID of the workspace owner
+	OwnerID string `json:"ownerId"`
+	// +openapi:description=Workspace status
+	// +openapi:enum=active,inactive
+	Status string `json:"status,omitempty"`
+}
+
+// WorkspaceList
+// +openapi:description=WorkspaceList is a paginated list of workspaces.
+type WorkspaceList struct {
+	runtime.TypeMeta `json:",inline"`
+	Items            []Workspace `json:"items"`
+	TotalCount       int64       `json:"totalCount"`
+}
+
+func (w *WorkspaceList) GetTypeMeta() *runtime.TypeMeta { return &w.TypeMeta }
+
 // --- Namespace types ---
 
 // Namespace
 // +openapi:description=Namespace is the API representation of a namespace resource.
 // +openapi:path=/namespaces
+// +openapi:path=/workspaces/{workspaceId}/namespaces
 type Namespace struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -76,6 +115,9 @@ type NamespaceSpec struct {
 	DisplayName string `json:"displayName,omitempty"`
 	// +openapi:description=Description of the namespace
 	Description string `json:"description,omitempty"`
+	// +openapi:required
+	// +openapi:description=ID of the workspace this namespace belongs to
+	WorkspaceID string `json:"workspaceId"`
 	// +openapi:required
 	// +openapi:description=ID of the namespace owner
 	OwnerID string `json:"ownerId"`
@@ -99,13 +141,29 @@ type NamespaceList struct {
 
 func (n *NamespaceList) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
 
+// --- Batch request type ---
+
+// BatchRequest is used for batch add/remove user operations.
+type BatchRequest struct {
+	runtime.TypeMeta `json:",inline"`
+	IDs              []string `json:"ids"`
+}
+
+func (b *BatchRequest) GetTypeMeta() *runtime.TypeMeta { return &b.TypeMeta }
+
 // --- DB type aliases ---
 
 // DBUser is an alias for the sqlc-generated User model.
 type DBUser = generated.User
 
+// DBWorkspace is an alias for the sqlc-generated Workspace model.
+type DBWorkspace = generated.Workspace
+
 // DBNamespace is an alias for the sqlc-generated Namespace model.
 type DBNamespace = generated.Namespace
+
+// DBUserWorkspace is an alias for the sqlc-generated UserWorkspace model.
+type DBUserWorkspace = generated.UserWorkspace
 
 // DBUserNamespace is an alias for the sqlc-generated UserNamespace model.
 type DBUserNamespace = generated.UserNamespace
@@ -114,6 +172,19 @@ type DBUserNamespace = generated.UserNamespace
 type DBUserWithNamespaces struct {
 	generated.User
 	NamespaceNames []string `json:"namespace_names"`
+}
+
+// DBWorkspaceWithOwner extends Workspace with owner username.
+type DBWorkspaceWithOwner struct {
+	generated.Workspace
+	OwnerUsername string `json:"owner_username"`
+}
+
+// DBWorkspaceWithRole is a workspace with the user's role in it.
+type DBWorkspaceWithRole struct {
+	generated.Workspace
+	Role     string    `json:"role"`
+	JoinedAt time.Time `json:"joined_at"`
 }
 
 // DBNamespaceWithOwner extends Namespace with owner username.

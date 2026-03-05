@@ -17,13 +17,11 @@ import (
 // userStorage implements rest.StandardStorage for users.
 type userStorage struct {
 	dbStore UserStore
-	unStore UserNamespaceStore
 }
 
 // NewUserStorage creates a new REST storage backed by the given UserStore.
-// The optional UserNamespaceStore enables namespace-scoped user listing.
-func NewUserStorage(dbStore UserStore, unStore UserNamespaceStore) rest.StandardStorage {
-	return &userStorage{dbStore: dbStore, unStore: unStore}
+func NewUserStorage(dbStore UserStore) rest.StandardStorage {
+	return &userStorage{dbStore: dbStore}
 }
 
 func (s *userStorage) NewObject() runtime.Object { return &User{} }
@@ -45,11 +43,6 @@ func (s *userStorage) Get(ctx context.Context, options *rest.GetOptions) (runtim
 
 // List implements rest.Lister.
 func (s *userStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
-	// If called via /namespaces/{namespaceId}/users, filter by namespace
-	if nsID, ok := options.PathParams["namespaceId"]; ok && nsID != "" {
-		return s.listByNamespace(ctx, nsID)
-	}
-
 	query := db.ListQuery{
 		Filters: make(map[string]any),
 		Pagination: db.Pagination{
@@ -81,30 +74,6 @@ func (s *userStorage) List(ctx context.Context, options *rest.ListOptions) (runt
 		TypeMeta:   runtime.TypeMeta{Kind: "UserList", APIVersion: "v1"},
 		Items:      items,
 		TotalCount: result.TotalCount,
-	}, nil
-}
-
-// listByNamespace returns users belonging to a specific namespace.
-func (s *userStorage) listByNamespace(ctx context.Context, namespaceID string) (runtime.Object, error) {
-	nsID, err := parseID(namespaceID)
-	if err != nil {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid namespace ID: %s", namespaceID), nil)
-	}
-
-	members, err := s.unStore.ListByNamespaceID(ctx, nsID)
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]User, len(members))
-	for i, m := range members {
-		items[i] = *userToAPI(&m.User)
-	}
-
-	return &UserList{
-		TypeMeta:   runtime.TypeMeta{Kind: "UserList", APIVersion: "v1"},
-		Items:      items,
-		TotalCount: int64(len(items)),
 	}, nil
 }
 
@@ -256,16 +225,220 @@ func (s *userStorage) DeleteCollection(ctx context.Context, ids []string, option
 	}, nil
 }
 
-// ===== namespaceStorage =====
+// ===== workspaceStorage =====
 
-// namespaceStorage implements rest.Getter, rest.Lister, rest.Creator,
-// rest.Updater, rest.Patcher, rest.Deleter for namespaces.
-type namespaceStorage struct {
-	nsStore   NamespaceStore
+type workspaceStorage struct {
+	wsStore   WorkspaceStore
 	userStore UserStore
 }
 
-func (s *namespaceStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
+// NewWorkspaceStorage creates a new REST storage for workspaces.
+func NewWorkspaceStorage(wsStore WorkspaceStore, userStore UserStore) rest.StandardStorage {
+	return &workspaceStorage{wsStore: wsStore, userStore: userStore}
+}
+
+func (s *workspaceStorage) NewObject() runtime.Object { return &Workspace{} }
+
+func (s *workspaceStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
+	id := options.PathParams["workspaceId"]
+	wid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspace ID: %s", id), nil)
+	}
+
+	ws, err := s.wsStore.GetByID(ctx, wid)
+	if err != nil {
+		return nil, err
+	}
+	return workspaceToAPI(ws), nil
+}
+
+func (s *workspaceStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	query := db.ListQuery{
+		Filters: make(map[string]any),
+		Pagination: db.Pagination{
+			Page:     options.Pagination.Page,
+			PageSize: options.Pagination.PageSize,
+		},
+	}
+	for k, v := range options.Filters {
+		query.Filters[k] = v
+	}
+	if options.SortBy != "" {
+		query.SortBy = options.SortBy
+	}
+	if options.SortOrder != "" {
+		query.SortOrder = string(options.SortOrder)
+	}
+
+	result, err := s.wsStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Workspace, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = *workspaceToAPI(&item.Workspace)
+	}
+
+	return &WorkspaceList{
+		TypeMeta:   runtime.TypeMeta{Kind: "WorkspaceList", APIVersion: "v1"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+func (s *workspaceStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	ws, ok := obj.(*Workspace)
+	if !ok {
+		return nil, fmt.Errorf("expected *Workspace, got %T", obj)
+	}
+
+	if errs := ValidateWorkspaceCreate(ws.ObjectMeta.Name, &ws.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return ws, nil
+	}
+
+	ownerID, err := parseID(ws.Spec.OwnerID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid ownerId: %s", ws.Spec.OwnerID), nil)
+	}
+
+	// Check owner exists
+	if _, err := s.userStore.GetByID(ctx, ownerID); err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("owner user %d not found", ownerID), nil)
+	}
+
+	status := ws.Spec.Status
+	if status == "" {
+		status = "active"
+	}
+
+	created, err := s.wsStore.Create(ctx, &DBWorkspace{
+		Name:        ws.ObjectMeta.Name,
+		DisplayName: ws.Spec.DisplayName,
+		Description: ws.Spec.Description,
+		OwnerID:     ownerID,
+		Status:      status,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return workspaceToAPI(created), nil
+}
+
+func (s *workspaceStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
+	ws, ok := obj.(*Workspace)
+	if !ok {
+		return nil, fmt.Errorf("expected *Workspace, got %T", obj)
+	}
+
+	if options.DryRun {
+		return ws, nil
+	}
+
+	id := options.PathParams["workspaceId"]
+	wid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspace ID: %s", id), nil)
+	}
+
+	ownerID, err := parseID(ws.Spec.OwnerID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid ownerId: %s", ws.Spec.OwnerID), nil)
+	}
+
+	updated, err := s.wsStore.Update(ctx, &DBWorkspace{
+		ID:          wid,
+		Name:        ws.ObjectMeta.Name,
+		DisplayName: ws.Spec.DisplayName,
+		Description: ws.Spec.Description,
+		OwnerID:     ownerID,
+		Status:      ws.Spec.Status,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return workspaceToAPI(updated), nil
+}
+
+func (s *workspaceStorage) Patch(ctx context.Context, obj runtime.Object, options *rest.PatchOptions) (runtime.Object, error) {
+	ws, ok := obj.(*Workspace)
+	if !ok {
+		return nil, fmt.Errorf("expected *Workspace, got %T", obj)
+	}
+
+	id := options.PathParams["workspaceId"]
+
+	if options.DryRun {
+		existing, err := s.Get(ctx, &rest.GetOptions{PathParams: options.PathParams})
+		if err != nil {
+			return nil, err
+		}
+		return existing, nil
+	}
+
+	wid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspace ID: %s", id), nil)
+	}
+
+	existing, err := s.wsStore.GetByID(ctx, wid)
+	if err != nil {
+		return nil, err
+	}
+
+	if ws.ObjectMeta.Name != "" {
+		existing.Name = ws.ObjectMeta.Name
+	}
+	if ws.Spec.DisplayName != "" {
+		existing.DisplayName = ws.Spec.DisplayName
+	}
+	if ws.Spec.Description != "" {
+		existing.Description = ws.Spec.Description
+	}
+	if ws.Spec.OwnerID != "" {
+		ownerID, err := parseID(ws.Spec.OwnerID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid ownerId: %s", ws.Spec.OwnerID), nil)
+		}
+		existing.OwnerID = ownerID
+	}
+	if ws.Spec.Status != "" {
+		existing.Status = ws.Spec.Status
+	}
+
+	updated, err := s.wsStore.Update(ctx, existing)
+	if err != nil {
+		return nil, err
+	}
+
+	return workspaceToAPI(updated), nil
+}
+
+func (s *workspaceStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	if options.DryRun {
+		return nil
+	}
+
+	id := options.PathParams["workspaceId"]
+	wid, err := parseID(id)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid workspace ID: %s", id), nil)
+	}
+
+	if err := s.wsStore.Delete(ctx, wid); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *workspaceStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
 	if options.DryRun {
 		return &rest.DeletionResult{
 			SuccessCount: len(ids),
@@ -275,14 +448,14 @@ func (s *namespaceStorage) DeleteCollection(ctx context.Context, ids []string, o
 
 	int64IDs := make([]int64, 0, len(ids))
 	for _, id := range ids {
-		nid, err := parseID(id)
+		wid, err := parseID(id)
 		if err != nil {
-			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid namespace ID: %s", id), nil)
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspace ID: %s", id), nil)
 		}
-		int64IDs = append(int64IDs, nid)
+		int64IDs = append(int64IDs, wid)
 	}
 
-	count, err := s.nsStore.DeleteByIDs(ctx, int64IDs)
+	count, err := s.wsStore.DeleteByIDs(ctx, int64IDs)
 	if err != nil {
 		return nil, err
 	}
@@ -293,9 +466,18 @@ func (s *namespaceStorage) DeleteCollection(ctx context.Context, ids []string, o
 	}, nil
 }
 
+// ===== namespaceStorage =====
+
+// namespaceStorage implements rest.StandardStorage for namespaces.
+type namespaceStorage struct {
+	nsStore   NamespaceStore
+	wsStore   WorkspaceStore
+	userStore UserStore
+}
+
 // NewNamespaceStorage creates a new REST storage for namespaces.
-func NewNamespaceStorage(nsStore NamespaceStore, userStore UserStore) rest.StandardStorage {
-	return &namespaceStorage{nsStore: nsStore, userStore: userStore}
+func NewNamespaceStorage(nsStore NamespaceStore, wsStore WorkspaceStore, userStore UserStore) rest.StandardStorage {
+	return &namespaceStorage{nsStore: nsStore, wsStore: wsStore, userStore: userStore}
 }
 
 func (s *namespaceStorage) NewObject() runtime.Object { return &Namespace{} }
@@ -333,6 +515,11 @@ func (s *namespaceStorage) List(ctx context.Context, options *rest.ListOptions) 
 		query.SortOrder = string(options.SortOrder)
 	}
 
+	// If called via /workspaces/{workspaceId}/namespaces, filter by workspace
+	if wsID, ok := options.PathParams["workspaceId"]; ok && wsID != "" {
+		query.Filters["workspace_id"] = wsID
+	}
+
 	result, err := s.nsStore.List(ctx, query)
 	if err != nil {
 		return nil, err
@@ -356,6 +543,11 @@ func (s *namespaceStorage) Create(ctx context.Context, obj runtime.Object, optio
 		return nil, fmt.Errorf("expected *Namespace, got %T", obj)
 	}
 
+	// If workspace ID comes from path params, use it
+	if wsID, ok := options.PathParams["workspaceId"]; ok && wsID != "" {
+		ns.Spec.WorkspaceID = wsID
+	}
+
 	if errs := ValidateNamespaceCreate(ns.ObjectMeta.Name, &ns.Spec); errs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
@@ -364,9 +556,19 @@ func (s *namespaceStorage) Create(ctx context.Context, obj runtime.Object, optio
 		return ns, nil
 	}
 
+	workspaceID, err := parseID(ns.Spec.WorkspaceID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspaceId: %s", ns.Spec.WorkspaceID), nil)
+	}
+
 	ownerID, err := parseID(ns.Spec.OwnerID)
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid ownerId: %s", ns.Spec.OwnerID), nil)
+	}
+
+	// Check workspace exists
+	if _, err := s.wsStore.GetByID(ctx, workspaceID); err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("workspace %d not found", workspaceID), nil)
 	}
 
 	// Check owner exists
@@ -378,6 +580,7 @@ func (s *namespaceStorage) Create(ctx context.Context, obj runtime.Object, optio
 		Name:        ns.ObjectMeta.Name,
 		DisplayName: ns.Spec.DisplayName,
 		Description: ns.Spec.Description,
+		WorkspaceID: workspaceID,
 		OwnerID:     ownerID,
 		Visibility:  ns.Spec.Visibility,
 		MaxMembers:  int32(ns.Spec.MaxMembers),
@@ -411,11 +614,26 @@ func (s *namespaceStorage) Update(ctx context.Context, obj runtime.Object, optio
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid ownerId: %s", ns.Spec.OwnerID), nil)
 	}
 
+	// Get existing to preserve workspace_id
+	existing, err := s.nsStore.GetByID(ctx, nid)
+	if err != nil {
+		return nil, err
+	}
+
+	workspaceID := existing.WorkspaceID
+	if ns.Spec.WorkspaceID != "" {
+		workspaceID, err = parseID(ns.Spec.WorkspaceID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspaceId: %s", ns.Spec.WorkspaceID), nil)
+		}
+	}
+
 	updated, err := s.nsStore.Update(ctx, &DBNamespace{
 		ID:          nid,
 		Name:        ns.ObjectMeta.Name,
 		DisplayName: ns.Spec.DisplayName,
 		Description: ns.Spec.Description,
+		WorkspaceID: workspaceID,
 		OwnerID:     ownerID,
 		Visibility:  ns.Spec.Visibility,
 		MaxMembers:  int32(ns.Spec.MaxMembers),
@@ -464,6 +682,13 @@ func (s *namespaceStorage) Patch(ctx context.Context, obj runtime.Object, option
 	if ns.Spec.Description != "" {
 		existing.Description = ns.Spec.Description
 	}
+	if ns.Spec.WorkspaceID != "" {
+		workspaceID, err := parseID(ns.Spec.WorkspaceID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspaceId: %s", ns.Spec.WorkspaceID), nil)
+		}
+		existing.WorkspaceID = workspaceID
+	}
 	if ns.Spec.OwnerID != "" {
 		ownerID, err := parseID(ns.Spec.OwnerID)
 		if err != nil {
@@ -506,6 +731,225 @@ func (s *namespaceStorage) Delete(ctx context.Context, options *rest.DeleteOptio
 	return nil
 }
 
+func (s *namespaceStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
+	if options.DryRun {
+		return &rest.DeletionResult{
+			SuccessCount: len(ids),
+			FailedCount:  0,
+		}, nil
+	}
+
+	int64IDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		nid, err := parseID(id)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid namespace ID: %s", id), nil)
+		}
+		int64IDs = append(int64IDs, nid)
+	}
+
+	count, err := s.nsStore.DeleteByIDs(ctx, int64IDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &rest.DeletionResult{
+		SuccessCount: int(count),
+		FailedCount:  len(ids) - int(count),
+	}, nil
+}
+
+// ===== workspaceUserStorage =====
+
+// workspaceUserStorage manages users within a workspace (batch operations).
+type workspaceUserStorage struct {
+	uwStore   UserWorkspaceStore
+	userStore UserStore
+}
+
+// NewWorkspaceUserStorage creates a new REST storage for workspace user management.
+func NewWorkspaceUserStorage(uwStore UserWorkspaceStore, userStore UserStore) rest.Storage {
+	return &workspaceUserStorage{uwStore: uwStore, userStore: userStore}
+}
+
+func (s *workspaceUserStorage) NewObject() runtime.Object { return &BatchRequest{} }
+
+func (s *workspaceUserStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	wsID, err := parseID(options.PathParams["workspaceId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid workspace ID", nil)
+	}
+
+	members, err := s.uwStore.ListByWorkspaceID(ctx, wsID)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]User, len(members))
+	for i, m := range members {
+		items[i] = *userToAPI(&m.User)
+	}
+
+	return &UserList{
+		TypeMeta:   runtime.TypeMeta{Kind: "UserList", APIVersion: "v1"},
+		Items:      items,
+		TotalCount: int64(len(items)),
+	}, nil
+}
+
+func (s *workspaceUserStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	wsID, err := parseID(options.PathParams["workspaceId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid workspace ID", nil)
+	}
+
+	req, ok := obj.(*BatchRequest)
+	if !ok {
+		return nil, fmt.Errorf("expected *BatchRequest, got %T", obj)
+	}
+
+	for _, idStr := range req.IDs {
+		uid, err := parseID(idStr)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", idStr), nil)
+		}
+		// Verify user exists
+		if _, err := s.userStore.GetByID(ctx, uid); err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("user %s not found", idStr), nil)
+		}
+		_, err = s.uwStore.Add(ctx, &DBUserWorkspace{
+			UserID:      uid,
+			WorkspaceID: wsID,
+			Role:        "member",
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &rest.DeletionResult{
+		TypeMeta:     runtime.TypeMeta{Kind: "Result", APIVersion: "v1"},
+		SuccessCount: len(req.IDs),
+	}, nil
+}
+
+func (s *workspaceUserStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
+	wsID, err := parseID(options.PathParams["workspaceId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid workspace ID", nil)
+	}
+
+	for _, idStr := range ids {
+		uid, err := parseID(idStr)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", idStr), nil)
+		}
+		if err := s.uwStore.Remove(ctx, uid, wsID); err != nil {
+			return nil, err
+		}
+	}
+
+	return &rest.DeletionResult{
+		SuccessCount: len(ids),
+	}, nil
+}
+
+// ===== namespaceUserStorage =====
+
+// namespaceUserStorage manages users within a namespace (batch operations).
+type namespaceUserStorage struct {
+	unStore   UserNamespaceStore
+	userStore UserStore
+}
+
+// NewNamespaceUserStorage creates a new REST storage for namespace user management.
+func NewNamespaceUserStorage(unStore UserNamespaceStore, userStore UserStore) rest.Storage {
+	return &namespaceUserStorage{unStore: unStore, userStore: userStore}
+}
+
+func (s *namespaceUserStorage) NewObject() runtime.Object { return &BatchRequest{} }
+
+func (s *namespaceUserStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	nsID, err := parseID(options.PathParams["namespaceId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid namespace ID", nil)
+	}
+
+	members, err := s.unStore.ListByNamespaceID(ctx, nsID)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]User, len(members))
+	for i, m := range members {
+		items[i] = *userToAPI(&m.User)
+	}
+
+	return &UserList{
+		TypeMeta:   runtime.TypeMeta{Kind: "UserList", APIVersion: "v1"},
+		Items:      items,
+		TotalCount: int64(len(items)),
+	}, nil
+}
+
+func (s *namespaceUserStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	nsID, err := parseID(options.PathParams["namespaceId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid namespace ID", nil)
+	}
+
+	req, ok := obj.(*BatchRequest)
+	if !ok {
+		return nil, fmt.Errorf("expected *BatchRequest, got %T", obj)
+	}
+
+	for _, idStr := range req.IDs {
+		uid, err := parseID(idStr)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", idStr), nil)
+		}
+		// Verify user exists
+		if _, err := s.userStore.GetByID(ctx, uid); err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("user %s not found", idStr), nil)
+		}
+		// Add will auto-add to workspace via transaction in store
+		_, err = s.unStore.Add(ctx, &DBUserNamespace{
+			UserID:      uid,
+			NamespaceID: nsID,
+			Role:        "member",
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &rest.DeletionResult{
+		TypeMeta:     runtime.TypeMeta{Kind: "Result", APIVersion: "v1"},
+		SuccessCount: len(req.IDs),
+	}, nil
+}
+
+func (s *namespaceUserStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
+	nsID, err := parseID(options.PathParams["namespaceId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid namespace ID", nil)
+	}
+
+	for _, idStr := range ids {
+		uid, err := parseID(idStr)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", idStr), nil)
+		}
+		if err := s.unStore.Remove(ctx, uid, nsID); err != nil {
+			return nil, err
+		}
+	}
+
+	return &rest.DeletionResult{
+		SuccessCount: len(ids),
+	}, nil
+}
+
 // ===== helpers =====
 
 func userToAPI(u *DBUser) *User {
@@ -536,6 +980,24 @@ func userWithNamespacesToAPI(u *DBUserWithNamespaces) *User {
 	return user
 }
 
+func workspaceToAPI(w *DBWorkspace) *Workspace {
+	return &Workspace{
+		TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "Workspace"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(w.ID, 10),
+			Name:      w.Name,
+			CreatedAt: new(w.CreatedAt),
+			UpdatedAt: new(w.UpdatedAt),
+		},
+		Spec: WorkspaceSpec{
+			DisplayName: w.DisplayName,
+			Description: w.Description,
+			OwnerID:     strconv.FormatInt(w.OwnerID, 10),
+			Status:      w.Status,
+		},
+	}
+}
+
 func namespaceToAPI(n *DBNamespace) *Namespace {
 	return &Namespace{
 		TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
@@ -548,6 +1010,7 @@ func namespaceToAPI(n *DBNamespace) *Namespace {
 		Spec: NamespaceSpec{
 			DisplayName: n.DisplayName,
 			Description: n.Description,
+			WorkspaceID: strconv.FormatInt(n.WorkspaceID, 10),
 			OwnerID:     strconv.FormatInt(n.OwnerID, 10),
 			Visibility:  n.Visibility,
 			MaxMembers:  int(n.MaxMembers),

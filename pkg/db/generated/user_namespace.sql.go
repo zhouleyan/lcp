@@ -47,19 +47,6 @@ func (q *Queries) CountNamespacesByUserID(ctx context.Context, userID int64) (in
 	return count, err
 }
 
-const countUsersByNamespaceID = `-- name: CountUsersByNamespaceID :one
-SELECT count(user_id)
-FROM user_namespaces
-WHERE namespace_id = $1
-`
-
-func (q *Queries) CountUsersByNamespaceID(ctx context.Context, namespaceID int64) (int64, error) {
-	row := q.db.QueryRow(ctx, countUsersByNamespaceID, namespaceID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const getUserNamespace = `-- name: GetUserNamespace :one
 SELECT user_id, namespace_id, role, created_at
 FROM user_namespaces
@@ -85,7 +72,7 @@ func (q *Queries) GetUserNamespace(ctx context.Context, arg GetUserNamespacePara
 
 const listNamespacesByUserID = `-- name: ListNamespacesByUserID :many
 SELECT
-    n.id, n.name, n.display_name, n.description, n.owner_id,
+    n.id, n.name, n.display_name, n.description, n.workspace_id, n.owner_id,
     n.visibility, n.max_members, n.status, n.created_at, n.updated_at,
     un.role, un.created_at AS joined_at
 FROM namespaces n
@@ -99,6 +86,7 @@ type ListNamespacesByUserIDRow struct {
 	Name        string    `json:"name"`
 	DisplayName string    `json:"display_name"`
 	Description string    `json:"description"`
+	WorkspaceID int64     `json:"workspace_id"`
 	OwnerID     int64     `json:"owner_id"`
 	Visibility  string    `json:"visibility"`
 	MaxMembers  int32     `json:"max_members"`
@@ -123,6 +111,7 @@ func (q *Queries) ListNamespacesByUserID(ctx context.Context, userID int64) ([]L
 			&i.Name,
 			&i.DisplayName,
 			&i.Description,
+			&i.WorkspaceID,
 			&i.OwnerID,
 			&i.Visibility,
 			&i.MaxMembers,

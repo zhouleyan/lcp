@@ -20,6 +20,18 @@ type UserStore interface {
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBUserWithNamespaces], error)
 }
 
+// WorkspaceStore defines database operations on workspaces.
+type WorkspaceStore interface {
+	Create(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error)
+	GetByID(ctx context.Context, id int64) (*DBWorkspace, error)
+	GetByName(ctx context.Context, name string) (*DBWorkspace, error)
+	Update(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error)
+	Delete(ctx context.Context, id int64) error
+	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
+	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwner], error)
+	CountNamespaces(ctx context.Context, workspaceID int64) (int64, error)
+}
+
 // NamespaceStore defines database operations on namespaces.
 type NamespaceStore interface {
 	Create(ctx context.Context, ns *DBNamespace) (*DBNamespace, error)
@@ -29,6 +41,17 @@ type NamespaceStore interface {
 	Delete(ctx context.Context, id int64) error
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwner], error)
+	CountUsers(ctx context.Context, namespaceID int64) (int64, error)
+}
+
+// UserWorkspaceStore defines operations on user-workspace relationships.
+type UserWorkspaceStore interface {
+	Add(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error)
+	Remove(ctx context.Context, userID, workspaceID int64) error
+	UpdateRole(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error)
+	Get(ctx context.Context, userID, workspaceID int64) (*DBUserWorkspace, error)
+	ListByUserID(ctx context.Context, userID int64) ([]DBWorkspaceWithRole, error)
+	ListByWorkspaceID(ctx context.Context, workspaceID int64) ([]DBUserWithRole, error)
 }
 
 // UserNamespaceStore defines operations on user-namespace relationships.

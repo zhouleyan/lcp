@@ -39,6 +39,7 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 		Name:        ns.Name,
 		DisplayName: ns.DisplayName,
 		Description: ns.Description,
+		WorkspaceID: ns.WorkspaceID,
 		OwnerID:     ns.OwnerID,
 		Visibility:  ns.Visibility,
 		MaxMembers:  ns.MaxMembers,
@@ -93,6 +94,7 @@ func (s *pgNamespaceStore) Update(ctx context.Context, ns *iam.DBNamespace) (*ia
 		Name:        ns.Name,
 		DisplayName: ns.DisplayName,
 		Description: ns.Description,
+		WorkspaceID: ns.WorkspaceID,
 		OwnerID:     ns.OwnerID,
 		Visibility:  ns.Visibility,
 		MaxMembers:  ns.MaxMembers,
@@ -108,6 +110,18 @@ func (s *pgNamespaceStore) Update(ctx context.Context, ns *iam.DBNamespace) (*ia
 }
 
 func (s *pgNamespaceStore) Delete(ctx context.Context, id int64) error {
+	// Check for member users
+	count, err := s.queries.CountUsersByNamespaceID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("count users: %w", err)
+	}
+	if count > 0 {
+		return apierrors.NewBadRequest(
+			fmt.Sprintf("cannot delete namespace %d: has %d member(s)", id, count),
+			nil,
+		)
+	}
+
 	if err := s.queries.DeleteNamespace(ctx, id); err != nil {
 		return fmt.Errorf("delete namespace: %w", err)
 	}
@@ -152,10 +166,11 @@ func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 	}
 
 	countParams := generated.CountNamespacesParams{
-		Status:     filterStr("status"),
-		Name:       filterStr("name"),
-		Visibility: filterStr("visibility"),
-		OwnerID:    filterInt64("owner_id"),
+		Status:      filterStr("status"),
+		Name:        filterStr("name"),
+		Visibility:  filterStr("visibility"),
+		OwnerID:     filterInt64("owner_id"),
+		WorkspaceID: filterInt64("workspace_id"),
 	}
 
 	count, err := s.queries.CountNamespaces(ctx, countParams)
@@ -169,14 +184,15 @@ func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 	}
 
 	rows, err := s.queries.ListNamespaces(ctx, generated.ListNamespacesParams{
-		Status:     countParams.Status,
-		Name:       countParams.Name,
-		Visibility: countParams.Visibility,
-		OwnerID:    countParams.OwnerID,
-		SortField:  q.SortBy,
-		SortOrder:  sortOrder,
-		PageOffset: offset,
-		PageSize:   limit,
+		Status:      countParams.Status,
+		Name:        countParams.Name,
+		Visibility:  countParams.Visibility,
+		OwnerID:     countParams.OwnerID,
+		WorkspaceID: countParams.WorkspaceID,
+		SortField:   q.SortBy,
+		SortOrder:   sortOrder,
+		PageOffset:  offset,
+		PageSize:    limit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list namespaces: %w", err)
@@ -190,6 +206,7 @@ func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 				Name:        r.Name,
 				DisplayName: r.DisplayName,
 				Description: r.Description,
+				WorkspaceID: r.WorkspaceID,
 				OwnerID:     r.OwnerID,
 				Visibility:  r.Visibility,
 				MaxMembers:  r.MaxMembers,
@@ -207,19 +224,58 @@ func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 	}, nil
 }
 
+func (s *pgNamespaceStore) CountUsers(ctx context.Context, namespaceID int64) (int64, error) {
+	return s.queries.CountUsersByNamespaceID(ctx, namespaceID)
+}
+
 // ===== pgUserNamespaceStore =====
 
 type pgUserNamespaceStore struct {
+	db      *pgxpool.Pool
 	queries *generated.Queries
 }
 
 // NewPGUserNamespaceStore creates a new PostgreSQL-backed UserNamespaceStore.
-func NewPGUserNamespaceStore(queries *generated.Queries) iam.UserNamespaceStore {
-	return &pgUserNamespaceStore{queries: queries}
+func NewPGUserNamespaceStore(pool *pgxpool.Pool, queries *generated.Queries) iam.UserNamespaceStore {
+	return &pgUserNamespaceStore{db: pool, queries: queries}
 }
 
 func (s *pgUserNamespaceStore) Add(ctx context.Context, rel *iam.DBUserNamespace) (*iam.DBUserNamespace, error) {
-	row, err := s.queries.AddUserToNamespace(ctx, generated.AddUserToNamespaceParams{
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	qtx := s.queries.WithTx(tx)
+
+	// Get namespace to find workspace_id
+	ns, err := qtx.GetNamespaceByID(ctx, rel.NamespaceID)
+	if err != nil {
+		return nil, fmt.Errorf("get namespace: %w", err)
+	}
+
+	// Auto-add user to workspace if not already a member
+	_, err = qtx.GetUserWorkspace(ctx, generated.GetUserWorkspaceParams{
+		UserID:      rel.UserID,
+		WorkspaceID: ns.WorkspaceID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			_, err = qtx.AddUserToWorkspace(ctx, generated.AddUserToWorkspaceParams{
+				UserID:      rel.UserID,
+				WorkspaceID: ns.WorkspaceID,
+				Role:        "member",
+			})
+			if err != nil {
+				return nil, fmt.Errorf("auto-add user to workspace: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("check user workspace: %w", err)
+		}
+	}
+
+	row, err := qtx.AddUserToNamespace(ctx, generated.AddUserToNamespaceParams{
 		UserID:      rel.UserID,
 		NamespaceID: rel.NamespaceID,
 		Role:        rel.Role,
@@ -227,6 +283,11 @@ func (s *pgUserNamespaceStore) Add(ctx context.Context, rel *iam.DBUserNamespace
 	if err != nil {
 		return nil, fmt.Errorf("add user to namespace: %w", err)
 	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit transaction: %w", err)
+	}
+
 	return &row, nil
 }
 
@@ -277,6 +338,7 @@ func (s *pgUserNamespaceStore) ListByUserID(ctx context.Context, userID int64) (
 				Name:        row.Name,
 				DisplayName: row.DisplayName,
 				Description: row.Description,
+				WorkspaceID: row.WorkspaceID,
 				OwnerID:     row.OwnerID,
 				Visibility:  row.Visibility,
 				MaxMembers:  row.MaxMembers,

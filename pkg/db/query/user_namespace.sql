@@ -20,7 +20,7 @@ WHERE user_id = @user_id AND namespace_id = @namespace_id;
 
 -- name: ListNamespacesByUserID :many
 SELECT
-    n.id, n.name, n.display_name, n.description, n.owner_id,
+    n.id, n.name, n.display_name, n.description, n.workspace_id, n.owner_id,
     n.visibility, n.max_members, n.status, n.created_at, n.updated_at,
     un.role, un.created_at AS joined_at
 FROM namespaces n
@@ -37,11 +37,6 @@ FROM users u
 JOIN user_namespaces un ON u.id = un.user_id
 WHERE un.namespace_id = @namespace_id
 ORDER BY un.created_at DESC;
-
--- name: CountUsersByNamespaceID :one
-SELECT count(user_id)
-FROM user_namespaces
-WHERE namespace_id = @namespace_id;
 
 -- name: CountNamespacesByUserID :one
 SELECT count(namespace_id)

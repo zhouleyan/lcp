@@ -10,6 +10,7 @@ import (
 var (
 	usernameRegexp      = regexp.MustCompile(`^[a-zA-Z0-9_]{3,50}$`)
 	phoneRegexp         = regexp.MustCompile(`^\+[1-9]\d{6,14}$`)
+	workspaceNameRegexp = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
 	namespaceNameRegexp = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
 )
 
@@ -45,6 +46,27 @@ func ValidateUserUpdate(spec *UserSpec) validation.ErrorList {
 	return ValidateUserCreate(spec)
 }
 
+// ValidateWorkspaceCreate validates workspace creation.
+func ValidateWorkspaceCreate(name string, spec *WorkspaceSpec) validation.ErrorList {
+	var errs validation.ErrorList
+
+	if name == "" {
+		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "is required"})
+	} else if !workspaceNameRegexp.MatchString(name) {
+		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 3-50 lowercase alphanumeric characters or hyphens"})
+	}
+
+	if spec.OwnerID == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.ownerId", Message: "is required"})
+	}
+
+	if spec.Status != "" && spec.Status != "active" && spec.Status != "inactive" {
+		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+
+	return errs
+}
+
 // ValidateNamespaceCreate validates namespace creation.
 func ValidateNamespaceCreate(name string, spec *NamespaceSpec) validation.ErrorList {
 	var errs validation.ErrorList
@@ -53,6 +75,10 @@ func ValidateNamespaceCreate(name string, spec *NamespaceSpec) validation.ErrorL
 		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "is required"})
 	} else if !namespaceNameRegexp.MatchString(name) {
 		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 3-50 lowercase alphanumeric characters or hyphens"})
+	}
+
+	if spec.WorkspaceID == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.workspaceId", Message: "is required"})
 	}
 
 	if spec.OwnerID == "" {

@@ -13,8 +13,10 @@ import (
 func NewAPIGroupInfos(database *db.DB) []*rest.APIGroupInfo {
 	iamProvider := iam.NewRESTStorageProvider(
 		iamstore.NewPGUserStore(database.Queries),
+		iamstore.NewPGWorkspaceStore(database.Pool, database.Queries),
 		iamstore.NewPGNamespaceStore(database.Pool, database.Queries),
-		iamstore.NewPGUserNamespaceStore(database.Queries),
+		iamstore.NewPGUserWorkspaceStore(database.Queries),
+		iamstore.NewPGUserNamespaceStore(database.Pool, database.Queries),
 	)
 	return []*rest.APIGroupInfo{
 		iamv1.NewAPIGroupInfo(iamProvider),
