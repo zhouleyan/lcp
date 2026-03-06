@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -164,36 +163,13 @@ func (s *pgNamespaceStore) DeleteByIDs(ctx context.Context, ids []int64) (int64,
 func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[iam.DBNamespaceWithOwner], error) {
 	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
 
-	filterStr := func(key string) *string {
-		if v, ok := q.Filters[key]; ok {
-			if s, ok := v.(string); ok {
-				return &s
-			}
-		}
-		return nil
-	}
-
-	filterInt64 := func(key string) *int64 {
-		if v, ok := q.Filters[key]; ok {
-			switch val := v.(type) {
-			case int64:
-				return &val
-			case string:
-				if i, err := strconv.ParseInt(val, 10, 64); err == nil {
-					return &i
-				}
-			}
-		}
-		return nil
-	}
-
 	countParams := generated.CountNamespacesParams{
-		Status:      filterStr("status"),
-		Name:        filterStr("name"),
-		Visibility:  filterStr("visibility"),
-		OwnerID:     filterInt64("owner_id"),
-		WorkspaceID: filterInt64("workspace_id"),
-		Search:      filterStr("search"),
+		Status:      filterStr(q.Filters, "status"),
+		Name:        filterStr(q.Filters, "name"),
+		Visibility:  filterStr(q.Filters, "visibility"),
+		OwnerID:     filterInt64(q.Filters, "owner_id"),
+		WorkspaceID: filterInt64(q.Filters, "workspace_id"),
+		Search:      filterStr(q.Filters, "search"),
 	}
 
 	count, err := s.queries.CountNamespaces(ctx, countParams)

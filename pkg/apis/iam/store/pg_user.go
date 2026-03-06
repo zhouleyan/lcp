@@ -167,18 +167,9 @@ func (s *pgUserStore) DeleteByIDs(ctx context.Context, ids []int64) (int64, erro
 func (s *pgUserStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[iam.DBUserWithNamespaces], error) {
 	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
 
-	filterStr := func(key string) *string {
-		if v, ok := q.Filters[key]; ok {
-			if s, ok := v.(string); ok {
-				return &s
-			}
-		}
-		return nil
-	}
-
 	filterParams := generated.CountUsersParams{
-		Status: filterStr("status"),
-		Search: filterStr("search"),
+		Status: filterStr(q.Filters, "status"),
+		Search: filterStr(q.Filters, "search"),
 	}
 
 	count, err := s.queries.CountUsers(ctx, filterParams)

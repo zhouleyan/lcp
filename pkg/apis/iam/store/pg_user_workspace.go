@@ -98,19 +98,10 @@ func (s *pgUserWorkspaceStore) ListByUserID(ctx context.Context, userID int64) (
 func (s *pgUserWorkspaceStore) ListByWorkspaceID(ctx context.Context, workspaceID int64, q db.ListQuery) (*db.ListResult[iam.DBUserWithRole], error) {
 	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
 
-	filterStr := func(key string) *string {
-		if v, ok := q.Filters[key]; ok {
-			if s, ok := v.(string); ok {
-				return &s
-			}
-		}
-		return nil
-	}
-
 	countParams := generated.CountUsersByWorkspaceIDParams{
 		WorkspaceID: workspaceID,
-		Status:      filterStr("status"),
-		Search:      filterStr("search"),
+		Status:      filterStr(q.Filters, "status"),
+		Search:      filterStr(q.Filters, "search"),
 	}
 
 	count, err := s.queries.CountUsersByWorkspaceID(ctx, countParams)
