@@ -16,40 +16,9 @@ export class ApiError extends Error {
   }
 }
 
-async function parseApiError(error: unknown): Promise<ApiError> {
-  if (error instanceof HTTPError) {
-    try {
-      const body: StatusResponse = await error.response.json()
-      if (body.reason) {
-        return new ApiError(body)
-      }
-    } catch {
-      // response body is not a valid StatusResponse
-    }
-    return new ApiError({
-      apiVersion: "",
-      kind: "Status",
-      status: error.response.status,
-      reason: error.response.statusText,
-      message: error.message,
-    })
-  }
-  if (error instanceof Error) {
-    return new ApiError({
-      apiVersion: "",
-      kind: "Status",
-      status: 0,
-      reason: "Unknown",
-      message: error.message,
-    })
-  }
-  return new ApiError({
-    apiVersion: "",
-    kind: "Status",
-    status: 0,
-    reason: "Unknown",
-    message: String(error),
-  })
+// Extend HTTPError to carry parsed API error body
+interface HTTPErrorWithBody extends HTTPError {
+  _apiBody?: StatusResponse
 }
 
 export const api = ky.create({
@@ -64,17 +33,17 @@ export const api = ky.create({
       },
     ],
     beforeError: [
-      async (error) => {
+      async (error: HTTPErrorWithBody) => {
         const { response } = error
-        // For 400/404/409, convert to ApiError so callers can handle structured errors
-        if (response.status === 400 || response.status === 404 || response.status === 409) {
+        // For 4xx, parse body and attach to error so apiRequest can use it
+        if (response.status >= 400 && response.status < 500) {
           try {
             const body: StatusResponse = await response.json()
             if (body.reason) {
-              throw new ApiError(body)
+              error._apiBody = body
             }
-          } catch (e) {
-            if (e instanceof ApiError) throw e
+          } catch {
+            // body not JSON or already consumed
           }
         }
         return error
@@ -94,7 +63,7 @@ export const api = ky.create({
           window.location.href = "/error?status=401"
           return response
         }
-        if (response.status === 403 || response.status >= 500) {
+        if (response.status >= 500) {
           window.location.href = `/error?status=${response.status}`
         }
         return response
@@ -103,4 +72,53 @@ export const api = ky.create({
   },
 })
 
-export { parseApiError }
+/**
+ * Wraps a ky request promise. Catches HTTPError (4xx) and converts to ApiError.
+ */
+export async function apiRequest<T>(request: Promise<T>): Promise<T> {
+  try {
+    return await request
+  } catch (err) {
+    if (err instanceof HTTPError) {
+      const apiBody = (err as HTTPErrorWithBody)._apiBody
+      if (apiBody) {
+        throw new ApiError(apiBody)
+      }
+      throw new ApiError({
+        apiVersion: "",
+        kind: "Status",
+        status: err.response.status,
+        reason: err.response.statusText,
+        message: err.response.statusText,
+      })
+    }
+    throw err
+  }
+}
+
+// Map backend English error messages to i18n keys for frontend translation.
+const detailMessageMap: Record<string, string> = {
+  "is required": "api.validation.required",
+  "must be 3-50 alphanumeric characters or underscores": "api.validation.username.format",
+  "is not a valid email address": "api.validation.email.format",
+  "must be a valid Chinese mobile number (e.g. 13800138000)": "api.validation.phone.format",
+  "must be 8-128 characters": "api.validation.password.length",
+  "must contain at least one uppercase letter": "api.validation.password.uppercase",
+  "must contain at least one lowercase letter": "api.validation.password.lowercase",
+  "must contain at least one digit": "api.validation.password.digit",
+  "must be 'active' or 'inactive'": "api.validation.status.format",
+}
+
+const reasonMessageMap: Record<string, string> = {
+  Conflict: "api.error.conflict",
+  NotFound: "api.error.notFound",
+  BadRequest: "api.error.badRequest",
+}
+
+export function translateDetailMessage(message: string): string {
+  return detailMessageMap[message] ?? message
+}
+
+export function translateApiError(err: ApiError): string {
+  return reasonMessageMap[err.reason] ?? err.message
+}

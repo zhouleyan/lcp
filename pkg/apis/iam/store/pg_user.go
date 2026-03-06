@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/pkg/apis/iam"
 	"lcp.io/lcp/pkg/db"
@@ -31,6 +32,10 @@ func (s *pgUserStore) Create(ctx context.Context, user *iam.DBUser) (*iam.DBUser
 		Status:      user.Status,
 	})
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, apierrors.NewConflict("user", user.Username)
+		}
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 	u := createRowToUser(row)
@@ -87,6 +92,10 @@ func (s *pgUserStore) Update(ctx context.Context, user *iam.DBUser) (*iam.DBUser
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apierrors.NewNotFound("user", fmt.Sprintf("%d", user.ID))
 		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, apierrors.NewConflict("user", user.Username)
+		}
 		return nil, fmt.Errorf("update user: %w", err)
 	}
 	u := updateRowToUser(row)
@@ -106,6 +115,10 @@ func (s *pgUserStore) Patch(ctx context.Context, id int64, user *iam.DBUser) (*i
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apierrors.NewNotFound("user", fmt.Sprintf("%d", id))
+		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, apierrors.NewConflict("user", user.Username)
 		}
 		return nil, fmt.Errorf("patch user: %w", err)
 	}

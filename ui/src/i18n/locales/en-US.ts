@@ -111,6 +111,10 @@ const enUS: Messages = {
   "api.validation.password.uppercase": "Password must contain at least one uppercase letter",
   "api.validation.password.lowercase": "Password must contain at least one lowercase letter",
   "api.validation.password.digit": "Password must contain at least one digit",
+  "api.validation.status.format": "Status must be 'active' or 'inactive'",
+  "api.validation.username.taken": "This username is already taken",
+  "api.validation.email.taken": "This email is already taken",
+  "api.validation.password.hint": "8-128 characters, must include uppercase, lowercase, and a digit",
 
   // action feedback
   "action.createSuccess": "Created successfully",

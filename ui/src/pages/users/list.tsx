@@ -34,13 +34,14 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
 import { listUsers, createUser, updateUser, deleteUser, deleteUsers } from "@/api/users"
-import { ApiError } from "@/api/client"
+import { ApiError, translateDetailMessage, translateApiError } from "@/api/client"
 import type { User, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 
@@ -155,7 +156,12 @@ export default function UserListPage() {
       setDeleteTarget(null)
       fetchUsers()
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t("api.error.internalError"))
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey, { resource: t("user.title") }) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     }
   }
 
@@ -167,7 +173,12 @@ export default function UserListPage() {
       setSelected(new Set())
       fetchUsers()
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t("api.error.internalError"))
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey, { resource: t("user.title") }) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     }
   }
 
@@ -468,6 +479,7 @@ function UserFormDialog({
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema) as never,
+    mode: "onBlur",
     defaultValues: {
       username: "",
       email: "",
@@ -477,6 +489,23 @@ function UserFormDialog({
       status: "active",
     },
   })
+
+  const checkUniqueness = async (field: "username" | "email", value: string) => {
+    if (!value) return
+    try {
+      const params: ListParams = { page: 1, pageSize: 1, [field]: value }
+      const data = await listUsers(params)
+      const exists = data.items?.some((u) => {
+        if (isEdit && u.metadata.id === user?.metadata.id) return false
+        return u.spec[field].toLowerCase() === value.toLowerCase()
+      })
+      if (exists) {
+        form.setError(field, { message: t(`api.validation.${field}.taken`) })
+      }
+    } catch {
+      // uniqueness will be enforced on submit by backend
+    }
+  }
 
   // reset form when dialog opens with user data
   useEffect(() => {
@@ -536,12 +565,14 @@ function UserFormDialog({
       if (err instanceof ApiError && err.details?.length) {
         for (const d of err.details) {
           const field = d.field.replace(/^spec\./, "") as keyof UserFormValues
-          form.setError(field, { message: d.message })
+          const i18nKey = translateDetailMessage(d.message)
+          form.setError(field, { message: i18nKey !== d.message ? t(i18nKey, { field: t(`user.${field}`) || field }) : d.message })
         }
       } else if (err instanceof ApiError) {
-        toast.error(err.message)
+        const i18nKey = translateApiError(err)
+        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey, { resource: t("user.title") }) : err.message })
       } else {
-        toast.error(t("api.error.internalError"))
+        form.setError("root", { message: t("api.error.internalError") })
       }
     } finally {
       setLoading(false)
@@ -556,6 +587,11 @@ function UserFormDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {form.formState.errors.root && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {form.formState.errors.root.message}
+              </div>
+            )}
             <FormField
               control={form.control}
               name="username"
@@ -563,7 +599,16 @@ function UserFormDialog({
                 <FormItem>
                   <FormLabel>{t("user.username")}</FormLabel>
                   <FormControl>
-                    <Input {...field} disabled={isEdit} />
+                    <Input
+                      {...field}
+                      disabled={isEdit}
+                      onBlur={async (e) => {
+                        field.onBlur()
+                        if (isEdit || !e.target.value) return
+                        const valid = await form.trigger("username")
+                        if (valid) checkUniqueness("username", e.target.value)
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -576,7 +621,16 @@ function UserFormDialog({
                 <FormItem>
                   <FormLabel>{t("user.email")}</FormLabel>
                   <FormControl>
-                    <Input type="email" {...field} />
+                    <Input
+                      type="email"
+                      {...field}
+                      onBlur={async (e) => {
+                        field.onBlur()
+                        if (!e.target.value) return
+                        const valid = await form.trigger("email")
+                        if (valid) checkUniqueness("email", e.target.value)
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -618,6 +672,7 @@ function UserFormDialog({
                     <FormControl>
                       <Input type="password" {...field} />
                     </FormControl>
+                    <FormDescription>{t("api.validation.password.hint")}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

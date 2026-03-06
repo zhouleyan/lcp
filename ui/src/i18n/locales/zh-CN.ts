@@ -111,6 +111,10 @@ const zhCN: Messages = {
   "api.validation.password.uppercase": "密码需包含至少一个大写字母",
   "api.validation.password.lowercase": "密码需包含至少一个小写字母",
   "api.validation.password.digit": "密码需包含至少一个数字",
+  "api.validation.status.format": "状态必须为「活跃」或「停用」",
+  "api.validation.username.taken": "该用户名已被使用",
+  "api.validation.email.taken": "该邮箱已被使用",
+  "api.validation.password.hint": "8-128位，需包含大写字母、小写字母和数字",
 
   // action feedback
   "action.createSuccess": "创建成功",

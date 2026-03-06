@@ -32,7 +32,7 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuthStore } from "@/stores/auth-store"
 import { changePassword } from "@/api/users"
-import { ApiError } from "@/api/client"
+import { ApiError, translateDetailMessage, translateApiError } from "@/api/client"
 import { logout } from "@/lib/auth"
 import { useTranslation } from "@/i18n"
 
@@ -131,10 +131,14 @@ function ChangePasswordDialog({
     } catch (err) {
       if (err instanceof ApiError && err.details?.length) {
         for (const d of err.details) {
-          form.setError(d.field as keyof FormValues, { message: d.message })
+          const i18nKey = translateDetailMessage(d.message)
+          form.setError(d.field as keyof FormValues, { message: i18nKey !== d.message ? t(i18nKey) : d.message })
         }
+      } else if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
       } else {
-        toast.error(err instanceof ApiError ? err.message : t("api.error.internalError"))
+        toast.error(t("api.error.internalError"))
       }
     } finally {
       setLoading(false)
