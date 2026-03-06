@@ -58,7 +58,7 @@ var (
 
 	headerHSTS         = flag.String("http.header.hsts", "max-age=31536000; includeSubDomains", "Value for 'Strict-Transport-Security' header, recommended: 'max-age=31536000; includeSubDomains'")
 	headerFrameOptions = flag.String("http.header.frameOptions", "SAMEORIGIN", "Value for 'X-Frame-Options' header")
-	headerCSP          = flag.String("http.header.csp", "default-src 'self'", `Value for 'Content-Security-Policy' header, recommended: "default-src 'self'"`)
+	headerCSP          = flag.String("http.header.csp", "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'", `Value for 'Content-Security-Policy' header`)
 )
 
 var (
