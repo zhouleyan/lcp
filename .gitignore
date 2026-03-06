@@ -53,3 +53,6 @@ tmp
 # Frontend
 ui/node_modules/
 ui/dist/
+
+docs/plans
+docs/specs
