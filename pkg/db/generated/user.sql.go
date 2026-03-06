@@ -15,28 +15,21 @@ SELECT count(id)
 FROM users
 WHERE
     ($1::VARCHAR IS NULL OR status = $1)
-    AND ($2::VARCHAR IS NULL OR username ILIKE '%' || $2 || '%')
-    AND ($3::VARCHAR IS NULL OR email ILIKE '%' || $3 || '%')
-    AND ($4::VARCHAR IS NULL OR phone ILIKE '%' || $4 || '%')
-    AND ($5::VARCHAR IS NULL OR display_name ILIKE '%' || $5 || '%')
+    AND ($2::VARCHAR IS NULL OR (
+        username ILIKE '%' || $2 || '%'
+        OR email ILIKE '%' || $2 || '%'
+        OR phone ILIKE '%' || $2 || '%'
+        OR display_name ILIKE '%' || $2 || '%'
+    ))
 `
 
 type CountUsersParams struct {
-	Status      *string `json:"status"`
-	Username    *string `json:"username"`
-	Email       *string `json:"email"`
-	Phone       *string `json:"phone"`
-	DisplayName *string `json:"display_name"`
+	Status *string `json:"status"`
+	Search *string `json:"search"`
 }
 
 func (q *Queries) CountUsers(ctx context.Context, arg CountUsersParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countUsers,
-		arg.Status,
-		arg.Username,
-		arg.Email,
-		arg.Phone,
-		arg.DisplayName,
-	)
+	row := q.db.QueryRow(ctx, countUsers, arg.Status, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -375,38 +368,41 @@ LEFT JOIN user_namespaces un ON u.id = un.user_id
 LEFT JOIN namespaces n ON un.namespace_id = n.id
 WHERE
     ($1::VARCHAR IS NULL OR u.status = $1)
-    AND ($2::VARCHAR IS NULL OR u.username ILIKE '%' || $2 || '%')
-    AND ($3::VARCHAR IS NULL OR u.email ILIKE '%' || $3 || '%')
-    AND ($4::VARCHAR IS NULL OR u.phone ILIKE '%' || $4 || '%')
-    AND ($5::VARCHAR IS NULL OR u.display_name ILIKE '%' || $5 || '%')
+    AND ($2::VARCHAR IS NULL OR (
+        u.username ILIKE '%' || $2 || '%'
+        OR u.email ILIKE '%' || $2 || '%'
+        OR u.phone ILIKE '%' || $2 || '%'
+        OR u.display_name ILIKE '%' || $2 || '%'
+    ))
 GROUP BY u.id, u.username, u.email, u.display_name, u.phone, u.avatar_url,
          u.status, u.last_login_at, u.created_at, u.updated_at
 ORDER BY
-    CASE WHEN $6::VARCHAR = 'username' AND $7::VARCHAR = 'asc' THEN u.username END ASC,
-    CASE WHEN $6::VARCHAR = 'username' AND $7::VARCHAR = 'desc' THEN u.username END DESC,
-    CASE WHEN $6::VARCHAR = 'email' AND $7::VARCHAR = 'asc' THEN u.email END ASC,
-    CASE WHEN $6::VARCHAR = 'email' AND $7::VARCHAR = 'desc' THEN u.email END DESC,
-    CASE WHEN $6::VARCHAR = 'display_name' AND $7::VARCHAR = 'asc' THEN u.display_name END ASC,
-    CASE WHEN $6::VARCHAR = 'display_name' AND $7::VARCHAR = 'desc' THEN u.display_name END DESC,
-    CASE WHEN $6::VARCHAR = 'created_at' AND $7::VARCHAR = 'asc' THEN u.created_at END ASC,
-    CASE WHEN $6::VARCHAR = 'created_at' AND $7::VARCHAR = 'desc' THEN u.created_at END DESC,
-    CASE WHEN $6::VARCHAR = 'status' AND $7::VARCHAR = 'asc' THEN u.status END ASC,
-    CASE WHEN $6::VARCHAR = 'status' AND $7::VARCHAR = 'desc' THEN u.status END DESC,
+    CASE WHEN $3::VARCHAR = 'username' AND $4::VARCHAR = 'asc' THEN u.username END ASC,
+    CASE WHEN $3::VARCHAR = 'username' AND $4::VARCHAR = 'desc' THEN u.username END DESC,
+    CASE WHEN $3::VARCHAR = 'email' AND $4::VARCHAR = 'asc' THEN u.email END ASC,
+    CASE WHEN $3::VARCHAR = 'email' AND $4::VARCHAR = 'desc' THEN u.email END DESC,
+    CASE WHEN $3::VARCHAR = 'display_name' AND $4::VARCHAR = 'asc' THEN u.display_name END ASC,
+    CASE WHEN $3::VARCHAR = 'display_name' AND $4::VARCHAR = 'desc' THEN u.display_name END DESC,
+    CASE WHEN $3::VARCHAR = 'phone' AND $4::VARCHAR = 'asc' THEN u.phone END ASC,
+    CASE WHEN $3::VARCHAR = 'phone' AND $4::VARCHAR = 'desc' THEN u.phone END DESC,
+    CASE WHEN $3::VARCHAR = 'created_at' AND $4::VARCHAR = 'asc' THEN u.created_at END ASC,
+    CASE WHEN $3::VARCHAR = 'created_at' AND $4::VARCHAR = 'desc' THEN u.created_at END DESC,
+    CASE WHEN $3::VARCHAR = 'status' AND $4::VARCHAR = 'asc' THEN u.status END ASC,
+    CASE WHEN $3::VARCHAR = 'status' AND $4::VARCHAR = 'desc' THEN u.status END DESC,
+    CASE WHEN $3::VARCHAR = 'updated_at' AND $4::VARCHAR = 'asc' THEN u.updated_at END ASC,
+    CASE WHEN $3::VARCHAR = 'updated_at' AND $4::VARCHAR = 'desc' THEN u.updated_at END DESC,
     u.created_at DESC
-LIMIT $9::INT
-OFFSET $8::INT
+LIMIT $6::INT
+OFFSET $5::INT
 `
 
 type ListUsersParams struct {
-	Status      *string `json:"status"`
-	Username    *string `json:"username"`
-	Email       *string `json:"email"`
-	Phone       *string `json:"phone"`
-	DisplayName *string `json:"display_name"`
-	SortField   string  `json:"sort_field"`
-	SortOrder   string  `json:"sort_order"`
-	PageOffset  int32   `json:"page_offset"`
-	PageSize    int32   `json:"page_size"`
+	Status     *string `json:"status"`
+	Search     *string `json:"search"`
+	SortField  string  `json:"sort_field"`
+	SortOrder  string  `json:"sort_order"`
+	PageOffset int32   `json:"page_offset"`
+	PageSize   int32   `json:"page_size"`
 }
 
 type ListUsersRow struct {
@@ -426,10 +422,7 @@ type ListUsersRow struct {
 func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error) {
 	rows, err := q.db.Query(ctx, listUsers,
 		arg.Status,
-		arg.Username,
-		arg.Email,
-		arg.Phone,
-		arg.DisplayName,
+		arg.Search,
 		arg.SortField,
 		arg.SortOrder,
 		arg.PageOffset,

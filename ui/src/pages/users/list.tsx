@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react"
+import { Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -24,6 +24,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -47,7 +53,7 @@ import { useTranslation } from "@/i18n"
 
 const PAGE_SIZE = 20
 
-type SortField = "username" | "email" | "created_at"
+type SortField = "username" | "email" | "display_name" | "phone" | "created_at" | "updated_at"
 
 export default function UserListPage() {
   const { t } = useTranslation()
@@ -86,7 +92,7 @@ export default function UserListPage() {
         sortBy,
         sortOrder,
       }
-      if (search) params.username = search
+      if (search) params.search = search
       if (statusFilter !== "all") params.status = statusFilter
       const data = await listUsers(params)
       setUsers(data.items ?? [])
@@ -217,16 +223,6 @@ export default function UserListPage() {
             className="pl-9"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("common.all")}</SelectItem>
-            <SelectItem value="active">{t("common.active")}</SelectItem>
-            <SelectItem value="inactive">{t("common.inactive")}</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* table */}
@@ -256,14 +252,54 @@ export default function UserListPage() {
                 {t("user.email")}
                 <SortIcon field="email" />
               </TableHead>
-              <TableHead>{t("common.displayName")}</TableHead>
-              <TableHead>{t("common.status")}</TableHead>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => handleSort("display_name")}
+              >
+                {t("common.displayName")}
+                <SortIcon field="display_name" />
+              </TableHead>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => handleSort("phone")}
+              >
+                {t("common.phone")}
+                <SortIcon field="phone" />
+              </TableHead>
+              <TableHead>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="inline-flex items-center gap-1 select-none">
+                      {t("common.status")}
+                      <Filter className={`h-3 w-3 ${statusFilter !== "all" ? "text-primary" : "opacity-40"}`} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => setStatusFilter("all")}>
+                      {t("common.all")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setStatusFilter("active")}>
+                      {t("common.active")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>
+                      {t("common.inactive")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => handleSort("created_at")}
               >
                 {t("common.created")}
                 <SortIcon field="created_at" />
+              </TableHead>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => handleSort("updated_at")}
+              >
+                {t("common.updated")}
+                <SortIcon field="updated_at" />
               </TableHead>
               <TableHead className="w-24">{t("common.actions")}</TableHead>
             </TableRow>
@@ -272,7 +308,7 @@ export default function UserListPage() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((_, j) => (
+                  {Array.from({ length: 9 }).map((_, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-20" />
                     </TableCell>
@@ -281,7 +317,7 @@ export default function UserListPage() {
               ))
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground py-8 text-center">
+                <TableCell colSpan={9} className="text-muted-foreground py-8 text-center">
                   {t("user.noData")}
                 </TableCell>
               </TableRow>
@@ -299,13 +335,17 @@ export default function UserListPage() {
                   <TableCell className="font-medium">{user.spec.username}</TableCell>
                   <TableCell>{user.spec.email}</TableCell>
                   <TableCell>{user.spec.displayName || "-"}</TableCell>
+                  <TableCell>{user.spec.phone || "-"}</TableCell>
                   <TableCell>
                     <Badge variant={user.spec.status === "active" ? "default" : "secondary"}>
                       {user.spec.status === "active" ? t("common.active") : t("common.inactive")}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {new Date(user.metadata.createdAt).toLocaleDateString()}
+                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                    {new Date(user.metadata.createdAt).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                    {new Date(user.metadata.updatedAt).toLocaleString()}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">

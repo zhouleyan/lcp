@@ -177,11 +177,8 @@ func (s *pgUserStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[
 	}
 
 	filterParams := generated.CountUsersParams{
-		Status:      filterStr("status"),
-		Username:    filterStr("username"),
-		Email:       filterStr("email"),
-		Phone:       filterStr("phone"),
-		DisplayName: filterStr("display_name"),
+		Status: filterStr("status"),
+		Search: filterStr("search"),
 	}
 
 	count, err := s.queries.CountUsers(ctx, filterParams)
@@ -195,15 +192,12 @@ func (s *pgUserStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[
 	}
 
 	rows, err := s.queries.ListUsers(ctx, generated.ListUsersParams{
-		Status:      filterParams.Status,
-		Username:    filterParams.Username,
-		Email:       filterParams.Email,
-		Phone:       filterParams.Phone,
-		DisplayName: filterParams.DisplayName,
-		SortField:   q.SortBy,
-		SortOrder:   sortOrder,
-		PageOffset:  offset,
-		PageSize:    limit,
+		Status:     filterParams.Status,
+		Search:     filterParams.Search,
+		SortField:  q.SortBy,
+		SortOrder:  sortOrder,
+		PageOffset: offset,
+		PageSize:   limit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
