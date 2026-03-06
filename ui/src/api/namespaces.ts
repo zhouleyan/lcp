@@ -22,7 +22,7 @@ export async function createWorkspaceNamespace(workspaceId: string, data: Pick<N
 }
 
 export async function updateNamespace(id: string, data: Pick<Namespace, "metadata" | "spec">): Promise<Namespace> {
-  return apiRequest(api.patch(`namespaces/${id}`, { json: data }).json())
+  return apiRequest(api.put(`namespaces/${id}`, { json: data }).json())
 }
 
 export async function deleteNamespace(id: string): Promise<void> {

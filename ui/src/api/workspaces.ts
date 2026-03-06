@@ -19,7 +19,7 @@ export async function updateWorkspace(
   id: string,
   data: Pick<Workspace, "metadata" | "spec">,
 ): Promise<Workspace> {
-  return apiRequest(api.patch(`workspaces/${id}`, { json: data }).json())
+  return apiRequest(api.put(`workspaces/${id}`, { json: data }).json())
 }
 
 export async function deleteWorkspace(id: string): Promise<void> {
