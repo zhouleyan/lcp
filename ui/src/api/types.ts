@@ -84,10 +84,29 @@ export interface ListParams {
   pageSize?: number
   sortBy?: string
   sortOrder?: "asc" | "desc"
+  [key: string]: string | number | undefined
+}
+
+export interface ChangePasswordRequest {
+  oldPassword: string
+  newPassword: string
+}
+
+export interface OIDCUserInfo {
+  sub: string
+  name?: string
+  email?: string
+  phone_number?: string
+}
+
+export interface StatusResponseDetail {
+  field: string
+  message: string
 }
 
 export interface StatusResponse extends TypeMeta {
-  status: string
+  status: string | number
   reason: string
   message: string
+  details?: StatusResponseDetail[]
 }

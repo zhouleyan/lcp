@@ -9,6 +9,20 @@ const enUS: Messages = {
   "common.total": "{count} total",
   "common.delete": "Delete",
   "common.description": "Description",
+  "common.edit": "Edit",
+  "common.cancel": "Cancel",
+  "common.confirm": "Confirm",
+  "common.save": "Save",
+  "common.search": "Search",
+  "common.actions": "Actions",
+  "common.active": "Active",
+  "common.inactive": "Inactive",
+  "common.all": "All",
+  "common.phone": "Phone",
+  "common.password": "Password",
+  "common.previous": "Previous",
+  "common.next": "Next",
+  "common.page": "Page {page} of {total}",
 
   // login
   "login.title": "LCP Console",
@@ -51,9 +65,14 @@ const enUS: Messages = {
   "user.title": "Users",
   "user.manage": "Manage platform users. {count} total.",
   "user.create": "Create User",
+  "user.edit": "Edit User",
   "user.noData": "No users found.",
   "user.username": "Username",
   "user.email": "Email",
+  "user.searchPlaceholder": "Search username...",
+  "user.deleteConfirm": "Are you sure you want to delete user \"{name}\"? This action cannot be undone.",
+  "user.batchDelete": "Batch Delete",
+  "user.batchDeleteConfirm": "Are you sure you want to delete {count} selected users? This action cannot be undone.",
 
   // error
   "error.400.title": "Bad Request",
@@ -67,6 +86,42 @@ const enUS: Messages = {
   "error.500.title": "Server Error",
   "error.500.desc": "Something went wrong. Please try again later.",
   "error.backHome": "Back to Home",
+
+  // login errors
+  "login.error.invalidCredentials": "Invalid username or password",
+  "login.error.accountLocked": "Account has been locked",
+  "login.error.failed": "Login failed, please try again",
+
+  // api errors
+  "api.error.badRequest": "Bad request",
+  "api.error.notFound": "{resource} not found",
+  "api.error.conflict": "{resource} already exists",
+  "api.error.internalError": "Internal server error, please try again later",
+
+  // validation errors
+  "api.validation.required": "{field} is required",
+  "api.validation.username.format": "Username must be 3-50 characters of letters, digits, or underscores",
+  "api.validation.email.format": "Please enter a valid email address",
+  "api.validation.phone.format": "Phone must be in E.164 format (e.g. +8613800138000)",
+  "api.validation.password.length": "Password must be 8-128 characters",
+  "api.validation.password.uppercase": "Password must contain at least one uppercase letter",
+  "api.validation.password.lowercase": "Password must contain at least one lowercase letter",
+  "api.validation.password.digit": "Password must contain at least one digit",
+
+  // action feedback
+  "action.createSuccess": "Created successfully",
+  "action.updateSuccess": "Updated successfully",
+  "action.deleteSuccess": "Deleted successfully",
+  "action.changePasswordSuccess": "Password changed successfully",
+
+  // user menu
+  "userMenu.profile": "Profile",
+  "userMenu.changePassword": "Change Password",
+  "userMenu.logout": "Sign Out",
+  "userMenu.oldPassword": "Current Password",
+  "userMenu.newPassword": "New Password",
+  "userMenu.confirmPassword": "Confirm New Password",
+  "userMenu.passwordMismatch": "Passwords do not match",
 }
 
 export default enUS

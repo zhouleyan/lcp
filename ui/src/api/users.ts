@@ -1,5 +1,6 @@
 import { api } from "./client"
-import type { User, UserList, ListParams } from "./types"
+import { getAccessToken } from "@/lib/auth"
+import type { User, UserList, ListParams, ChangePasswordRequest, StatusResponse, OIDCUserInfo } from "./types"
 
 export async function listUsers(params?: ListParams): Promise<UserList> {
   return api.get("users", { searchParams: params as Record<string, string> }).json()
@@ -60,4 +61,21 @@ export async function addNamespaceUsers(namespaceId: string, ids: string[]): Pro
 
 export async function removeNamespaceUsers(namespaceId: string, ids: string[]): Promise<void> {
   await api.delete(`namespaces/${namespaceId}/users`, { json: { ids } })
+}
+
+export async function changePassword(
+  userId: string,
+  data: ChangePasswordRequest,
+): Promise<StatusResponse> {
+  return api.post(`users/${userId}/change-password`, { json: data }).json()
+}
+
+export async function getUserInfo(): Promise<OIDCUserInfo> {
+  const res = await fetch("/oidc/userinfo", {
+    headers: { Authorization: `Bearer ${getAccessToken()}` },
+  })
+  if (!res.ok) {
+    throw new Error("Failed to fetch user info")
+  }
+  return res.json()
 }
