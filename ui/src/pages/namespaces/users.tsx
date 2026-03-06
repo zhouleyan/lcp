@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useOutletContext } from "react-router"
-import {
-  Plus, UserMinus, Search, Filter,
-  ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight,
-} from "lucide-react"
+import { Plus, UserMinus, Search, Filter } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,9 +9,6 @@ import { Input } from "@/components/ui/input"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -27,38 +21,31 @@ import {
 } from "@/api/users"
 import type { Namespace, User, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
+import { useListState } from "@/hooks/use-list-state"
+import { SortIcon } from "@/components/sort-icon"
+import { Pagination } from "@/components/pagination"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 type SortField = "username" | "email" | "display_name" | "phone" | "created_at" | "updated_at"
 
 export default function NamespaceUsersPage() {
   const { namespace, onNamespaceChange } = useOutletContext<{ namespace: Namespace; onNamespaceChange: () => void }>()
   const namespaceId = namespace.metadata.id
   const { t } = useTranslation()
+  const {
+    page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
+    searchInput, setSearchInput, search,
+    selected, toggleAll, toggleOne, clearSelection,
+  } = useListState()
+
   const [members, setMembers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
-  const [sortBy, setSortBy] = useState<SortField>("created_at")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
-  const [searchInput, setSearchInput] = useState("")
-  const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const [addOpen, setAddOpen] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<User | null>(null)
   const [batchRemoveOpen, setBatchRemoveOpen] = useState(false)
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
-
-  // Debounce search
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null)
-  useEffect(() => {
-    searchTimer.current = setTimeout(() => setSearch(searchInput), 300)
-    return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
-  }, [searchInput])
 
   const fetchMembers = useCallback(async () => {
     setLoading(true)
@@ -79,34 +66,7 @@ export default function NamespaceUsersPage() {
 
   useEffect(() => { fetchMembers() }, [fetchMembers])
   useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
-  useEffect(() => { setSelected(new Set()) }, [members])
-
-  const handleSort = (field: SortField) => {
-    if (sortBy === field) {
-      setSortOrder((o) => (o === "asc" ? "desc" : "asc"))
-    } else {
-      setSortBy(field)
-      setSortOrder("asc")
-    }
-  }
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortBy !== field) return <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
-    return sortOrder === "asc"
-      ? <ArrowUp className="ml-1 inline h-3 w-3" />
-      : <ArrowDown className="ml-1 inline h-3 w-3" />
-  }
-
-  const toggleAll = () => {
-    setSelected(selected.size === members.length ? new Set() : new Set(members.map((m) => m.metadata.id)))
-  }
-  const toggleOne = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }
+  useEffect(() => { clearSelection() }, [members])
 
   const handleRemove = async () => {
     if (!removeTarget) return
@@ -126,7 +86,7 @@ export default function NamespaceUsersPage() {
       await removeNamespaceUsers(namespaceId, Array.from(selected))
       toast.success(t("namespace.memberRemoved"))
       setBatchRemoveOpen(false)
-      setSelected(new Set())
+      clearSelection()
       fetchMembers()
       onNamespaceChange()
     } catch {
@@ -174,12 +134,12 @@ export default function NamespaceUsersPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
-                <Checkbox checked={members.length > 0 && selected.size === members.length} onCheckedChange={toggleAll} />
+                <Checkbox checked={members.length > 0 && selected.size === members.length} onCheckedChange={() => toggleAll(members.map((m) => m.metadata.id))} />
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("username")}>{t("user.username")}<SortIcon field="username" /></TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("email")}>{t("user.email")}<SortIcon field="email" /></TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("display_name")}>{t("common.displayName")}<SortIcon field="display_name" /></TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("phone")}>{t("common.phone")}<SortIcon field="phone" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("username")}>{t("user.username")}<SortIcon field="username" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("email")}>{t("user.email")}<SortIcon field="email" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("display_name")}>{t("common.displayName")}<SortIcon field="display_name" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("phone")}>{t("common.phone")}<SortIcon field="phone" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
               <TableHead>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -195,8 +155,8 @@ export default function NamespaceUsersPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>{t("common.created")}<SortIcon field="created_at" /></TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("updated_at")}>{t("common.updated")}<SortIcon field="updated_at" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>{t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("updated_at")}>{t("common.updated")}<SortIcon field="updated_at" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
               <TableHead className="w-16">{t("common.actions")}</TableHead>
             </TableRow>
           </TableHeader>
@@ -235,50 +195,30 @@ export default function NamespaceUsersPage() {
       </div>
 
       {/* pagination */}
-      {totalCount > 0 && (
-        <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <p className="text-muted-foreground text-sm">{t("common.total", { count: totalCount })}</p>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground text-sm">{t("common.pageSize")}</span>
-              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-                <SelectTrigger className="h-8 w-[70px]"><SelectValue /></SelectTrigger>
-                <SelectContent>{PAGE_SIZE_OPTIONS.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
-            <span className="text-sm px-2">{t("common.page", { page, total: totalPages })}</span>
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
-          </div>
-        </div>
-      )}
+      <Pagination totalCount={totalCount} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
 
       {/* add member dialog */}
       <AddMemberDialog open={addOpen} onOpenChange={setAddOpen} namespaceId={namespaceId} existingMemberIds={members.map((m) => m.metadata.id)} onSuccess={handleAddSuccess} />
 
       {/* remove confirm */}
-      <Dialog open={!!removeTarget} onOpenChange={(v) => { if (!v) setRemoveTarget(null) }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{t("namespace.removeMember")}</DialogTitle><DialogDescription>{t("namespace.removeMemberConfirm", { name: removeTarget?.spec.username ?? "" })}</DialogDescription></DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRemoveTarget(null)}>{t("common.cancel")}</Button>
-            <Button variant="destructive" onClick={handleRemove}>{t("common.confirm")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!removeTarget}
+        onOpenChange={(v) => { if (!v) setRemoveTarget(null) }}
+        title={t("namespace.removeMember")}
+        description={t("namespace.removeMemberConfirm", { name: removeTarget?.spec.username ?? "" })}
+        onConfirm={handleRemove}
+        confirmText={t("common.confirm")}
+      />
 
       {/* batch remove confirm */}
-      <Dialog open={batchRemoveOpen} onOpenChange={setBatchRemoveOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{t("namespace.removeMember")}</DialogTitle><DialogDescription>{t("namespace.batchRemoveMemberConfirm", { count: selected.size })}</DialogDescription></DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBatchRemoveOpen(false)}>{t("common.cancel")}</Button>
-            <Button variant="destructive" onClick={handleBatchRemove}>{t("common.confirm")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={batchRemoveOpen}
+        onOpenChange={setBatchRemoveOpen}
+        title={t("namespace.removeMember")}
+        description={t("namespace.batchRemoveMemberConfirm", { count: selected.size })}
+        onConfirm={handleBatchRemove}
+        confirmText={t("common.confirm")}
+      />
     </div>
   )
 }

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router"
 import {
-  Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown,
-  Search, Filter, ChevronLeft, ChevronRight,
+  Plus, Pencil, Trash2,
+  Search, Filter,
 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -24,7 +24,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -36,38 +36,30 @@ import { listWorkspaces } from "@/api/workspaces"
 import { ApiError, translateApiError } from "@/api/client"
 import type { Namespace, Workspace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
+import { useListState } from "@/hooks/use-list-state"
+import { SortIcon } from "@/components/sort-icon"
+import { Pagination } from "@/components/pagination"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 type SortField = "name" | "display_name" | "member_count" | "created_at" | "updated_at"
 
 export default function NamespaceListPage() {
   const { t } = useTranslation()
+  const {
+    page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
+    searchInput, setSearchInput, search,
+    selected, toggleAll, toggleOne, clearSelection,
+  } = useListState()
   const [namespaces, setNamespaces] = useState<Namespace[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
-  const [sortBy, setSortBy] = useState<SortField>("created_at")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
-  const [searchInput, setSearchInput] = useState("")
-  const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibilityFilter, setVisibilityFilter] = useState("all")
-  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Namespace | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Namespace | null>(null)
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
-
-  // Debounce search
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null)
-  useEffect(() => {
-    searchTimer.current = setTimeout(() => setSearch(searchInput), 300)
-    return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
-  }, [searchInput])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -89,34 +81,7 @@ export default function NamespaceListPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { setPage(1) }, [search, statusFilter, visibilityFilter, pageSize])
-  useEffect(() => { setSelected(new Set()) }, [namespaces])
-
-  const handleSort = (field: SortField) => {
-    if (sortBy === field) {
-      setSortOrder((o) => (o === "asc" ? "desc" : "asc"))
-    } else {
-      setSortBy(field)
-      setSortOrder("asc")
-    }
-  }
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortBy !== field) return <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
-    return sortOrder === "asc"
-      ? <ArrowUp className="ml-1 inline h-3 w-3" />
-      : <ArrowDown className="ml-1 inline h-3 w-3" />
-  }
-
-  const toggleAll = () => {
-    setSelected(selected.size === namespaces.length ? new Set() : new Set(namespaces.map((ns) => ns.metadata.id)))
-  }
-  const toggleOne = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }
+  useEffect(() => { clearSelection() }, [namespaces])
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -139,7 +104,7 @@ export default function NamespaceListPage() {
       await deleteNamespaces(Array.from(selected))
       toast.success(t("action.deleteSuccess"))
       setBatchDeleteOpen(false)
-      setSelected(new Set())
+      clearSelection()
       fetchData()
     } catch (err) {
       if (err instanceof ApiError) {
@@ -195,14 +160,14 @@ export default function NamespaceListPage() {
               <TableHead className="w-10">
                 <Checkbox
                   checked={namespaces.length > 0 && selected.size === namespaces.length}
-                  onCheckedChange={toggleAll}
+                  onCheckedChange={() => toggleAll(namespaces.map((ns) => ns.metadata.id))}
                 />
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
-                {t("common.name")}<SortIcon field="name" />
+                {t("common.name")}<SortIcon field="name" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("display_name")}>
-                {t("common.displayName")}<SortIcon field="display_name" />
+                {t("common.displayName")}<SortIcon field="display_name" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead>{t("namespace.workspaceName")}</TableHead>
               <TableHead>{t("namespace.owner")}</TableHead>
@@ -237,10 +202,10 @@ export default function NamespaceListPage() {
                 </DropdownMenu>
               </TableHead>
               <TableHead className="cursor-pointer select-none text-center" onClick={() => handleSort("member_count")}>
-                {t("namespace.memberCount")}<SortIcon field="member_count" />
+                {t("namespace.memberCount")}<SortIcon field="member_count" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
-                {t("common.created")}<SortIcon field="created_at" />
+                {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead className="w-24">{t("common.actions")}</TableHead>
             </TableRow>
@@ -313,31 +278,7 @@ export default function NamespaceListPage() {
       </div>
 
       {/* pagination */}
-      {totalCount > 0 && (
-        <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <p className="text-muted-foreground text-sm">{t("common.total", { count: totalCount })}</p>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground text-sm">{t("common.pageSize")}</span>
-              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-                <SelectTrigger className="h-8 w-[70px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm px-2">{t("common.page", { page, total: totalPages })}</span>
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <Pagination totalCount={totalCount} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
 
       {/* create dialog */}
       <NamespaceFormDialog open={createOpen} onOpenChange={setCreateOpen} onSuccess={fetchData} />
@@ -351,36 +292,24 @@ export default function NamespaceListPage() {
       />
 
       {/* delete confirm */}
-      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null) }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("common.delete")}</DialogTitle>
-            <DialogDescription>
-              {t("namespace.deleteConfirm", { name: deleteTarget?.metadata.name ?? "" })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>{t("common.cancel")}</Button>
-            <Button variant="destructive" onClick={handleDelete}>{t("common.delete")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null) }}
+        title={t("common.delete")}
+        description={t("namespace.deleteConfirm", { name: deleteTarget?.metadata.name ?? "" })}
+        onConfirm={handleDelete}
+        confirmText={t("common.delete")}
+      />
 
       {/* batch delete confirm */}
-      <Dialog open={batchDeleteOpen} onOpenChange={setBatchDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("namespace.batchDelete")}</DialogTitle>
-            <DialogDescription>
-              {t("namespace.batchDeleteConfirm", { count: selected.size })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBatchDeleteOpen(false)}>{t("common.cancel")}</Button>
-            <Button variant="destructive" onClick={handleBatchDelete}>{t("common.delete")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={batchDeleteOpen}
+        onOpenChange={setBatchDeleteOpen}
+        title={t("namespace.batchDelete")}
+        description={t("namespace.batchDeleteConfirm", { count: selected.size })}
+        onConfirm={handleBatchDelete}
+        confirmText={t("common.delete")}
+      />
     </div>
   )
 }

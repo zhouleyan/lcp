@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router"
-import { Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, ChevronLeft, ChevronRight } from "lucide-react"
+import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -34,7 +34,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -52,24 +51,22 @@ import { listUsers, createUser, updateUser, deleteUser, deleteUsers } from "@/ap
 import { ApiError, translateDetailMessage, translateApiError } from "@/api/client"
 import type { User, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
-
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
-
-type SortField = "username" | "email" | "display_name" | "phone" | "created_at" | "updated_at"
+import { useListState } from "@/hooks/use-list-state"
+import { SortIcon } from "@/components/sort-icon"
+import { Pagination } from "@/components/pagination"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 
 export default function UserListPage() {
   const { t } = useTranslation()
+  const {
+    page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
+    searchInput, setSearchInput, search,
+    selected, toggleAll, toggleOne, clearSelection,
+  } = useListState()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
-  const [sortBy, setSortBy] = useState<SortField>("created_at")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
-  const [searchInput, setSearchInput] = useState("")
-  const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   // dialogs
   const [createOpen, setCreateOpen] = useState(false)
@@ -77,24 +74,10 @@ export default function UserListPage() {
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
-
-  // Debounce search input
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null)
-  useEffect(() => {
-    searchTimer.current = setTimeout(() => setSearch(searchInput), 300)
-    return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
-  }, [searchInput])
-
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
-      const params: ListParams = {
-        page,
-        pageSize,
-        sortBy,
-        sortOrder,
-      }
+      const params: ListParams = { page, pageSize, sortBy, sortOrder }
       if (search) params.search = search
       if (statusFilter !== "all") params.status = statusFilter
       const data = await listUsers(params)
@@ -108,54 +91,9 @@ export default function UserListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, sortBy, sortOrder, search, statusFilter])
 
-  useEffect(() => {
-    fetchUsers()
-  }, [fetchUsers])
-
-  // reset page when filters or pageSize change
-  useEffect(() => {
-    setPage(1)
-  }, [search, statusFilter, pageSize])
-
-  // clear selection on data change
-  useEffect(() => {
-    setSelected(new Set())
-  }, [users])
-
-  const handleSort = (field: SortField) => {
-    if (sortBy === field) {
-      setSortOrder((o) => (o === "asc" ? "desc" : "asc"))
-    } else {
-      setSortBy(field)
-      setSortOrder("asc")
-    }
-  }
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortBy !== field) return <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
-    return sortOrder === "asc" ? (
-      <ArrowUp className="ml-1 inline h-3 w-3" />
-    ) : (
-      <ArrowDown className="ml-1 inline h-3 w-3" />
-    )
-  }
-
-  const toggleAll = () => {
-    if (selected.size === users.length) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(users.map((u) => u.metadata.id)))
-    }
-  }
-
-  const toggleOne = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
+  useEffect(() => { fetchUsers() }, [fetchUsers])
+  useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
+  useEffect(() => { clearSelection() }, [users])
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -179,7 +117,7 @@ export default function UserListPage() {
       await deleteUsers(Array.from(selected))
       toast.success(t("action.deleteSuccess"))
       setBatchDeleteOpen(false)
-      setSelected(new Set())
+      clearSelection()
       fetchUsers()
     } catch (err) {
       if (err instanceof ApiError) {
@@ -236,7 +174,7 @@ export default function UserListPage() {
               <TableHead className="w-10">
                 <Checkbox
                   checked={users.length > 0 && selected.size === users.length}
-                  onCheckedChange={toggleAll}
+                  onCheckedChange={() => toggleAll(users.map((u) => u.metadata.id))}
                 />
               </TableHead>
               <TableHead
@@ -244,28 +182,28 @@ export default function UserListPage() {
                 onClick={() => handleSort("username")}
               >
                 {t("user.username")}
-                <SortIcon field="username" />
+                <SortIcon field="username" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => handleSort("email")}
               >
                 {t("user.email")}
-                <SortIcon field="email" />
+                <SortIcon field="email" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => handleSort("display_name")}
               >
                 {t("common.displayName")}
-                <SortIcon field="display_name" />
+                <SortIcon field="display_name" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => handleSort("phone")}
               >
                 {t("common.phone")}
-                <SortIcon field="phone" />
+                <SortIcon field="phone" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead>
                 <DropdownMenu>
@@ -293,14 +231,14 @@ export default function UserListPage() {
                 onClick={() => handleSort("created_at")}
               >
                 {t("common.created")}
-                <SortIcon field="created_at" />
+                <SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => handleSort("updated_at")}
               >
                 {t("common.updated")}
-                <SortIcon field="updated_at" />
+                <SortIcon field="updated_at" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead className="w-24">{t("common.actions")}</TableHead>
             </TableRow>
@@ -379,54 +317,7 @@ export default function UserListPage() {
         </Table>
       </div>
 
-      {/* pagination */}
-      {totalCount > 0 && (
-        <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <p className="text-muted-foreground text-sm">
-              {t("common.total", { count: totalCount })}
-            </p>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground text-sm">{t("common.pageSize")}</span>
-              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-                <SelectTrigger className="h-8 w-[70px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm px-2">
-              {t("common.page", { page, total: totalPages })}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <Pagination totalCount={totalCount} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
 
       {/* create dialog */}
       <UserFormDialog
@@ -443,45 +334,23 @@ export default function UserListPage() {
         onSuccess={fetchUsers}
       />
 
-      {/* delete confirm */}
-      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null) }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("common.delete")}</DialogTitle>
-            <DialogDescription>
-              {t("user.deleteConfirm", { name: deleteTarget?.spec.username ?? "" })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              {t("common.cancel")}
-            </Button>
-            <Button variant="destructive" onClick={handleDelete}>
-              {t("common.delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null) }}
+        title={t("common.delete")}
+        description={t("user.deleteConfirm", { name: deleteTarget?.spec.username ?? "" })}
+        onConfirm={handleDelete}
+        confirmText={t("common.delete")}
+      />
 
-      {/* batch delete confirm */}
-      <Dialog open={batchDeleteOpen} onOpenChange={setBatchDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("user.batchDelete")}</DialogTitle>
-            <DialogDescription>
-              {t("user.batchDeleteConfirm", { count: selected.size })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBatchDeleteOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button variant="destructive" onClick={handleBatchDelete}>
-              {t("common.delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={batchDeleteOpen}
+        onOpenChange={setBatchDeleteOpen}
+        title={t("user.batchDelete")}
+        description={t("user.batchDeleteConfirm", { count: selected.size })}
+        onConfirm={handleBatchDelete}
+        confirmText={t("common.delete")}
+      />
     </div>
   )
 }
