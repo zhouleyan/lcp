@@ -424,19 +424,6 @@ interface UserFormValues {
   status: "active" | "inactive"
 }
 
-const userFormSchema = z.object({
-  username: z
-    .string()
-    .min(3, "api.validation.username.format")
-    .max(50, "api.validation.username.format")
-    .regex(/^[a-zA-Z0-9_]+$/, "api.validation.username.format"),
-  email: z.email("api.validation.email.format"),
-  displayName: z.string().optional(),
-  phone: z.string().optional(),
-  password: z.string().optional(),
-  status: z.enum(["active", "inactive"]),
-}) satisfies z.ZodType<UserFormValues>
-
 function UserFormDialog({
   open,
   onOpenChange,
@@ -452,8 +439,35 @@ function UserFormDialog({
   const isEdit = !!user
   const [loading, setLoading] = useState(false)
 
+  const userFormSchema = z.object({
+    username: z
+      .string()
+      .min(3, t("api.validation.username.format"))
+      .max(50, t("api.validation.username.format"))
+      .regex(/^[a-zA-Z0-9_]+$/, t("api.validation.username.format")),
+    email: z.email(t("api.validation.email.format")),
+    displayName: z.string().optional(),
+    phone: z
+      .string()
+      .optional()
+      .refine(
+        (v) => !v || /^1[3-9]\d{9}$/.test(v),
+        t("api.validation.phone.format"),
+      ),
+    password: isEdit
+      ? z.string().optional()
+      : z
+          .string()
+          .min(8, t("api.validation.password.length"))
+          .max(128, t("api.validation.password.length"))
+          .regex(/[A-Z]/, t("api.validation.password.uppercase"))
+          .regex(/[a-z]/, t("api.validation.password.lowercase"))
+          .regex(/[0-9]/, t("api.validation.password.digit")),
+    status: z.enum(["active", "inactive"]),
+  })
+
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(userFormSchema),
+    resolver: zodResolver(userFormSchema) as never,
     defaultValues: {
       username: "",
       email: "",
@@ -521,8 +535,8 @@ function UserFormDialog({
     } catch (err) {
       if (err instanceof ApiError && err.details?.length) {
         for (const d of err.details) {
-          const field = d.field as keyof UserFormValues
-          form.setError(field, { message: t(d.message) || d.message })
+          const field = d.field.replace(/^spec\./, "") as keyof UserFormValues
+          form.setError(field, { message: d.message })
         }
       } else if (err instanceof ApiError) {
         toast.error(err.message)

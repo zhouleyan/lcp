@@ -24,6 +24,10 @@ const enUS: Messages = {
   "common.next": "Next",
   "common.page": "Page {page} of {total}",
 
+  // auth
+  "auth.authenticating": "Authenticating...",
+  "auth.missingCode": "Missing authorization code",
+
   // login
   "login.title": "LCP Console",
   "login.username": "Username",
@@ -102,7 +106,7 @@ const enUS: Messages = {
   "api.validation.required": "{field} is required",
   "api.validation.username.format": "Username must be 3-50 characters of letters, digits, or underscores",
   "api.validation.email.format": "Please enter a valid email address",
-  "api.validation.phone.format": "Phone must be in E.164 format (e.g. +8613800138000)",
+  "api.validation.phone.format": "Please enter a valid mobile number (e.g. 13800138000)",
   "api.validation.password.length": "Password must be 8-128 characters",
   "api.validation.password.uppercase": "Password must contain at least one uppercase letter",
   "api.validation.password.lowercase": "Password must contain at least one lowercase letter",

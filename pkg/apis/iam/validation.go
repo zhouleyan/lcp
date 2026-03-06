@@ -9,7 +9,7 @@ import (
 
 var (
 	usernameRegexp      = regexp.MustCompile(`^[a-zA-Z0-9_]{3,50}$`)
-	phoneRegexp         = regexp.MustCompile(`^\+[1-9]\d{6,14}$`)
+	phoneRegexp         = regexp.MustCompile(`^1[3-9]\d{9}$`)
 	workspaceNameRegexp = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
 	namespaceNameRegexp = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
 	passwordUpperRegexp = regexp.MustCompile(`[A-Z]`)
@@ -34,7 +34,7 @@ func ValidateUserCreate(spec *UserSpec) validation.ErrorList {
 	}
 
 	if spec.Phone != "" && !phoneRegexp.MatchString(spec.Phone) {
-		errs = append(errs, validation.FieldError{Field: "spec.phone", Message: "must be E.164 format (e.g. +8613800138000)"})
+		errs = append(errs, validation.FieldError{Field: "spec.phone", Message: "must be a valid Chinese mobile number (e.g. 13800138000)"})
 	}
 
 	if spec.Status != "" && spec.Status != "active" && spec.Status != "inactive" {

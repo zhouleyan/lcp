@@ -24,6 +24,10 @@ const zhCN: Messages = {
   "common.next": "下一页",
   "common.page": "第 {page} 页，共 {total} 页",
 
+  // auth
+  "auth.authenticating": "登录中...",
+  "auth.missingCode": "缺少授权码",
+
   // login
   "login.title": "LCP Console",
   "login.username": "用户名",
@@ -102,7 +106,7 @@ const zhCN: Messages = {
   "api.validation.required": "{field}不能为空",
   "api.validation.username.format": "用户名需为3-50位字母、数字或下划线",
   "api.validation.email.format": "请输入有效的邮箱地址",
-  "api.validation.phone.format": "手机号需为 E.164 格式（如 +8613800138000）",
+  "api.validation.phone.format": "请输入有效的手机号（如 13800138000）",
   "api.validation.password.length": "密码长度需为8-128位",
   "api.validation.password.uppercase": "密码需包含至少一个大写字母",
   "api.validation.password.lowercase": "密码需包含至少一个小写字母",
