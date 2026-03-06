@@ -1,0 +1,496 @@
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useParams, useNavigate, Link } from "react-router"
+import { Pencil, Trash2, ArrowLeft, Search } from "lucide-react"
+import { useForm } from "react-hook-form"
+import { z } from "zod/v4"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
+} from "@/components/ui/form"
+import { getUser, updateUser, deleteUser, listUsers } from "@/api/users"
+import { ApiError, translateApiError, translateDetailMessage } from "@/api/client"
+import type { User, UserWorkspaceRef, UserNamespaceRef } from "@/api/types"
+import { useTranslation } from "@/i18n"
+
+export default function UserDetailPage() {
+  const { userId } = useParams()
+  const navigate = useNavigate()
+  const { t } = useTranslation()
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+
+  const fetchUser = useCallback(async () => {
+    if (!userId) return
+    try {
+      const u = await getUser(userId)
+      setUser(u)
+    } catch {
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [userId])
+
+  useEffect(() => { fetchUser() }, [fetchUser])
+
+  const handleDelete = async () => {
+    if (!user) return
+    try {
+      await deleteUser(user.metadata.id)
+      toast.success(t("action.deleteSuccess"))
+      navigate("/users")
+    } catch {
+      toast.error(t("api.error.internalError"))
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4 p-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="p-6">
+        <p className="text-muted-foreground">{t("user.notFound")}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-6">
+      {/* header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/users")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold">{user.spec.username}</h1>
+          <Badge variant={user.spec.status === "active" ? "default" : "secondary"}>
+            {user.spec.status === "active" ? t("common.active") : t("common.inactive")}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="mr-2 h-4 w-4" />
+            {t("common.edit")}
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t("common.delete")}
+          </Button>
+        </div>
+      </div>
+
+      {/* user info card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>{t("user.details")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">{t("user.username")}</span>
+              <p className="font-medium">{user.spec.username}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">{t("common.displayName")}</span>
+              <p className="font-medium">{user.spec.displayName || "-"}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">{t("user.email")}</span>
+              <p className="font-medium">{user.spec.email}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">{t("common.phone")}</span>
+              <p className="font-medium">{user.spec.phone || "-"}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">{t("common.status")}</span>
+              <p>
+                <Badge variant={user.spec.status === "active" ? "default" : "secondary"}>
+                  {user.spec.status === "active" ? t("common.active") : t("common.inactive")}
+                </Badge>
+              </p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">{t("common.created")}</span>
+              <p className="font-medium">{new Date(user.metadata.createdAt).toLocaleString()}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">{t("common.updated")}</span>
+              <p className="font-medium">{new Date(user.metadata.updatedAt).toLocaleString()}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* associated workspaces */}
+      <RefWorkspacesCard workspaces={user.spec.workspaces} />
+
+      {/* associated namespaces */}
+      <RefNamespacesCard namespaceRefs={user.spec.namespaceRefs} />
+
+      {/* edit dialog */}
+      <EditUserDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        user={user}
+        onSuccess={fetchUser}
+      />
+
+      {/* delete confirm */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("common.delete")}</DialogTitle>
+            <DialogDescription>
+              {t("user.deleteConfirm", { name: user.spec.username })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>{t("common.cancel")}</Button>
+            <Button variant="destructive" onClick={handleDelete}>{t("common.delete")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// ===== Joined Workspaces Card =====
+
+function RefWorkspacesCard({ workspaces }: { workspaces?: UserWorkspaceRef[] }) {
+  const { t } = useTranslation()
+  const [search, setSearch] = useState("")
+
+  const filtered = useMemo(() => {
+    if (!workspaces?.length) return []
+    if (!search) return workspaces
+    const q = search.toLowerCase()
+    return workspaces.filter(
+      (ws) => ws.name.toLowerCase().includes(q) || ws.displayName?.toLowerCase().includes(q),
+    )
+  }, [workspaces, search])
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle>{t("user.workspaces")}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {(workspaces?.length ?? 0) > 0 && (
+          <div className="mb-4">
+            <div className="relative max-w-xs">
+              <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
+              <Input
+                placeholder={t("common.search")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+        )}
+        {!workspaces?.length ? (
+          <p className="text-sm text-muted-foreground">{t("user.noWorkspaces")}</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("common.noSearchResults")}</p>
+        ) : (
+          <div className="border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("common.name")}</TableHead>
+                  <TableHead>{t("common.displayName")}</TableHead>
+                  <TableHead>{t("user.role")}</TableHead>
+                  <TableHead>{t("user.joinedAt")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((ws) => (
+                  <TableRow key={ws.id}>
+                    <TableCell className="font-medium">
+                      <Link to={`/workspaces/${ws.id}`} className="text-primary hover:underline">
+                        {ws.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{ws.displayName || "-"}</TableCell>
+                    <TableCell><Badge variant="outline">{ws.role}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(ws.joinedAt).toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ===== Joined Namespaces Card =====
+
+function RefNamespacesCard({ namespaceRefs }: { namespaceRefs?: UserNamespaceRef[] }) {
+  const { t } = useTranslation()
+  const [search, setSearch] = useState("")
+
+  const filtered = useMemo(() => {
+    if (!namespaceRefs?.length) return []
+    if (!search) return namespaceRefs
+    const q = search.toLowerCase()
+    return namespaceRefs.filter(
+      (ns) => ns.name.toLowerCase().includes(q) || ns.displayName?.toLowerCase().includes(q),
+    )
+  }, [namespaceRefs, search])
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle>{t("user.namespaceRefs")}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {(namespaceRefs?.length ?? 0) > 0 && (
+          <div className="mb-4">
+            <div className="relative max-w-xs">
+              <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
+              <Input
+                placeholder={t("common.search")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+        )}
+        {!namespaceRefs?.length ? (
+          <p className="text-sm text-muted-foreground">{t("user.noNamespaceRefs")}</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("common.noSearchResults")}</p>
+        ) : (
+          <div className="border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("common.name")}</TableHead>
+                  <TableHead>{t("common.displayName")}</TableHead>
+                  <TableHead>{t("user.role")}</TableHead>
+                  <TableHead>{t("user.joinedAt")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((ns) => (
+                  <TableRow key={ns.id}>
+                    <TableCell className="font-medium">
+                      <Link to={`/namespaces/${ns.id}`} className="text-primary hover:underline">
+                        {ns.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{ns.displayName || "-"}</TableCell>
+                    <TableCell><Badge variant="outline">{ns.role}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(ns.joinedAt).toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ===== Edit User Dialog =====
+
+function EditUserDialog({
+  open, onOpenChange, user, onSuccess,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  user: User
+  onSuccess: () => void
+}) {
+  const { t } = useTranslation()
+  const [loading, setLoading] = useState(false)
+
+  const schema = z.object({
+    email: z.email(t("api.validation.email.format")),
+    displayName: z.string().optional(),
+    phone: z.string()
+      .min(1, t("api.validation.required", { field: t("common.phone") }))
+      .regex(/^1[3-9]\d{9}$/, t("api.validation.phone.format")),
+    status: z.enum(["active", "inactive"]),
+  })
+
+  type FormValues = z.infer<typeof schema>
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema) as never,
+    mode: "onBlur",
+    defaultValues: {
+      email: user.spec.email,
+      displayName: user.spec.displayName ?? "",
+      phone: user.spec.phone ?? "",
+      status: user.spec.status ?? "active",
+    },
+  })
+
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        email: user.spec.email,
+        displayName: user.spec.displayName ?? "",
+        phone: user.spec.phone ?? "",
+        status: user.spec.status ?? "active",
+      })
+    }
+  }, [open, user, form])
+
+  const checkUniqueness = async (field: "email" | "phone", value: string) => {
+    if (!value) return
+    try {
+      const data = await listUsers({ page: 1, pageSize: 1, [field]: value })
+      const exists = data.items?.some((u) => {
+        if (u.metadata.id === user.metadata.id) return false
+        return u.spec[field]?.toLowerCase() === value.toLowerCase()
+      })
+      if (exists) form.setError(field, { message: t(`api.validation.${field}.taken`) })
+    } catch { /* backend will enforce */ }
+  }
+
+  const onSubmit = async (values: FormValues) => {
+    setLoading(true)
+    try {
+      await updateUser(user.metadata.id, {
+        metadata: user.metadata,
+        spec: {
+          ...user.spec,
+          email: values.email,
+          displayName: values.displayName,
+          phone: values.phone,
+          status: values.status,
+        },
+      })
+      toast.success(t("action.updateSuccess"))
+      onOpenChange(false)
+      onSuccess()
+    } catch (err) {
+      if (err instanceof ApiError && err.details?.length) {
+        for (const d of err.details) {
+          const field = d.field.replace(/^spec\./, "") as keyof FormValues
+          const i18nKey = translateDetailMessage(d.message)
+          form.setError(field, { message: i18nKey !== d.message ? t(i18nKey, { field: t(`user.${field}`) || field }) : d.message })
+        }
+      } else if (err instanceof ApiError) {
+        form.setError("root", { message: translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("user.title") }) : err.message })
+      } else {
+        form.setError("root", { message: t("api.error.internalError") })
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle>{t("user.edit")}</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {form.formState.errors.root && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {form.formState.errors.root.message}
+              </div>
+            )}
+            <div>
+              <label className="text-sm font-medium">{t("user.username")}</label>
+              <Input value={user.spec.username} disabled className="mt-1" />
+            </div>
+            <FormField control={form.control} name="email" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("user.email")}</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    {...field}
+                    onBlur={async (e) => {
+                      field.onBlur()
+                      if (!e.target.value) return
+                      const valid = await form.trigger("email")
+                      if (valid) checkUniqueness("email", e.target.value)
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="displayName" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("common.displayName")}</FormLabel>
+                <FormControl><Input {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="phone" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("common.phone")}</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    onBlur={async (e) => {
+                      field.onBlur()
+                      if (!e.target.value) return
+                      const valid = await form.trigger("phone")
+                      if (valid) checkUniqueness("phone", e.target.value)
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="status" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("common.status")}</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl><SelectTrigger className="w-full"><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="active">{t("common.active")}</SelectItem>
+                    <SelectItem value="inactive">{t("common.inactive")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
+              <Button type="submit" disabled={loading}>{loading ? "..." : t("common.save")}</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  )
+}

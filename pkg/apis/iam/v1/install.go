@@ -13,7 +13,7 @@ func NewAPIGroupInfo(p *iam.RESTStorageProvider, provider *oidc.Provider) *rest.
 
 	if provider != nil {
 		ps := provider.PasswordService()
-		userStorage = iam.NewUserStorageWithPassword(p.UserStore(), ps.Hash)
+		userStorage = iam.NewUserStorageWithPassword(p.UserStore(), p.UserWorkspaceStore(), p.UserNamespaceStore(), ps.Hash)
 		changePasswordActions = []rest.ActionInfo{
 			{
 				Name:   "change-password",
@@ -27,13 +27,13 @@ func NewAPIGroupInfo(p *iam.RESTStorageProvider, provider *oidc.Provider) *rest.
 			},
 		}
 	} else {
-		userStorage = iam.NewUserStorage(p.UserStore())
+		userStorage = iam.NewUserStorage(p.UserStore(), p.UserWorkspaceStore(), p.UserNamespaceStore())
 	}
 
 	wsStorage := iam.NewWorkspaceStorage(p.WorkspaceStore(), p.UserStore())
 	nsStorage := iam.NewNamespaceStorage(p.NamespaceStore(), p.WorkspaceStore(), p.UserStore())
 	wsUserStorage := iam.NewWorkspaceUserStorage(p.UserWorkspaceStore(), p.UserStore())
-	nsUserStorage := iam.NewNamespaceUserStorage(p.UserNamespaceStore(), p.UserStore())
+	nsUserStorage := iam.NewNamespaceUserStorage(p.UserNamespaceStore(), p.NamespaceStore(), p.UserStore())
 
 	return &rest.APIGroupInfo{
 		GroupName: "iam",
