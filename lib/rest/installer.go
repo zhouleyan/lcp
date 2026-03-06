@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/runtime"
 )
 
@@ -23,137 +22,63 @@ func (i *APIInstaller) Install() {
 }
 
 func (i *APIInstaller) installResource(res ResourceInfo) {
-	idParam := res.IDParam
-	if idParam == "" {
-		idParam = defaultIDParam(res.Name)
-	}
-
+	idParam := resolveIDParam(res)
 	basePath := "/" + res.Name
 	itemPath := basePath + "/{" + idParam + "}"
+	i.registerRoutes(basePath, itemPath, res)
+}
 
+func (i *APIInstaller) installSubResource(parentItemPath string, sub ResourceInfo) {
+	idParam := resolveIDParam(sub)
+	basePath := parentItemPath + "/" + sub.Name
+	itemPath := basePath + "/{" + idParam + "}"
+	i.registerRoutes(basePath, itemPath, sub)
+}
+
+func resolveIDParam(res ResourceInfo) string {
+	if res.IDParam != "" {
+		return res.IDParam
+	}
+	return defaultIDParam(res.Name)
+}
+
+func (i *APIInstaller) registerRoutes(basePath, itemPath string, res ResourceInfo) {
 	storage := res.Storage
 
-	// POST /{resources}
 	if s, ok := storage.(Creator); ok {
-		handler := i.createHandler(s)
-		i.ws.Route(i.ws.POST(basePath).To(handler))
-		logger.Infof("  POST   %s%s", i.ws.RootPath(), basePath)
+		i.ws.Route(i.ws.POST(basePath).To(i.createHandler(s)))
 	}
 
-	// GET /{resources}
 	if s, ok := storage.(Lister); ok {
-		handler := i.listHandler(s)
-		i.ws.Route(i.ws.GET(basePath).To(handler))
-		logger.Infof("  GET    %s%s", i.ws.RootPath(), basePath)
+		i.ws.Route(i.ws.GET(basePath).To(i.listHandler(s)))
 	}
 
-	// GET /{resources}/{id}
 	if s, ok := storage.(Getter); ok {
-		handler := i.getHandler(s)
-		i.ws.Route(i.ws.GET(itemPath).To(handler))
-		logger.Infof("  GET    %s%s", i.ws.RootPath(), itemPath)
+		i.ws.Route(i.ws.GET(itemPath).To(i.getHandler(s)))
 	}
 
-	// PUT /{resources}/{id}
 	if s, ok := storage.(Updater); ok {
-		handler := i.updateHandler(s)
-		i.ws.Route(i.ws.PUT(itemPath).To(handler))
-		logger.Infof("  PUT    %s%s", i.ws.RootPath(), itemPath)
+		i.ws.Route(i.ws.PUT(itemPath).To(i.updateHandler(s)))
 	}
 
-	// PATCH /{resources}/{id}
 	if s, ok := storage.(Patcher); ok {
-		handler := i.patchHandler(s)
-		i.ws.Route(i.ws.PATCH(itemPath).To(handler))
-		logger.Infof("  PATCH  %s%s", i.ws.RootPath(), itemPath)
+		i.ws.Route(i.ws.PATCH(itemPath).To(i.patchHandler(s)))
 	}
 
-	// DELETE /{resources}/{id}
 	if s, ok := storage.(Deleter); ok {
-		handler := i.deleteHandler(s)
-		i.ws.Route(i.ws.DELETE(itemPath).To(handler))
-		logger.Infof("  DELETE %s%s", i.ws.RootPath(), itemPath)
+		i.ws.Route(i.ws.DELETE(itemPath).To(i.deleteHandler(s)))
 	}
 
-	// DELETE /{resources} (collection)
 	if s, ok := storage.(CollectionDeleter); ok {
-		handler := i.deleteCollectionHandler(s)
-		i.ws.Route(i.ws.DELETE(basePath).To(handler))
-		logger.Infof("  DELETE %s%s (collection)", i.ws.RootPath(), basePath)
+		i.ws.Route(i.ws.DELETE(basePath).To(i.deleteCollectionHandler(s)))
 	}
 
-	// Actions on item
 	for _, action := range res.Actions {
 		i.installAction(itemPath, action)
 	}
 
-	// Sub-resources
 	for _, sub := range res.SubResources {
 		i.installSubResource(itemPath, sub)
-	}
-}
-
-func (i *APIInstaller) installSubResource(parentItemPath string, sub ResourceInfo) {
-	subIDParam := sub.IDParam
-	if subIDParam == "" {
-		subIDParam = defaultIDParam(sub.Name)
-	}
-
-	basePath := parentItemPath + "/" + sub.Name
-	itemPath := basePath + "/{" + subIDParam + "}"
-
-	storage := sub.Storage
-
-	if s, ok := storage.(Creator); ok {
-		handler := i.createHandler(s)
-		i.ws.Route(i.ws.POST(basePath).To(handler))
-		logger.Infof("  POST   %s%s", i.ws.RootPath(), basePath)
-	}
-
-	if s, ok := storage.(Lister); ok {
-		handler := i.listHandler(s)
-		i.ws.Route(i.ws.GET(basePath).To(handler))
-		logger.Infof("  GET    %s%s", i.ws.RootPath(), basePath)
-	}
-
-	if s, ok := storage.(Getter); ok {
-		handler := i.getHandler(s)
-		i.ws.Route(i.ws.GET(itemPath).To(handler))
-		logger.Infof("  GET    %s%s", i.ws.RootPath(), itemPath)
-	}
-
-	if s, ok := storage.(Updater); ok {
-		handler := i.updateHandler(s)
-		i.ws.Route(i.ws.PUT(itemPath).To(handler))
-		logger.Infof("  PUT    %s%s", i.ws.RootPath(), itemPath)
-	}
-
-	if s, ok := storage.(Patcher); ok {
-		handler := i.patchHandler(s)
-		i.ws.Route(i.ws.PATCH(itemPath).To(handler))
-		logger.Infof("  PATCH  %s%s", i.ws.RootPath(), itemPath)
-	}
-
-	if s, ok := storage.(Deleter); ok {
-		handler := i.deleteHandler(s)
-		i.ws.Route(i.ws.DELETE(itemPath).To(handler))
-		logger.Infof("  DELETE %s%s", i.ws.RootPath(), itemPath)
-	}
-
-	if s, ok := storage.(CollectionDeleter); ok {
-		handler := i.deleteCollectionHandler(s)
-		i.ws.Route(i.ws.DELETE(basePath).To(handler))
-		logger.Infof("  DELETE %s%s (collection)", i.ws.RootPath(), basePath)
-	}
-
-	// Actions on sub-resource item
-	for _, action := range sub.Actions {
-		i.installAction(itemPath, action)
-	}
-
-	// Recursive sub-resources
-	for _, nested := range sub.SubResources {
-		i.installSubResource(itemPath, nested)
 	}
 }
 
@@ -166,7 +91,6 @@ func (i *APIInstaller) installAction(parentItemPath string, action ActionInfo) {
 	}
 	handler := Handle(i.serializer, statusCode, action.Handler)
 	i.ws.Route(i.ws.METHOD(action.Method, actionPath).To(handler))
-	logger.Infof("  %s %s%s (action)", action.Method, i.ws.RootPath(), actionPath)
 }
 
 // defaultIDParam derives an ID parameter name from a plural resource name.
