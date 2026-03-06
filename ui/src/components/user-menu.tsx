@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { KeyRound, LogOut, User } from "lucide-react"
+import { KeyRound, LogOut } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"

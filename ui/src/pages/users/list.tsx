@@ -406,6 +406,15 @@ export default function UserListPage() {
 
 // --- User Create/Edit Form Dialog ---
 
+interface UserFormValues {
+  username: string
+  email: string
+  displayName?: string
+  phone?: string
+  password?: string
+  status: "active" | "inactive"
+}
+
 const userFormSchema = z.object({
   username: z
     .string()
@@ -416,10 +425,8 @@ const userFormSchema = z.object({
   displayName: z.string().optional(),
   phone: z.string().optional(),
   password: z.string().optional(),
-  status: z.enum(["active", "inactive"]).default("active"),
-})
-
-type UserFormValues = z.infer<typeof userFormSchema>
+  status: z.enum(["active", "inactive"]),
+}) satisfies z.ZodType<UserFormValues>
 
 function UserFormDialog({
   open,
@@ -492,11 +499,11 @@ function UserFormDialog({
         toast.success(t("action.updateSuccess"))
       } else {
         // include password for creation
-        const createSpec = { ...spec } as Record<string, unknown>
+        const createSpec: Record<string, unknown> = { ...spec }
         if (values.password) createSpec.password = values.password
         await createUser({
           metadata: {} as User["metadata"],
-          spec: createSpec as User["spec"],
+          spec: createSpec as unknown as User["spec"],
         })
         toast.success(t("action.createSuccess"))
       }
