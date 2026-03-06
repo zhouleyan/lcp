@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -56,6 +56,7 @@ export default function UserListPage() {
   const [page, setPage] = useState(1)
   const [sortBy, setSortBy] = useState<SortField>("created_at")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -67,6 +68,13 @@ export default function UserListPage() {
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+
+  // Debounce search input
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null)
+  useEffect(() => {
+    searchTimer.current = setTimeout(() => setSearch(searchInput), 300)
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
+  }, [searchInput])
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -87,7 +95,8 @@ export default function UserListPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, sortBy, sortOrder, search, statusFilter, t])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, sortBy, sortOrder, search, statusFilter])
 
   useEffect(() => {
     fetchUsers()
@@ -192,8 +201,8 @@ export default function UserListPage() {
           <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
           <Input
             placeholder={t("user.searchPlaceholder")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="pl-9"
           />
         </div>
