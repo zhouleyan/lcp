@@ -68,7 +68,7 @@ func (g *Generator) processGroup(doc *Document, group GroupInfo) []Tag {
 	if group.GroupName == "" {
 		basePath = "/api/" + group.GroupVersion
 	} else {
-		basePath = "/apis/" + group.GroupName + "/" + group.GroupVersion
+		basePath = "/api/" + group.GroupName + "/" + group.GroupVersion
 	}
 
 	// Collect all type names to identify which are Spec types (not standalone resources)

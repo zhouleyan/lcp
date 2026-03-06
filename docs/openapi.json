@@ -67,7 +67,7 @@
         }
       }
     },
-    "/api/v1/namespaces": {
+    "/api/iam/v1/namespaces": {
       "get": {
         "summary": "获取项目列表",
         "operationId": "listNamespace",
@@ -181,7 +181,7 @@
         }
       }
     },
-    "/api/v1/namespaces/{namespaceId}": {
+    "/api/iam/v1/namespaces/{namespaceId}": {
       "get": {
         "summary": "获取项目详情",
         "operationId": "getNamespace",
@@ -312,7 +312,7 @@
         }
       }
     },
-    "/api/v1/namespaces/{namespaceId}/users": {
+    "/api/iam/v1/namespaces/{namespaceId}/users": {
       "get": {
         "summary": "获取项目成员列表",
         "operationId": "listNamespaceUser",
@@ -454,7 +454,7 @@
         }
       }
     },
-    "/api/v1/namespaces/{namespaceId}/users/{userId}": {
+    "/api/iam/v1/namespaces/{namespaceId}/users/{userId}": {
       "get": {
         "summary": "获取用户详情",
         "operationId": "getNamespaceUser",
@@ -617,7 +617,7 @@
         }
       }
     },
-    "/api/v1/namespaces/{namespaceId}/users/{userId}/change-password": {
+    "/api/iam/v1/namespaces/{namespaceId}/users/{userId}/change-password": {
       "post": {
         "summary": "修改用户密码",
         "operationId": "changePasswordNamespaceUser",
@@ -659,7 +659,7 @@
         }
       }
     },
-    "/api/v1/users": {
+    "/api/iam/v1/users": {
       "get": {
         "summary": "获取用户列表",
         "operationId": "listUser",
@@ -773,7 +773,7 @@
         }
       }
     },
-    "/api/v1/users/{userId}": {
+    "/api/iam/v1/users/{userId}": {
       "get": {
         "summary": "获取用户详情",
         "operationId": "getUser",
@@ -904,7 +904,7 @@
         }
       }
     },
-    "/api/v1/users/{userId}/change-password": {
+    "/api/iam/v1/users/{userId}/change-password": {
       "post": {
         "summary": "修改用户密码",
         "operationId": "changePasswordUser",
@@ -938,7 +938,7 @@
         }
       }
     },
-    "/api/v1/workspaces": {
+    "/api/iam/v1/workspaces": {
       "get": {
         "summary": "获取工作空间列表",
         "operationId": "listWorkspace",
@@ -1052,7 +1052,7 @@
         }
       }
     },
-    "/api/v1/workspaces/{workspaceId}": {
+    "/api/iam/v1/workspaces/{workspaceId}": {
       "get": {
         "summary": "获取工作空间详情",
         "operationId": "getWorkspace",
@@ -1183,7 +1183,7 @@
         }
       }
     },
-    "/api/v1/workspaces/{workspaceId}/namespaces": {
+    "/api/iam/v1/workspaces/{workspaceId}/namespaces": {
       "get": {
         "summary": "获取工作空间下的项目列表",
         "operationId": "listWorkspaceNamespace",
@@ -1325,7 +1325,7 @@
         }
       }
     },
-    "/api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}": {
+    "/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}": {
       "get": {
         "summary": "获取工作空间下的项目详情",
         "operationId": "getWorkspaceNamespace",
@@ -1488,7 +1488,7 @@
         }
       }
     },
-    "/api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users": {
+    "/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users": {
       "get": {
         "summary": "获取工作空间下项目的成员列表",
         "operationId": "listWorkspaceNamespaceUser",
@@ -1654,7 +1654,7 @@
         }
       }
     },
-    "/api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}": {
+    "/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}": {
       "get": {
         "summary": "获取用户详情",
         "operationId": "getWorkspaceNamespaceUser",
@@ -1849,7 +1849,7 @@
         }
       }
     },
-    "/api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}/change-password": {
+    "/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}/change-password": {
       "post": {
         "summary": "修改用户密码",
         "operationId": "changePasswordWorkspaceNamespaceUser",
@@ -1899,7 +1899,7 @@
         }
       }
     },
-    "/api/v1/workspaces/{workspaceId}/users": {
+    "/api/iam/v1/workspaces/{workspaceId}/users": {
       "get": {
         "summary": "获取工作空间成员列表",
         "operationId": "listWorkspaceUser",
@@ -2041,7 +2041,7 @@
         }
       }
     },
-    "/api/v1/workspaces/{workspaceId}/users/{userId}": {
+    "/api/iam/v1/workspaces/{workspaceId}/users/{userId}": {
       "get": {
         "summary": "获取用户详情",
         "operationId": "getWorkspaceUser",
@@ -2204,7 +2204,7 @@
         }
       }
     },
-    "/api/v1/workspaces/{workspaceId}/users/{userId}/change-password": {
+    "/api/iam/v1/workspaces/{workspaceId}/users/{userId}/change-password": {
       "post": {
         "summary": "修改用户密码",
         "operationId": "changePasswordWorkspaceUser",

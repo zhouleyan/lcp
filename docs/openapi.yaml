@@ -40,7 +40,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OIDCDiscoveryResponse'
-  /api/v1/namespaces:
+  /api/iam/v1/namespaces:
     get:
       summary: 获取项目列表
       operationId: listNamespace
@@ -110,7 +110,7 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/namespaces/{namespaceId}:
+  /api/iam/v1/namespaces/{namespaceId}:
     get:
       summary: 获取项目详情
       operationId: getNamespace
@@ -191,7 +191,7 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/v1/namespaces/{namespaceId}/users:
+  /api/iam/v1/namespaces/{namespaceId}/users:
     get:
       summary: 获取项目成员列表
       operationId: listNamespaceUser
@@ -278,7 +278,7 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/namespaces/{namespaceId}/users/{userId}:
+  /api/iam/v1/namespaces/{namespaceId}/users/{userId}:
     get:
       summary: 获取用户详情
       operationId: getNamespaceUser
@@ -379,7 +379,7 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/v1/namespaces/{namespaceId}/users/{userId}/change-password:
+  /api/iam/v1/namespaces/{namespaceId}/users/{userId}/change-password:
     post:
       summary: 修改用户密码
       operationId: changePasswordNamespaceUser
@@ -405,7 +405,7 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/users:
+  /api/iam/v1/users:
     get:
       summary: 获取用户列表
       operationId: listUser
@@ -475,7 +475,7 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/users/{userId}:
+  /api/iam/v1/users/{userId}:
     get:
       summary: 获取用户详情
       operationId: getUser
@@ -556,7 +556,7 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/v1/users/{userId}/change-password:
+  /api/iam/v1/users/{userId}/change-password:
     post:
       summary: 修改用户密码
       operationId: changePasswordUser
@@ -577,7 +577,7 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/workspaces:
+  /api/iam/v1/workspaces:
     get:
       summary: 获取工作空间列表
       operationId: listWorkspace
@@ -647,7 +647,7 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/workspaces/{workspaceId}:
+  /api/iam/v1/workspaces/{workspaceId}:
     get:
       summary: 获取工作空间详情
       operationId: getWorkspace
@@ -728,7 +728,7 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/v1/workspaces/{workspaceId}/namespaces:
+  /api/iam/v1/workspaces/{workspaceId}/namespaces:
     get:
       summary: 获取工作空间下的项目列表
       operationId: listWorkspaceNamespace
@@ -815,7 +815,7 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}:
+  /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}:
     get:
       summary: 获取工作空间下的项目详情
       operationId: getWorkspaceNamespace
@@ -916,7 +916,7 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users:
+  /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users:
     get:
       summary: 获取工作空间下项目的成员列表
       operationId: listWorkspaceNamespaceUser
@@ -1018,7 +1018,7 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}:
+  /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}:
     get:
       summary: 获取用户详情
       operationId: getWorkspaceNamespaceUser
@@ -1139,7 +1139,7 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}/change-password:
+  /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}/change-password:
     post:
       summary: 修改用户密码
       operationId: changePasswordWorkspaceNamespaceUser
@@ -1170,7 +1170,7 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/workspaces/{workspaceId}/users:
+  /api/iam/v1/workspaces/{workspaceId}/users:
     get:
       summary: 获取工作空间成员列表
       operationId: listWorkspaceUser
@@ -1257,7 +1257,7 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/workspaces/{workspaceId}/users/{userId}:
+  /api/iam/v1/workspaces/{workspaceId}/users/{userId}:
     get:
       summary: 获取用户详情
       operationId: getWorkspaceUser
@@ -1358,7 +1358,7 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/v1/workspaces/{workspaceId}/users/{userId}/change-password:
+  /api/iam/v1/workspaces/{workspaceId}/users/{userId}/change-password:
     post:
       summary: 修改用户密码
       operationId: changePasswordWorkspaceUser

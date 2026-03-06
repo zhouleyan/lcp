@@ -36,7 +36,8 @@ func NewAPIGroupInfo(p *iam.RESTStorageProvider, provider *oidc.Provider) *rest.
 	nsUserStorage := iam.NewNamespaceUserStorage(p.UserNamespaceStore(), p.UserStore())
 
 	return &rest.APIGroupInfo{
-		Version: "v1",
+		GroupName: "iam",
+		Version:   "v1",
 		Resources: []rest.ResourceInfo{
 			{Name: "users", Storage: userStorage, Actions: changePasswordActions},
 			{

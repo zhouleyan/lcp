@@ -8,12 +8,21 @@ type APIGroupInfo struct {
 }
 
 // BasePath returns the URL prefix for this API group.
-// Core group (GroupName=="") uses /api/{version}, named groups use /apis/{group}/{version}.
+// Core group (GroupName=="") uses /api/{version}, named groups use /api/{group}/{version}.
 func (g *APIGroupInfo) BasePath() string {
 	if g.GroupName == "" {
 		return "/api/" + g.Version
 	}
-	return "/apis/" + g.GroupName + "/" + g.Version
+	return "/api/" + g.GroupName + "/" + g.Version
+}
+
+// APIVersion returns the wire-format apiVersion string.
+// Core group returns just the version (e.g. "v1"), named groups return "group/version" (e.g. "iam/v1").
+func (g *APIGroupInfo) APIVersion() string {
+	if g.GroupName == "" {
+		return g.Version
+	}
+	return g.GroupName + "/" + g.Version
 }
 
 // ActionInfo describes a custom action on a resource.

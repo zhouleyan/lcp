@@ -89,8 +89,18 @@ func (i *APIInstaller) installAction(parentItemPath string, action ActionInfo) {
 	if statusCode == 0 {
 		statusCode = http.StatusOK
 	}
-	handler := Handle(i.serializer, statusCode, action.Handler)
+	handler := HandleWithAPIVersion(i.serializer, statusCode, action.Handler, i.group.APIVersion())
 	i.ws.Route(i.ws.METHOD(action.Method, actionPath).To(handler))
+}
+
+// setAPIVersion sets the APIVersion field on a runtime.Object if it has a TypeMeta.
+func setAPIVersion(obj runtime.Object, apiVersion string) {
+	if obj == nil {
+		return
+	}
+	if tm := obj.GetTypeMeta(); tm != nil {
+		tm.APIVersion = apiVersion
+	}
 }
 
 // defaultIDParam derives an ID parameter name from a plural resource name.
@@ -137,6 +147,7 @@ func (i *APIInstaller) createHandler(storage Creator) http.HandlerFunc {
 			return
 		}
 
+		setAPIVersion(result, i.group.APIVersion())
 		WriteObjectNegotiated(i.serializer, w, req, http.StatusCreated, result)
 	}
 }
@@ -155,6 +166,7 @@ func (i *APIInstaller) listHandler(storage Lister) http.HandlerFunc {
 			return
 		}
 
+		setAPIVersion(result, i.group.APIVersion())
 		WriteObjectNegotiated(i.serializer, w, req, http.StatusOK, result)
 	}
 }
@@ -171,6 +183,7 @@ func (i *APIInstaller) getHandler(storage Getter) http.HandlerFunc {
 			return
 		}
 
+		setAPIVersion(result, i.group.APIVersion())
 		WriteObjectNegotiated(i.serializer, w, req, http.StatusOK, result)
 	}
 }
@@ -204,6 +217,7 @@ func (i *APIInstaller) updateHandler(storage Updater) http.HandlerFunc {
 			return
 		}
 
+		setAPIVersion(result, i.group.APIVersion())
 		WriteObjectNegotiated(i.serializer, w, req, http.StatusOK, result)
 	}
 }
@@ -237,6 +251,7 @@ func (i *APIInstaller) patchHandler(storage Patcher) http.HandlerFunc {
 			return
 		}
 
+		setAPIVersion(result, i.group.APIVersion())
 		WriteObjectNegotiated(i.serializer, w, req, http.StatusOK, result)
 	}
 }
@@ -286,6 +301,7 @@ func (i *APIInstaller) deleteCollectionHandler(storage CollectionDeleter) http.H
 			return
 		}
 
+		setAPIVersion(result, i.group.APIVersion())
 		WriteObjectNegotiated(i.serializer, w, req, http.StatusOK, result)
 	}
 }

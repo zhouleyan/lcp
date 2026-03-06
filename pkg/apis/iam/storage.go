@@ -84,7 +84,7 @@ func (s *userStorage) List(ctx context.Context, options *rest.ListOptions) (runt
 	}
 
 	return &UserList{
-		TypeMeta:   runtime.TypeMeta{Kind: "UserList", APIVersion: "v1"},
+		TypeMeta:   runtime.TypeMeta{Kind: "UserList"},
 		Items:      items,
 		TotalCount: result.TotalCount,
 	}, nil
@@ -323,7 +323,7 @@ func (s *workspaceStorage) List(ctx context.Context, options *rest.ListOptions) 
 	}
 
 	return &WorkspaceList{
-		TypeMeta:   runtime.TypeMeta{Kind: "WorkspaceList", APIVersion: "v1"},
+		TypeMeta:   runtime.TypeMeta{Kind: "WorkspaceList"},
 		Items:      items,
 		TotalCount: result.TotalCount,
 	}, nil
@@ -582,7 +582,7 @@ func (s *namespaceStorage) List(ctx context.Context, options *rest.ListOptions) 
 	}
 
 	return &NamespaceList{
-		TypeMeta:   runtime.TypeMeta{Kind: "NamespaceList", APIVersion: "v1"},
+		TypeMeta:   runtime.TypeMeta{Kind: "NamespaceList"},
 		Items:      items,
 		TotalCount: result.TotalCount,
 	}, nil
@@ -853,7 +853,7 @@ func (s *workspaceUserStorage) List(ctx context.Context, options *rest.ListOptio
 	}
 
 	return &UserList{
-		TypeMeta:   runtime.TypeMeta{Kind: "UserList", APIVersion: "v1"},
+		TypeMeta:   runtime.TypeMeta{Kind: "UserList"},
 		Items:      items,
 		TotalCount: int64(len(items)),
 	}, nil
@@ -891,7 +891,7 @@ func (s *workspaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 	}
 
 	return &rest.DeletionResult{
-		TypeMeta:     runtime.TypeMeta{Kind: "Result", APIVersion: "v1"},
+		TypeMeta:     runtime.TypeMeta{Kind: "Result"},
 		SuccessCount: len(req.IDs),
 	}, nil
 }
@@ -954,7 +954,7 @@ func (s *namespaceUserStorage) List(ctx context.Context, options *rest.ListOptio
 	}
 
 	return &UserList{
-		TypeMeta:   runtime.TypeMeta{Kind: "UserList", APIVersion: "v1"},
+		TypeMeta:   runtime.TypeMeta{Kind: "UserList"},
 		Items:      items,
 		TotalCount: int64(len(items)),
 	}, nil
@@ -994,7 +994,7 @@ func (s *namespaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 	}
 
 	return &rest.DeletionResult{
-		TypeMeta:     runtime.TypeMeta{Kind: "Result", APIVersion: "v1"},
+		TypeMeta:     runtime.TypeMeta{Kind: "Result"},
 		SuccessCount: len(req.IDs),
 	}, nil
 }
@@ -1096,7 +1096,7 @@ func NewChangePasswordHandler(userStore UserStore, refreshStore RefreshTokenStor
 		}
 
 		return &StatusResponse{
-			TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "Status"},
+			TypeMeta: runtime.TypeMeta{Kind: "Status"},
 			Status:   "Success",
 			Message:  "password changed successfully",
 		}, nil
@@ -1107,7 +1107,7 @@ func NewChangePasswordHandler(userStore UserStore, refreshStore RefreshTokenStor
 
 func userToAPI(u *DBUser) *User {
 	return &User{
-		TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "User"},
+		TypeMeta: runtime.TypeMeta{Kind: "User"},
 		ObjectMeta: types.ObjectMeta{
 			ID:        strconv.FormatInt(u.ID, 10),
 			Name:      u.Username,
@@ -1135,7 +1135,7 @@ func userWithNamespacesToAPI(u *DBUserWithNamespaces) *User {
 
 func workspaceToAPI(w *DBWorkspace) *Workspace {
 	return &Workspace{
-		TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "Workspace"},
+		TypeMeta: runtime.TypeMeta{Kind: "Workspace"},
 		ObjectMeta: types.ObjectMeta{
 			ID:        strconv.FormatInt(w.ID, 10),
 			Name:      w.Name,
@@ -1153,7 +1153,7 @@ func workspaceToAPI(w *DBWorkspace) *Workspace {
 
 func namespaceToAPI(n *DBNamespace) *Namespace {
 	return &Namespace{
-		TypeMeta: runtime.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
+		TypeMeta: runtime.TypeMeta{Kind: "Namespace"},
 		ObjectMeta: types.ObjectMeta{
 			ID:        strconv.FormatInt(n.ID, 10),
 			Name:      n.Name,

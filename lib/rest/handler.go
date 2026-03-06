@@ -58,6 +58,42 @@ func Handle(ns runtime.NegotiatedSerializer, statusCode int, fn HandlerFunc) htt
 	}
 }
 
+// HandleWithAPIVersion is like Handle but also sets the APIVersion on the result object.
+func HandleWithAPIVersion(ns runtime.NegotiatedSerializer, statusCode int, fn HandlerFunc, apiVersion string) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		params := PathParams(req)
+
+		var body []byte
+		if req.Body != nil && req.ContentLength != 0 {
+			req.Body = http.MaxBytesReader(w, req.Body, maxRequestBodySize)
+			var err error
+			body, err = io.ReadAll(req.Body)
+			if err != nil {
+				handleError(ns, err, w, req)
+				return
+			}
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(req.Body)
+		}
+
+		result, err := fn(ctx, params, body)
+		if err != nil {
+			handleError(ns, err, w, req)
+			return
+		}
+		if result == nil {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if tm := result.GetTypeMeta(); tm != nil {
+			tm.APIVersion = apiVersion
+		}
+		transformResponseObject(ns, req, w, statusCode, result)
+	}
+}
+
 func transformResponseObject(
 	ns runtime.NegotiatedSerializer,
 	req *http.Request,
