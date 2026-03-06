@@ -41,7 +41,6 @@ import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 
-type SortField = "name" | "display_name" | "member_count" | "created_at" | "updated_at"
 
 export default function NamespaceListPage() {
   const { t } = useTranslation()

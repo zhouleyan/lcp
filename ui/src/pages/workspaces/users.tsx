@@ -26,7 +26,6 @@ import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 
-type SortField = "username" | "email" | "display_name" | "phone" | "created_at" | "updated_at"
 
 export default function WorkspaceUsersPage() {
   const { workspace, onWorkspaceChange } = useOutletContext<{ workspace: Workspace; onWorkspaceChange: () => void }>()
