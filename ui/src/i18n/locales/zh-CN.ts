@@ -22,6 +22,7 @@ const zhCN: Messages = {
   "common.password": "密码",
   "common.previous": "上一页",
   "common.next": "下一页",
+  "common.pageSize": "每页",
   "common.page": "第 {page} 页，共 {total} 页",
 
   // auth

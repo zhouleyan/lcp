@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter } from "lucide-react"
+import { Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, ChevronLeft, ChevronRight } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -51,7 +51,7 @@ import { ApiError, translateDetailMessage, translateApiError } from "@/api/clien
 import type { User, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 
-const PAGE_SIZE = 20
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 type SortField = "username" | "email" | "display_name" | "phone" | "created_at" | "updated_at"
 
@@ -61,6 +61,7 @@ export default function UserListPage() {
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [sortBy, setSortBy] = useState<SortField>("created_at")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [searchInput, setSearchInput] = useState("")
@@ -74,7 +75,7 @@ export default function UserListPage() {
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   // Debounce search input
   const searchTimer = useRef<ReturnType<typeof setTimeout>>(null)
@@ -88,7 +89,7 @@ export default function UserListPage() {
     try {
       const params: ListParams = {
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
         sortBy,
         sortOrder,
       }
@@ -103,16 +104,16 @@ export default function UserListPage() {
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, sortBy, sortOrder, search, statusFilter])
+  }, [page, pageSize, sortBy, sortOrder, search, statusFilter])
 
   useEffect(() => {
     fetchUsers()
   }, [fetchUsers])
 
-  // reset page when filters change
+  // reset page when filters or pageSize change
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter])
+  }, [search, statusFilter, pageSize])
 
   // clear selection on data change
   useEffect(() => {
@@ -379,28 +380,47 @@ export default function UserListPage() {
       {/* pagination */}
       {totalCount > 0 && (
         <div className="mt-4 flex items-center justify-between">
-          <p className="text-muted-foreground text-sm">
-            {t("common.total", { count: totalCount })}
-          </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            <p className="text-muted-foreground text-sm">
+              {t("common.total", { count: totalCount })}
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm">{t("common.pageSize")}</span>
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
+              className="h-8 w-8"
               disabled={page <= 1}
               onClick={() => setPage((p) => p - 1)}
             >
-              {t("common.previous")}
+              <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm">
+            <span className="text-sm px-2">
               {t("common.page", { page, total: totalPages })}
             </span>
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
+              className="h-8 w-8"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
             >
-              {t("common.next")}
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>

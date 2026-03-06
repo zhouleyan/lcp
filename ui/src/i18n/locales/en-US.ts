@@ -22,6 +22,7 @@ const enUS: Messages = {
   "common.password": "Password",
   "common.previous": "Previous",
   "common.next": "Next",
+  "common.pageSize": "Per page",
   "common.page": "Page {page} of {total}",
 
   // auth
