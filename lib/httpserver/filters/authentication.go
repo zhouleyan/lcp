@@ -31,6 +31,11 @@ func WithAuthentication(provider *oidc.Provider) func(http.Handler) http.Handler
 				return
 			}
 
+			if err := provider.CheckUserActive(r.Context(), userID); err != nil {
+				authError(w, "account is not active")
+				return
+			}
+
 			r = oidc.WithUserID(r, userID)
 			next.ServeHTTP(w, r)
 		})

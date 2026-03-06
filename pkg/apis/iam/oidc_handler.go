@@ -192,7 +192,11 @@ func handleLogin(provider *oidc.Provider) http.HandlerFunc {
 		session, _, err := provider.Login(r.Context(), req.Username, req.Password)
 		if err != nil {
 			logger.Infof("login failed for user %q: %v", req.Username, err)
-			oidcError(w, "invalid_grant", "invalid credentials", http.StatusUnauthorized)
+			description := "invalid credentials"
+			if err.Error() == "account is not active" {
+				description = "account is not active"
+			}
+			oidcError(w, "invalid_grant", description, http.StatusUnauthorized)
 			return
 		}
 

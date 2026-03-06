@@ -95,7 +95,7 @@ const enUS: Messages = {
 
   // login errors
   "login.error.invalidCredentials": "Invalid username or password",
-  "login.error.accountLocked": "Account has been locked",
+  "login.error.accountInactive": "Account has been deactivated",
   "login.error.failed": "Login failed, please try again",
 
   // api errors

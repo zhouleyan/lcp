@@ -95,7 +95,7 @@ const zhCN: Messages = {
 
   // login errors
   "login.error.invalidCredentials": "用户名或密码错误",
-  "login.error.accountLocked": "账号已被锁定",
+  "login.error.accountInactive": "账号已被停用",
   "login.error.failed": "登录失败，请重试",
 
   // api errors

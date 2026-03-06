@@ -16,7 +16,7 @@ lcp-server-prod:
 	CGO_ENABLED=0 go build -ldflags "$(GO_BUILD_INFO)" -tags "$(EXTRA_GO_BUILD_TAGS)" -o bin/$(APP_NAME) $(PKG_PREFIX)/app/$(APP_NAME)
 
 # ./bin/lcp-server -config ./app/lcp-server/config.yaml
-build: ui-build lcp-server-prod
+build: openapi-gen ui-build lcp-server-prod
 
 sqlc-generate:
 	cd pkg/db && sqlc generate

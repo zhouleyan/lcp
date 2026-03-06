@@ -63,6 +63,10 @@ export const api = ky.create({
           window.location.href = "/error?status=401"
           return response
         }
+        if (response.status === 404) {
+          window.location.href = "/error?status=404"
+          return response
+        }
         if (response.status >= 500) {
           window.location.href = `/error?status=${response.status}`
         }

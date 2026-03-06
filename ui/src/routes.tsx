@@ -1,4 +1,4 @@
-import type { RouteObject } from "react-router"
+import { Navigate, type RouteObject } from "react-router"
 import RootLayout from "@/layouts/root-layout"
 import WorkspaceLayout from "@/layouts/workspace-layout"
 import LoginPage from "@/pages/login"
@@ -41,5 +41,9 @@ export const routes: RouteObject[] = [
       { path: "namespaces", element: <NamespaceListPage /> },
       { path: "users", element: <UserListPage /> },
     ],
+  },
+  {
+    path: "*",
+    element: <Navigate to="/" replace />,
   },
 ]

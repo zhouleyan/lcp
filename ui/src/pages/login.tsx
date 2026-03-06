@@ -10,8 +10,7 @@ import { loginWithCredentials, startAuthFlow } from "@/lib/auth"
 
 const loginErrorMap: Record<string, string> = {
   "invalid credentials": "login.error.invalidCredentials",
-  "account locked": "login.error.accountLocked",
-  "account is locked": "login.error.accountLocked",
+  "account is not active": "login.error.accountInactive",
 }
 
 export default function LoginPage() {
