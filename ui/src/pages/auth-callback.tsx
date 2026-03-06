@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router"
 import { exchangeCodeForTokens } from "@/lib/auth"
 import { useTranslation } from "@/i18n"
@@ -8,8 +8,12 @@ export default function AuthCallbackPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
+  const exchanged = useRef(false)
 
   useEffect(() => {
+    if (exchanged.current) return
+    exchanged.current = true
+
     const code = searchParams.get("code")
     if (!code) {
       setError(t("auth.missingCode"))

@@ -109,6 +109,11 @@ const detailMessageMap: Record<string, string> = {
   "must be 'active' or 'inactive'": "api.validation.status.format",
 }
 
+const messageMap: Record<string, string> = {
+  "old password is incorrect": "api.error.oldPasswordIncorrect",
+  "oldPassword and newPassword are required": "api.error.badRequest",
+}
+
 const reasonMessageMap: Record<string, string> = {
   Conflict: "api.error.conflict",
   NotFound: "api.error.notFound",
@@ -120,5 +125,5 @@ export function translateDetailMessage(message: string): string {
 }
 
 export function translateApiError(err: ApiError): string {
-  return reasonMessageMap[err.reason] ?? err.message
+  return messageMap[err.message] ?? reasonMessageMap[err.reason] ?? err.message
 }

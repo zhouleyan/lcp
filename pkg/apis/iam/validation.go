@@ -33,7 +33,9 @@ func ValidateUserCreate(spec *UserSpec) validation.ErrorList {
 		errs = append(errs, validation.FieldError{Field: "spec.email", Message: "is not a valid email address"})
 	}
 
-	if spec.Phone != "" && !phoneRegexp.MatchString(spec.Phone) {
+	if spec.Phone == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.phone", Message: "is required"})
+	} else if !phoneRegexp.MatchString(spec.Phone) {
 		errs = append(errs, validation.FieldError{Field: "spec.phone", Message: "must be a valid Chinese mobile number (e.g. 13800138000)"})
 	}
 

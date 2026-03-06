@@ -17,13 +17,15 @@ WHERE
     ($1::VARCHAR IS NULL OR status = $1)
     AND ($2::VARCHAR IS NULL OR username ILIKE '%' || $2 || '%')
     AND ($3::VARCHAR IS NULL OR email ILIKE '%' || $3 || '%')
-    AND ($4::VARCHAR IS NULL OR display_name ILIKE '%' || $4 || '%')
+    AND ($4::VARCHAR IS NULL OR phone ILIKE '%' || $4 || '%')
+    AND ($5::VARCHAR IS NULL OR display_name ILIKE '%' || $5 || '%')
 `
 
 type CountUsersParams struct {
 	Status      *string `json:"status"`
 	Username    *string `json:"username"`
 	Email       *string `json:"email"`
+	Phone       *string `json:"phone"`
 	DisplayName *string `json:"display_name"`
 }
 
@@ -32,6 +34,7 @@ func (q *Queries) CountUsers(ctx context.Context, arg CountUsersParams) (int64, 
 		arg.Status,
 		arg.Username,
 		arg.Email,
+		arg.Phone,
 		arg.DisplayName,
 	)
 	var count int64
@@ -203,6 +206,44 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (GetUserByIDRow, er
 	return i, err
 }
 
+const getUserByPhone = `-- name: GetUserByPhone :one
+SELECT id, username, email, display_name, phone, avatar_url, status,
+       last_login_at, created_at, updated_at
+FROM users
+WHERE phone = $1
+`
+
+type GetUserByPhoneRow struct {
+	ID          int64      `json:"id"`
+	Username    string     `json:"username"`
+	Email       string     `json:"email"`
+	DisplayName string     `json:"display_name"`
+	Phone       string     `json:"phone"`
+	AvatarUrl   string     `json:"avatar_url"`
+	Status      string     `json:"status"`
+	LastLoginAt *time.Time `json:"last_login_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (GetUserByPhoneRow, error) {
+	row := q.db.QueryRow(ctx, getUserByPhone, phone)
+	var i GetUserByPhoneRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.DisplayName,
+		&i.Phone,
+		&i.AvatarUrl,
+		&i.Status,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByUsername = `-- name: GetUserByUsername :one
 SELECT id, username, email, display_name, phone, avatar_url, status,
        last_login_at, created_at, updated_at
@@ -336,29 +377,31 @@ WHERE
     ($1::VARCHAR IS NULL OR u.status = $1)
     AND ($2::VARCHAR IS NULL OR u.username ILIKE '%' || $2 || '%')
     AND ($3::VARCHAR IS NULL OR u.email ILIKE '%' || $3 || '%')
-    AND ($4::VARCHAR IS NULL OR u.display_name ILIKE '%' || $4 || '%')
+    AND ($4::VARCHAR IS NULL OR u.phone ILIKE '%' || $4 || '%')
+    AND ($5::VARCHAR IS NULL OR u.display_name ILIKE '%' || $5 || '%')
 GROUP BY u.id, u.username, u.email, u.display_name, u.phone, u.avatar_url,
          u.status, u.last_login_at, u.created_at, u.updated_at
 ORDER BY
-    CASE WHEN $5::VARCHAR = 'username' AND $6::VARCHAR = 'asc' THEN u.username END ASC,
-    CASE WHEN $5::VARCHAR = 'username' AND $6::VARCHAR = 'desc' THEN u.username END DESC,
-    CASE WHEN $5::VARCHAR = 'email' AND $6::VARCHAR = 'asc' THEN u.email END ASC,
-    CASE WHEN $5::VARCHAR = 'email' AND $6::VARCHAR = 'desc' THEN u.email END DESC,
-    CASE WHEN $5::VARCHAR = 'display_name' AND $6::VARCHAR = 'asc' THEN u.display_name END ASC,
-    CASE WHEN $5::VARCHAR = 'display_name' AND $6::VARCHAR = 'desc' THEN u.display_name END DESC,
-    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'asc' THEN u.created_at END ASC,
-    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'desc' THEN u.created_at END DESC,
-    CASE WHEN $5::VARCHAR = 'status' AND $6::VARCHAR = 'asc' THEN u.status END ASC,
-    CASE WHEN $5::VARCHAR = 'status' AND $6::VARCHAR = 'desc' THEN u.status END DESC,
+    CASE WHEN $6::VARCHAR = 'username' AND $7::VARCHAR = 'asc' THEN u.username END ASC,
+    CASE WHEN $6::VARCHAR = 'username' AND $7::VARCHAR = 'desc' THEN u.username END DESC,
+    CASE WHEN $6::VARCHAR = 'email' AND $7::VARCHAR = 'asc' THEN u.email END ASC,
+    CASE WHEN $6::VARCHAR = 'email' AND $7::VARCHAR = 'desc' THEN u.email END DESC,
+    CASE WHEN $6::VARCHAR = 'display_name' AND $7::VARCHAR = 'asc' THEN u.display_name END ASC,
+    CASE WHEN $6::VARCHAR = 'display_name' AND $7::VARCHAR = 'desc' THEN u.display_name END DESC,
+    CASE WHEN $6::VARCHAR = 'created_at' AND $7::VARCHAR = 'asc' THEN u.created_at END ASC,
+    CASE WHEN $6::VARCHAR = 'created_at' AND $7::VARCHAR = 'desc' THEN u.created_at END DESC,
+    CASE WHEN $6::VARCHAR = 'status' AND $7::VARCHAR = 'asc' THEN u.status END ASC,
+    CASE WHEN $6::VARCHAR = 'status' AND $7::VARCHAR = 'desc' THEN u.status END DESC,
     u.created_at DESC
-LIMIT $8::INT
-OFFSET $7::INT
+LIMIT $9::INT
+OFFSET $8::INT
 `
 
 type ListUsersParams struct {
 	Status      *string `json:"status"`
 	Username    *string `json:"username"`
 	Email       *string `json:"email"`
+	Phone       *string `json:"phone"`
 	DisplayName *string `json:"display_name"`
 	SortField   string  `json:"sort_field"`
 	SortOrder   string  `json:"sort_order"`
@@ -385,6 +428,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 		arg.Status,
 		arg.Username,
 		arg.Email,
+		arg.Phone,
 		arg.DisplayName,
 		arg.SortField,
 		arg.SortOrder,

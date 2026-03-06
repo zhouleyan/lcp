@@ -430,7 +430,7 @@ interface UserFormValues {
   username: string
   email: string
   displayName?: string
-  phone?: string
+  phone: string
   password?: string
   status: "active" | "inactive"
 }
@@ -460,11 +460,8 @@ function UserFormDialog({
     displayName: z.string().optional(),
     phone: z
       .string()
-      .optional()
-      .refine(
-        (v) => !v || /^1[3-9]\d{9}$/.test(v),
-        t("api.validation.phone.format"),
-      ),
+      .min(1, t("api.validation.required", { field: t("common.phone") }))
+      .regex(/^1[3-9]\d{9}$/, t("api.validation.phone.format")),
     password: isEdit
       ? z.string().optional()
       : z
@@ -490,14 +487,14 @@ function UserFormDialog({
     },
   })
 
-  const checkUniqueness = async (field: "username" | "email", value: string) => {
+  const checkUniqueness = async (field: "username" | "email" | "phone", value: string) => {
     if (!value) return
     try {
       const params: ListParams = { page: 1, pageSize: 1, [field]: value }
       const data = await listUsers(params)
       const exists = data.items?.some((u) => {
         if (isEdit && u.metadata.id === user?.metadata.id) return false
-        return u.spec[field].toLowerCase() === value.toLowerCase()
+        return u.spec[field]?.toLowerCase() === value.toLowerCase()
       })
       if (exists) {
         form.setError(field, { message: t(`api.validation.${field}.taken`) })
@@ -539,7 +536,7 @@ function UserFormDialog({
         username: values.username,
         email: values.email,
         displayName: values.displayName || undefined,
-        phone: values.phone || undefined,
+        phone: values.phone,
         status: values.status,
       } as User["spec"]
 
@@ -581,7 +578,7 @@ function UserFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t("user.edit") : t("user.create")}</DialogTitle>
         </DialogHeader>
@@ -656,7 +653,15 @@ function UserFormDialog({
                 <FormItem>
                   <FormLabel>{t("common.phone")}</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input
+                      {...field}
+                      onBlur={async (e) => {
+                        field.onBlur()
+                        if (!e.target.value) return
+                        const valid = await form.trigger("phone")
+                        if (valid) checkUniqueness("phone", e.target.value)
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

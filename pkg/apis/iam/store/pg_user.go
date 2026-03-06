@@ -78,6 +78,18 @@ func (s *pgUserStore) GetByEmail(ctx context.Context, email string) (*iam.DBUser
 	return &u, nil
 }
 
+func (s *pgUserStore) GetByPhone(ctx context.Context, phone string) (*iam.DBUser, error) {
+	row, err := s.queries.GetUserByPhone(ctx, phone)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("user", phone)
+		}
+		return nil, fmt.Errorf("get user by phone: %w", err)
+	}
+	u := getByPhoneRowToUser(row)
+	return &u, nil
+}
+
 func (s *pgUserStore) Update(ctx context.Context, user *iam.DBUser) (*iam.DBUser, error) {
 	row, err := s.queries.UpdateUser(ctx, generated.UpdateUserParams{
 		ID:          user.ID,
@@ -168,6 +180,7 @@ func (s *pgUserStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[
 		Status:      filterStr("status"),
 		Username:    filterStr("username"),
 		Email:       filterStr("email"),
+		Phone:       filterStr("phone"),
 		DisplayName: filterStr("display_name"),
 	}
 
@@ -185,6 +198,7 @@ func (s *pgUserStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[
 		Status:      filterParams.Status,
 		Username:    filterParams.Username,
 		Email:       filterParams.Email,
+		Phone:       filterParams.Phone,
 		DisplayName: filterParams.DisplayName,
 		SortField:   q.SortBy,
 		SortOrder:   sortOrder,
@@ -273,6 +287,15 @@ func getByUsernameRowToUser(r generated.GetUserByUsernameRow) generated.User {
 }
 
 func getByEmailRowToUser(r generated.GetUserByEmailRow) generated.User {
+	return generated.User{
+		ID: r.ID, Username: r.Username, Email: r.Email,
+		DisplayName: r.DisplayName, Phone: r.Phone, AvatarUrl: r.AvatarUrl,
+		Status: r.Status, LastLoginAt: r.LastLoginAt,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+	}
+}
+
+func getByPhoneRowToUser(r generated.GetUserByPhoneRow) generated.User {
 	return generated.User{
 		ID: r.ID, Username: r.Username, Email: r.Email,
 		DisplayName: r.DisplayName, Phone: r.Phone, AvatarUrl: r.AvatarUrl,

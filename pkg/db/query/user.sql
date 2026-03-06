@@ -22,6 +22,12 @@ SELECT id, username, email, display_name, phone, avatar_url, status,
 FROM users
 WHERE email = @email;
 
+-- name: GetUserByPhone :one
+SELECT id, username, email, display_name, phone, avatar_url, status,
+       last_login_at, created_at, updated_at
+FROM users
+WHERE phone = @phone;
+
 -- name: UpdateUser :one
 UPDATE users
 SET username = @username,
@@ -50,6 +56,7 @@ WHERE
     (sqlc.narg('status')::VARCHAR IS NULL OR status = sqlc.narg('status'))
     AND (sqlc.narg('username')::VARCHAR IS NULL OR username ILIKE '%' || sqlc.narg('username') || '%')
     AND (sqlc.narg('email')::VARCHAR IS NULL OR email ILIKE '%' || sqlc.narg('email') || '%')
+    AND (sqlc.narg('phone')::VARCHAR IS NULL OR phone ILIKE '%' || sqlc.narg('phone') || '%')
     AND (sqlc.narg('display_name')::VARCHAR IS NULL OR display_name ILIKE '%' || sqlc.narg('display_name') || '%');
 
 -- name: ListUsers :many
@@ -67,6 +74,7 @@ WHERE
     (sqlc.narg('status')::VARCHAR IS NULL OR u.status = sqlc.narg('status'))
     AND (sqlc.narg('username')::VARCHAR IS NULL OR u.username ILIKE '%' || sqlc.narg('username') || '%')
     AND (sqlc.narg('email')::VARCHAR IS NULL OR u.email ILIKE '%' || sqlc.narg('email') || '%')
+    AND (sqlc.narg('phone')::VARCHAR IS NULL OR u.phone ILIKE '%' || sqlc.narg('phone') || '%')
     AND (sqlc.narg('display_name')::VARCHAR IS NULL OR u.display_name ILIKE '%' || sqlc.narg('display_name') || '%')
 GROUP BY u.id, u.username, u.email, u.display_name, u.phone, u.avatar_url,
          u.status, u.last_login_at, u.created_at, u.updated_at

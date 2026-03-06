@@ -3,7 +3,6 @@ import { KeyRound, LogOut } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { toast } from "sonner"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +21,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -105,6 +105,10 @@ function ChangePasswordDialog({
         .regex(/[0-9]/, t("api.validation.password.digit")),
       confirmPassword: z.string(),
     })
+    .refine((data) => data.newPassword !== data.oldPassword, {
+      message: t("userMenu.passwordSameAsOld"),
+      path: ["newPassword"],
+    })
     .refine((data) => data.newPassword === data.confirmPassword, {
       message: t("userMenu.passwordMismatch"),
       path: ["confirmPassword"],
@@ -114,6 +118,7 @@ function ChangePasswordDialog({
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
+    mode: "onBlur",
     defaultValues: { oldPassword: "", newPassword: "", confirmPassword: "" },
   })
 
@@ -125,9 +130,9 @@ function ChangePasswordDialog({
         oldPassword: values.oldPassword,
         newPassword: values.newPassword,
       })
-      toast.success(t("action.changePasswordSuccess"))
       onOpenChange(false)
       form.reset()
+      logout()
     } catch (err) {
       if (err instanceof ApiError && err.details?.length) {
         for (const d of err.details) {
@@ -136,9 +141,9 @@ function ChangePasswordDialog({
         }
       } else if (err instanceof ApiError) {
         const i18nKey = translateApiError(err)
-        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey) : err.message })
       } else {
-        toast.error(t("api.error.internalError"))
+        form.setError("root", { message: t("api.error.internalError") })
       }
     } finally {
       setLoading(false)
@@ -147,12 +152,17 @@ function ChangePasswordDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) form.reset() }}>
-      <DialogContent>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{t("userMenu.changePassword")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {form.formState.errors.root && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {form.formState.errors.root.message}
+              </div>
+            )}
             <FormField
               control={form.control}
               name="oldPassword"
@@ -175,6 +185,7 @@ function ChangePasswordDialog({
                   <FormControl>
                     <Input type="password" {...field} />
                   </FormControl>
+                  <FormDescription>{t("api.validation.password.hint")}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

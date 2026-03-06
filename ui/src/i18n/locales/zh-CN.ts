@@ -100,6 +100,7 @@ const zhCN: Messages = {
   "api.error.badRequest": "请求参数错误",
   "api.error.notFound": "{resource}不存在",
   "api.error.conflict": "{resource}已存在",
+  "api.error.oldPasswordIncorrect": "当前密码不正确",
   "api.error.internalError": "服务器内部错误，请稍后重试",
 
   // validation errors
@@ -114,6 +115,7 @@ const zhCN: Messages = {
   "api.validation.status.format": "状态必须为「活跃」或「停用」",
   "api.validation.username.taken": "该用户名已被使用",
   "api.validation.email.taken": "该邮箱已被使用",
+  "api.validation.phone.taken": "该手机号已被使用",
   "api.validation.password.hint": "8-128位，需包含大写字母、小写字母和数字",
 
   // action feedback
@@ -130,6 +132,7 @@ const zhCN: Messages = {
   "userMenu.newPassword": "新密码",
   "userMenu.confirmPassword": "确认新密码",
   "userMenu.passwordMismatch": "两次输入的密码不一致",
+  "userMenu.passwordSameAsOld": "新密码不能与当前密码相同",
 }
 
 export default zhCN

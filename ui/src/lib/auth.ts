@@ -215,7 +215,7 @@ export async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
-export function logout() {
+export async function logout() {
   clearTokens()
-  window.location.href = "/login"
+  await startAuthFlow()
 }

@@ -100,6 +100,7 @@ const enUS: Messages = {
   "api.error.badRequest": "Bad request",
   "api.error.notFound": "{resource} not found",
   "api.error.conflict": "{resource} already exists",
+  "api.error.oldPasswordIncorrect": "Current password is incorrect",
   "api.error.internalError": "Internal server error, please try again later",
 
   // validation errors
@@ -114,6 +115,7 @@ const enUS: Messages = {
   "api.validation.status.format": "Status must be 'active' or 'inactive'",
   "api.validation.username.taken": "This username is already taken",
   "api.validation.email.taken": "This email is already taken",
+  "api.validation.phone.taken": "This phone number is already taken",
   "api.validation.password.hint": "8-128 characters, must include uppercase, lowercase, and a digit",
 
   // action feedback
@@ -130,6 +132,7 @@ const enUS: Messages = {
   "userMenu.newPassword": "New Password",
   "userMenu.confirmPassword": "Confirm New Password",
   "userMenu.passwordMismatch": "Passwords do not match",
+  "userMenu.passwordSameAsOld": "New password must be different from current password",
 }
 
 export default enUS

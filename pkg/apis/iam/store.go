@@ -12,6 +12,7 @@ type UserStore interface {
 	GetByID(ctx context.Context, id int64) (*DBUser, error)
 	GetByUsername(ctx context.Context, username string) (*DBUser, error)
 	GetByEmail(ctx context.Context, email string) (*DBUser, error)
+	GetByPhone(ctx context.Context, phone string) (*DBUser, error)
 	Update(ctx context.Context, user *DBUser) (*DBUser, error)
 	Patch(ctx context.Context, id int64, user *DBUser) (*DBUser, error)
 	UpdateLastLogin(ctx context.Context, id int64) error
