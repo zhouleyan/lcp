@@ -14,8 +14,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
@@ -143,21 +144,14 @@ export default function WorkspaceDetailPage() {
         onSuccess={fetchWorkspace}
       />
 
-      {/* delete confirm */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("common.delete")}</DialogTitle>
-            <DialogDescription>
-              {t("workspace.deleteConfirm", { name: workspace.metadata.name })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>{t("common.cancel")}</Button>
-            <Button variant="destructive" onClick={handleDelete}>{t("common.delete")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={t("common.delete")}
+        description={t("workspace.deleteConfirm", { name: workspace.metadata.name })}
+        onConfirm={handleDelete}
+        confirmText={t("common.delete")}
+      />
     </div>
   )
 }
