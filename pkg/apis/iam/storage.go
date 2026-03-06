@@ -429,6 +429,10 @@ func (s *workspaceStorage) Update(ctx context.Context, obj runtime.Object, optio
 		return nil, fmt.Errorf("expected *Workspace, got %T", obj)
 	}
 
+	if errs := ValidateWorkspaceUpdate(&ws.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
 	if options.DryRun {
 		return ws, nil
 	}
@@ -712,6 +716,10 @@ func (s *namespaceStorage) Update(ctx context.Context, obj runtime.Object, optio
 	ns, ok := obj.(*Namespace)
 	if !ok {
 		return nil, fmt.Errorf("expected *Namespace, got %T", obj)
+	}
+
+	if errs := ValidateNamespaceUpdate(&ns.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
 	if options.DryRun {

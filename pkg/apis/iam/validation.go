@@ -101,6 +101,30 @@ func ValidateNamespaceCreate(name string, spec *NamespaceSpec) validation.ErrorL
 	return errs
 }
 
+// ValidateWorkspaceUpdate validates workspace fields for update.
+func ValidateWorkspaceUpdate(spec *WorkspaceSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	if spec.Status != "" && spec.Status != "active" && spec.Status != "inactive" {
+		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+	return errs
+}
+
+// ValidateNamespaceUpdate validates namespace fields for update.
+func ValidateNamespaceUpdate(spec *NamespaceSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	if spec.Visibility != "" && spec.Visibility != "public" && spec.Visibility != "private" {
+		errs = append(errs, validation.FieldError{Field: "spec.visibility", Message: "must be 'public' or 'private'"})
+	}
+	if spec.MaxMembers < 0 {
+		errs = append(errs, validation.FieldError{Field: "spec.maxMembers", Message: "must be >= 0"})
+	}
+	if spec.Status != "" && spec.Status != "active" && spec.Status != "inactive" {
+		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+	return errs
+}
+
 // ValidatePassword validates a password string.
 func ValidatePassword(password string) validation.ErrorList {
 	var errs validation.ErrorList
