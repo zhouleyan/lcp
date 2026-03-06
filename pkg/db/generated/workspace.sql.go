@@ -195,51 +195,54 @@ func (q *Queries) GetWorkspaceByName(ctx context.Context, name string) (Workspac
 }
 
 const listWorkspaces = `-- name: ListWorkspaces :many
-SELECT
-    ws.id, ws.name, ws.display_name, ws.description, ws.owner_id,
-    ws.status, ws.created_at, ws.updated_at,
-    u.username AS owner_username,
-    (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) AS namespace_count,
-    (SELECT count(*) FROM user_workspaces uw WHERE uw.workspace_id = ws.id) AS member_count
-FROM workspaces ws
-JOIN users u ON ws.owner_id = u.id
-WHERE
-    ($1::VARCHAR IS NULL OR ws.status = $1)
-    AND ($2::VARCHAR IS NULL OR ws.name ILIKE '%' || $2 || '%')
-    AND ($3::BIGINT IS NULL OR ws.owner_id = $3)
-    AND ($4::VARCHAR IS NULL
-         OR ws.name ILIKE '%' || $4 || '%'
-         OR ws.display_name ILIKE '%' || $4 || '%'
-         OR ws.description ILIKE '%' || $4 || '%')
+WITH ws_data AS (
+    SELECT
+        ws.id, ws.name, ws.display_name, ws.description, ws.owner_id,
+        ws.status, ws.created_at, ws.updated_at,
+        u.username AS owner_username,
+        (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) AS namespace_count,
+        (SELECT count(*) FROM user_workspaces uw WHERE uw.workspace_id = ws.id) AS member_count
+    FROM workspaces ws
+    JOIN users u ON ws.owner_id = u.id
+    WHERE
+        ($5::VARCHAR IS NULL OR ws.status = $5)
+        AND ($6::VARCHAR IS NULL OR ws.name ILIKE '%' || $6 || '%')
+        AND ($7::BIGINT IS NULL OR ws.owner_id = $7)
+        AND ($8::VARCHAR IS NULL
+             OR ws.name ILIKE '%' || $8 || '%'
+             OR ws.display_name ILIKE '%' || $8 || '%'
+             OR ws.description ILIKE '%' || $8 || '%')
+)
+SELECT id, name, display_name, description, owner_id, status, created_at, updated_at, owner_username, namespace_count, member_count FROM ws_data
 ORDER BY
-    CASE WHEN $5::VARCHAR = 'name' AND $6::VARCHAR = 'asc' THEN ws.name END ASC,
-    CASE WHEN $5::VARCHAR = 'name' AND $6::VARCHAR = 'desc' THEN ws.name END DESC,
-    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'asc' THEN ws.created_at END ASC,
-    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'desc' THEN ws.created_at END DESC,
-    CASE WHEN $5::VARCHAR = 'status' AND $6::VARCHAR = 'asc' THEN ws.status END ASC,
-    CASE WHEN $5::VARCHAR = 'status' AND $6::VARCHAR = 'desc' THEN ws.status END DESC,
-    CASE WHEN $5::VARCHAR = 'display_name' AND $6::VARCHAR = 'asc' THEN ws.display_name END ASC,
-    CASE WHEN $5::VARCHAR = 'display_name' AND $6::VARCHAR = 'desc' THEN ws.display_name END DESC,
-    CASE WHEN $5::VARCHAR = 'updated_at' AND $6::VARCHAR = 'asc' THEN ws.updated_at END ASC,
-    CASE WHEN $5::VARCHAR = 'updated_at' AND $6::VARCHAR = 'desc' THEN ws.updated_at END DESC,
-    CASE WHEN $5::VARCHAR = 'namespace_count' AND $6::VARCHAR = 'asc' THEN (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) END ASC,
-    CASE WHEN $5::VARCHAR = 'namespace_count' AND $6::VARCHAR = 'desc' THEN (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) END DESC,
-    CASE WHEN $5::VARCHAR = 'member_count' AND $6::VARCHAR = 'asc' THEN (SELECT count(*) FROM user_workspaces uw WHERE uw.workspace_id = ws.id) END ASC,
-    CASE WHEN $5::VARCHAR = 'member_count' AND $6::VARCHAR = 'desc' THEN (SELECT count(*) FROM user_workspaces uw WHERE uw.workspace_id = ws.id) END DESC,
-    ws.created_at DESC
-LIMIT $8::INT
-OFFSET $7::INT
+    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
+    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
+    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN $1::VARCHAR = 'status' AND $2::VARCHAR = 'asc' THEN status END ASC,
+    CASE WHEN $1::VARCHAR = 'status' AND $2::VARCHAR = 'desc' THEN status END DESC,
+    CASE WHEN $1::VARCHAR = 'display_name' AND $2::VARCHAR = 'asc' THEN display_name END ASC,
+    CASE WHEN $1::VARCHAR = 'display_name' AND $2::VARCHAR = 'desc' THEN display_name END DESC,
+    CASE WHEN $1::VARCHAR = 'updated_at' AND $2::VARCHAR = 'asc' THEN updated_at END ASC,
+    CASE WHEN $1::VARCHAR = 'updated_at' AND $2::VARCHAR = 'desc' THEN updated_at END DESC,
+    CASE WHEN $1::VARCHAR = 'namespace_count' AND $2::VARCHAR = 'asc' THEN namespace_count END ASC,
+    CASE WHEN $1::VARCHAR = 'namespace_count' AND $2::VARCHAR = 'desc' THEN namespace_count END DESC,
+    CASE WHEN $1::VARCHAR = 'member_count' AND $2::VARCHAR = 'asc' THEN member_count END ASC,
+    CASE WHEN $1::VARCHAR = 'member_count' AND $2::VARCHAR = 'desc' THEN member_count END DESC,
+    created_at DESC
+LIMIT $4::INT
+OFFSET $3::INT
 `
 
 type ListWorkspacesParams struct {
-	Status     *string `json:"status"`
-	Name       *string `json:"name"`
-	OwnerID    *int64  `json:"owner_id"`
-	Search     *string `json:"search"`
 	SortField  string  `json:"sort_field"`
 	SortOrder  string  `json:"sort_order"`
 	PageOffset int32   `json:"page_offset"`
 	PageSize   int32   `json:"page_size"`
+	Status     *string `json:"status"`
+	Name       *string `json:"name"`
+	OwnerID    *int64  `json:"owner_id"`
+	Search     *string `json:"search"`
 }
 
 type ListWorkspacesRow struct {
@@ -258,14 +261,14 @@ type ListWorkspacesRow struct {
 
 func (q *Queries) ListWorkspaces(ctx context.Context, arg ListWorkspacesParams) ([]ListWorkspacesRow, error) {
 	rows, err := q.db.Query(ctx, listWorkspaces,
-		arg.Status,
-		arg.Name,
-		arg.OwnerID,
-		arg.Search,
 		arg.SortField,
 		arg.SortOrder,
 		arg.PageOffset,
 		arg.PageSize,
+		arg.Status,
+		arg.Name,
+		arg.OwnerID,
+		arg.Search,
 	)
 	if err != nil {
 		return nil, err

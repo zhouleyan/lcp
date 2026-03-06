@@ -53,38 +53,41 @@ WHERE
          OR ws.description ILIKE '%' || sqlc.narg('search') || '%');
 
 -- name: ListWorkspaces :many
-SELECT
-    ws.id, ws.name, ws.display_name, ws.description, ws.owner_id,
-    ws.status, ws.created_at, ws.updated_at,
-    u.username AS owner_username,
-    (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) AS namespace_count,
-    (SELECT count(*) FROM user_workspaces uw WHERE uw.workspace_id = ws.id) AS member_count
-FROM workspaces ws
-JOIN users u ON ws.owner_id = u.id
-WHERE
-    (sqlc.narg('status')::VARCHAR IS NULL OR ws.status = sqlc.narg('status'))
-    AND (sqlc.narg('name')::VARCHAR IS NULL OR ws.name ILIKE '%' || sqlc.narg('name') || '%')
-    AND (sqlc.narg('owner_id')::BIGINT IS NULL OR ws.owner_id = sqlc.narg('owner_id'))
-    AND (sqlc.narg('search')::VARCHAR IS NULL
-         OR ws.name ILIKE '%' || sqlc.narg('search') || '%'
-         OR ws.display_name ILIKE '%' || sqlc.narg('search') || '%'
-         OR ws.description ILIKE '%' || sqlc.narg('search') || '%')
+WITH ws_data AS (
+    SELECT
+        ws.id, ws.name, ws.display_name, ws.description, ws.owner_id,
+        ws.status, ws.created_at, ws.updated_at,
+        u.username AS owner_username,
+        (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) AS namespace_count,
+        (SELECT count(*) FROM user_workspaces uw WHERE uw.workspace_id = ws.id) AS member_count
+    FROM workspaces ws
+    JOIN users u ON ws.owner_id = u.id
+    WHERE
+        (sqlc.narg('status')::VARCHAR IS NULL OR ws.status = sqlc.narg('status'))
+        AND (sqlc.narg('name')::VARCHAR IS NULL OR ws.name ILIKE '%' || sqlc.narg('name') || '%')
+        AND (sqlc.narg('owner_id')::BIGINT IS NULL OR ws.owner_id = sqlc.narg('owner_id'))
+        AND (sqlc.narg('search')::VARCHAR IS NULL
+             OR ws.name ILIKE '%' || sqlc.narg('search') || '%'
+             OR ws.display_name ILIKE '%' || sqlc.narg('search') || '%'
+             OR ws.description ILIKE '%' || sqlc.narg('search') || '%')
+)
+SELECT * FROM ws_data
 ORDER BY
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN ws.name END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN ws.name END DESC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN ws.created_at END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN ws.created_at END DESC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'status' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN ws.status END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'status' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN ws.status END DESC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'display_name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN ws.display_name END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'display_name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN ws.display_name END DESC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'updated_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN ws.updated_at END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'updated_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN ws.updated_at END DESC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'namespace_count' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'namespace_count' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) END DESC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'member_count' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN (SELECT count(*) FROM user_workspaces uw WHERE uw.workspace_id = ws.id) END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'member_count' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN (SELECT count(*) FROM user_workspaces uw WHERE uw.workspace_id = ws.id) END DESC,
-    ws.created_at DESC
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN name END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN name END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'status' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN status END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'status' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN status END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'display_name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN display_name END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'display_name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN display_name END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'updated_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN updated_at END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'updated_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN updated_at END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'namespace_count' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN namespace_count END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'namespace_count' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN namespace_count END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'member_count' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN member_count END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'member_count' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN member_count END DESC,
+    created_at DESC
 LIMIT sqlc.arg('page_size')::INT
 OFFSET sqlc.arg('page_offset')::INT;
 

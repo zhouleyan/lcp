@@ -221,57 +221,60 @@ func (q *Queries) GetNamespaceByName(ctx context.Context, name string) (Namespac
 }
 
 const listNamespaces = `-- name: ListNamespaces :many
-SELECT
-    ns.id, ns.name, ns.display_name, ns.description, ns.workspace_id, ns.owner_id,
-    ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
-    u.username AS owner_username,
-    w.name AS workspace_name,
-    (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) AS member_count
-FROM namespaces ns
-JOIN users u ON ns.owner_id = u.id
-JOIN workspaces w ON ns.workspace_id = w.id
-WHERE
-    ($1::VARCHAR IS NULL OR ns.status = $1)
-    AND ($2::VARCHAR IS NULL OR ns.name ILIKE '%' || $2 || '%')
-    AND ($3::VARCHAR IS NULL OR ns.visibility = $3)
-    AND ($4::BIGINT IS NULL OR ns.owner_id = $4)
-    AND ($5::BIGINT IS NULL OR ns.workspace_id = $5)
-    AND ($6::VARCHAR IS NULL OR (
-        ns.name ILIKE '%' || $6 || '%'
-        OR ns.display_name ILIKE '%' || $6 || '%'
-        OR ns.description ILIKE '%' || $6 || '%'
-    ))
+WITH ns_data AS (
+    SELECT
+        ns.id, ns.name, ns.display_name, ns.description, ns.workspace_id, ns.owner_id,
+        ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
+        u.username AS owner_username,
+        w.name AS workspace_name,
+        (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) AS member_count
+    FROM namespaces ns
+    JOIN users u ON ns.owner_id = u.id
+    JOIN workspaces w ON ns.workspace_id = w.id
+    WHERE
+        ($5::VARCHAR IS NULL OR ns.status = $5)
+        AND ($6::VARCHAR IS NULL OR ns.name ILIKE '%' || $6 || '%')
+        AND ($7::VARCHAR IS NULL OR ns.visibility = $7)
+        AND ($8::BIGINT IS NULL OR ns.owner_id = $8)
+        AND ($9::BIGINT IS NULL OR ns.workspace_id = $9)
+        AND ($10::VARCHAR IS NULL OR (
+            ns.name ILIKE '%' || $10 || '%'
+            OR ns.display_name ILIKE '%' || $10 || '%'
+            OR ns.description ILIKE '%' || $10 || '%'
+        ))
+)
+SELECT id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status, created_at, updated_at, owner_username, workspace_name, member_count FROM ns_data
 ORDER BY
-    CASE WHEN $7::VARCHAR = 'name' AND $8::VARCHAR = 'asc' THEN ns.name END ASC,
-    CASE WHEN $7::VARCHAR = 'name' AND $8::VARCHAR = 'desc' THEN ns.name END DESC,
-    CASE WHEN $7::VARCHAR = 'display_name' AND $8::VARCHAR = 'asc' THEN ns.display_name END ASC,
-    CASE WHEN $7::VARCHAR = 'display_name' AND $8::VARCHAR = 'desc' THEN ns.display_name END DESC,
-    CASE WHEN $7::VARCHAR = 'created_at' AND $8::VARCHAR = 'asc' THEN ns.created_at END ASC,
-    CASE WHEN $7::VARCHAR = 'created_at' AND $8::VARCHAR = 'desc' THEN ns.created_at END DESC,
-    CASE WHEN $7::VARCHAR = 'updated_at' AND $8::VARCHAR = 'asc' THEN ns.updated_at END ASC,
-    CASE WHEN $7::VARCHAR = 'updated_at' AND $8::VARCHAR = 'desc' THEN ns.updated_at END DESC,
-    CASE WHEN $7::VARCHAR = 'visibility' AND $8::VARCHAR = 'asc' THEN ns.visibility END ASC,
-    CASE WHEN $7::VARCHAR = 'visibility' AND $8::VARCHAR = 'desc' THEN ns.visibility END DESC,
-    CASE WHEN $7::VARCHAR = 'status' AND $8::VARCHAR = 'asc' THEN ns.status END ASC,
-    CASE WHEN $7::VARCHAR = 'status' AND $8::VARCHAR = 'desc' THEN ns.status END DESC,
-    CASE WHEN $7::VARCHAR = 'member_count' AND $8::VARCHAR = 'asc' THEN (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) END ASC,
-    CASE WHEN $7::VARCHAR = 'member_count' AND $8::VARCHAR = 'desc' THEN (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) END DESC,
-    ns.created_at DESC
-LIMIT $10::INT
-OFFSET $9::INT
+    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
+    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
+    CASE WHEN $1::VARCHAR = 'display_name' AND $2::VARCHAR = 'asc' THEN display_name END ASC,
+    CASE WHEN $1::VARCHAR = 'display_name' AND $2::VARCHAR = 'desc' THEN display_name END DESC,
+    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN $1::VARCHAR = 'updated_at' AND $2::VARCHAR = 'asc' THEN updated_at END ASC,
+    CASE WHEN $1::VARCHAR = 'updated_at' AND $2::VARCHAR = 'desc' THEN updated_at END DESC,
+    CASE WHEN $1::VARCHAR = 'visibility' AND $2::VARCHAR = 'asc' THEN visibility END ASC,
+    CASE WHEN $1::VARCHAR = 'visibility' AND $2::VARCHAR = 'desc' THEN visibility END DESC,
+    CASE WHEN $1::VARCHAR = 'status' AND $2::VARCHAR = 'asc' THEN status END ASC,
+    CASE WHEN $1::VARCHAR = 'status' AND $2::VARCHAR = 'desc' THEN status END DESC,
+    CASE WHEN $1::VARCHAR = 'member_count' AND $2::VARCHAR = 'asc' THEN member_count END ASC,
+    CASE WHEN $1::VARCHAR = 'member_count' AND $2::VARCHAR = 'desc' THEN member_count END DESC,
+    created_at DESC
+LIMIT $4::INT
+OFFSET $3::INT
 `
 
 type ListNamespacesParams struct {
+	SortField   string  `json:"sort_field"`
+	SortOrder   string  `json:"sort_order"`
+	PageOffset  int32   `json:"page_offset"`
+	PageSize    int32   `json:"page_size"`
 	Status      *string `json:"status"`
 	Name        *string `json:"name"`
 	Visibility  *string `json:"visibility"`
 	OwnerID     *int64  `json:"owner_id"`
 	WorkspaceID *int64  `json:"workspace_id"`
 	Search      *string `json:"search"`
-	SortField   string  `json:"sort_field"`
-	SortOrder   string  `json:"sort_order"`
-	PageOffset  int32   `json:"page_offset"`
-	PageSize    int32   `json:"page_size"`
 }
 
 type ListNamespacesRow struct {
@@ -293,16 +296,16 @@ type ListNamespacesRow struct {
 
 func (q *Queries) ListNamespaces(ctx context.Context, arg ListNamespacesParams) ([]ListNamespacesRow, error) {
 	rows, err := q.db.Query(ctx, listNamespaces,
+		arg.SortField,
+		arg.SortOrder,
+		arg.PageOffset,
+		arg.PageSize,
 		arg.Status,
 		arg.Name,
 		arg.Visibility,
 		arg.OwnerID,
 		arg.WorkspaceID,
 		arg.Search,
-		arg.SortField,
-		arg.SortOrder,
-		arg.PageOffset,
-		arg.PageSize,
 	)
 	if err != nil {
 		return nil, err
