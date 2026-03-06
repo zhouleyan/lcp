@@ -172,7 +172,7 @@ export default function WorkspaceUsersPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
-                <input type="checkbox" className="accent-primary h-4 w-4 rounded" checked={members.length > 0 && selected.size === members.length} onChange={toggleAll} />
+                <Checkbox checked={members.length > 0 && selected.size === members.length} onCheckedChange={toggleAll} />
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("username")}>{t("user.username")}<SortIcon field="username" /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("email")}>{t("user.email")}<SortIcon field="email" /></TableHead>
@@ -208,7 +208,7 @@ export default function WorkspaceUsersPage() {
             ) : (
               members.map((m) => (
                 <TableRow key={m.metadata.id}>
-                  <TableCell><input type="checkbox" className="accent-primary h-4 w-4 rounded" checked={selected.has(m.metadata.id)} onChange={() => toggleOne(m.metadata.id)} /></TableCell>
+                  <TableCell><Checkbox checked={selected.has(m.metadata.id)} onCheckedChange={() => toggleOne(m.metadata.id)} /></TableCell>
                   <TableCell className="font-medium">{m.spec.username}</TableCell>
                   <TableCell>{m.spec.email}</TableCell>
                   <TableCell>{m.spec.displayName || "-"}</TableCell>

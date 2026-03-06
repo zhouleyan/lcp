@@ -13,6 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -189,11 +190,9 @@ export default function WorkspaceListPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
-                <input
-                  type="checkbox"
-                  className="accent-primary h-4 w-4 rounded"
+                <Checkbox
                   checked={workspaces.length > 0 && selected.size === workspaces.length}
-                  onChange={toggleAll}
+                  onCheckedChange={toggleAll}
                 />
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
@@ -253,11 +252,9 @@ export default function WorkspaceListPage() {
               workspaces.map((ws) => (
                 <TableRow key={ws.metadata.id}>
                   <TableCell>
-                    <input
-                      type="checkbox"
-                      className="accent-primary h-4 w-4 rounded"
+                    <Checkbox
                       checked={selected.has(ws.metadata.id)}
-                      onChange={() => toggleOne(ws.metadata.id)}
+                      onCheckedChange={() => toggleOne(ws.metadata.id)}
                     />
                   </TableCell>
                   <TableCell>

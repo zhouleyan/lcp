@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import {
@@ -233,11 +234,9 @@ export default function UserListPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
-                <input
-                  type="checkbox"
-                  className="accent-primary h-4 w-4 rounded"
+                <Checkbox
                   checked={users.length > 0 && selected.size === users.length}
-                  onChange={toggleAll}
+                  onCheckedChange={toggleAll}
                 />
               </TableHead>
               <TableHead
@@ -327,11 +326,9 @@ export default function UserListPage() {
               users.map((user) => (
                 <TableRow key={user.metadata.id}>
                   <TableCell>
-                    <input
-                      type="checkbox"
-                      className="accent-primary h-4 w-4 rounded"
+                    <Checkbox
                       checked={selected.has(user.metadata.id)}
-                      onChange={() => toggleOne(user.metadata.id)}
+                      onCheckedChange={() => toggleOne(user.metadata.id)}
                     />
                   </TableCell>
                   <TableCell>

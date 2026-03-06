@@ -13,6 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -31,8 +32,9 @@ import {
 import {
   listNamespaces, createNamespace, updateNamespace, deleteNamespace, deleteNamespaces,
 } from "@/api/namespaces"
+import { listWorkspaces } from "@/api/workspaces"
 import { ApiError, translateApiError } from "@/api/client"
-import type { Namespace, ListParams } from "@/api/types"
+import type { Namespace, Workspace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
@@ -191,11 +193,9 @@ export default function NamespaceListPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
-                <input
-                  type="checkbox"
-                  className="accent-primary h-4 w-4 rounded"
+                <Checkbox
                   checked={namespaces.length > 0 && selected.size === namespaces.length}
-                  onChange={toggleAll}
+                  onCheckedChange={toggleAll}
                 />
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
@@ -264,11 +264,9 @@ export default function NamespaceListPage() {
               namespaces.map((ns) => (
                 <TableRow key={ns.metadata.id}>
                   <TableCell>
-                    <input
-                      type="checkbox"
-                      className="accent-primary h-4 w-4 rounded"
+                    <Checkbox
                       checked={selected.has(ns.metadata.id)}
-                      onChange={() => toggleOne(ns.metadata.id)}
+                      onCheckedChange={() => toggleOne(ns.metadata.id)}
                     />
                   </TableCell>
                   <TableCell>
@@ -396,6 +394,7 @@ interface NamespaceFormValues {
   description: string
   visibility: "public" | "private"
   status: "active" | "inactive"
+  maxMembers: number
 }
 
 function NamespaceFormDialog({
@@ -409,6 +408,18 @@ function NamespaceFormDialog({
   const { t } = useTranslation()
   const isEdit = !!namespace
   const [loading, setLoading] = useState(false)
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [workspacesLoading, setWorkspacesLoading] = useState(false)
+
+  useEffect(() => {
+    if (open && !isEdit) {
+      setWorkspacesLoading(true)
+      listWorkspaces({ page: 1, pageSize: 100, status: "active" })
+        .then((data) => setWorkspaces(data.items ?? []))
+        .catch(() => {})
+        .finally(() => setWorkspacesLoading(false))
+    }
+  }, [open, isEdit])
 
   const schema = z.object({
     name: z.string()
@@ -421,12 +432,13 @@ function NamespaceFormDialog({
     description: z.string().optional(),
     visibility: z.enum(["public", "private"]),
     status: z.enum(["active", "inactive"]),
+    maxMembers: z.number().int().min(0, t("namespace.validation.maxMembers")),
   })
 
   const form = useForm<NamespaceFormValues>({
     resolver: zodResolver(schema) as never,
     mode: "onBlur",
-    defaultValues: { name: "", workspaceId: "", displayName: "", description: "", visibility: "public", status: "active" },
+    defaultValues: { name: "", workspaceId: "", displayName: "", description: "", visibility: "public", status: "active", maxMembers: 0 },
   })
 
   useEffect(() => {
@@ -439,9 +451,10 @@ function NamespaceFormDialog({
           description: namespace.spec.description ?? "",
           visibility: namespace.spec.visibility ?? "public",
           status: namespace.spec.status ?? "active",
+          maxMembers: namespace.spec.maxMembers ?? 0,
         })
       } else {
-        form.reset({ name: "", workspaceId: "", displayName: "", description: "", visibility: "public", status: "active" })
+        form.reset({ name: "", workspaceId: "", displayName: "", description: "", visibility: "public", status: "active", maxMembers: 0 })
       }
     }
   }, [open, namespace, form])
@@ -467,6 +480,7 @@ function NamespaceFormDialog({
             description: values.description,
             visibility: values.visibility,
             status: values.status,
+            maxMembers: values.maxMembers,
           },
         })
         toast.success(t("action.updateSuccess"))
@@ -479,6 +493,7 @@ function NamespaceFormDialog({
             description: values.description,
             visibility: values.visibility,
             status: values.status,
+            maxMembers: values.maxMembers,
           } as Namespace["spec"],
         })
         toast.success(t("action.createSuccess"))
@@ -538,10 +553,21 @@ function NamespaceFormDialog({
               name="workspaceId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("namespace.workspaceId")}</FormLabel>
-                  <FormControl>
-                    <Input {...field} disabled={isEdit} placeholder="1" />
-                  </FormControl>
+                  <FormLabel>{t("namespace.workspaceName")}</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange} disabled={isEdit || workspacesLoading}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={workspacesLoading ? "..." : t("namespace.selectWorkspace")} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {workspaces.map((ws) => (
+                        <SelectItem key={ws.metadata.id} value={ws.metadata.id}>
+                          {ws.spec.displayName || ws.metadata.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -602,6 +628,25 @@ function NamespaceFormDialog({
                       <SelectItem value="inactive">{t("common.inactive")}</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="maxMembers"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("namespace.maxMembers")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      {...field}
+                      onChange={(e) => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <p className="text-muted-foreground text-xs">{t("namespace.maxMembersHint")}</p>
                   <FormMessage />
                 </FormItem>
               )}
