@@ -23,6 +23,7 @@ pkg/db/query/         # sqlc SQL query files (*.sql)
 pkg/db/generated/     # sqlc auto-generated Go code (DO NOT EDIT)
 cmd/openapi-gen/      # OpenAPI spec generator from +openapi: annotations
 docs/                 # Generated OpenAPI specs, design docs
+scripts/              # Utility scripts (e.g. seed-test-users.sh)
 ```
 
 ## Key Commands
@@ -197,14 +198,16 @@ POST /oidc/token                                                  # Token exchan
 GET  /oidc/userinfo                                               # User info
 
 # Business API (authenticated via Bearer token when OIDC is enabled)
-/api/v1/users                                                    # CRUD + batch delete
-/api/v1/users/{userId}/change-password                           # POST change password
-/api/v1/workspaces                                               # CRUD + batch delete
-/api/v1/workspaces/{workspaceId}/namespaces                      # CRUD + batch delete
-/api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users  # list + batch add/remove
-/api/v1/workspaces/{workspaceId}/users                           # list + batch add/remove
-/api/v1/namespaces                                               # CRUD + batch delete
-/api/v1/namespaces/{namespaceId}/users                           # list + batch add/remove
+# Authentication middleware checks both token validity AND user active status on every request.
+# Inactive users receive 401 even with a valid token. Token refresh is also blocked for inactive users.
+/api/iam/v1/users                                                    # CRUD + batch delete
+/api/iam/v1/users/{userId}/change-password                           # POST change password
+/api/iam/v1/workspaces                                               # CRUD + batch delete
+/api/iam/v1/workspaces/{workspaceId}/namespaces                      # CRUD + batch delete
+/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users  # list + batch add/remove
+/api/iam/v1/workspaces/{workspaceId}/users                           # list + batch add/remove
+/api/iam/v1/namespaces                                               # CRUD + batch delete
+/api/iam/v1/namespaces/{namespaceId}/users                           # list + batch add/remove
 ```
 
 ## Resource Hierarchy
