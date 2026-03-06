@@ -59,7 +59,9 @@ func (s *userStorage) Get(ctx context.Context, options *rest.GetOptions) (runtim
 
 	// Enrich with associated workspaces
 	if s.uwStore != nil {
-		if wsItems, err := s.uwStore.ListByUserID(ctx, uid); err == nil {
+		if wsItems, err := s.uwStore.ListByUserID(ctx, uid); err != nil {
+			logger.Infof("failed to enrich user %d with workspaces: %v", uid, err)
+		} else {
 			for _, ws := range wsItems {
 				result.Spec.Workspaces = append(result.Spec.Workspaces, UserWorkspaceRef{
 					ID:          strconv.FormatInt(ws.ID, 10),
@@ -74,7 +76,9 @@ func (s *userStorage) Get(ctx context.Context, options *rest.GetOptions) (runtim
 
 	// Enrich with associated namespaces
 	if s.unStore != nil {
-		if nsItems, err := s.unStore.ListByUserID(ctx, uid); err == nil {
+		if nsItems, err := s.unStore.ListByUserID(ctx, uid); err != nil {
+			logger.Infof("failed to enrich user %d with namespaces: %v", uid, err)
+		} else {
 			for _, ns := range nsItems {
 				result.Spec.NamespaceRefs = append(result.Spec.NamespaceRefs, UserNamespaceRef{
 					ID:          strconv.FormatInt(ns.ID, 10),
