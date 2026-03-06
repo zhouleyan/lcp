@@ -30,15 +30,15 @@ export function useListState(options: UseListStateOptions = {}) {
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
   }, [searchInput])
 
+  const sortByRef = useRef(defaultSortBy)
   const handleSort = useCallback((field: string) => {
-    setSortBy((prev) => {
-      if (prev === field) {
-        setSortOrder((o) => (o === "asc" ? "desc" : "asc"))
-        return prev
-      }
+    if (sortByRef.current === field) {
+      setSortOrder((o) => (o === "asc" ? "desc" : "asc"))
+    } else {
+      sortByRef.current = field
+      setSortBy(field)
       setSortOrder("asc")
-      return field
-    })
+    }
   }, [])
 
   const toggleAll = useCallback((ids: string[]) => {
