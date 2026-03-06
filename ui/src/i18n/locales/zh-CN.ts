@@ -37,6 +37,7 @@ const zhCN: Messages = {
   "login.signIn": "登录",
 
   // nav
+  "nav.iam": "组织",
   "nav.workspaces": "工作空间",
   "nav.namespaces": "命名空间",
   "nav.users": "用户",

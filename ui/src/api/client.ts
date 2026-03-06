@@ -22,7 +22,7 @@ interface HTTPErrorWithBody extends HTTPError {
 }
 
 export const api = ky.create({
-  prefixUrl: "/api/v1",
+  prefixUrl: "/api/iam/v1",
   hooks: {
     beforeRequest: [
       (request) => {

@@ -10,7 +10,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppRoutes />
-      <Toaster position="top-center" />
+      <Toaster position="top-center" toastOptions={{ style: { zIndex: 9999 } }} offset="4rem" />
     </BrowserRouter>
   )
 }

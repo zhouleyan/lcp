@@ -37,6 +37,7 @@ const enUS: Messages = {
   "login.signIn": "Sign In",
 
   // nav
+  "nav.iam": "IAM",
   "nav.workspaces": "Workspaces",
   "nav.namespaces": "Namespaces",
   "nav.users": "Users",

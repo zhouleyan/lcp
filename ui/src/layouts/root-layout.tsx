@@ -15,10 +15,20 @@ import { useTranslation } from "@/i18n"
 import { isAuthenticated, startAuthFlow } from "@/lib/auth"
 import { useAuthStore } from "@/stores/auth-store"
 
-const navItems = [
-  { to: "/workspaces", labelKey: "nav.workspaces", icon: Building2 },
-  { to: "/namespaces", labelKey: "nav.namespaces", icon: FolderKanban },
-  { to: "/users", labelKey: "nav.users", icon: Users },
+interface NavGroup {
+  labelKey: string
+  items: { to: string; labelKey: string; icon: React.ComponentType<{ className?: string }> }[]
+}
+
+const navGroups: NavGroup[] = [
+  {
+    labelKey: "nav.iam",
+    items: [
+      { to: "/workspaces", labelKey: "nav.workspaces", icon: Building2 },
+      { to: "/namespaces", labelKey: "nav.namespaces", icon: FolderKanban },
+      { to: "/users", labelKey: "nav.users", icon: Users },
+    ],
+  },
 ]
 
 export default function RootLayout() {
@@ -48,21 +58,30 @@ export default function RootLayout() {
               <span>LCP Console</span>
             </Link>
           </div>
-          <nav className="flex-1 space-y-1 p-2">
-            {navItems.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  location.pathname.startsWith(item.to)
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "hover:bg-sidebar-accent/50",
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {t(item.labelKey)}
-              </Link>
+          <nav className="flex-1 space-y-3 p-2">
+            {navGroups.map((group) => (
+              <div key={group.labelKey}>
+                <div className="text-muted-foreground px-3 pb-1 pt-2 text-sm font-semibold">
+                  {t(group.labelKey)}
+                </div>
+                <div className="space-y-0.5">
+                  {group.items.map((item) => (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      className={cn(
+                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        location.pathname.startsWith(item.to)
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "hover:bg-sidebar-accent/50",
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {t(item.labelKey)}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
         </aside>
