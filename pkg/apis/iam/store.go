@@ -36,7 +36,7 @@ type RefreshTokenStore interface {
 // WorkspaceStore defines database operations on workspaces.
 type WorkspaceStore interface {
 	Create(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error)
-	GetByID(ctx context.Context, id int64) (*DBWorkspace, error)
+	GetByID(ctx context.Context, id int64) (*DBWorkspaceWithOwner, error)
 	GetByName(ctx context.Context, name string) (*DBWorkspace, error)
 	Update(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error)
 	Delete(ctx context.Context, id int64) error
@@ -48,7 +48,7 @@ type WorkspaceStore interface {
 // NamespaceStore defines database operations on namespaces.
 type NamespaceStore interface {
 	Create(ctx context.Context, ns *DBNamespace) (*DBNamespace, error)
-	GetByID(ctx context.Context, id int64) (*DBNamespace, error)
+	GetByID(ctx context.Context, id int64) (*DBNamespaceWithOwner, error)
 	GetByName(ctx context.Context, name string) (*DBNamespace, error)
 	Update(ctx context.Context, ns *DBNamespace) (*DBNamespace, error)
 	Delete(ctx context.Context, id int64) error
@@ -64,7 +64,7 @@ type UserWorkspaceStore interface {
 	UpdateRole(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error)
 	Get(ctx context.Context, userID, workspaceID int64) (*DBUserWorkspace, error)
 	ListByUserID(ctx context.Context, userID int64) ([]DBWorkspaceWithRole, error)
-	ListByWorkspaceID(ctx context.Context, workspaceID int64) ([]DBUserWithRole, error)
+	ListByWorkspaceID(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
 }
 
 // UserNamespaceStore defines operations on user-namespace relationships.

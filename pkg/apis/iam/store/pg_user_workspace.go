@@ -1,11 +1,13 @@
 package store
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
-	"context"
-
+	"github.com/jackc/pgx/v5"
 	"lcp.io/lcp/pkg/apis/iam"
+	"lcp.io/lcp/pkg/db"
 	"lcp.io/lcp/pkg/db/generated"
 )
 
@@ -25,6 +27,10 @@ func (s *pgUserWorkspaceStore) Add(ctx context.Context, rel *iam.DBUserWorkspace
 		Role:        rel.Role,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// ON CONFLICT DO NOTHING — user already a member, skip silently
+			return nil, nil
+		}
 		return nil, fmt.Errorf("add user to workspace: %w", err)
 	}
 	return &row, nil
@@ -89,8 +95,43 @@ func (s *pgUserWorkspaceStore) ListByUserID(ctx context.Context, userID int64) (
 	return items, nil
 }
 
-func (s *pgUserWorkspaceStore) ListByWorkspaceID(ctx context.Context, workspaceID int64) ([]iam.DBUserWithRole, error) {
-	rows, err := s.queries.ListUsersByWorkspaceID(ctx, workspaceID)
+func (s *pgUserWorkspaceStore) ListByWorkspaceID(ctx context.Context, workspaceID int64, q db.ListQuery) (*db.ListResult[iam.DBUserWithRole], error) {
+	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
+
+	filterStr := func(key string) *string {
+		if v, ok := q.Filters[key]; ok {
+			if s, ok := v.(string); ok {
+				return &s
+			}
+		}
+		return nil
+	}
+
+	countParams := generated.CountUsersByWorkspaceIDParams{
+		WorkspaceID: workspaceID,
+		Status:      filterStr("status"),
+		Search:      filterStr("search"),
+	}
+
+	count, err := s.queries.CountUsersByWorkspaceID(ctx, countParams)
+	if err != nil {
+		return nil, fmt.Errorf("count users by workspace: %w", err)
+	}
+
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	rows, err := s.queries.ListUsersByWorkspaceID(ctx, generated.ListUsersByWorkspaceIDParams{
+		WorkspaceID: workspaceID,
+		Status:      countParams.Status,
+		Search:      countParams.Search,
+		SortField:   q.SortBy,
+		SortOrder:   sortOrder,
+		PageOffset:  offset,
+		PageSize:    limit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list users by workspace: %w", err)
 	}
@@ -114,5 +155,9 @@ func (s *pgUserWorkspaceStore) ListByWorkspaceID(ctx context.Context, workspaceI
 			JoinedAt: row.JoinedAt,
 		})
 	}
-	return items, nil
+
+	return &db.ListResult[iam.DBUserWithRole]{
+		Items:      items,
+		TotalCount: count,
+	}, nil
 }

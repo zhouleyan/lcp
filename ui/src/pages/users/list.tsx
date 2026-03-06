@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { Link } from "react-router"
 import { Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, ChevronLeft, ChevronRight } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -227,7 +228,7 @@ export default function UserListPage() {
       </div>
 
       {/* table */}
-      <div className="rounded-md border">
+      <div className="border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -333,7 +334,11 @@ export default function UserListPage() {
                       onChange={() => toggleOne(user.metadata.id)}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{user.spec.username}</TableCell>
+                  <TableCell>
+                        <Link to={`/users/${user.metadata.id}`} className="font-medium hover:underline">
+                          {user.spec.username}
+                        </Link>
+                      </TableCell>
                   <TableCell>{user.spec.email}</TableCell>
                   <TableCell>{user.spec.displayName || "-"}</TableCell>
                   <TableCell>{user.spec.phone || "-"}</TableCell>

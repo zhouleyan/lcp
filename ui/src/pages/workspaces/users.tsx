@@ -1,0 +1,398 @@
+import { useCallback, useEffect, useRef, useState } from "react"
+import { useOutletContext } from "react-router"
+import {
+  Plus, UserMinus, Search, Filter,
+  ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight,
+} from "lucide-react"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input"
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  listWorkspaceUsers, addWorkspaceUsers, removeWorkspaceUsers, listUsers,
+} from "@/api/users"
+import type { Workspace, User, ListParams } from "@/api/types"
+import { useTranslation } from "@/i18n"
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+type SortField = "username" | "email" | "display_name" | "phone" | "created_at" | "updated_at"
+
+export default function WorkspaceUsersPage() {
+  const { workspace, onWorkspaceChange } = useOutletContext<{ workspace: Workspace; onWorkspaceChange: () => void }>()
+  const workspaceId = workspace.metadata.id
+  const { t } = useTranslation()
+  const [members, setMembers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [sortBy, setSortBy] = useState<SortField>("created_at")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [searchInput, setSearchInput] = useState("")
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  const [addOpen, setAddOpen] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState<User | null>(null)
+  const [batchRemoveOpen, setBatchRemoveOpen] = useState(false)
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+
+  // Debounce search
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null)
+  useEffect(() => {
+    searchTimer.current = setTimeout(() => setSearch(searchInput), 300)
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
+  }, [searchInput])
+
+  const fetchMembers = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params: ListParams = { page, pageSize, sortBy, sortOrder }
+      if (search) params.search = search
+      if (statusFilter !== "all") params.status = statusFilter
+      const data = await listWorkspaceUsers(workspaceId, params)
+      setMembers(data.items ?? [])
+      setTotalCount(data.totalCount)
+    } catch {
+      toast.error(t("api.error.internalError"))
+    } finally {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId, page, pageSize, sortBy, sortOrder, search, statusFilter])
+
+  useEffect(() => { fetchMembers() }, [fetchMembers])
+  useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
+  useEffect(() => { setSelected(new Set()) }, [members])
+
+  const handleSort = (field: SortField) => {
+    if (sortBy === field) {
+      setSortOrder((o) => (o === "asc" ? "desc" : "asc"))
+    } else {
+      setSortBy(field)
+      setSortOrder("asc")
+    }
+  }
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortBy !== field) return <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
+    return sortOrder === "asc"
+      ? <ArrowUp className="ml-1 inline h-3 w-3" />
+      : <ArrowDown className="ml-1 inline h-3 w-3" />
+  }
+
+  const toggleAll = () => {
+    setSelected(selected.size === members.length ? new Set() : new Set(members.map((m) => m.metadata.id)))
+  }
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const handleRemove = async () => {
+    if (!removeTarget) return
+    try {
+      await removeWorkspaceUsers(workspaceId, [removeTarget.metadata.id])
+      toast.success(t("workspace.memberRemoved"))
+      setRemoveTarget(null)
+      fetchMembers()
+      onWorkspaceChange()
+    } catch {
+      toast.error(t("api.error.internalError"))
+    }
+  }
+
+  const handleBatchRemove = async () => {
+    try {
+      await removeWorkspaceUsers(workspaceId, Array.from(selected))
+      toast.success(t("workspace.memberRemoved"))
+      setBatchRemoveOpen(false)
+      setSelected(new Set())
+      fetchMembers()
+      onWorkspaceChange()
+    } catch {
+      toast.error(t("api.error.internalError"))
+    }
+  }
+
+  const handleAddSuccess = () => {
+    fetchMembers()
+    onWorkspaceChange()
+  }
+
+  return (
+    <div>
+      {/* header */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="relative max-w-xs flex-1">
+          <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
+          <Input
+            placeholder={t("user.searchPlaceholder")}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          {selected.size > 0 && (
+            <Button variant="destructive" size="sm" onClick={() => setBatchRemoveOpen(true)}>
+              <UserMinus className="mr-2 h-4 w-4" />
+              {t("workspace.removeMember")} ({selected.size})
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("workspace.addMember")}
+          </Button>
+        </div>
+      </div>
+
+      {/* table */}
+      <div className="border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                <input type="checkbox" className="accent-primary h-4 w-4 rounded" checked={members.length > 0 && selected.size === members.length} onChange={toggleAll} />
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("username")}>{t("user.username")}<SortIcon field="username" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("email")}>{t("user.email")}<SortIcon field="email" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("display_name")}>{t("common.displayName")}<SortIcon field="display_name" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("phone")}>{t("common.phone")}<SortIcon field="phone" /></TableHead>
+              <TableHead>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="inline-flex items-center gap-1 select-none">
+                      {t("common.status")}
+                      <Filter className={`h-3 w-3 ${statusFilter !== "all" ? "text-primary" : "opacity-40"}`} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => setStatusFilter("all")}>{t("common.all")}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setStatusFilter("active")}>{t("common.active")}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>{t("common.inactive")}</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>{t("common.created")}<SortIcon field="created_at" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("updated_at")}>{t("common.updated")}<SortIcon field="updated_at" /></TableHead>
+              <TableHead className="w-16">{t("common.actions")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>{Array.from({ length: 9 }).map((_, j) => (<TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>))}</TableRow>
+              ))
+            ) : members.length === 0 ? (
+              <TableRow><TableCell colSpan={9} className="text-muted-foreground py-8 text-center">{t("workspace.noMembers")}</TableCell></TableRow>
+            ) : (
+              members.map((m) => (
+                <TableRow key={m.metadata.id}>
+                  <TableCell><input type="checkbox" className="accent-primary h-4 w-4 rounded" checked={selected.has(m.metadata.id)} onChange={() => toggleOne(m.metadata.id)} /></TableCell>
+                  <TableCell className="font-medium">{m.spec.username}</TableCell>
+                  <TableCell>{m.spec.email}</TableCell>
+                  <TableCell>{m.spec.displayName || "-"}</TableCell>
+                  <TableCell>{m.spec.phone || "-"}</TableCell>
+                  <TableCell>
+                    <Badge variant={m.spec.status === "active" ? "default" : "secondary"}>
+                      {m.spec.status === "active" ? t("common.active") : t("common.inactive")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(m.metadata.createdAt).toLocaleString()}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(m.metadata.updatedAt).toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setRemoveTarget(m)} title={t("workspace.removeMember")}>
+                      <UserMinus className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* pagination */}
+      {totalCount > 0 && (
+        <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <p className="text-muted-foreground text-sm">{t("common.total", { count: totalCount })}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm">{t("common.pageSize")}</span>
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                <SelectTrigger className="h-8 w-[70px]"><SelectValue /></SelectTrigger>
+                <SelectContent>{PAGE_SIZE_OPTIONS.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-sm px-2">{t("common.page", { page, total: totalPages })}</span>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+          </div>
+        </div>
+      )}
+
+      {/* add member dialog */}
+      <AddMemberDialog open={addOpen} onOpenChange={setAddOpen} workspaceId={workspaceId} existingMemberIds={members.map((m) => m.metadata.id)} onSuccess={handleAddSuccess} />
+
+      {/* remove confirm */}
+      <Dialog open={!!removeTarget} onOpenChange={(v) => { if (!v) setRemoveTarget(null) }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t("workspace.removeMember")}</DialogTitle><DialogDescription>{t("workspace.removeMemberConfirm", { name: removeTarget?.spec.username ?? "" })}</DialogDescription></DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoveTarget(null)}>{t("common.cancel")}</Button>
+            <Button variant="destructive" onClick={handleRemove}>{t("common.confirm")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* batch remove confirm */}
+      <Dialog open={batchRemoveOpen} onOpenChange={setBatchRemoveOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t("workspace.removeMember")}</DialogTitle><DialogDescription>{t("workspace.batchRemoveMemberConfirm", { count: selected.size })}</DialogDescription></DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchRemoveOpen(false)}>{t("common.cancel")}</Button>
+            <Button variant="destructive" onClick={handleBatchRemove}>{t("common.confirm")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// ===== Add Member Dialog =====
+
+function AddMemberDialog({
+  open, onOpenChange, workspaceId, existingMemberIds, onSuccess,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  workspaceId: string
+  existingMemberIds: string[]
+  onSuccess: () => void
+}) {
+  const { t } = useTranslation()
+  const [allUsers, setAllUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [submitting, setSubmitting] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+
+  useEffect(() => {
+    if (open) {
+      setSelectedIds(new Set())
+      setSearchQuery("")
+      setLoading(true)
+      listUsers({ pageSize: 100 }).then((data) => setAllUsers(data.items ?? [])).finally(() => setLoading(false))
+    }
+  }, [open])
+
+  const availableUsers = allUsers.filter((u) => !existingMemberIds.includes(u.metadata.id))
+
+  const filteredUsers = searchQuery
+    ? availableUsers.filter((u) => {
+        const q = searchQuery.toLowerCase()
+        return (
+          u.spec.username.toLowerCase().includes(q) ||
+          (u.spec.email?.toLowerCase().includes(q)) ||
+          (u.spec.displayName?.toLowerCase().includes(q)) ||
+          (u.spec.phone?.includes(q))
+        )
+      })
+    : availableUsers
+
+  const handleToggle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const handleSubmit = async () => {
+    if (selectedIds.size === 0) return
+    setSubmitting(true)
+    try {
+      await addWorkspaceUsers(workspaceId, Array.from(selectedIds))
+      toast.success(t("workspace.memberAdded"))
+      onOpenChange(false)
+      onSuccess()
+    } catch {
+      toast.error(t("api.error.internalError"))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("workspace.addMember")}</DialogTitle>
+          <DialogDescription>{t("workspace.addMemberDesc")}</DialogDescription>
+        </DialogHeader>
+        <div className="relative">
+          <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
+          <Input
+            placeholder={t("user.searchPlaceholder")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="max-h-[300px] overflow-auto border">
+          {loading ? (
+            <div className="space-y-2 p-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+          ) : filteredUsers.length === 0 ? (
+            <p className="text-muted-foreground p-4 text-center text-sm">{searchQuery ? t("common.noSearchResults") : t("workspace.noAvailableUsers")}</p>
+          ) : (
+            filteredUsers.map((user) => {
+              const isInactive = user.spec.status === "inactive"
+              return (
+                <label key={user.metadata.id} className={`flex cursor-pointer items-center gap-3 px-4 py-2 hover:bg-muted/50 ${isInactive ? "opacity-50" : ""}`}>
+                  <Checkbox checked={selectedIds.has(user.metadata.id)} onCheckedChange={() => handleToggle(user.metadata.id)} />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">
+                      {user.spec.username}
+                      {isInactive && (
+                        <Badge variant="secondary" className="ml-2 text-[10px]">{t("common.inactive")}</Badge>
+                      )}
+                    </p>
+                    <p className="text-muted-foreground text-xs">{user.spec.displayName || user.spec.email}</p>
+                  </div>
+                </label>
+              )
+            })
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
+          <Button onClick={handleSubmit} disabled={selectedIds.size === 0 || submitting}>
+            {submitting ? "..." : t("workspace.addMember")} {selectedIds.size > 0 && `(${selectedIds.size})`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

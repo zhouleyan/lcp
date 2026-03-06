@@ -11,14 +11,19 @@ import (
 )
 
 const countNamespaces = `-- name: CountNamespaces :one
-SELECT count(id)
-FROM namespaces
+SELECT count(ns.id)
+FROM namespaces ns
 WHERE
-    ($1::VARCHAR IS NULL OR status = $1)
-    AND ($2::VARCHAR IS NULL OR name ILIKE '%' || $2 || '%')
-    AND ($3::VARCHAR IS NULL OR visibility = $3)
-    AND ($4::BIGINT IS NULL OR owner_id = $4)
-    AND ($5::BIGINT IS NULL OR workspace_id = $5)
+    ($1::VARCHAR IS NULL OR ns.status = $1)
+    AND ($2::VARCHAR IS NULL OR ns.name ILIKE '%' || $2 || '%')
+    AND ($3::VARCHAR IS NULL OR ns.visibility = $3)
+    AND ($4::BIGINT IS NULL OR ns.owner_id = $4)
+    AND ($5::BIGINT IS NULL OR ns.workspace_id = $5)
+    AND ($6::VARCHAR IS NULL OR (
+        ns.name ILIKE '%' || $6 || '%'
+        OR ns.display_name ILIKE '%' || $6 || '%'
+        OR ns.description ILIKE '%' || $6 || '%'
+    ))
 `
 
 type CountNamespacesParams struct {
@@ -27,6 +32,7 @@ type CountNamespacesParams struct {
 	Visibility  *string `json:"visibility"`
 	OwnerID     *int64  `json:"owner_id"`
 	WorkspaceID *int64  `json:"workspace_id"`
+	Search      *string `json:"search"`
 }
 
 func (q *Queries) CountNamespaces(ctx context.Context, arg CountNamespacesParams) (int64, error) {
@@ -36,6 +42,7 @@ func (q *Queries) CountNamespaces(ctx context.Context, arg CountNamespacesParams
 		arg.Visibility,
 		arg.OwnerID,
 		arg.WorkspaceID,
+		arg.Search,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -136,15 +143,38 @@ func (q *Queries) DeleteNamespacesByIDs(ctx context.Context, ids []int64) ([]int
 }
 
 const getNamespaceByID = `-- name: GetNamespaceByID :one
-SELECT id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status,
-       created_at, updated_at
-FROM namespaces
-WHERE id = $1
+SELECT
+    ns.id, ns.name, ns.display_name, ns.description, ns.workspace_id, ns.owner_id,
+    ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
+    u.username AS owner_username,
+    w.name AS workspace_name,
+    (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) AS member_count
+FROM namespaces ns
+JOIN users u ON ns.owner_id = u.id
+JOIN workspaces w ON ns.workspace_id = w.id
+WHERE ns.id = $1
 `
 
-func (q *Queries) GetNamespaceByID(ctx context.Context, id int64) (Namespace, error) {
+type GetNamespaceByIDRow struct {
+	ID            int64     `json:"id"`
+	Name          string    `json:"name"`
+	DisplayName   string    `json:"display_name"`
+	Description   string    `json:"description"`
+	WorkspaceID   int64     `json:"workspace_id"`
+	OwnerID       int64     `json:"owner_id"`
+	Visibility    string    `json:"visibility"`
+	MaxMembers    int32     `json:"max_members"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	OwnerUsername string    `json:"owner_username"`
+	WorkspaceName string    `json:"workspace_name"`
+	MemberCount   int64     `json:"member_count"`
+}
+
+func (q *Queries) GetNamespaceByID(ctx context.Context, id int64) (GetNamespaceByIDRow, error) {
 	row := q.db.QueryRow(ctx, getNamespaceByID, id)
-	var i Namespace
+	var i GetNamespaceByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -157,6 +187,9 @@ func (q *Queries) GetNamespaceByID(ctx context.Context, id int64) (Namespace, er
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUsername,
+		&i.WorkspaceName,
+		&i.MemberCount,
 	)
 	return i, err
 }
@@ -191,27 +224,41 @@ const listNamespaces = `-- name: ListNamespaces :many
 SELECT
     ns.id, ns.name, ns.display_name, ns.description, ns.workspace_id, ns.owner_id,
     ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
-    u.username AS owner_username
+    u.username AS owner_username,
+    w.name AS workspace_name,
+    (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) AS member_count
 FROM namespaces ns
 JOIN users u ON ns.owner_id = u.id
+JOIN workspaces w ON ns.workspace_id = w.id
 WHERE
     ($1::VARCHAR IS NULL OR ns.status = $1)
     AND ($2::VARCHAR IS NULL OR ns.name ILIKE '%' || $2 || '%')
     AND ($3::VARCHAR IS NULL OR ns.visibility = $3)
     AND ($4::BIGINT IS NULL OR ns.owner_id = $4)
     AND ($5::BIGINT IS NULL OR ns.workspace_id = $5)
+    AND ($6::VARCHAR IS NULL OR (
+        ns.name ILIKE '%' || $6 || '%'
+        OR ns.display_name ILIKE '%' || $6 || '%'
+        OR ns.description ILIKE '%' || $6 || '%'
+    ))
 ORDER BY
-    CASE WHEN $6::VARCHAR = 'name' AND $7::VARCHAR = 'asc' THEN ns.name END ASC,
-    CASE WHEN $6::VARCHAR = 'name' AND $7::VARCHAR = 'desc' THEN ns.name END DESC,
-    CASE WHEN $6::VARCHAR = 'created_at' AND $7::VARCHAR = 'asc' THEN ns.created_at END ASC,
-    CASE WHEN $6::VARCHAR = 'created_at' AND $7::VARCHAR = 'desc' THEN ns.created_at END DESC,
-    CASE WHEN $6::VARCHAR = 'visibility' AND $7::VARCHAR = 'asc' THEN ns.visibility END ASC,
-    CASE WHEN $6::VARCHAR = 'visibility' AND $7::VARCHAR = 'desc' THEN ns.visibility END DESC,
-    CASE WHEN $6::VARCHAR = 'status' AND $7::VARCHAR = 'asc' THEN ns.status END ASC,
-    CASE WHEN $6::VARCHAR = 'status' AND $7::VARCHAR = 'desc' THEN ns.status END DESC,
+    CASE WHEN $7::VARCHAR = 'name' AND $8::VARCHAR = 'asc' THEN ns.name END ASC,
+    CASE WHEN $7::VARCHAR = 'name' AND $8::VARCHAR = 'desc' THEN ns.name END DESC,
+    CASE WHEN $7::VARCHAR = 'display_name' AND $8::VARCHAR = 'asc' THEN ns.display_name END ASC,
+    CASE WHEN $7::VARCHAR = 'display_name' AND $8::VARCHAR = 'desc' THEN ns.display_name END DESC,
+    CASE WHEN $7::VARCHAR = 'created_at' AND $8::VARCHAR = 'asc' THEN ns.created_at END ASC,
+    CASE WHEN $7::VARCHAR = 'created_at' AND $8::VARCHAR = 'desc' THEN ns.created_at END DESC,
+    CASE WHEN $7::VARCHAR = 'updated_at' AND $8::VARCHAR = 'asc' THEN ns.updated_at END ASC,
+    CASE WHEN $7::VARCHAR = 'updated_at' AND $8::VARCHAR = 'desc' THEN ns.updated_at END DESC,
+    CASE WHEN $7::VARCHAR = 'visibility' AND $8::VARCHAR = 'asc' THEN ns.visibility END ASC,
+    CASE WHEN $7::VARCHAR = 'visibility' AND $8::VARCHAR = 'desc' THEN ns.visibility END DESC,
+    CASE WHEN $7::VARCHAR = 'status' AND $8::VARCHAR = 'asc' THEN ns.status END ASC,
+    CASE WHEN $7::VARCHAR = 'status' AND $8::VARCHAR = 'desc' THEN ns.status END DESC,
+    CASE WHEN $7::VARCHAR = 'member_count' AND $8::VARCHAR = 'asc' THEN (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) END ASC,
+    CASE WHEN $7::VARCHAR = 'member_count' AND $8::VARCHAR = 'desc' THEN (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) END DESC,
     ns.created_at DESC
-LIMIT $9::INT
-OFFSET $8::INT
+LIMIT $10::INT
+OFFSET $9::INT
 `
 
 type ListNamespacesParams struct {
@@ -220,6 +267,7 @@ type ListNamespacesParams struct {
 	Visibility  *string `json:"visibility"`
 	OwnerID     *int64  `json:"owner_id"`
 	WorkspaceID *int64  `json:"workspace_id"`
+	Search      *string `json:"search"`
 	SortField   string  `json:"sort_field"`
 	SortOrder   string  `json:"sort_order"`
 	PageOffset  int32   `json:"page_offset"`
@@ -239,6 +287,8 @@ type ListNamespacesRow struct {
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	OwnerUsername string    `json:"owner_username"`
+	WorkspaceName string    `json:"workspace_name"`
+	MemberCount   int64     `json:"member_count"`
 }
 
 func (q *Queries) ListNamespaces(ctx context.Context, arg ListNamespacesParams) ([]ListNamespacesRow, error) {
@@ -248,6 +298,7 @@ func (q *Queries) ListNamespaces(ctx context.Context, arg ListNamespacesParams) 
 		arg.Visibility,
 		arg.OwnerID,
 		arg.WorkspaceID,
+		arg.Search,
 		arg.SortField,
 		arg.SortOrder,
 		arg.PageOffset,
@@ -273,6 +324,8 @@ func (q *Queries) ListNamespaces(ctx context.Context, arg ListNamespacesParams) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.OwnerUsername,
+			&i.WorkspaceName,
+			&i.MemberCount,
 		); err != nil {
 			return nil, err
 		}

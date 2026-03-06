@@ -63,10 +63,6 @@ export const api = ky.create({
           window.location.href = "/error?status=401"
           return response
         }
-        if (response.status === 404) {
-          window.location.href = "/error?status=404"
-          return response
-        }
         if (response.status >= 500) {
           window.location.href = `/error?status=${response.status}`
         }
@@ -118,6 +114,10 @@ const messageMap: Record<string, string> = {
   "oldPassword and newPassword are required": "api.error.badRequest",
 }
 
+const messagePrefixMap: Record<string, string> = {
+  "namespace member limit exceeded": "api.error.memberLimitExceeded",
+}
+
 const reasonMessageMap: Record<string, string> = {
   Conflict: "api.error.conflict",
   NotFound: "api.error.notFound",
@@ -129,5 +129,9 @@ export function translateDetailMessage(message: string): string {
 }
 
 export function translateApiError(err: ApiError): string {
-  return messageMap[err.message] ?? reasonMessageMap[err.reason] ?? err.message
+  if (messageMap[err.message]) return messageMap[err.message]
+  for (const [prefix, key] of Object.entries(messagePrefixMap)) {
+    if (err.message.startsWith(prefix)) return key
+  }
+  return reasonMessageMap[err.reason] ?? err.message
 }

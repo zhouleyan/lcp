@@ -2449,9 +2449,18 @@
             "format": "int",
             "description": "项目最大成员数（0 表示不限制）"
           },
+          "memberCount": {
+            "type": "integer",
+            "format": "int",
+            "description": "项目成员数量（只读）"
+          },
           "ownerId": {
             "type": "string",
             "description": "项目所有者的用户 ID"
+          },
+          "ownerName": {
+            "type": "string",
+            "description": "项目所有者用户名（只读）"
           },
           "status": {
             "type": "string",
@@ -2472,6 +2481,10 @@
           "workspaceId": {
             "type": "string",
             "description": "所属工作空间 ID"
+          },
+          "workspaceName": {
+            "type": "string",
+            "description": "所属工作空间名称（只读）"
           }
         },
         "required": [
@@ -2752,6 +2765,13 @@
             "format": "email",
             "description": "邮箱地址"
           },
+          "namespaceRefs": {
+            "type": "array",
+            "description": "用户关联的命名空间列表（仅在详情查询时返回）",
+            "items": {
+              "$ref": "#/components/schemas/UserNamespaceRef"
+            }
+          },
           "namespaces": {
             "type": "array",
             "description": "用户所属的项目列表（仅在列表查询时返回）",
@@ -2779,6 +2799,13 @@
           "username": {
             "type": "string",
             "description": "用户名，3-50个字符，仅支持小写字母、数字和下划线"
+          },
+          "workspaces": {
+            "type": "array",
+            "description": "用户关联的工作空间列表（仅在详情查询时返回）",
+            "items": {
+              "$ref": "#/components/schemas/UserWorkspaceRef"
+            }
           }
         },
         "required": [
@@ -2820,9 +2847,23 @@
             "type": "string",
             "description": "工作空间显示名称"
           },
+          "memberCount": {
+            "type": "integer",
+            "format": "int",
+            "description": "成员数量（只读）"
+          },
+          "namespaceCount": {
+            "type": "integer",
+            "format": "int",
+            "description": "项目数量（只读）"
+          },
           "ownerId": {
             "type": "string",
             "description": "工作空间所有者的用户 ID"
+          },
+          "ownerName": {
+            "type": "string",
+            "description": "所有者用户名（只读）"
           },
           "status": {
             "type": "string",

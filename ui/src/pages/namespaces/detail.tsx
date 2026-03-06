@@ -20,47 +20,44 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
 import { cn } from "@/lib/utils"
-import { getWorkspace, updateWorkspace, deleteWorkspace } from "@/api/workspaces"
+import { getNamespace, updateNamespace, deleteNamespace } from "@/api/namespaces"
 import { ApiError, translateApiError } from "@/api/client"
-import type { Workspace } from "@/api/types"
+import type { Namespace } from "@/api/types"
 import { useTranslation } from "@/i18n"
-import { useWorkspaceStore } from "@/stores/workspace-store"
 
-export default function WorkspaceDetailPage() {
-  const { workspaceId } = useParams()
+export default function NamespaceDetailPage() {
+  const { namespaceId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
-  const setCurrentWorkspace = useWorkspaceStore((s) => s.setCurrentWorkspace)
-  const [workspace, setWorkspace] = useState<Workspace | null>(null)
+  const [namespace, setNamespace] = useState<Namespace | null>(null)
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const basePath = `/workspaces/${workspaceId}`
+  const basePath = `/namespaces/${namespaceId}`
 
-  const fetchWorkspace = useCallback(async () => {
-    if (!workspaceId) return
+  const fetchNamespace = useCallback(async () => {
+    if (!namespaceId) return
     try {
-      const ws = await getWorkspace(workspaceId)
-      setWorkspace(ws)
-      setCurrentWorkspace(workspaceId, ws.metadata.name)
+      const ns = await getNamespace(namespaceId)
+      setNamespace(ns)
     } catch {
-      setWorkspace(null)
+      setNamespace(null)
     } finally {
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceId])
+  }, [namespaceId])
 
-  useEffect(() => { fetchWorkspace() }, [fetchWorkspace])
+  useEffect(() => { fetchNamespace() }, [fetchNamespace])
 
   const handleDelete = async () => {
-    if (!workspace) return
+    if (!namespace) return
     try {
-      await deleteWorkspace(workspace.metadata.id)
+      await deleteNamespace(namespace.metadata.id)
       toast.success(t("action.deleteSuccess"))
-      navigate("/workspaces")
+      navigate("/namespaces")
     } catch {
       toast.error(t("api.error.internalError"))
     }
@@ -75,31 +72,30 @@ export default function WorkspaceDetailPage() {
     )
   }
 
-  if (!workspace) {
+  if (!namespace) {
     return (
       <div className="p-6">
-        <p className="text-muted-foreground">{t("workspace.notFound")}</p>
+        <p className="text-muted-foreground">{t("namespace.notFound")}</p>
       </div>
     )
   }
 
   // Determine active tab from URL
   const pathSuffix = location.pathname.replace(basePath, "").replace(/^\//, "")
-  const activeTab = pathSuffix === "users" ? "users" : pathSuffix === "namespaces" ? "namespaces" : "overview"
+  const activeTab = pathSuffix === "users" ? "users" : "overview"
 
   const tabs = [
-    { key: "overview", label: t("workspace.overview"), to: basePath },
+    { key: "overview", label: t("namespace.overview"), to: basePath },
     { key: "users", label: t("nav.users"), to: `${basePath}/users` },
-    { key: "namespaces", label: t("nav.namespaces"), to: `${basePath}/namespaces` },
   ]
 
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">{workspace.metadata.name}</h1>
-          <Badge variant={workspace.spec.status === "active" ? "default" : "secondary"}>
-            {workspace.spec.status === "active" ? t("common.active") : t("common.inactive")}
+          <h1 className="text-2xl font-bold">{namespace.metadata.name}</h1>
+          <Badge variant={namespace.spec.status === "active" ? "default" : "secondary"}>
+            {namespace.spec.status === "active" ? t("common.active") : t("common.inactive")}
           </Badge>
         </div>
         <div className="flex items-center gap-2">
@@ -133,14 +129,14 @@ export default function WorkspaceDetailPage() {
       </div>
 
       {/* Route-based tab content */}
-      <Outlet context={{ workspace, onWorkspaceChange: fetchWorkspace }} />
+      <Outlet context={{ namespace, onNamespaceChange: fetchNamespace }} />
 
       {/* edit dialog */}
-      <EditWorkspaceDialog
+      <EditNamespaceDialog
         open={editOpen}
         onOpenChange={setEditOpen}
-        workspace={workspace}
-        onSuccess={fetchWorkspace}
+        namespace={namespace}
+        onSuccess={fetchNamespace}
       />
 
       {/* delete confirm */}
@@ -149,7 +145,7 @@ export default function WorkspaceDetailPage() {
           <DialogHeader>
             <DialogTitle>{t("common.delete")}</DialogTitle>
             <DialogDescription>
-              {t("workspace.deleteConfirm", { name: workspace.metadata.name })}
+              {t("namespace.deleteConfirm", { name: namespace.metadata.name })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -162,14 +158,14 @@ export default function WorkspaceDetailPage() {
   )
 }
 
-// ===== Edit Workspace Dialog =====
+// ===== Edit Namespace Dialog =====
 
-function EditWorkspaceDialog({
-  open, onOpenChange, workspace, onSuccess,
+function EditNamespaceDialog({
+  open, onOpenChange, namespace, onSuccess,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  workspace: Workspace
+  namespace: Namespace
   onSuccess: () => void
 }) {
   const { t } = useTranslation()
@@ -178,6 +174,8 @@ function EditWorkspaceDialog({
   const schema = z.object({
     displayName: z.string().optional(),
     description: z.string().optional(),
+    visibility: z.enum(["public", "private"]),
+    maxMembers: z.number().int().min(1).optional(),
     status: z.enum(["active", "inactive"]),
   })
 
@@ -187,35 +185,46 @@ function EditWorkspaceDialog({
     resolver: zodResolver(schema) as never,
     mode: "onBlur",
     defaultValues: {
-      displayName: workspace.spec.displayName ?? "",
-      description: workspace.spec.description ?? "",
-      status: workspace.spec.status ?? "active",
+      displayName: namespace.spec.displayName ?? "",
+      description: namespace.spec.description ?? "",
+      visibility: namespace.spec.visibility ?? "public",
+      maxMembers: namespace.spec.maxMembers ?? 50,
+      status: namespace.spec.status ?? "active",
     },
   })
 
   useEffect(() => {
     if (open) {
       form.reset({
-        displayName: workspace.spec.displayName ?? "",
-        description: workspace.spec.description ?? "",
-        status: workspace.spec.status ?? "active",
+        displayName: namespace.spec.displayName ?? "",
+        description: namespace.spec.description ?? "",
+        visibility: namespace.spec.visibility ?? "public",
+        maxMembers: namespace.spec.maxMembers ?? 50,
+        status: namespace.spec.status ?? "active",
       })
     }
-  }, [open, workspace, form])
+  }, [open, namespace, form])
 
   const onSubmit = async (values: FormValues) => {
     setLoading(true)
     try {
-      await updateWorkspace(workspace.metadata.id, {
-        metadata: workspace.metadata,
-        spec: { ...workspace.spec, displayName: values.displayName, description: values.description, status: values.status },
+      await updateNamespace(namespace.metadata.id, {
+        metadata: namespace.metadata,
+        spec: {
+          ...namespace.spec,
+          displayName: values.displayName,
+          description: values.description,
+          visibility: values.visibility,
+          maxMembers: values.maxMembers,
+          status: values.status,
+        },
       })
       toast.success(t("action.updateSuccess"))
       onOpenChange(false)
       onSuccess()
     } catch (err) {
       if (err instanceof ApiError) {
-        form.setError("root", { message: translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("workspace.title") }) : err.message })
+        form.setError("root", { message: translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("namespace.title") }) : err.message })
       } else {
         form.setError("root", { message: t("api.error.internalError") })
       }
@@ -228,7 +237,7 @@ function EditWorkspaceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>{t("workspace.edit")}</DialogTitle>
+          <DialogTitle>{t("namespace.edit")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -239,13 +248,40 @@ function EditWorkspaceDialog({
             )}
             <div>
               <label className="text-sm font-medium">{t("common.name")}</label>
-              <Input value={workspace.metadata.name} disabled className="mt-1" />
+              <Input value={namespace.metadata.name} disabled className="mt-1" />
             </div>
             <FormField control={form.control} name="displayName" render={({ field }) => (
               <FormItem><FormLabel>{t("common.displayName")}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="description" render={({ field }) => (
               <FormItem><FormLabel>{t("common.description")}</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="visibility" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("namespace.visibility")}</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl><SelectTrigger className="w-full"><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="public">{t("namespace.visibility.public")}</SelectItem>
+                    <SelectItem value="private">{t("namespace.visibility.private")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="maxMembers" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("namespace.maxMembers")}</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={1}
+                    {...field}
+                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )} />
             <FormField control={form.control} name="status" render={({ field }) => (
               <FormItem>

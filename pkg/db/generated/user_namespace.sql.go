@@ -13,6 +13,7 @@ import (
 const addUserToNamespace = `-- name: AddUserToNamespace :one
 INSERT INTO user_namespaces (user_id, namespace_id, role)
 VALUES ($1, $2, $3)
+ON CONFLICT (user_id, namespace_id) DO NOTHING
 RETURNING user_id, namespace_id, role, created_at
 `
 

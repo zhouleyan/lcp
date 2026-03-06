@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Link } from "react-router"
+import { useNavigate, useOutletContext } from "react-router"
 import {
   Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown,
   Search, Filter, ChevronLeft, ChevronRight,
@@ -29,18 +29,22 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
 import {
-  listWorkspaces, createWorkspace, updateWorkspace, deleteWorkspace, deleteWorkspaces,
-} from "@/api/workspaces"
+  listWorkspaceNamespaces, createWorkspaceNamespace, updateNamespace,
+  deleteNamespace, deleteNamespaces, listNamespaces,
+} from "@/api/namespaces"
 import { ApiError, translateApiError } from "@/api/client"
-import type { Workspace, ListParams } from "@/api/types"
+import type { Workspace, Namespace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
-type SortField = "name" | "display_name" | "namespace_count" | "member_count" | "created_at" | "updated_at"
+type SortField = "name" | "display_name" | "member_count" | "created_at" | "updated_at"
 
-export default function WorkspaceListPage() {
+export default function WorkspaceNamespacesPage() {
+  const { workspace, onWorkspaceChange } = useOutletContext<{ workspace: Workspace; onWorkspaceChange: () => void }>()
+  const workspaceId = workspace.metadata.id
+  const navigate = useNavigate()
   const { t } = useTranslation()
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [namespaces, setNamespaces] = useState<Namespace[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
@@ -50,11 +54,12 @@ export default function WorkspaceListPage() {
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [visibilityFilter, setVisibilityFilter] = useState("all")
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const [createOpen, setCreateOpen] = useState(false)
-  const [editTarget, setEditTarget] = useState<Workspace | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<Workspace | null>(null)
+  const [editTarget, setEditTarget] = useState<Namespace | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Namespace | null>(null)
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
@@ -72,8 +77,9 @@ export default function WorkspaceListPage() {
       const params: ListParams = { page, pageSize, sortBy, sortOrder }
       if (search) params.search = search
       if (statusFilter !== "all") params.status = statusFilter
-      const data = await listWorkspaces(params)
-      setWorkspaces(data.items ?? [])
+      if (visibilityFilter !== "all") params.visibility = visibilityFilter
+      const data = await listWorkspaceNamespaces(workspaceId, params)
+      setNamespaces(data.items ?? [])
       setTotalCount(data.totalCount)
     } catch {
       toast.error(t("api.error.internalError"))
@@ -81,11 +87,11 @@ export default function WorkspaceListPage() {
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, sortBy, sortOrder, search, statusFilter])
+  }, [workspaceId, page, pageSize, sortBy, sortOrder, search, statusFilter, visibilityFilter])
 
   useEffect(() => { fetchData() }, [fetchData])
-  useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
-  useEffect(() => { setSelected(new Set()) }, [workspaces])
+  useEffect(() => { setPage(1) }, [search, statusFilter, visibilityFilter, pageSize])
+  useEffect(() => { setSelected(new Set()) }, [namespaces])
 
   const handleSort = (field: SortField) => {
     if (sortBy === field) {
@@ -104,7 +110,7 @@ export default function WorkspaceListPage() {
   }
 
   const toggleAll = () => {
-    setSelected(selected.size === workspaces.length ? new Set() : new Set(workspaces.map((w) => w.metadata.id)))
+    setSelected(selected.size === namespaces.length ? new Set() : new Set(namespaces.map((ns) => ns.metadata.id)))
   }
   const toggleOne = (id: string) => {
     setSelected((prev) => {
@@ -117,13 +123,14 @@ export default function WorkspaceListPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     try {
-      await deleteWorkspace(deleteTarget.metadata.id)
+      await deleteNamespace(deleteTarget.metadata.id)
       toast.success(t("action.deleteSuccess"))
       setDeleteTarget(null)
       fetchData()
+      onWorkspaceChange()
     } catch (err) {
       if (err instanceof ApiError) {
-        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("workspace.title") }) : err.message)
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("namespace.title") }) : err.message)
       } else {
         toast.error(t("api.error.internalError"))
       }
@@ -132,54 +139,55 @@ export default function WorkspaceListPage() {
 
   const handleBatchDelete = async () => {
     try {
-      await deleteWorkspaces(Array.from(selected))
+      await deleteNamespaces(Array.from(selected))
       toast.success(t("action.deleteSuccess"))
       setBatchDeleteOpen(false)
       setSelected(new Set())
       fetchData()
+      onWorkspaceChange()
     } catch (err) {
       if (err instanceof ApiError) {
-        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("workspace.title") }) : err.message)
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("namespace.title") }) : err.message)
       } else {
         toast.error(t("api.error.internalError"))
       }
     }
   }
 
+  const handleCreateSuccess = () => {
+    fetchData()
+    onWorkspaceChange()
+  }
+
+  const handleEditSuccess = () => {
+    fetchData()
+    onWorkspaceChange()
+  }
+
   return (
-    <div className="p-6">
+    <div>
       {/* header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{t("workspace.title")}</h1>
-          <p className="text-muted-foreground text-sm">
-            {t("workspace.manage", { count: totalCount })}
-          </p>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="relative max-w-xs flex-1">
+          <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
+          <Input
+            placeholder={t("namespace.searchPlaceholder")}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="pl-9"
+          />
         </div>
         <div className="flex items-center gap-2">
           {selected.size > 0 && (
             <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
               <Trash2 className="mr-2 h-4 w-4" />
-              {t("workspace.batchDelete")} ({selected.size})
+              {t("namespace.batchDelete")} ({selected.size})
             </Button>
           )}
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            {t("workspace.create")}
+            {t("namespace.create")}
           </Button>
-        </div>
-      </div>
-
-      {/* filters */}
-      <div className="mb-4 flex items-center gap-3">
-        <div className="relative max-w-xs flex-1">
-          <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-          <Input
-            placeholder={t("workspace.searchPlaceholder")}
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="pl-9"
-          />
         </div>
       </div>
 
@@ -192,7 +200,7 @@ export default function WorkspaceListPage() {
                 <input
                   type="checkbox"
                   className="accent-primary h-4 w-4 rounded"
-                  checked={workspaces.length > 0 && selected.size === workspaces.length}
+                  checked={namespaces.length > 0 && selected.size === namespaces.length}
                   onChange={toggleAll}
                 />
               </TableHead>
@@ -202,13 +210,21 @@ export default function WorkspaceListPage() {
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("display_name")}>
                 {t("common.displayName")}<SortIcon field="display_name" />
               </TableHead>
-              <TableHead>{t("common.description")}</TableHead>
-              <TableHead>{t("workspace.owner")}</TableHead>
-              <TableHead className="cursor-pointer select-none text-center" onClick={() => handleSort("namespace_count")}>
-                {t("workspace.namespaceCount")}<SortIcon field="namespace_count" />
-              </TableHead>
-              <TableHead className="cursor-pointer select-none text-center" onClick={() => handleSort("member_count")}>
-                {t("workspace.memberCount")}<SortIcon field="member_count" />
+              <TableHead>{t("namespace.owner")}</TableHead>
+              <TableHead>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="inline-flex items-center gap-1 select-none">
+                      {t("namespace.visibility")}
+                      <Filter className={`h-3 w-3 ${visibilityFilter !== "all" ? "text-primary" : "opacity-40"}`} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => setVisibilityFilter("all")}>{t("common.all")}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setVisibilityFilter("public")}>{t("namespace.visibility.public")}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setVisibilityFilter("private")}>{t("namespace.visibility.private")}</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TableHead>
               <TableHead>
                 <DropdownMenu>
@@ -225,11 +241,11 @@ export default function WorkspaceListPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableHead>
+              <TableHead className="cursor-pointer select-none text-center" onClick={() => handleSort("member_count")}>
+                {t("namespace.memberCount")}<SortIcon field="member_count" />
+              </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
                 {t("common.created")}<SortIcon field="created_at" />
-              </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("updated_at")}>
-                {t("common.updated")}<SortIcon field="updated_at" />
               </TableHead>
               <TableHead className="w-24">{t("common.actions")}</TableHead>
             </TableRow>
@@ -238,57 +254,58 @@ export default function WorkspaceListPage() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 11 }).map((_, j) => (
+                  {Array.from({ length: 9 }).map((_, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
                   ))}
                 </TableRow>
               ))
-            ) : workspaces.length === 0 ? (
+            ) : namespaces.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-muted-foreground py-8 text-center">
-                  {t("workspace.noData")}
+                <TableCell colSpan={9} className="text-muted-foreground py-8 text-center">
+                  {t("namespace.noData")}
                 </TableCell>
               </TableRow>
             ) : (
-              workspaces.map((ws) => (
-                <TableRow key={ws.metadata.id}>
+              namespaces.map((ns) => (
+                <TableRow key={ns.metadata.id}>
                   <TableCell>
                     <input
                       type="checkbox"
                       className="accent-primary h-4 w-4 rounded"
-                      checked={selected.has(ws.metadata.id)}
-                      onChange={() => toggleOne(ws.metadata.id)}
+                      checked={selected.has(ns.metadata.id)}
+                      onChange={() => toggleOne(ns.metadata.id)}
                     />
                   </TableCell>
                   <TableCell>
-                    <Link to={`/workspaces/${ws.metadata.id}`} className="font-medium hover:underline">
-                      {ws.metadata.name}
-                    </Link>
+                    <button
+                      className="font-medium hover:underline text-left"
+                      onClick={() => navigate(`/namespaces/${ns.metadata.id}`)}
+                    >
+                      {ns.metadata.name}
+                    </button>
                   </TableCell>
-                  <TableCell>{ws.spec.displayName || "-"}</TableCell>
-                  <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm" title={ws.spec.description}>
-                    {ws.spec.description || "-"}
-                  </TableCell>
-                  <TableCell className="text-sm">{ws.spec.ownerName || ws.spec.ownerId}</TableCell>
-                  <TableCell className="text-center">{ws.spec.namespaceCount ?? 0}</TableCell>
-                  <TableCell className="text-center">{ws.spec.memberCount ?? 0}</TableCell>
+                  <TableCell>{ns.spec.displayName || "-"}</TableCell>
+                  <TableCell className="text-sm">{ns.spec.ownerName || ns.spec.ownerId}</TableCell>
                   <TableCell>
-                    <Badge variant={ws.spec.status === "active" ? "default" : "secondary"}>
-                      {ws.spec.status === "active" ? t("common.active") : t("common.inactive")}
+                    <Badge variant={ns.spec.visibility === "public" ? "default" : "secondary"}>
+                      {ns.spec.visibility === "public" ? t("namespace.visibility.public") : t("namespace.visibility.private")}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                    {new Date(ws.metadata.createdAt).toLocaleString()}
+                  <TableCell>
+                    <Badge variant={ns.spec.status === "active" ? "default" : "secondary"}>
+                      {ns.spec.status === "active" ? t("common.active") : t("common.inactive")}
+                    </Badge>
                   </TableCell>
+                  <TableCell className="text-center">{ns.spec.memberCount ?? 0}/{ns.spec.maxMembers || "∞"}</TableCell>
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                    {new Date(ws.metadata.updatedAt).toLocaleString()}
+                    {new Date(ns.metadata.createdAt).toLocaleString()}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(ws)} title={t("common.edit")}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(ns)} title={t("common.edit")}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(ws)} title={t("common.delete")}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(ns)} title={t("common.delete")}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -328,14 +345,20 @@ export default function WorkspaceListPage() {
       )}
 
       {/* create dialog */}
-      <WorkspaceFormDialog open={createOpen} onOpenChange={setCreateOpen} onSuccess={fetchData} />
+      <NamespaceFormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        workspaceId={workspaceId}
+        onSuccess={handleCreateSuccess}
+      />
 
       {/* edit dialog */}
-      <WorkspaceFormDialog
+      <NamespaceFormDialog
         open={!!editTarget}
         onOpenChange={(v) => { if (!v) setEditTarget(null) }}
-        workspace={editTarget ?? undefined}
-        onSuccess={fetchData}
+        workspaceId={workspaceId}
+        namespace={editTarget ?? undefined}
+        onSuccess={handleEditSuccess}
       />
 
       {/* delete confirm */}
@@ -344,7 +367,7 @@ export default function WorkspaceListPage() {
           <DialogHeader>
             <DialogTitle>{t("common.delete")}</DialogTitle>
             <DialogDescription>
-              {t("workspace.deleteConfirm", { name: deleteTarget?.metadata.name ?? "" })}
+              {t("namespace.deleteConfirm", { name: deleteTarget?.metadata.name ?? "" })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -358,9 +381,9 @@ export default function WorkspaceListPage() {
       <Dialog open={batchDeleteOpen} onOpenChange={setBatchDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("workspace.batchDelete")}</DialogTitle>
+            <DialogTitle>{t("namespace.batchDelete")}</DialogTitle>
             <DialogDescription>
-              {t("workspace.batchDeleteConfirm", { count: selected.size })}
+              {t("namespace.batchDeleteConfirm", { count: selected.size })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -373,80 +396,96 @@ export default function WorkspaceListPage() {
   )
 }
 
-// ===== Workspace Form Dialog =====
+// ===== Namespace Form Dialog =====
 
-interface WorkspaceFormValues {
+interface NamespaceFormValues {
   name: string
   displayName: string
   description: string
+  visibility: "public" | "private"
   status: "active" | "inactive"
 }
 
-function WorkspaceFormDialog({
-  open, onOpenChange, workspace, onSuccess,
+function NamespaceFormDialog({
+  open, onOpenChange, workspaceId, namespace, onSuccess,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  workspace?: Workspace
+  workspaceId: string
+  namespace?: Namespace
   onSuccess: () => void
 }) {
   const { t } = useTranslation()
-  const isEdit = !!workspace
+  const isEdit = !!namespace
   const [loading, setLoading] = useState(false)
 
   const schema = z.object({
     name: z.string()
-      .min(3, t("workspace.validation.name.format"))
-      .max(50, t("workspace.validation.name.format"))
-      .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, t("workspace.validation.name.format")),
+      .min(3, t("namespace.validation.name.format"))
+      .max(50, t("namespace.validation.name.format"))
+      .regex(/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/, t("namespace.validation.name.format")),
     displayName: z.string().optional(),
     description: z.string().optional(),
+    visibility: z.enum(["public", "private"]),
     status: z.enum(["active", "inactive"]),
   })
 
-  const form = useForm<WorkspaceFormValues>({
+  const form = useForm<NamespaceFormValues>({
     resolver: zodResolver(schema) as never,
     mode: "onBlur",
-    defaultValues: { name: "", displayName: "", description: "", status: "active" },
+    defaultValues: { name: "", displayName: "", description: "", visibility: "public", status: "active" },
   })
 
   useEffect(() => {
     if (open) {
-      if (workspace) {
+      if (namespace) {
         form.reset({
-          name: workspace.metadata.name,
-          displayName: workspace.spec.displayName ?? "",
-          description: workspace.spec.description ?? "",
-          status: workspace.spec.status ?? "active",
+          name: namespace.metadata.name,
+          displayName: namespace.spec.displayName ?? "",
+          description: namespace.spec.description ?? "",
+          visibility: namespace.spec.visibility ?? "public",
+          status: namespace.spec.status ?? "active",
         })
       } else {
-        form.reset({ name: "", displayName: "", description: "", status: "active" })
+        form.reset({ name: "", displayName: "", description: "", visibility: "public", status: "active" })
       }
     }
-  }, [open, workspace, form])
+  }, [open, namespace, form])
 
   const checkUniqueness = async (value: string) => {
     if (!value || isEdit) return
     try {
-      const data = await listWorkspaces({ page: 1, pageSize: 1, search: value })
-      const exists = data.items?.some((w) => w.metadata.name === value)
-      if (exists) form.setError("name", { message: t("workspace.validation.name.taken") })
+      const data = await listNamespaces({ page: 1, pageSize: 1, search: value })
+      const exists = data.items?.some((n) => n.metadata.name === value)
+      if (exists) form.setError("name", { message: t("namespace.validation.name.taken") })
     } catch { /* backend will enforce */ }
   }
 
-  const onSubmit = async (values: WorkspaceFormValues) => {
+  const onSubmit = async (values: NamespaceFormValues) => {
     setLoading(true)
     try {
       if (isEdit) {
-        await updateWorkspace(workspace.metadata.id, {
-          metadata: workspace.metadata,
-          spec: { ...workspace.spec, displayName: values.displayName, description: values.description, status: values.status },
+        await updateNamespace(namespace.metadata.id, {
+          metadata: namespace.metadata,
+          spec: {
+            ...namespace.spec,
+            displayName: values.displayName,
+            description: values.description,
+            visibility: values.visibility,
+            status: values.status,
+          },
         })
         toast.success(t("action.updateSuccess"))
       } else {
-        await createWorkspace({
-          metadata: { name: values.name } as Workspace["metadata"],
-          spec: { displayName: values.displayName, description: values.description, status: values.status } as Workspace["spec"],
+        await createWorkspaceNamespace(workspaceId, {
+          metadata: { name: values.name } as Namespace["metadata"],
+          spec: {
+            displayName: values.displayName,
+            description: values.description,
+            visibility: values.visibility,
+            status: values.status,
+            workspaceId,
+          } as Namespace["spec"],
         })
         toast.success(t("action.createSuccess"))
       }
@@ -454,7 +493,7 @@ function WorkspaceFormDialog({
       onSuccess()
     } catch (err) {
       if (err instanceof ApiError) {
-        form.setError("root", { message: translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("workspace.title") }) : err.message })
+        form.setError("root", { message: translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("namespace.title") }) : err.message })
       } else {
         form.setError("root", { message: t("api.error.internalError") })
       }
@@ -467,7 +506,7 @@ function WorkspaceFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>{isEdit ? t("workspace.edit") : t("workspace.create")}</DialogTitle>
+          <DialogTitle>{isEdit ? t("namespace.edit") : t("namespace.create")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -486,7 +525,7 @@ function WorkspaceFormDialog({
                     <Input
                       {...field}
                       disabled={isEdit}
-                      placeholder="my-workspace"
+                      placeholder="my-namespace"
                       onBlur={async (e) => {
                         field.onBlur()
                         if (!e.target.value) return
@@ -495,7 +534,7 @@ function WorkspaceFormDialog({
                       }}
                     />
                   </FormControl>
-                  {!isEdit && <p className="text-muted-foreground text-xs">{t("workspace.validation.name.hint")}</p>}
+                  {!isEdit && <p className="text-muted-foreground text-xs">{t("namespace.validation.name.hint")}</p>}
                   <FormMessage />
                 </FormItem>
               )}
@@ -518,6 +557,25 @@ function WorkspaceFormDialog({
                 <FormItem>
                   <FormLabel>{t("common.description")}</FormLabel>
                   <FormControl><Textarea rows={3} {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="visibility"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("namespace.visibility")}</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="public">{t("namespace.visibility.public")}</SelectItem>
+                      <SelectItem value="private">{t("namespace.visibility.private")}</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

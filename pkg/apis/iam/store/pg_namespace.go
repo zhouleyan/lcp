@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/pkg/apis/iam"
@@ -46,6 +47,10 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 		Status:      ns.Status,
 	})
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, apierrors.NewConflict("namespace", ns.Name)
+		}
 		return nil, fmt.Errorf("create namespace: %w", err)
 	}
 
@@ -66,7 +71,7 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 	return &row, nil
 }
 
-func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*iam.DBNamespace, error) {
+func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*iam.DBNamespaceWithOwner, error) {
 	row, err := s.queries.GetNamespaceByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -74,7 +79,24 @@ func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*iam.DBNamesp
 		}
 		return nil, fmt.Errorf("get namespace by id: %w", err)
 	}
-	return &row, nil
+	return &iam.DBNamespaceWithOwner{
+		Namespace: generated.Namespace{
+			ID:          row.ID,
+			Name:        row.Name,
+			DisplayName: row.DisplayName,
+			Description: row.Description,
+			WorkspaceID: row.WorkspaceID,
+			OwnerID:     row.OwnerID,
+			Visibility:  row.Visibility,
+			MaxMembers:  row.MaxMembers,
+			Status:      row.Status,
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+		},
+		OwnerUsername: row.OwnerUsername,
+		WorkspaceName: row.WorkspaceName,
+		MemberCount:  row.MemberCount,
+	}, nil
 }
 
 func (s *pgNamespaceStore) GetByName(ctx context.Context, name string) (*iam.DBNamespace, error) {
@@ -171,6 +193,7 @@ func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 		Visibility:  filterStr("visibility"),
 		OwnerID:     filterInt64("owner_id"),
 		WorkspaceID: filterInt64("workspace_id"),
+		Search:      filterStr("search"),
 	}
 
 	count, err := s.queries.CountNamespaces(ctx, countParams)
@@ -189,6 +212,7 @@ func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 		Visibility:  countParams.Visibility,
 		OwnerID:     countParams.OwnerID,
 		WorkspaceID: countParams.WorkspaceID,
+		Search:      countParams.Search,
 		SortField:   q.SortBy,
 		SortOrder:   sortOrder,
 		PageOffset:  offset,
@@ -215,6 +239,8 @@ func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 				UpdatedAt:   r.UpdatedAt,
 			},
 			OwnerUsername: r.OwnerUsername,
+			WorkspaceName: r.WorkspaceName,
+			MemberCount:  r.MemberCount,
 		})
 	}
 
@@ -255,24 +281,14 @@ func (s *pgUserNamespaceStore) Add(ctx context.Context, rel *iam.DBUserNamespace
 		return nil, fmt.Errorf("get namespace: %w", err)
 	}
 
-	// Auto-add user to workspace if not already a member
-	_, err = qtx.GetUserWorkspace(ctx, generated.GetUserWorkspaceParams{
+	// Auto-add user to workspace (ON CONFLICT DO NOTHING handles duplicates)
+	_, err = qtx.AddUserToWorkspace(ctx, generated.AddUserToWorkspaceParams{
 		UserID:      rel.UserID,
 		WorkspaceID: ns.WorkspaceID,
+		Role:        "member",
 	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			_, err = qtx.AddUserToWorkspace(ctx, generated.AddUserToWorkspaceParams{
-				UserID:      rel.UserID,
-				WorkspaceID: ns.WorkspaceID,
-				Role:        "member",
-			})
-			if err != nil {
-				return nil, fmt.Errorf("auto-add user to workspace: %w", err)
-			}
-		} else {
-			return nil, fmt.Errorf("check user workspace: %w", err)
-		}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("auto-add user to workspace: %w", err)
 	}
 
 	row, err := qtx.AddUserToNamespace(ctx, generated.AddUserToNamespaceParams{
@@ -281,6 +297,13 @@ func (s *pgUserNamespaceStore) Add(ctx context.Context, rel *iam.DBUserNamespace
 		Role:        rel.Role,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// ON CONFLICT DO NOTHING — user already a member
+			if err := tx.Commit(ctx); err != nil {
+				return nil, fmt.Errorf("commit transaction: %w", err)
+			}
+			return nil, nil
+		}
 		return nil, fmt.Errorf("add user to namespace: %w", err)
 	}
 

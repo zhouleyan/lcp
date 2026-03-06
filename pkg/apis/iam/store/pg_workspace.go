@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/pkg/apis/iam"
@@ -41,6 +42,10 @@ func (s *pgWorkspaceStore) Create(ctx context.Context, ws *iam.DBWorkspace) (*ia
 		Status:      ws.Status,
 	})
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, apierrors.NewConflict("workspace", ws.Name)
+		}
 		return nil, fmt.Errorf("create workspace: %w", err)
 	}
 
@@ -86,7 +91,7 @@ func (s *pgWorkspaceStore) Create(ctx context.Context, ws *iam.DBWorkspace) (*ia
 	return &row, nil
 }
 
-func (s *pgWorkspaceStore) GetByID(ctx context.Context, id int64) (*iam.DBWorkspace, error) {
+func (s *pgWorkspaceStore) GetByID(ctx context.Context, id int64) (*iam.DBWorkspaceWithOwner, error) {
 	row, err := s.queries.GetWorkspaceByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -94,7 +99,21 @@ func (s *pgWorkspaceStore) GetByID(ctx context.Context, id int64) (*iam.DBWorksp
 		}
 		return nil, fmt.Errorf("get workspace by id: %w", err)
 	}
-	return &row, nil
+	return &iam.DBWorkspaceWithOwner{
+		Workspace: generated.Workspace{
+			ID:          row.ID,
+			Name:        row.Name,
+			DisplayName: row.DisplayName,
+			Description: row.Description,
+			OwnerID:     row.OwnerID,
+			Status:      row.Status,
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+		},
+		OwnerUsername:  row.OwnerUsername,
+		NamespaceCount: row.NamespaceCount,
+		MemberCount:    row.MemberCount,
+	}, nil
 }
 
 func (s *pgWorkspaceStore) GetByName(ctx context.Context, name string) (*iam.DBWorkspace, error) {
@@ -186,6 +205,7 @@ func (s *pgWorkspaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 		Status:  filterStr("status"),
 		Name:    filterStr("name"),
 		OwnerID: filterInt64("owner_id"),
+		Search:  filterStr("search"),
 	}
 
 	count, err := s.queries.CountWorkspaces(ctx, countParams)
@@ -202,6 +222,7 @@ func (s *pgWorkspaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 		Status:     countParams.Status,
 		Name:       countParams.Name,
 		OwnerID:    countParams.OwnerID,
+		Search:     countParams.Search,
 		SortField:  q.SortBy,
 		SortOrder:  sortOrder,
 		PageOffset: offset,
@@ -224,7 +245,9 @@ func (s *pgWorkspaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 				CreatedAt:   r.CreatedAt,
 				UpdatedAt:   r.UpdatedAt,
 			},
-			OwnerUsername: r.OwnerUsername,
+			OwnerUsername:  r.OwnerUsername,
+			NamespaceCount: r.NamespaceCount,
+			MemberCount:    r.MemberCount,
 		})
 	}
 

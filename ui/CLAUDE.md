@@ -187,6 +187,50 @@ Backend returns English error messages. The frontend translates them to i18n key
 - Parameterized messages use `{param}` syntax: `t("api.validation.required", { field: t("common.phone") })`
 - Both locale files must always have the same keys (typed via `Messages`)
 
+## List/Table Conventions
+
+All resource list views — whether top-level pages (Users, Workspaces, Namespaces) or embedded sub-lists (workspace members, namespace members) — must provide a consistent, full-featured table experience:
+
+- **Search**: Debounced text input (300ms), filters across name/email/phone/displayName
+- **Status filter**: Dropdown on the Status column header (All / Active / Inactive)
+- **Sortable columns**: Click column header to toggle asc/desc, with sort icons (ArrowUpDown / ArrowUp / ArrowDown)
+- **Pagination**: Page size selector (10/20/50/100), prev/next buttons, "Page X of Y" display
+- **Multi-select**: Checkbox column for batch operations (batch delete / batch remove)
+- **Loading skeleton**: Show skeleton rows while fetching
+- **Empty state**: Centered message when no data
+
+This applies equally to sub-resource lists embedded in detail pages (e.g., members tab in workspace detail). Do not create simplified list views — every list table must have the full feature set above.
+
+### useCallback dependency: never include `t`
+
+The `useTranslation()` hook returns a new `t` function reference on every render. Including `t` in a `useCallback` dependency array causes infinite re-render loops (new `t` → new callback → useEffect fires → setState → re-render → new `t` → ...). Always exclude `t` from `useCallback` deps:
+
+```tsx
+const fetchData = useCallback(async () => {
+  // ... can use t() inside for error messages
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [page, pageSize, sortBy, sortOrder, search, statusFilter]) // NO `t` here
+```
+
+## Route-API Alignment Convention
+
+Frontend routes must mirror backend API routes to enable unified RBAC permission control. The same path pattern on both sides allows a single `canAccess(path, action)` function to gate both backend API access and frontend UI visibility.
+
+**Pattern**: If the backend API is `/api/iam/v1/workspaces/{workspaceId}/users`, the frontend route is `/workspaces/:workspaceId/users` (strip the API prefix).
+
+**Examples**:
+
+| Backend API | Frontend Route |
+|---|---|
+| `/api/iam/v1/workspaces` | `/workspaces` |
+| `/api/iam/v1/workspaces/{workspaceId}` | `/workspaces/:workspaceId` |
+| `/api/iam/v1/workspaces/{workspaceId}/users` | `/workspaces/:workspaceId/users` |
+| `/api/iam/v1/workspaces/{workspaceId}/namespaces` | `/workspaces/:workspaceId/namespaces` |
+| `/api/iam/v1/users` | `/users` |
+| `/api/iam/v1/namespaces` | `/namespaces` |
+
+**Key rule**: Use the same resource name on both sides (e.g., `users` not `members`). This ensures the permission middleware can match frontend route segments to backend API paths directly.
+
 ## API Client Conventions
 
 - Use `ky` via the shared `api` instance (`api/client.ts`) which handles auth tokens and 401 refresh

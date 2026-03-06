@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { UserMenu } from "@/components/user-menu"
+import { AppBreadcrumb } from "@/components/app-breadcrumb"
 import { useTranslation } from "@/i18n"
 import { isAuthenticated, startAuthFlow } from "@/lib/auth"
 import { useAuthStore } from "@/stores/auth-store"
@@ -86,7 +87,9 @@ export default function RootLayout() {
           </nav>
         </aside>
         <div className="flex flex-1 flex-col">
-          <header className="flex h-14 items-center justify-end gap-2 border-b px-6">
+          <header className="flex h-14 items-center justify-between border-b px-6">
+            <AppBreadcrumb />
+            <div className="ml-auto flex items-center gap-2">
             <a
               href="/api-docs"
               target="_blank"
@@ -98,6 +101,7 @@ export default function RootLayout() {
             </a>
             <LanguageSwitcher />
             <UserMenu />
+            </div>
           </header>
           <main className="flex-1 overflow-auto">
             <Outlet />

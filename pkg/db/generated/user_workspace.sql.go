@@ -13,6 +13,7 @@ import (
 const addUserToWorkspace = `-- name: AddUserToWorkspace :one
 INSERT INTO user_workspaces (user_id, workspace_id, role)
 VALUES ($1, $2, $3)
+ON CONFLICT (user_id, workspace_id) DO NOTHING
 RETURNING user_id, workspace_id, role, created_at
 `
 
@@ -35,13 +36,26 @@ func (q *Queries) AddUserToWorkspace(ctx context.Context, arg AddUserToWorkspace
 }
 
 const countUsersByWorkspaceID = `-- name: CountUsersByWorkspaceID :one
-SELECT count(user_id)
-FROM user_workspaces
-WHERE workspace_id = $1
+SELECT count(u.id)
+FROM users u
+JOIN user_workspaces uw ON u.id = uw.user_id
+WHERE uw.workspace_id = $1
+    AND ($2::VARCHAR IS NULL OR u.status = $2)
+    AND ($3::VARCHAR IS NULL
+         OR u.username ILIKE '%' || $3 || '%'
+         OR u.email ILIKE '%' || $3 || '%'
+         OR u.phone ILIKE '%' || $3 || '%'
+         OR u.display_name ILIKE '%' || $3 || '%')
 `
 
-func (q *Queries) CountUsersByWorkspaceID(ctx context.Context, workspaceID int64) (int64, error) {
-	row := q.db.QueryRow(ctx, countUsersByWorkspaceID, workspaceID)
+type CountUsersByWorkspaceIDParams struct {
+	WorkspaceID int64   `json:"workspace_id"`
+	Status      *string `json:"status"`
+	Search      *string `json:"search"`
+}
+
+func (q *Queries) CountUsersByWorkspaceID(ctx context.Context, arg CountUsersByWorkspaceIDParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countUsersByWorkspaceID, arg.WorkspaceID, arg.Status, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -78,8 +92,39 @@ SELECT
 FROM users u
 JOIN user_workspaces uw ON u.id = uw.user_id
 WHERE uw.workspace_id = $1
-ORDER BY uw.created_at DESC
+    AND ($2::VARCHAR IS NULL OR u.status = $2)
+    AND ($3::VARCHAR IS NULL
+         OR u.username ILIKE '%' || $3 || '%'
+         OR u.email ILIKE '%' || $3 || '%'
+         OR u.phone ILIKE '%' || $3 || '%'
+         OR u.display_name ILIKE '%' || $3 || '%')
+ORDER BY
+    CASE WHEN $4::VARCHAR = 'username' AND $5::VARCHAR = 'asc' THEN u.username END ASC,
+    CASE WHEN $4::VARCHAR = 'username' AND $5::VARCHAR = 'desc' THEN u.username END DESC,
+    CASE WHEN $4::VARCHAR = 'email' AND $5::VARCHAR = 'asc' THEN u.email END ASC,
+    CASE WHEN $4::VARCHAR = 'email' AND $5::VARCHAR = 'desc' THEN u.email END DESC,
+    CASE WHEN $4::VARCHAR = 'display_name' AND $5::VARCHAR = 'asc' THEN u.display_name END ASC,
+    CASE WHEN $4::VARCHAR = 'display_name' AND $5::VARCHAR = 'desc' THEN u.display_name END DESC,
+    CASE WHEN $4::VARCHAR = 'phone' AND $5::VARCHAR = 'asc' THEN u.phone END ASC,
+    CASE WHEN $4::VARCHAR = 'phone' AND $5::VARCHAR = 'desc' THEN u.phone END DESC,
+    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'asc' THEN u.created_at END ASC,
+    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'desc' THEN u.created_at END DESC,
+    CASE WHEN $4::VARCHAR = 'updated_at' AND $5::VARCHAR = 'asc' THEN u.updated_at END ASC,
+    CASE WHEN $4::VARCHAR = 'updated_at' AND $5::VARCHAR = 'desc' THEN u.updated_at END DESC,
+    uw.created_at DESC
+LIMIT $7::INT
+OFFSET $6::INT
 `
+
+type ListUsersByWorkspaceIDParams struct {
+	WorkspaceID int64   `json:"workspace_id"`
+	Status      *string `json:"status"`
+	Search      *string `json:"search"`
+	SortField   string  `json:"sort_field"`
+	SortOrder   string  `json:"sort_order"`
+	PageOffset  int32   `json:"page_offset"`
+	PageSize    int32   `json:"page_size"`
+}
 
 type ListUsersByWorkspaceIDRow struct {
 	ID          int64      `json:"id"`
@@ -96,8 +141,16 @@ type ListUsersByWorkspaceIDRow struct {
 	JoinedAt    time.Time  `json:"joined_at"`
 }
 
-func (q *Queries) ListUsersByWorkspaceID(ctx context.Context, workspaceID int64) ([]ListUsersByWorkspaceIDRow, error) {
-	rows, err := q.db.Query(ctx, listUsersByWorkspaceID, workspaceID)
+func (q *Queries) ListUsersByWorkspaceID(ctx context.Context, arg ListUsersByWorkspaceIDParams) ([]ListUsersByWorkspaceIDRow, error) {
+	rows, err := q.db.Query(ctx, listUsersByWorkspaceID,
+		arg.WorkspaceID,
+		arg.Status,
+		arg.Search,
+		arg.SortField,
+		arg.SortOrder,
+		arg.PageOffset,
+		arg.PageSize,
+	)
 	if err != nil {
 		return nil, err
 	}
