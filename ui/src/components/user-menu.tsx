@@ -1,0 +1,204 @@
+import { useState } from "react"
+import { KeyRound, LogOut, User } from "lucide-react"
+import { useForm } from "react-hook-form"
+import { z } from "zod/v4"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { toast } from "sonner"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { useAuthStore } from "@/stores/auth-store"
+import { changePassword } from "@/api/users"
+import { ApiError } from "@/api/client"
+import { logout } from "@/lib/auth"
+import { useTranslation } from "@/i18n"
+
+export function UserMenu() {
+  const { t } = useTranslation()
+  const user = useAuthStore((s) => s.user)
+  const [passwordOpen, setPasswordOpen] = useState(false)
+
+  const displayName = user?.name || user?.email || "User"
+  const initials = displayName.charAt(0).toUpperCase()
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="gap-2">
+            <Avatar size="sm">
+              <AvatarFallback>{initials}</AvatarFallback>
+            </Avatar>
+            <span className="max-w-24 truncate text-xs">{displayName}</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium">{displayName}</p>
+              {user?.email && (
+                <p className="text-xs text-muted-foreground">{user.email}</p>
+              )}
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setPasswordOpen(true)}>
+            <KeyRound className="mr-2 h-4 w-4" />
+            {t("userMenu.changePassword")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => logout()}>
+            <LogOut className="mr-2 h-4 w-4" />
+            {t("userMenu.logout")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <ChangePasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
+    </>
+  )
+}
+
+function ChangePasswordDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const { t } = useTranslation()
+  const user = useAuthStore((s) => s.user)
+  const [loading, setLoading] = useState(false)
+
+  const schema = z
+    .object({
+      oldPassword: z.string().min(1, t("api.validation.required", { field: t("userMenu.oldPassword") })),
+      newPassword: z
+        .string()
+        .min(8, t("api.validation.password.length"))
+        .max(128, t("api.validation.password.length"))
+        .regex(/[A-Z]/, t("api.validation.password.uppercase"))
+        .regex(/[a-z]/, t("api.validation.password.lowercase"))
+        .regex(/[0-9]/, t("api.validation.password.digit")),
+      confirmPassword: z.string(),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+      message: t("userMenu.passwordMismatch"),
+      path: ["confirmPassword"],
+    })
+
+  type FormValues = z.infer<typeof schema>
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { oldPassword: "", newPassword: "", confirmPassword: "" },
+  })
+
+  const onSubmit = async (values: FormValues) => {
+    if (!user?.sub) return
+    setLoading(true)
+    try {
+      await changePassword(user.sub, {
+        oldPassword: values.oldPassword,
+        newPassword: values.newPassword,
+      })
+      toast.success(t("action.changePasswordSuccess"))
+      onOpenChange(false)
+      form.reset()
+    } catch (err) {
+      if (err instanceof ApiError && err.details?.length) {
+        for (const d of err.details) {
+          form.setError(d.field as keyof FormValues, { message: d.message })
+        }
+      } else {
+        toast.error(err instanceof ApiError ? err.message : t("api.error.internalError"))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) form.reset() }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("userMenu.changePassword")}</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="oldPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("userMenu.oldPassword")}</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="newPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("userMenu.newPassword")}</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("userMenu.confirmPassword")}</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "..." : t("common.confirm")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  )
+}

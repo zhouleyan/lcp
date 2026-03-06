@@ -4,8 +4,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { LanguageSwitcher } from "@/components/language-switcher"
 import { useTranslation } from "@/i18n"
 import { loginWithCredentials, startAuthFlow } from "@/lib/auth"
+
+const loginErrorMap: Record<string, string> = {
+  "invalid credentials": "login.error.invalidCredentials",
+  "account locked": "login.error.accountLocked",
+  "account is locked": "login.error.accountLocked",
+}
 
 export default function LoginPage() {
   const { t } = useTranslation()
@@ -34,7 +41,9 @@ export default function LoginPage() {
       const url = new URL(redirectUri)
       window.location.href = url.pathname + url.search
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed")
+      const msg = err instanceof Error ? err.message : ""
+      const key = loginErrorMap[msg.toLowerCase()]
+      setError(key ? t(key) : t("login.error.failed"))
     } finally {
       setLoading(false)
     }
@@ -44,7 +53,10 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-center text-2xl">{t("login.title")}</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl">{t("login.title")}</CardTitle>
+            <LanguageSwitcher />
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

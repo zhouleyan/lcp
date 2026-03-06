@@ -10,8 +10,10 @@ import {
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { LanguageSwitcher } from "@/components/language-switcher"
+import { UserMenu } from "@/components/user-menu"
 import { useTranslation } from "@/i18n"
 import { isAuthenticated, startAuthFlow } from "@/lib/auth"
+import { useAuthStore } from "@/stores/auth-store"
 
 const navItems = [
   { to: "/workspaces", labelKey: "nav.workspaces", icon: Building2 },
@@ -22,10 +24,13 @@ const navItems = [
 export default function RootLayout() {
   const location = useLocation()
   const { t } = useTranslation()
+  const fetchUser = useAuthStore((s) => s.fetchUser)
 
   useEffect(() => {
     if (!isAuthenticated()) {
       startAuthFlow()
+    } else {
+      fetchUser()
     }
   }, [])
 
@@ -73,6 +78,7 @@ export default function RootLayout() {
               <FileText className="h-4 w-4" />
             </a>
             <LanguageSwitcher />
+            <UserMenu />
           </header>
           <main className="flex-1 overflow-auto">
             <Outlet />
