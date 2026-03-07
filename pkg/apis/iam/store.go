@@ -35,10 +35,11 @@ type RefreshTokenStore interface {
 
 // WorkspaceStore defines database operations on workspaces.
 type WorkspaceStore interface {
-	Create(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error)
+	Create(ctx context.Context, ws *DBWorkspace) (*DBWorkspaceWithOwner, error)
 	GetByID(ctx context.Context, id int64) (*DBWorkspaceWithOwner, error)
 	GetByName(ctx context.Context, name string) (*DBWorkspace, error)
 	Update(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error)
+	Patch(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspace, error)
 	Delete(ctx context.Context, id int64) error
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwner], error)
@@ -47,10 +48,11 @@ type WorkspaceStore interface {
 
 // NamespaceStore defines database operations on namespaces.
 type NamespaceStore interface {
-	Create(ctx context.Context, ns *DBNamespace) (*DBNamespace, error)
+	Create(ctx context.Context, ns *DBNamespace) (*DBNamespaceWithOwner, error)
 	GetByID(ctx context.Context, id int64) (*DBNamespaceWithOwner, error)
 	GetByName(ctx context.Context, name string) (*DBNamespace, error)
 	Update(ctx context.Context, ns *DBNamespace) (*DBNamespace, error)
+	Patch(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespace, error)
 	Delete(ctx context.Context, id int64) error
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwner], error)
@@ -74,5 +76,5 @@ type UserNamespaceStore interface {
 	UpdateRole(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error)
 	Get(ctx context.Context, userID, namespaceID int64) (*DBUserNamespace, error)
 	ListByUserID(ctx context.Context, userID int64) ([]DBNamespaceWithRole, error)
-	ListByNamespaceID(ctx context.Context, namespaceID int64) ([]DBUserWithRole, error)
+	ListByNamespaceID(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
 }
