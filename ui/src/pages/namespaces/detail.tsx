@@ -59,8 +59,12 @@ export default function NamespaceDetailPage() {
       await deleteNamespace(namespace.metadata.id)
       toast.success(t("action.deleteSuccess"))
       navigate("/namespaces")
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("namespace.title") }) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     }
   }
 

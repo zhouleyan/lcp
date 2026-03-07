@@ -117,18 +117,10 @@ export default function WorkspaceListPage() {
             {t("workspace.manage", { count: totalCount })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {selected.size > 0 && (
-            <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t("workspace.batchDelete")} ({selected.size})
-            </Button>
-          )}
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t("workspace.create")}
-          </Button>
-        </div>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          {t("workspace.create")}
+        </Button>
       </div>
 
       {/* filters */}
@@ -142,6 +134,12 @@ export default function WorkspaceListPage() {
             className="pl-9"
           />
         </div>
+        {selected.size > 0 && (
+          <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t("workspace.batchDelete")} ({selected.size})
+          </Button>
+        )}
       </div>
 
       {/* table */}

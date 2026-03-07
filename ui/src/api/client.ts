@@ -116,6 +116,8 @@ const messageMap: Record<string, string> = {
 
 const messagePrefixMap: Record<string, string> = {
   "namespace member limit exceeded": "api.error.memberLimitExceeded",
+  "cannot delete workspace": "api.error.cannotDeleteWorkspace",
+  "cannot delete namespace": "api.error.cannotDeleteNamespace",
 }
 
 const reasonMessageMap: Record<string, string> = {

@@ -326,6 +326,7 @@ interface NamespaceFormValues {
   description: string
   visibility: "public" | "private"
   status: "active" | "inactive"
+  maxMembers: number
 }
 
 function NamespaceFormDialog({
@@ -350,12 +351,13 @@ function NamespaceFormDialog({
     description: z.string().optional(),
     visibility: z.enum(["public", "private"]),
     status: z.enum(["active", "inactive"]),
+    maxMembers: z.coerce.number().int().min(0, t("namespace.validation.maxMembers")),
   })
 
   const form = useForm<NamespaceFormValues>({
     resolver: zodResolver(schema) as never,
     mode: "onBlur",
-    defaultValues: { name: "", displayName: "", description: "", visibility: "public", status: "active" },
+    defaultValues: { name: "", displayName: "", description: "", visibility: "public", status: "active", maxMembers: 0 },
   })
 
   useEffect(() => {
@@ -367,9 +369,10 @@ function NamespaceFormDialog({
           description: namespace.spec.description ?? "",
           visibility: namespace.spec.visibility ?? "public",
           status: namespace.spec.status ?? "active",
+          maxMembers: namespace.spec.maxMembers ?? 0,
         })
       } else {
-        form.reset({ name: "", displayName: "", description: "", visibility: "public", status: "active" })
+        form.reset({ name: "", displayName: "", description: "", visibility: "public", status: "active", maxMembers: 0 })
       }
     }
   }, [open, namespace, form])
@@ -395,6 +398,7 @@ function NamespaceFormDialog({
             description: values.description,
             visibility: values.visibility,
             status: values.status,
+            maxMembers: values.maxMembers,
           },
         })
         toast.success(t("action.updateSuccess"))
@@ -406,6 +410,7 @@ function NamespaceFormDialog({
             description: values.description,
             visibility: values.visibility,
             status: values.status,
+            maxMembers: values.maxMembers,
             workspaceId,
           } as Namespace["spec"],
         })
@@ -517,6 +522,25 @@ function NamespaceFormDialog({
                       <SelectItem value="inactive">{t("common.inactive")}</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="maxMembers"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("namespace.maxMembers")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      {...field}
+                      onChange={(e) => field.onChange(e.target.value === "" ? "" : Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <p className="text-muted-foreground text-xs">{t("namespace.maxMembersHint")}</p>
                   <FormMessage />
                 </FormItem>
               )}

@@ -188,9 +188,8 @@ func (s *pgWorkspaceStore) Delete(ctx context.Context, id int64) error {
 		return fmt.Errorf("count namespaces: %w", err)
 	}
 	if count > 0 {
-		return apierrors.NewBadRequest(
+		return apierrors.NewConflictMessage(
 			fmt.Sprintf("cannot delete workspace %d: has %d namespace(s)", id, count),
-			nil,
 		)
 	}
 

@@ -180,9 +180,8 @@ func (s *pgNamespaceStore) Delete(ctx context.Context, id int64) error {
 		return fmt.Errorf("count users: %w", err)
 	}
 	if count > 0 {
-		return apierrors.NewBadRequest(
+		return apierrors.NewConflictMessage(
 			fmt.Sprintf("cannot delete namespace %d: has %d member(s)", id, count),
-			nil,
 		)
 	}
 

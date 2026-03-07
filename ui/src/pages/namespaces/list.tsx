@@ -124,18 +124,10 @@ export default function NamespaceListPage() {
             {t("namespace.manage", { count: totalCount })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {selected.size > 0 && (
-            <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t("namespace.batchDelete")} ({selected.size})
-            </Button>
-          )}
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t("namespace.create")}
-          </Button>
-        </div>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          {t("namespace.create")}
+        </Button>
       </div>
 
       {/* filters */}
@@ -149,6 +141,12 @@ export default function NamespaceListPage() {
             className="pl-9"
           />
         </div>
+        {selected.size > 0 && (
+          <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t("namespace.batchDelete")} ({selected.size})
+          </Button>
+        )}
       </div>
 
       {/* table */}
@@ -360,7 +358,7 @@ function NamespaceFormDialog({
     description: z.string().optional(),
     visibility: z.enum(["public", "private"]),
     status: z.enum(["active", "inactive"]),
-    maxMembers: z.number().int().min(0, t("namespace.validation.maxMembers")),
+    maxMembers: z.coerce.number().int().min(0, t("namespace.validation.maxMembers")),
   })
 
   const form = useForm<NamespaceFormValues>({
@@ -571,7 +569,7 @@ function NamespaceFormDialog({
                       type="number"
                       min={0}
                       {...field}
-                      onChange={(e) => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+                      onChange={(e) => field.onChange(e.target.value === "" ? "" : Number(e.target.value))}
                     />
                   </FormControl>
                   <p className="text-muted-foreground text-xs">{t("namespace.maxMembersHint")}</p>

@@ -53,6 +53,10 @@ func NewConflict(resource, name string) *StatusError {
 		fmt.Sprintf("%s %q already exists", resource, name), nil)
 }
 
+func NewConflictMessage(message string) *StatusError {
+	return newStatusError(http.StatusConflict, "Conflict", message, nil)
+}
+
 func NewInternalError(err error) *StatusError {
 	msg := "internal server error"
 	if err != nil {

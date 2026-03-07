@@ -20,6 +20,7 @@ import {
   listNamespaceUsers, addNamespaceUsers, removeNamespaceUsers, listUsers,
 } from "@/api/users"
 import type { Namespace, User, ListParams } from "@/api/types"
+import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
@@ -55,8 +56,12 @@ export default function NamespaceUsersPage() {
       const data = await listNamespaceUsers(namespaceId, params)
       setMembers(data.items ?? [])
       setTotalCount(data.totalCount)
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("user.title") }) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setLoading(false)
     }
@@ -75,8 +80,12 @@ export default function NamespaceUsersPage() {
       setRemoveTarget(null)
       fetchMembers()
       onNamespaceChange()
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("user.title") }) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     }
   }
 
@@ -88,8 +97,12 @@ export default function NamespaceUsersPage() {
       clearSelection()
       fetchMembers()
       onNamespaceChange()
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("user.title") }) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     }
   }
 
@@ -279,8 +292,12 @@ function AddMemberDialog({
       toast.success(t("namespace.memberAdded"))
       onOpenChange(false)
       onSuccess()
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("user.title") }) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setSubmitting(false)
     }

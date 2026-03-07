@@ -139,18 +139,10 @@ export default function UserListPage() {
             {t("user.manage", { count: totalCount })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {selected.size > 0 && (
-            <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t("user.batchDelete")} ({selected.size})
-            </Button>
-          )}
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t("user.create")}
-          </Button>
-        </div>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          {t("user.create")}
+        </Button>
       </div>
 
       {/* filters */}
@@ -164,6 +156,12 @@ export default function UserListPage() {
             className="pl-9"
           />
         </div>
+        {selected.size > 0 && (
+          <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t("user.batchDelete")} ({selected.size})
+          </Button>
+        )}
       </div>
 
       {/* table */}
