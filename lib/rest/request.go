@@ -21,11 +21,15 @@ func WithPathParams(r *http.Request, pathParams map[string]string) *http.Request
 }
 
 func PathParams(r *http.Request) map[string]string {
-	return r.Context().Value(PathParamsKey).(map[string]string)
+	params, _ := r.Context().Value(PathParamsKey).(map[string]string)
+	if params == nil {
+		return map[string]string{}
+	}
+	return params
 }
 
 func PathParam(r *http.Request, name string) string {
-	return r.Context().Value(PathParamsKey).(map[string]string)[name]
+	return PathParams(r)[name]
 }
 
 // QueryParams returns all the query parameters values by name
