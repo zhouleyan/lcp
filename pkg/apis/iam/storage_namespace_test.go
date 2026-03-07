@@ -234,12 +234,10 @@ func TestNamespaceStorage_List_FilterByWorkspace(t *testing.T) {
 // --- TestNamespaceStorage_Create ---
 
 func TestNamespaceStorage_Create(t *testing.T) {
-	createdDBNs := testNamespace(1, "new-namespace", 10, 100)
-
-	var nsCreateCalled, nsGetByIDCalled, wsGetByIDCalled, userGetByIDCalled bool
+	var nsCreateCalled, wsGetByIDCalled, userGetByIDCalled bool
 
 	nsStore := &mockNamespaceStore{
-		CreateFn: func(ctx context.Context, ns *DBNamespace) (*DBNamespace, error) {
+		CreateFn: func(ctx context.Context, ns *DBNamespace) (*DBNamespaceWithOwner, error) {
 			nsCreateCalled = true
 			if ns.Name != "new-namespace" {
 				t.Errorf("expected name 'new-namespace', got %q", ns.Name)
@@ -259,19 +257,7 @@ func TestNamespaceStorage_Create(t *testing.T) {
 			if ns.Status != "active" {
 				t.Errorf("expected status 'active', got %q", ns.Status)
 			}
-			return createdDBNs, nil
-		},
-		GetByIDFn: func(ctx context.Context, id int64) (*DBNamespaceWithOwner, error) {
-			nsGetByIDCalled = true
-			if id != 1 {
-				t.Errorf("expected re-fetch id 1, got %d", id)
-			}
-			return &DBNamespaceWithOwner{
-				Namespace:     *createdDBNs,
-				OwnerUsername: "alice",
-				WorkspaceName: "my-workspace",
-				MemberCount:   0,
-			}, nil
+			return testNamespaceWithOwner(1, "new-namespace", 10, 100, "alice", "my-workspace"), nil
 		},
 	}
 
@@ -322,9 +308,6 @@ func TestNamespaceStorage_Create(t *testing.T) {
 	}
 	if !nsCreateCalled {
 		t.Error("expected nsStore.Create to be called")
-	}
-	if !nsGetByIDCalled {
-		t.Error("expected nsStore.GetByID to be called for re-fetch")
 	}
 
 	result, ok := obj.(*Namespace)

@@ -357,37 +357,40 @@ func TestWorkspaceUserStorage_DeleteCollection_InvalidWorkspaceID(t *testing.T) 
 
 func TestNamespaceUserStorage_List(t *testing.T) {
 	unStore := &mockUserNamespaceStore{
-		ListByNamespaceIDFn: func(ctx context.Context, namespaceID int64) ([]DBUserWithRole, error) {
+		ListByNamespaceIDFn: func(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
 			if namespaceID != 5 {
 				t.Errorf("expected namespaceID 5, got %d", namespaceID)
 			}
-			return []DBUserWithRole{
-				{
-					User: generated.User{
-						ID:          10,
-						Username:    "alice",
-						Email:       "alice@example.com",
-						DisplayName: "Alice",
-						Status:      "active",
-						CreatedAt:   testTime,
-						UpdatedAt:   testTime,
+			return &db.ListResult[DBUserWithRole]{
+				Items: []DBUserWithRole{
+					{
+						User: generated.User{
+							ID:          10,
+							Username:    "alice",
+							Email:       "alice@example.com",
+							DisplayName: "Alice",
+							Status:      "active",
+							CreatedAt:   testTime,
+							UpdatedAt:   testTime,
+						},
+						Role:     "owner",
+						JoinedAt: testTime,
 					},
-					Role:     "owner",
-					JoinedAt: testTime,
-				},
-				{
-					User: generated.User{
-						ID:          20,
-						Username:    "bob",
-						Email:       "bob@example.com",
-						DisplayName: "Bob",
-						Status:      "active",
-						CreatedAt:   testTime,
-						UpdatedAt:   testTime,
+					{
+						User: generated.User{
+							ID:          20,
+							Username:    "bob",
+							Email:       "bob@example.com",
+							DisplayName: "Bob",
+							Status:      "active",
+							CreatedAt:   testTime,
+							UpdatedAt:   testTime,
+						},
+						Role:     "member",
+						JoinedAt: testTime,
 					},
-					Role:     "member",
-					JoinedAt: testTime,
 				},
+				TotalCount: 2,
 			}, nil
 		},
 	}

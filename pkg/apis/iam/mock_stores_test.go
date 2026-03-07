@@ -99,17 +99,18 @@ func (m *mockRefreshTokenStore) DeleteExpired(ctx context.Context) error {
 // --- Mock WorkspaceStore ---
 
 type mockWorkspaceStore struct {
-	CreateFn          func(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error)
+	CreateFn          func(ctx context.Context, ws *DBWorkspace) (*DBWorkspaceWithOwner, error)
 	GetByIDFn         func(ctx context.Context, id int64) (*DBWorkspaceWithOwner, error)
 	GetByNameFn       func(ctx context.Context, name string) (*DBWorkspace, error)
 	UpdateFn          func(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error)
+	PatchFn           func(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspace, error)
 	DeleteFn          func(ctx context.Context, id int64) error
 	DeleteByIDsFn     func(ctx context.Context, ids []int64) (int64, error)
 	ListFn            func(ctx context.Context, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwner], error)
 	CountNamespacesFn func(ctx context.Context, workspaceID int64) (int64, error)
 }
 
-func (m *mockWorkspaceStore) Create(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error) {
+func (m *mockWorkspaceStore) Create(ctx context.Context, ws *DBWorkspace) (*DBWorkspaceWithOwner, error) {
 	return m.CreateFn(ctx, ws)
 }
 func (m *mockWorkspaceStore) GetByID(ctx context.Context, id int64) (*DBWorkspaceWithOwner, error) {
@@ -120,6 +121,9 @@ func (m *mockWorkspaceStore) GetByName(ctx context.Context, name string) (*DBWor
 }
 func (m *mockWorkspaceStore) Update(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error) {
 	return m.UpdateFn(ctx, ws)
+}
+func (m *mockWorkspaceStore) Patch(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspace, error) {
+	return m.PatchFn(ctx, id, ws)
 }
 func (m *mockWorkspaceStore) Delete(ctx context.Context, id int64) error {
 	return m.DeleteFn(ctx, id)
@@ -137,17 +141,18 @@ func (m *mockWorkspaceStore) CountNamespaces(ctx context.Context, workspaceID in
 // --- Mock NamespaceStore ---
 
 type mockNamespaceStore struct {
-	CreateFn      func(ctx context.Context, ns *DBNamespace) (*DBNamespace, error)
+	CreateFn      func(ctx context.Context, ns *DBNamespace) (*DBNamespaceWithOwner, error)
 	GetByIDFn     func(ctx context.Context, id int64) (*DBNamespaceWithOwner, error)
 	GetByNameFn   func(ctx context.Context, name string) (*DBNamespace, error)
 	UpdateFn      func(ctx context.Context, ns *DBNamespace) (*DBNamespace, error)
+	PatchFn       func(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespace, error)
 	DeleteFn      func(ctx context.Context, id int64) error
 	DeleteByIDsFn func(ctx context.Context, ids []int64) (int64, error)
 	ListFn        func(ctx context.Context, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwner], error)
 	CountUsersFn  func(ctx context.Context, namespaceID int64) (int64, error)
 }
 
-func (m *mockNamespaceStore) Create(ctx context.Context, ns *DBNamespace) (*DBNamespace, error) {
+func (m *mockNamespaceStore) Create(ctx context.Context, ns *DBNamespace) (*DBNamespaceWithOwner, error) {
 	return m.CreateFn(ctx, ns)
 }
 func (m *mockNamespaceStore) GetByID(ctx context.Context, id int64) (*DBNamespaceWithOwner, error) {
@@ -158,6 +163,9 @@ func (m *mockNamespaceStore) GetByName(ctx context.Context, name string) (*DBNam
 }
 func (m *mockNamespaceStore) Update(ctx context.Context, ns *DBNamespace) (*DBNamespace, error) {
 	return m.UpdateFn(ctx, ns)
+}
+func (m *mockNamespaceStore) Patch(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespace, error) {
+	return m.PatchFn(ctx, id, ns)
 }
 func (m *mockNamespaceStore) Delete(ctx context.Context, id int64) error {
 	return m.DeleteFn(ctx, id)
@@ -210,7 +218,7 @@ type mockUserNamespaceStore struct {
 	UpdateRoleFn        func(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error)
 	GetFn               func(ctx context.Context, userID, namespaceID int64) (*DBUserNamespace, error)
 	ListByUserIDFn      func(ctx context.Context, userID int64) ([]DBNamespaceWithRole, error)
-	ListByNamespaceIDFn func(ctx context.Context, namespaceID int64) ([]DBUserWithRole, error)
+	ListByNamespaceIDFn func(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
 }
 
 func (m *mockUserNamespaceStore) Add(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error) {
@@ -228,8 +236,8 @@ func (m *mockUserNamespaceStore) Get(ctx context.Context, userID, namespaceID in
 func (m *mockUserNamespaceStore) ListByUserID(ctx context.Context, userID int64) ([]DBNamespaceWithRole, error) {
 	return m.ListByUserIDFn(ctx, userID)
 }
-func (m *mockUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespaceID int64) ([]DBUserWithRole, error) {
-	return m.ListByNamespaceIDFn(ctx, namespaceID)
+func (m *mockUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
+	return m.ListByNamespaceIDFn(ctx, namespaceID, query)
 }
 
 // --- Test data helpers ---

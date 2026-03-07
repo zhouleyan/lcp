@@ -187,9 +187,7 @@ func TestWorkspaceStorage_List(t *testing.T) {
 // --- TestWorkspaceStorage_Create ---
 
 func TestWorkspaceStorage_Create(t *testing.T) {
-	createdDBWs := testWorkspace(1, "new-workspace", 10)
-
-	var createCalled, getByIDCalled, userGetByIDCalled bool
+	var createCalled, userGetByIDCalled bool
 
 	userStore := &mockUserStore{
 		GetByIDFn: func(ctx context.Context, id int64) (*DBUser, error) {
@@ -202,7 +200,7 @@ func TestWorkspaceStorage_Create(t *testing.T) {
 	}
 
 	wsStore := &mockWorkspaceStore{
-		CreateFn: func(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error) {
+		CreateFn: func(ctx context.Context, ws *DBWorkspace) (*DBWorkspaceWithOwner, error) {
 			createCalled = true
 			if ws.Name != "new-workspace" {
 				t.Errorf("expected name 'new-workspace', got %q", ws.Name)
@@ -216,19 +214,7 @@ func TestWorkspaceStorage_Create(t *testing.T) {
 			if ws.Status != "active" {
 				t.Errorf("expected status 'active', got %q", ws.Status)
 			}
-			return createdDBWs, nil
-		},
-		GetByIDFn: func(ctx context.Context, id int64) (*DBWorkspaceWithOwner, error) {
-			getByIDCalled = true
-			if id != 1 {
-				t.Errorf("expected re-fetch id 1, got %d", id)
-			}
-			return &DBWorkspaceWithOwner{
-				Workspace:      *createdDBWs,
-				OwnerUsername:  "alice",
-				NamespaceCount: 1,
-				MemberCount:    1,
-			}, nil
+			return testWorkspaceWithOwner(1, "new-workspace", 10, "alice"), nil
 		},
 	}
 
@@ -255,9 +241,6 @@ func TestWorkspaceStorage_Create(t *testing.T) {
 	if !createCalled {
 		t.Error("expected wsStore.Create to be called")
 	}
-	if !getByIDCalled {
-		t.Error("expected wsStore.GetByID to be called for re-fetch")
-	}
 
 	result, ok := obj.(*Workspace)
 	if !ok {
@@ -275,12 +258,6 @@ func TestWorkspaceStorage_Create(t *testing.T) {
 	}
 	if result.Spec.OwnerName != "alice" {
 		t.Errorf("expected OwnerName 'alice', got %q", result.Spec.OwnerName)
-	}
-	if result.Spec.NamespaceCount != 1 {
-		t.Errorf("expected NamespaceCount 1, got %d", result.Spec.NamespaceCount)
-	}
-	if result.Spec.MemberCount != 1 {
-		t.Errorf("expected MemberCount 1, got %d", result.Spec.MemberCount)
 	}
 }
 
