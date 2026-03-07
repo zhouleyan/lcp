@@ -24,7 +24,7 @@ func NewPGWorkspaceStore(pool *pgxpool.Pool, queries *generated.Queries) iam.Wor
 	return &pgWorkspaceStore{db: pool, queries: queries}
 }
 
-func (s *pgWorkspaceStore) Create(ctx context.Context, ws *iam.DBWorkspace) (*iam.DBWorkspace, error) {
+func (s *pgWorkspaceStore) Create(ctx context.Context, ws *iam.DBWorkspace) (*iam.DBWorkspaceWithOwner, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -87,7 +87,26 @@ func (s *pgWorkspaceStore) Create(ctx context.Context, ws *iam.DBWorkspace) (*ia
 		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
-	return &row, nil
+	// Fetch the full workspace with owner info after commit
+	wsRow, err := s.queries.GetWorkspaceByID(ctx, row.ID)
+	if err != nil {
+		return nil, fmt.Errorf("get workspace after create: %w", err)
+	}
+	return &iam.DBWorkspaceWithOwner{
+		Workspace: generated.Workspace{
+			ID:          wsRow.ID,
+			Name:        wsRow.Name,
+			DisplayName: wsRow.DisplayName,
+			Description: wsRow.Description,
+			OwnerID:     wsRow.OwnerID,
+			Status:      wsRow.Status,
+			CreatedAt:   wsRow.CreatedAt,
+			UpdatedAt:   wsRow.UpdatedAt,
+		},
+		OwnerUsername:  wsRow.OwnerUsername,
+		NamespaceCount: wsRow.NamespaceCount,
+		MemberCount:    wsRow.MemberCount,
+	}, nil
 }
 
 func (s *pgWorkspaceStore) GetByID(ctx context.Context, id int64) (*iam.DBWorkspaceWithOwner, error) {
@@ -140,6 +159,24 @@ func (s *pgWorkspaceStore) Update(ctx context.Context, ws *iam.DBWorkspace) (*ia
 			return nil, apierrors.NewNotFound("workspace", fmt.Sprintf("%d", ws.ID))
 		}
 		return nil, fmt.Errorf("update workspace: %w", err)
+	}
+	return &row, nil
+}
+
+func (s *pgWorkspaceStore) Patch(ctx context.Context, id int64, ws *iam.DBWorkspace) (*iam.DBWorkspace, error) {
+	row, err := s.queries.PatchWorkspace(ctx, generated.PatchWorkspaceParams{
+		ID:          id,
+		Name:        toNullString(ws.Name),
+		DisplayName: toNullString(ws.DisplayName),
+		Description: toNullString(ws.Description),
+		OwnerID:     toNullInt64(ws.OwnerID),
+		Status:      toNullString(ws.Status),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("workspace", fmt.Sprintf("%d", id))
+		}
+		return nil, fmt.Errorf("patch workspace: %w", err)
 	}
 	return &row, nil
 }

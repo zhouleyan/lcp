@@ -26,7 +26,7 @@ func NewPGNamespaceStore(pool *pgxpool.Pool, queries *generated.Queries) iam.Nam
 	return &pgNamespaceStore{db: pool, queries: queries}
 }
 
-func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*iam.DBNamespace, error) {
+func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*iam.DBNamespaceWithOwner, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -67,7 +67,29 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
-	return &row, nil
+	// Fetch the full namespace with owner info after commit
+	nsRow, err := s.queries.GetNamespaceByID(ctx, row.ID)
+	if err != nil {
+		return nil, fmt.Errorf("get namespace after create: %w", err)
+	}
+	return &iam.DBNamespaceWithOwner{
+		Namespace: generated.Namespace{
+			ID:          nsRow.ID,
+			Name:        nsRow.Name,
+			DisplayName: nsRow.DisplayName,
+			Description: nsRow.Description,
+			WorkspaceID: nsRow.WorkspaceID,
+			OwnerID:     nsRow.OwnerID,
+			Visibility:  nsRow.Visibility,
+			MaxMembers:  nsRow.MaxMembers,
+			Status:      nsRow.Status,
+			CreatedAt:   nsRow.CreatedAt,
+			UpdatedAt:   nsRow.UpdatedAt,
+		},
+		OwnerUsername:  nsRow.OwnerUsername,
+		WorkspaceName: nsRow.WorkspaceName,
+		MemberCount:   nsRow.MemberCount,
+	}, nil
 }
 
 func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*iam.DBNamespaceWithOwner, error) {
@@ -126,6 +148,27 @@ func (s *pgNamespaceStore) Update(ctx context.Context, ns *iam.DBNamespace) (*ia
 			return nil, apierrors.NewNotFound("namespace", fmt.Sprintf("%d", ns.ID))
 		}
 		return nil, fmt.Errorf("update namespace: %w", err)
+	}
+	return &row, nil
+}
+
+func (s *pgNamespaceStore) Patch(ctx context.Context, id int64, ns *iam.DBNamespace) (*iam.DBNamespace, error) {
+	row, err := s.queries.PatchNamespace(ctx, generated.PatchNamespaceParams{
+		ID:          id,
+		Name:        toNullString(ns.Name),
+		DisplayName: toNullString(ns.DisplayName),
+		Description: toNullString(ns.Description),
+		WorkspaceID: toNullInt64(ns.WorkspaceID),
+		OwnerID:     toNullInt64(ns.OwnerID),
+		Visibility:  toNullString(ns.Visibility),
+		MaxMembers:  toNullInt32(ns.MaxMembers),
+		Status:      toNullString(ns.Status),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("namespace", fmt.Sprintf("%d", id))
+		}
+		return nil, fmt.Errorf("patch namespace: %w", err)
 	}
 	return &row, nil
 }
@@ -352,8 +395,34 @@ func (s *pgUserNamespaceStore) ListByUserID(ctx context.Context, userID int64) (
 	return items, nil
 }
 
-func (s *pgUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespaceID int64) ([]iam.DBUserWithRole, error) {
-	rows, err := s.queries.ListUsersByNamespaceID(ctx, namespaceID)
+func (s *pgUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespaceID int64, q db.ListQuery) (*db.ListResult[iam.DBUserWithRole], error) {
+	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
+
+	countParams := generated.CountUsersByNamespaceIDFilteredParams{
+		NamespaceID: namespaceID,
+		Status:      filterStr(q.Filters, "status"),
+		Search:      filterStr(q.Filters, "search"),
+	}
+
+	count, err := s.queries.CountUsersByNamespaceIDFiltered(ctx, countParams)
+	if err != nil {
+		return nil, fmt.Errorf("count users by namespace: %w", err)
+	}
+
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	rows, err := s.queries.ListUsersByNamespaceIDPaginated(ctx, generated.ListUsersByNamespaceIDPaginatedParams{
+		NamespaceID: namespaceID,
+		Status:      countParams.Status,
+		Search:      countParams.Search,
+		SortField:   q.SortBy,
+		SortOrder:   sortOrder,
+		PageOffset:  offset,
+		PageSize:    limit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list users by namespace: %w", err)
 	}
@@ -377,5 +446,9 @@ func (s *pgUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespaceI
 			JoinedAt: row.JoinedAt,
 		})
 	}
-	return items, nil
+
+	return &db.ListResult[iam.DBUserWithRole]{
+		Items:      items,
+		TotalCount: count,
+	}, nil
 }

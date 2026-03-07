@@ -35,3 +35,19 @@ func filterInt64(filters map[string]any, key string) *int64 {
 	}
 	return nil
 }
+
+// toNullInt64 converts a zero int64 to nil, otherwise returns a pointer to the value.
+func toNullInt64(n int64) *int64 {
+	if n == 0 {
+		return nil
+	}
+	return &n
+}
+
+// toNullInt32 converts a zero int32 to nil, otherwise returns a pointer to the value.
+func toNullInt32(n int32) *int32 {
+	if n == 0 {
+		return nil
+	}
+	return &n
+}

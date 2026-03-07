@@ -418,12 +418,7 @@ func (s *workspaceStorage) Create(ctx context.Context, obj runtime.Object, optio
 		return nil, err
 	}
 
-	// Re-fetch to get full response with ownerName, namespaceCount, memberCount
-	full, err := s.wsStore.GetByID(ctx, created.ID)
-	if err != nil {
-		return workspaceToAPI(created), nil
-	}
-	return workspaceWithOwnerToAPI(full), nil
+	return workspaceWithOwnerToAPI(created), nil
 }
 
 // +openapi:summary=更新工作空间信息（全量）
@@ -706,12 +701,7 @@ func (s *namespaceStorage) Create(ctx context.Context, obj runtime.Object, optio
 		return nil, err
 	}
 
-	// Re-fetch to get enriched response with ownerName, memberCount
-	full, err := s.nsStore.GetByID(ctx, created.ID)
-	if err != nil {
-		return namespaceToAPI(created), nil
-	}
-	return namespaceWithOwnerToAPI(full), nil
+	return namespaceWithOwnerToAPI(created), nil
 }
 
 // +openapi:summary=更新项目信息（全量）
@@ -1038,20 +1028,37 @@ func (s *namespaceUserStorage) List(ctx context.Context, options *rest.ListOptio
 		return nil, apierrors.NewBadRequest("invalid namespace ID", nil)
 	}
 
-	members, err := s.unStore.ListByNamespaceID(ctx, nsID)
+	query := db.ListQuery{
+		Filters: make(map[string]any),
+		Pagination: db.Pagination{
+			Page:     options.Pagination.Page,
+			PageSize: options.Pagination.PageSize,
+		},
+	}
+	for k, v := range options.Filters {
+		query.Filters[k] = v
+	}
+	if options.SortBy != "" {
+		query.SortBy = options.SortBy
+	}
+	if options.SortOrder != "" {
+		query.SortOrder = string(options.SortOrder)
+	}
+
+	result, err := s.unStore.ListByNamespaceID(ctx, nsID, query)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]User, len(members))
-	for i, m := range members {
+	items := make([]User, len(result.Items))
+	for i, m := range result.Items {
 		items[i] = *userToAPI(&m.User)
 	}
 
 	return &UserList{
 		TypeMeta:   runtime.TypeMeta{Kind: "UserList"},
 		Items:      items,
-		TotalCount: int64(len(items)),
+		TotalCount: result.TotalCount,
 	}, nil
 }
 
