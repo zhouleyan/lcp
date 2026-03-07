@@ -484,38 +484,26 @@ func (s *workspaceStorage) Patch(ctx context.Context, obj runtime.Object, option
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspace ID: %s", id), nil)
 	}
 
-	existingWithOwner, err := s.wsStore.GetByID(ctx, wid)
-	if err != nil {
-		return nil, err
-	}
-
-	existing := &existingWithOwner.Workspace
-	if ws.ObjectMeta.Name != "" {
-		existing.Name = ws.ObjectMeta.Name
-	}
-	if ws.Spec.DisplayName != "" {
-		existing.DisplayName = ws.Spec.DisplayName
-	}
-	if ws.Spec.Description != "" {
-		existing.Description = ws.Spec.Description
-	}
+	var ownerID int64
 	if ws.Spec.OwnerID != "" {
-		ownerID, err := parseID(ws.Spec.OwnerID)
+		ownerID, err = parseID(ws.Spec.OwnerID)
 		if err != nil {
 			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid ownerId: %s", ws.Spec.OwnerID), nil)
 		}
-		existing.OwnerID = ownerID
-	}
-	if ws.Spec.Status != "" {
-		existing.Status = ws.Spec.Status
 	}
 
-	updated, err := s.wsStore.Update(ctx, existing)
+	patched, err := s.wsStore.Patch(ctx, wid, &DBWorkspace{
+		Name:        ws.ObjectMeta.Name,
+		DisplayName: ws.Spec.DisplayName,
+		Description: ws.Spec.Description,
+		OwnerID:     ownerID,
+		Status:      ws.Spec.Status,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return workspaceToAPI(updated), nil
+	return workspaceToAPI(patched), nil
 }
 
 // +openapi:summary=删除工作空间
@@ -786,52 +774,37 @@ func (s *namespaceStorage) Patch(ctx context.Context, obj runtime.Object, option
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid namespace ID: %s", id), nil)
 	}
 
-	// Fetch existing and merge
-	existingWithOwner, err := s.nsStore.GetByID(ctx, nid)
-	if err != nil {
-		return nil, err
-	}
-	existing := &existingWithOwner.Namespace
-
-	if ns.ObjectMeta.Name != "" {
-		existing.Name = ns.ObjectMeta.Name
-	}
-	if ns.Spec.DisplayName != "" {
-		existing.DisplayName = ns.Spec.DisplayName
-	}
-	if ns.Spec.Description != "" {
-		existing.Description = ns.Spec.Description
-	}
+	var workspaceID int64
 	if ns.Spec.WorkspaceID != "" {
-		workspaceID, err := parseID(ns.Spec.WorkspaceID)
+		workspaceID, err = parseID(ns.Spec.WorkspaceID)
 		if err != nil {
 			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspaceId: %s", ns.Spec.WorkspaceID), nil)
 		}
-		existing.WorkspaceID = workspaceID
 	}
+
+	var ownerID int64
 	if ns.Spec.OwnerID != "" {
-		ownerID, err := parseID(ns.Spec.OwnerID)
+		ownerID, err = parseID(ns.Spec.OwnerID)
 		if err != nil {
 			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid ownerId: %s", ns.Spec.OwnerID), nil)
 		}
-		existing.OwnerID = ownerID
-	}
-	if ns.Spec.Visibility != "" {
-		existing.Visibility = ns.Spec.Visibility
-	}
-	if ns.Spec.MaxMembers != 0 {
-		existing.MaxMembers = int32(ns.Spec.MaxMembers)
-	}
-	if ns.Spec.Status != "" {
-		existing.Status = ns.Spec.Status
 	}
 
-	updated, err := s.nsStore.Update(ctx, existing)
+	patched, err := s.nsStore.Patch(ctx, nid, &DBNamespace{
+		Name:        ns.ObjectMeta.Name,
+		DisplayName: ns.Spec.DisplayName,
+		Description: ns.Spec.Description,
+		WorkspaceID: workspaceID,
+		OwnerID:     ownerID,
+		Visibility:  ns.Spec.Visibility,
+		MaxMembers:  int32(ns.Spec.MaxMembers),
+		Status:      ns.Spec.Status,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return namespaceToAPI(updated), nil
+	return namespaceToAPI(patched), nil
 }
 
 // +openapi:summary=删除项目
@@ -951,27 +924,12 @@ func (s *workspaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 		return nil, fmt.Errorf("expected *BatchRequest, got %T", obj)
 	}
 
-	added := 0
-	for _, idStr := range req.IDs {
-		uid, err := parseID(idStr)
-		if err != nil {
-			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", idStr), nil)
-		}
-		// Verify user exists
-		if _, err := s.userStore.GetByID(ctx, uid); err != nil {
-			return nil, apierrors.NewBadRequest(fmt.Sprintf("user %s not found", idStr), nil)
-		}
-		result, err := s.uwStore.Add(ctx, &DBUserWorkspace{
-			UserID:      uid,
-			WorkspaceID: wsID,
-			Role:        "member",
-		})
-		if err != nil {
-			return nil, err
-		}
-		if result != nil {
-			added++
-		}
+	added, err := batchAddUsers(ctx, req.IDs, s.userStore, func(ctx context.Context, uid int64) (bool, error) {
+		result, err := s.uwStore.Add(ctx, &DBUserWorkspace{UserID: uid, WorkspaceID: wsID, Role: "member"})
+		return result != nil, err
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return &rest.DeletionResult{
@@ -987,18 +945,15 @@ func (s *workspaceUserStorage) DeleteCollection(ctx context.Context, ids []strin
 		return nil, apierrors.NewBadRequest("invalid workspace ID", nil)
 	}
 
-	for _, idStr := range ids {
-		uid, err := parseID(idStr)
-		if err != nil {
-			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", idStr), nil)
-		}
-		if err := s.uwStore.Remove(ctx, uid, wsID); err != nil {
-			return nil, err
-		}
+	count, err := batchRemoveUsers(ctx, ids, func(ctx context.Context, uid int64) error {
+		return s.uwStore.Remove(ctx, uid, wsID)
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return &rest.DeletionResult{
-		SuccessCount: len(ids),
+		SuccessCount: count,
 	}, nil
 }
 
@@ -1093,28 +1048,12 @@ func (s *namespaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 		}
 	}
 
-	added := 0
-	for _, idStr := range req.IDs {
-		uid, err := parseID(idStr)
-		if err != nil {
-			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", idStr), nil)
-		}
-		// Verify user exists
-		if _, err := s.userStore.GetByID(ctx, uid); err != nil {
-			return nil, apierrors.NewBadRequest(fmt.Sprintf("user %s not found", idStr), nil)
-		}
-		// Add will auto-add to workspace via transaction in store
-		result, err := s.unStore.Add(ctx, &DBUserNamespace{
-			UserID:      uid,
-			NamespaceID: nsID,
-			Role:        "member",
-		})
-		if err != nil {
-			return nil, err
-		}
-		if result != nil {
-			added++
-		}
+	added, err := batchAddUsers(ctx, req.IDs, s.userStore, func(ctx context.Context, uid int64) (bool, error) {
+		result, err := s.unStore.Add(ctx, &DBUserNamespace{UserID: uid, NamespaceID: nsID, Role: "member"})
+		return result != nil, err
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return &rest.DeletionResult{
@@ -1131,18 +1070,15 @@ func (s *namespaceUserStorage) DeleteCollection(ctx context.Context, ids []strin
 		return nil, apierrors.NewBadRequest("invalid namespace ID", nil)
 	}
 
-	for _, idStr := range ids {
-		uid, err := parseID(idStr)
-		if err != nil {
-			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", idStr), nil)
-		}
-		if err := s.unStore.Remove(ctx, uid, nsID); err != nil {
-			return nil, err
-		}
+	count, err := batchRemoveUsers(ctx, ids, func(ctx context.Context, uid int64) error {
+		return s.unStore.Remove(ctx, uid, nsID)
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return &rest.DeletionResult{
-		SuccessCount: len(ids),
+		SuccessCount: count,
 	}, nil
 }
 
@@ -1310,6 +1246,51 @@ func namespaceToAPI(n *DBNamespace) *Namespace {
 			Status:      n.Status,
 		},
 	}
+}
+
+// ensureUserExists verifies a user exists by ID, returning a BadRequest error if not.
+func ensureUserExists(ctx context.Context, store UserStore, id int64) error {
+	if _, err := store.GetByID(ctx, id); err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("user %d not found", id), nil)
+	}
+	return nil
+}
+
+// batchAddUsers validates and adds users via the provided addFn.
+// Returns the count of successfully added users.
+func batchAddUsers(ctx context.Context, ids []string, userStore UserStore, addFn func(ctx context.Context, uid int64) (bool, error)) (int, error) {
+	added := 0
+	for _, idStr := range ids {
+		uid, err := parseID(idStr)
+		if err != nil {
+			return 0, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", idStr), nil)
+		}
+		if err := ensureUserExists(ctx, userStore, uid); err != nil {
+			return 0, err
+		}
+		ok, err := addFn(ctx, uid)
+		if err != nil {
+			return 0, err
+		}
+		if ok {
+			added++
+		}
+	}
+	return added, nil
+}
+
+// batchRemoveUsers removes users via the provided removeFn.
+func batchRemoveUsers(ctx context.Context, ids []string, removeFn func(ctx context.Context, uid int64) error) (int, error) {
+	for _, idStr := range ids {
+		uid, err := parseID(idStr)
+		if err != nil {
+			return 0, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", idStr), nil)
+		}
+		if err := removeFn(ctx, uid); err != nil {
+			return 0, err
+		}
+	}
+	return len(ids), nil
 }
 
 func parseID(s string) (int64, error) {

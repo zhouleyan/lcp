@@ -460,56 +460,30 @@ func TestNamespaceStorage_Update(t *testing.T) {
 // --- TestNamespaceStorage_Patch ---
 
 func TestNamespaceStorage_Patch(t *testing.T) {
-	existingNsWithOwner := &DBNamespaceWithOwner{
-		Namespace: generated.Namespace{
-			ID:          1,
-			Name:        "my-namespace",
-			DisplayName: "My Namespace",
-			Description: "Original description",
-			WorkspaceID: 10,
-			OwnerID:     100,
-			Visibility:  "private",
-			MaxMembers:  0,
-			Status:      "active",
-			CreatedAt:   testTime,
-			UpdatedAt:   testTime,
-		},
-		OwnerUsername:  "alice",
-		WorkspaceName: "my-workspace",
-		MemberCount:   3,
-	}
+	patchedDBNs := testNamespace(1, "my-namespace", 10, 100)
+	patchedDBNs.DisplayName = "Patched Namespace"
+	patchedDBNs.Description = "Original description"
 
-	updatedDBNs := testNamespace(1, "my-namespace", 10, 100)
-	updatedDBNs.DisplayName = "Patched Namespace"
-	updatedDBNs.Description = "Original description"
-
-	var getByIDCalled, updateCalled bool
+	var patchCalled bool
 
 	nsStore := &mockNamespaceStore{
-		GetByIDFn: func(ctx context.Context, id int64) (*DBNamespaceWithOwner, error) {
-			getByIDCalled = true
+		PatchFn: func(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespace, error) {
+			patchCalled = true
 			if id != 1 {
 				t.Errorf("expected id 1, got %d", id)
-			}
-			return existingNsWithOwner, nil
-		},
-		UpdateFn: func(ctx context.Context, ns *DBNamespace) (*DBNamespace, error) {
-			updateCalled = true
-			if ns.ID != 1 {
-				t.Errorf("expected ID 1, got %d", ns.ID)
 			}
 			if ns.DisplayName != "Patched Namespace" {
 				t.Errorf("expected displayName 'Patched Namespace', got %q", ns.DisplayName)
 			}
-			// Description should remain unchanged since patch input did not set it
-			if ns.Description != "Original description" {
-				t.Errorf("expected description 'Original description', got %q", ns.Description)
+			// Description should be empty (zero value) since patch input did not set it
+			if ns.Description != "" {
+				t.Errorf("expected description '' (zero value), got %q", ns.Description)
 			}
-			// WorkspaceID should remain unchanged
-			if ns.WorkspaceID != 10 {
-				t.Errorf("expected workspaceID 10, got %d", ns.WorkspaceID)
+			// WorkspaceID should be 0 (zero value) since patch input did not set it
+			if ns.WorkspaceID != 0 {
+				t.Errorf("expected workspaceID 0 (zero value), got %d", ns.WorkspaceID)
 			}
-			return updatedDBNs, nil
+			return patchedDBNs, nil
 		},
 	}
 
@@ -529,11 +503,8 @@ func TestNamespaceStorage_Patch(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !getByIDCalled {
-		t.Error("expected nsStore.GetByID to be called to fetch existing namespace")
-	}
-	if !updateCalled {
-		t.Error("expected nsStore.Update to be called with merged namespace")
+	if !patchCalled {
+		t.Error("expected nsStore.Patch to be called")
 	}
 
 	result, ok := obj.(*Namespace)

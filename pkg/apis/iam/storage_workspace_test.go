@@ -360,49 +360,26 @@ func TestWorkspaceStorage_Update(t *testing.T) {
 // --- TestWorkspaceStorage_Patch ---
 
 func TestWorkspaceStorage_Patch(t *testing.T) {
-	existingWsWithOwner := &DBWorkspaceWithOwner{
-		Workspace: generated.Workspace{
-			ID:          1,
-			Name:        "my-workspace",
-			DisplayName: "My Workspace",
-			Description: "Original description",
-			OwnerID:     10,
-			Status:      "active",
-			CreatedAt:   testTime,
-			UpdatedAt:   testTime,
-		},
-		OwnerUsername:  "alice",
-		NamespaceCount: 2,
-		MemberCount:    3,
-	}
+	patchedDBWs := testWorkspace(1, "my-workspace", 10)
+	patchedDBWs.DisplayName = "Patched Workspace"
+	patchedDBWs.Description = "Original description"
 
-	updatedDBWs := testWorkspace(1, "my-workspace", 10)
-	updatedDBWs.DisplayName = "Patched Workspace"
-	updatedDBWs.Description = "Original description"
-
-	var getByIDCalled, updateCalled bool
+	var patchCalled bool
 
 	wsStore := &mockWorkspaceStore{
-		GetByIDFn: func(ctx context.Context, id int64) (*DBWorkspaceWithOwner, error) {
-			getByIDCalled = true
+		PatchFn: func(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspace, error) {
+			patchCalled = true
 			if id != 1 {
 				t.Errorf("expected id 1, got %d", id)
-			}
-			return existingWsWithOwner, nil
-		},
-		UpdateFn: func(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error) {
-			updateCalled = true
-			if ws.ID != 1 {
-				t.Errorf("expected ID 1, got %d", ws.ID)
 			}
 			if ws.DisplayName != "Patched Workspace" {
 				t.Errorf("expected displayName 'Patched Workspace', got %q", ws.DisplayName)
 			}
-			// Description should remain unchanged since patch input did not set it
-			if ws.Description != "Original description" {
-				t.Errorf("expected description 'Original description', got %q", ws.Description)
+			// Description should be empty (zero value) since patch input did not set it
+			if ws.Description != "" {
+				t.Errorf("expected description '' (zero value), got %q", ws.Description)
 			}
-			return updatedDBWs, nil
+			return patchedDBWs, nil
 		},
 	}
 
@@ -422,11 +399,8 @@ func TestWorkspaceStorage_Patch(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !getByIDCalled {
-		t.Error("expected wsStore.GetByID to be called to fetch existing workspace")
-	}
-	if !updateCalled {
-		t.Error("expected wsStore.Update to be called with merged workspace")
+	if !patchCalled {
+		t.Error("expected wsStore.Patch to be called")
 	}
 
 	result, ok := obj.(*Workspace)
