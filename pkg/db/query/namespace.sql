@@ -106,3 +106,18 @@ OFFSET sqlc.arg('page_offset')::INT;
 SELECT count(user_id)
 FROM user_namespaces
 WHERE namespace_id = @namespace_id;
+
+-- name: PatchNamespace :one
+UPDATE namespaces
+SET name = COALESCE(sqlc.narg('name'), name),
+    display_name = COALESCE(sqlc.narg('display_name'), display_name),
+    description = COALESCE(sqlc.narg('description'), description),
+    workspace_id = COALESCE(sqlc.narg('workspace_id'), workspace_id),
+    owner_id = COALESCE(sqlc.narg('owner_id'), owner_id),
+    visibility = COALESCE(sqlc.narg('visibility'), visibility),
+    max_members = COALESCE(sqlc.narg('max_members'), max_members),
+    status = COALESCE(sqlc.narg('status'), status),
+    updated_at = now()
+WHERE id = @id
+RETURNING id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status,
+          created_at, updated_at;

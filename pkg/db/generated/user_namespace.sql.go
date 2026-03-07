@@ -48,6 +48,32 @@ func (q *Queries) CountNamespacesByUserID(ctx context.Context, userID int64) (in
 	return count, err
 }
 
+const countUsersByNamespaceIDFiltered = `-- name: CountUsersByNamespaceIDFiltered :one
+SELECT count(u.id)
+FROM users u
+JOIN user_namespaces un ON u.id = un.user_id
+WHERE un.namespace_id = $1
+    AND ($2::VARCHAR IS NULL OR u.status = $2)
+    AND ($3::VARCHAR IS NULL
+         OR u.username ILIKE '%' || $3 || '%'
+         OR u.email ILIKE '%' || $3 || '%'
+         OR u.phone ILIKE '%' || $3 || '%'
+         OR u.display_name ILIKE '%' || $3 || '%')
+`
+
+type CountUsersByNamespaceIDFilteredParams struct {
+	NamespaceID int64   `json:"namespace_id"`
+	Status      *string `json:"status"`
+	Search      *string `json:"search"`
+}
+
+func (q *Queries) CountUsersByNamespaceIDFiltered(ctx context.Context, arg CountUsersByNamespaceIDFilteredParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countUsersByNamespaceIDFiltered, arg.NamespaceID, arg.Status, arg.Search)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getUserNamespace = `-- name: GetUserNamespace :one
 SELECT user_id, namespace_id, role, created_at
 FROM user_namespaces
@@ -167,6 +193,102 @@ func (q *Queries) ListUsersByNamespaceID(ctx context.Context, namespaceID int64)
 	items := []ListUsersByNamespaceIDRow{}
 	for rows.Next() {
 		var i ListUsersByNamespaceIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.DisplayName,
+			&i.Phone,
+			&i.AvatarUrl,
+			&i.Status,
+			&i.LastLoginAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Role,
+			&i.JoinedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsersByNamespaceIDPaginated = `-- name: ListUsersByNamespaceIDPaginated :many
+SELECT
+    u.id, u.username, u.email, u.display_name, u.phone, u.avatar_url,
+    u.status, u.last_login_at, u.created_at, u.updated_at,
+    un.role, un.created_at AS joined_at
+FROM users u
+JOIN user_namespaces un ON u.id = un.user_id
+WHERE un.namespace_id = $1
+    AND ($2::VARCHAR IS NULL OR u.status = $2)
+    AND ($3::VARCHAR IS NULL
+         OR u.username ILIKE '%' || $3 || '%'
+         OR u.email ILIKE '%' || $3 || '%'
+         OR u.phone ILIKE '%' || $3 || '%'
+         OR u.display_name ILIKE '%' || $3 || '%')
+ORDER BY
+    CASE WHEN $4::VARCHAR = 'username' AND $5::VARCHAR = 'asc' THEN u.username END ASC,
+    CASE WHEN $4::VARCHAR = 'username' AND $5::VARCHAR = 'desc' THEN u.username END DESC,
+    CASE WHEN $4::VARCHAR = 'email' AND $5::VARCHAR = 'asc' THEN u.email END ASC,
+    CASE WHEN $4::VARCHAR = 'email' AND $5::VARCHAR = 'desc' THEN u.email END DESC,
+    CASE WHEN $4::VARCHAR = 'display_name' AND $5::VARCHAR = 'asc' THEN u.display_name END ASC,
+    CASE WHEN $4::VARCHAR = 'display_name' AND $5::VARCHAR = 'desc' THEN u.display_name END DESC,
+    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'asc' THEN u.created_at END ASC,
+    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'desc' THEN u.created_at END DESC,
+    CASE WHEN $4::VARCHAR = 'updated_at' AND $5::VARCHAR = 'asc' THEN u.updated_at END ASC,
+    CASE WHEN $4::VARCHAR = 'updated_at' AND $5::VARCHAR = 'desc' THEN u.updated_at END DESC,
+    un.created_at DESC
+LIMIT $7::INT
+OFFSET $6::INT
+`
+
+type ListUsersByNamespaceIDPaginatedParams struct {
+	NamespaceID int64   `json:"namespace_id"`
+	Status      *string `json:"status"`
+	Search      *string `json:"search"`
+	SortField   string  `json:"sort_field"`
+	SortOrder   string  `json:"sort_order"`
+	PageOffset  int32   `json:"page_offset"`
+	PageSize    int32   `json:"page_size"`
+}
+
+type ListUsersByNamespaceIDPaginatedRow struct {
+	ID          int64      `json:"id"`
+	Username    string     `json:"username"`
+	Email       string     `json:"email"`
+	DisplayName string     `json:"display_name"`
+	Phone       string     `json:"phone"`
+	AvatarUrl   string     `json:"avatar_url"`
+	Status      string     `json:"status"`
+	LastLoginAt *time.Time `json:"last_login_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	Role        string     `json:"role"`
+	JoinedAt    time.Time  `json:"joined_at"`
+}
+
+func (q *Queries) ListUsersByNamespaceIDPaginated(ctx context.Context, arg ListUsersByNamespaceIDPaginatedParams) ([]ListUsersByNamespaceIDPaginatedRow, error) {
+	rows, err := q.db.Query(ctx, listUsersByNamespaceIDPaginated,
+		arg.NamespaceID,
+		arg.Status,
+		arg.Search,
+		arg.SortField,
+		arg.SortOrder,
+		arg.PageOffset,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUsersByNamespaceIDPaginatedRow{}
+	for rows.Next() {
+		var i ListUsersByNamespaceIDPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Username,

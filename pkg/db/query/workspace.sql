@@ -95,3 +95,15 @@ OFFSET sqlc.arg('page_offset')::INT;
 SELECT count(id)
 FROM namespaces
 WHERE workspace_id = @workspace_id;
+
+-- name: PatchWorkspace :one
+UPDATE workspaces
+SET name = COALESCE(sqlc.narg('name'), name),
+    display_name = COALESCE(sqlc.narg('display_name'), display_name),
+    description = COALESCE(sqlc.narg('description'), description),
+    owner_id = COALESCE(sqlc.narg('owner_id'), owner_id),
+    status = COALESCE(sqlc.narg('status'), status),
+    updated_at = now()
+WHERE id = @id
+RETURNING id, name, display_name, description, owner_id, status,
+          created_at, updated_at;

@@ -340,6 +340,63 @@ func (q *Queries) ListNamespaces(ctx context.Context, arg ListNamespacesParams) 
 	return items, nil
 }
 
+const patchNamespace = `-- name: PatchNamespace :one
+UPDATE namespaces
+SET name = COALESCE($1, name),
+    display_name = COALESCE($2, display_name),
+    description = COALESCE($3, description),
+    workspace_id = COALESCE($4, workspace_id),
+    owner_id = COALESCE($5, owner_id),
+    visibility = COALESCE($6, visibility),
+    max_members = COALESCE($7, max_members),
+    status = COALESCE($8, status),
+    updated_at = now()
+WHERE id = $9
+RETURNING id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status,
+          created_at, updated_at
+`
+
+type PatchNamespaceParams struct {
+	Name        *string `json:"name"`
+	DisplayName *string `json:"display_name"`
+	Description *string `json:"description"`
+	WorkspaceID *int64  `json:"workspace_id"`
+	OwnerID     *int64  `json:"owner_id"`
+	Visibility  *string `json:"visibility"`
+	MaxMembers  *int32  `json:"max_members"`
+	Status      *string `json:"status"`
+	ID          int64   `json:"id"`
+}
+
+func (q *Queries) PatchNamespace(ctx context.Context, arg PatchNamespaceParams) (Namespace, error) {
+	row := q.db.QueryRow(ctx, patchNamespace,
+		arg.Name,
+		arg.DisplayName,
+		arg.Description,
+		arg.WorkspaceID,
+		arg.OwnerID,
+		arg.Visibility,
+		arg.MaxMembers,
+		arg.Status,
+		arg.ID,
+	)
+	var i Namespace
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.DisplayName,
+		&i.Description,
+		&i.WorkspaceID,
+		&i.OwnerID,
+		&i.Visibility,
+		&i.MaxMembers,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateNamespace = `-- name: UpdateNamespace :one
 UPDATE namespaces
 SET name = $1,

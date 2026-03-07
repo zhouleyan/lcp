@@ -300,6 +300,51 @@ func (q *Queries) ListWorkspaces(ctx context.Context, arg ListWorkspacesParams) 
 	return items, nil
 }
 
+const patchWorkspace = `-- name: PatchWorkspace :one
+UPDATE workspaces
+SET name = COALESCE($1, name),
+    display_name = COALESCE($2, display_name),
+    description = COALESCE($3, description),
+    owner_id = COALESCE($4, owner_id),
+    status = COALESCE($5, status),
+    updated_at = now()
+WHERE id = $6
+RETURNING id, name, display_name, description, owner_id, status,
+          created_at, updated_at
+`
+
+type PatchWorkspaceParams struct {
+	Name        *string `json:"name"`
+	DisplayName *string `json:"display_name"`
+	Description *string `json:"description"`
+	OwnerID     *int64  `json:"owner_id"`
+	Status      *string `json:"status"`
+	ID          int64   `json:"id"`
+}
+
+func (q *Queries) PatchWorkspace(ctx context.Context, arg PatchWorkspaceParams) (Workspace, error) {
+	row := q.db.QueryRow(ctx, patchWorkspace,
+		arg.Name,
+		arg.DisplayName,
+		arg.Description,
+		arg.OwnerID,
+		arg.Status,
+		arg.ID,
+	)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.DisplayName,
+		&i.Description,
+		&i.OwnerID,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateWorkspace = `-- name: UpdateWorkspace :one
 UPDATE workspaces
 SET name = $1,
