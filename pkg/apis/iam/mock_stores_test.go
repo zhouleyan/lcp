@@ -187,7 +187,7 @@ type mockUserWorkspaceStore struct {
 	RemoveFn           func(ctx context.Context, userID, workspaceID int64) error
 	UpdateRoleFn       func(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error)
 	GetFn              func(ctx context.Context, userID, workspaceID int64) (*DBUserWorkspace, error)
-	ListByUserIDFn     func(ctx context.Context, userID int64) ([]DBWorkspaceWithRole, error)
+	ListByUserIDFn     func(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwnerAndRole], error)
 	ListByWorkspaceIDFn func(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
 }
 
@@ -203,8 +203,8 @@ func (m *mockUserWorkspaceStore) UpdateRole(ctx context.Context, rel *DBUserWork
 func (m *mockUserWorkspaceStore) Get(ctx context.Context, userID, workspaceID int64) (*DBUserWorkspace, error) {
 	return m.GetFn(ctx, userID, workspaceID)
 }
-func (m *mockUserWorkspaceStore) ListByUserID(ctx context.Context, userID int64) ([]DBWorkspaceWithRole, error) {
-	return m.ListByUserIDFn(ctx, userID)
+func (m *mockUserWorkspaceStore) ListByUserID(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwnerAndRole], error) {
+	return m.ListByUserIDFn(ctx, userID, query)
 }
 func (m *mockUserWorkspaceStore) ListByWorkspaceID(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
 	return m.ListByWorkspaceIDFn(ctx, workspaceID, query)
@@ -217,7 +217,7 @@ type mockUserNamespaceStore struct {
 	RemoveFn            func(ctx context.Context, userID, namespaceID int64) error
 	UpdateRoleFn        func(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error)
 	GetFn               func(ctx context.Context, userID, namespaceID int64) (*DBUserNamespace, error)
-	ListByUserIDFn      func(ctx context.Context, userID int64) ([]DBNamespaceWithRole, error)
+	ListByUserIDFn      func(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwnerAndRole], error)
 	ListByNamespaceIDFn func(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
 }
 
@@ -233,8 +233,8 @@ func (m *mockUserNamespaceStore) UpdateRole(ctx context.Context, rel *DBUserName
 func (m *mockUserNamespaceStore) Get(ctx context.Context, userID, namespaceID int64) (*DBUserNamespace, error) {
 	return m.GetFn(ctx, userID, namespaceID)
 }
-func (m *mockUserNamespaceStore) ListByUserID(ctx context.Context, userID int64) ([]DBNamespaceWithRole, error) {
-	return m.ListByUserIDFn(ctx, userID)
+func (m *mockUserNamespaceStore) ListByUserID(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwnerAndRole], error) {
+	return m.ListByUserIDFn(ctx, userID, query)
 }
 func (m *mockUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
 	return m.ListByNamespaceIDFn(ctx, namespaceID, query)

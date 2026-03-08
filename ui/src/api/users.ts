@@ -1,6 +1,6 @@
 import { api, apiRequest } from "./client"
 import { getAccessToken } from "@/lib/auth"
-import type { User, UserList, ListParams, ChangePasswordRequest, StatusResponse, OIDCUserInfo } from "./types"
+import type { User, UserList, ListParams, ChangePasswordRequest, StatusResponse, OIDCUserInfo, WorkspaceList, NamespaceList } from "./types"
 
 export async function listUsers(params?: ListParams): Promise<UserList> {
   return apiRequest(api.get("users", { searchParams: params as Record<string, string> }).json())
@@ -61,6 +61,24 @@ export async function addNamespaceUsers(namespaceId: string, ids: string[]): Pro
 
 export async function removeNamespaceUsers(namespaceId: string, ids: string[]): Promise<void> {
   await apiRequest(api.delete(`namespaces/${namespaceId}/users`, { json: { ids } }).json())
+}
+
+export async function listUserWorkspaces(
+  userId: string,
+  params?: ListParams,
+): Promise<WorkspaceList> {
+  return apiRequest(
+    api.get(`users/${userId}:workspaces`, { searchParams: params as Record<string, string> }).json(),
+  )
+}
+
+export async function listUserNamespaces(
+  userId: string,
+  params?: ListParams,
+): Promise<NamespaceList> {
+  return apiRequest(
+    api.get(`users/${userId}:namespaces`, { searchParams: params as Record<string, string> }).json(),
+  )
 }
 
 export async function changePassword(

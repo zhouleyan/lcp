@@ -19,15 +19,57 @@ SELECT user_id, workspace_id, role, created_at
 FROM user_workspaces
 WHERE user_id = @user_id AND workspace_id = @workspace_id;
 
--- name: ListWorkspacesByUserID :many
-SELECT
-    w.id, w.name, w.display_name, w.description, w.owner_id,
-    w.status, w.created_at, w.updated_at,
-    uw.role, uw.created_at AS joined_at
-FROM workspaces w
-JOIN user_workspaces uw ON w.id = uw.workspace_id
+-- name: CountWorkspacesByUserID :one
+SELECT count(ws.id)
+FROM workspaces ws
+JOIN user_workspaces uw ON ws.id = uw.workspace_id
 WHERE uw.user_id = @user_id
-ORDER BY uw.created_at DESC;
+    AND (sqlc.narg('status')::VARCHAR IS NULL OR ws.status = sqlc.narg('status'))
+    AND (sqlc.narg('search')::VARCHAR IS NULL
+         OR ws.name ILIKE '%' || sqlc.narg('search') || '%'
+         OR ws.display_name ILIKE '%' || sqlc.narg('search') || '%'
+         OR ws.description ILIKE '%' || sqlc.narg('search') || '%');
+
+-- name: ListWorkspacesByUserIDPaginated :many
+WITH ws_data AS (
+    SELECT
+        ws.id, ws.name, ws.display_name, ws.description, ws.owner_id,
+        ws.status, ws.created_at, ws.updated_at,
+        u.username AS owner_username,
+        (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) AS namespace_count,
+        (SELECT count(*) FROM user_workspaces uw2 WHERE uw2.workspace_id = ws.id) AS member_count,
+        uw.role, uw.created_at AS joined_at
+    FROM workspaces ws
+    JOIN user_workspaces uw ON ws.id = uw.workspace_id
+    JOIN users u ON ws.owner_id = u.id
+    WHERE uw.user_id = @user_id
+        AND (sqlc.narg('status')::VARCHAR IS NULL OR ws.status = sqlc.narg('status'))
+        AND (sqlc.narg('search')::VARCHAR IS NULL
+             OR ws.name ILIKE '%' || sqlc.narg('search') || '%'
+             OR ws.display_name ILIKE '%' || sqlc.narg('search') || '%'
+             OR ws.description ILIKE '%' || sqlc.narg('search') || '%')
+)
+SELECT * FROM ws_data
+ORDER BY
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN name END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN name END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'status' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN status END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'status' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN status END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'display_name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN display_name END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'display_name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN display_name END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'updated_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN updated_at END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'updated_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN updated_at END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'namespace_count' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN namespace_count END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'namespace_count' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN namespace_count END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'member_count' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN member_count END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'member_count' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN member_count END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'joined_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN joined_at END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'joined_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN joined_at END DESC,
+    joined_at DESC
+LIMIT sqlc.arg('page_size')::INT
+OFFSET sqlc.arg('page_offset')::INT;
 
 -- name: ListUsersByWorkspaceID :many
 SELECT

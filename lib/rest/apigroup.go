@@ -33,11 +33,19 @@ type ActionInfo struct {
 	Handler    HandlerFunc // the handler function
 }
 
+// CustomVerbInfo describes a custom verb (read-only view) on a resource item.
+// Registered as GET {itemPath}:{verbName}, e.g. /users/{userId}:namespaces
+type CustomVerbInfo struct {
+	Name    string // verb name, e.g. "namespaces", "workspaces"
+	Storage Lister // implements Lister for list-style responses
+}
+
 // ResourceInfo describes a single resource and its sub-resources.
 type ResourceInfo struct {
-	Name         string         // plural resource name, e.g. "users"
-	IDParam      string         // path parameter name for this resource's primary key, e.g. "namespaceId"; if empty, derived from Name via defaultIDParam()
-	Storage      Storage        // implements Getter/Lister/Creator etc.
-	SubResources []ResourceInfo // optional nested sub-resources
-	Actions      []ActionInfo   // optional custom actions
+	Name         string           // plural resource name, e.g. "users"
+	IDParam      string           // path parameter name for this resource's primary key, e.g. "namespaceId"; if empty, derived from Name via defaultIDParam()
+	Storage      Storage          // implements Getter/Lister/Creator etc.
+	SubResources []ResourceInfo   // optional nested sub-resources
+	Actions      []ActionInfo     // optional custom actions
+	CustomVerbs  []CustomVerbInfo // optional custom verbs (read-only views on items)
 }

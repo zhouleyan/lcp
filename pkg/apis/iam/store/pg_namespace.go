@@ -365,15 +365,45 @@ func (s *pgUserNamespaceStore) Get(ctx context.Context, userID, namespaceID int6
 	return &row, nil
 }
 
-func (s *pgUserNamespaceStore) ListByUserID(ctx context.Context, userID int64) ([]iam.DBNamespaceWithRole, error) {
-	rows, err := s.queries.ListNamespacesByUserID(ctx, userID)
+func (s *pgUserNamespaceStore) ListByUserID(ctx context.Context, userID int64, q db.ListQuery) (*db.ListResult[iam.DBNamespaceWithOwnerAndRole], error) {
+	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
+
+	countParams := generated.CountNamespacesByUserIDJoinedParams{
+		UserID:      userID,
+		Status:      filterStr(q.Filters, "status"),
+		Visibility:  filterStr(q.Filters, "visibility"),
+		WorkspaceID: filterInt64(q.Filters, "workspace_id"),
+		Search:      filterStr(q.Filters, "search"),
+	}
+
+	count, err := s.queries.CountNamespacesByUserIDJoined(ctx, countParams)
+	if err != nil {
+		return nil, fmt.Errorf("count namespaces by user: %w", err)
+	}
+
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	rows, err := s.queries.ListNamespacesByUserIDPaginated(ctx, generated.ListNamespacesByUserIDPaginatedParams{
+		UserID:      userID,
+		Status:      countParams.Status,
+		Visibility:  countParams.Visibility,
+		WorkspaceID: countParams.WorkspaceID,
+		Search:      countParams.Search,
+		SortField:   q.SortBy,
+		SortOrder:   sortOrder,
+		PageOffset:  offset,
+		PageSize:    limit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list namespaces by user: %w", err)
 	}
 
-	items := make([]iam.DBNamespaceWithRole, 0, len(rows))
+	items := make([]iam.DBNamespaceWithOwnerAndRole, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, iam.DBNamespaceWithRole{
+		items = append(items, iam.DBNamespaceWithOwnerAndRole{
 			Namespace: generated.Namespace{
 				ID:          row.ID,
 				Name:        row.Name,
@@ -387,11 +417,18 @@ func (s *pgUserNamespaceStore) ListByUserID(ctx context.Context, userID int64) (
 				CreatedAt:   row.CreatedAt,
 				UpdatedAt:   row.UpdatedAt,
 			},
-			Role:     row.Role,
-			JoinedAt: row.JoinedAt,
+			OwnerUsername:  row.OwnerUsername,
+			WorkspaceName: row.WorkspaceName,
+			MemberCount:   row.MemberCount,
+			Role:           row.Role,
+			JoinedAt:       row.JoinedAt,
 		})
 	}
-	return items, nil
+
+	return &db.ListResult[iam.DBNamespaceWithOwnerAndRole]{
+		Items:      items,
+		TotalCount: count,
+	}, nil
 }
 
 func (s *pgUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespaceID int64, q db.ListQuery) (*db.ListResult[iam.DBUserWithRole], error) {

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useParams, useNavigate, Link } from "react-router"
-import { Pencil, Trash2, ArrowLeft, Search } from "lucide-react"
+import { Pencil, Trash2, ArrowLeft, Search, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -17,15 +17,21 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
-import { getUser, updateUser, deleteUser, listUsers } from "@/api/users"
+import { getUser, updateUser, deleteUser, listUsers, listUserWorkspaces, listUserNamespaces } from "@/api/users"
 import { ApiError, translateApiError, translateDetailMessage } from "@/api/client"
-import type { User, UserWorkspaceRef, UserNamespaceRef } from "@/api/types"
+import type { User, Workspace, Namespace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
+import { useListState } from "@/hooks/use-list-state"
+import { SortIcon } from "@/components/sort-icon"
+import { Pagination } from "@/components/pagination"
 
 export default function UserDetailPage() {
   const { userId } = useParams()
@@ -147,10 +153,10 @@ export default function UserDetailPage() {
       </Card>
 
       {/* associated workspaces */}
-      <RefWorkspacesCard workspaces={user.spec.workspaces} />
+      <UserWorkspacesCard userId={user.metadata.id} />
 
       {/* associated namespaces */}
-      <RefNamespacesCard namespaceRefs={user.spec.namespaceRefs} />
+      <UserNamespacesCard userId={user.metadata.id} />
 
       {/* edit dialog */}
       <EditUserDialog
@@ -181,18 +187,36 @@ export default function UserDetailPage() {
 
 // ===== Joined Workspaces Card =====
 
-function RefWorkspacesCard({ workspaces }: { workspaces?: UserWorkspaceRef[] }) {
+function UserWorkspacesCard({ userId }: { userId: string }) {
   const { t } = useTranslation()
-  const [search, setSearch] = useState("")
+  const {
+    page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
+    searchInput, setSearchInput, search,
+  } = useListState({ defaultSortBy: "joined_at", defaultSortOrder: "desc", defaultPageSize: 10 })
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [loading, setLoading] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
+  const [statusFilter, setStatusFilter] = useState("all")
 
-  const filtered = useMemo(() => {
-    if (!workspaces?.length) return []
-    if (!search) return workspaces
-    const q = search.toLowerCase()
-    return workspaces.filter(
-      (ws) => ws.name.toLowerCase().includes(q) || ws.displayName?.toLowerCase().includes(q),
-    )
-  }, [workspaces, search])
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params: ListParams = { page, pageSize, sortBy, sortOrder }
+      if (search) params.search = search
+      if (statusFilter !== "all") params.status = statusFilter
+      const data = await listUserWorkspaces(userId, params)
+      setWorkspaces(data.items ?? [])
+      setTotalCount(data.totalCount)
+    } catch {
+      toast.error(t("api.error.internalError"))
+    } finally {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, page, pageSize, sortBy, sortOrder, search, statusFilter])
+
+  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
 
   return (
     <Card className="mb-6">
@@ -200,50 +224,122 @@ function RefWorkspacesCard({ workspaces }: { workspaces?: UserWorkspaceRef[] }) 
         <CardTitle>{t("user.workspaces")}</CardTitle>
       </CardHeader>
       <CardContent>
-        {(workspaces?.length ?? 0) > 0 && (
-          <div className="mb-4">
-            <div className="relative max-w-xs">
-              <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-              <Input
-                placeholder={t("common.search")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+        {/* toolbar */}
+        <div className="mb-4 flex items-center gap-4">
+          <div className="relative max-w-xs">
+            <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
+            <Input
+              placeholder={t("common.search")}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-9"
+            />
           </div>
-        )}
-        {!workspaces?.length ? (
-          <p className="text-sm text-muted-foreground">{t("user.noWorkspaces")}</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("common.noSearchResults")}</p>
-        ) : (
-          <div className="border">
-            <Table>
-              <TableHeader>
+        </div>
+
+        {/* table */}
+        <div className="border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
+                  {t("common.name")}<SortIcon field="name" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("display_name")}>
+                  {t("common.displayName")}<SortIcon field="display_name" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead>{t("workspace.owner")}</TableHead>
+                <TableHead className="cursor-pointer select-none text-center" onClick={() => handleSort("namespace_count")}>
+                  {t("workspace.namespaceCount")}<SortIcon field="namespace_count" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none text-center" onClick={() => handleSort("member_count")}>
+                  {t("workspace.memberCount")}<SortIcon field="member_count" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="inline-flex items-center gap-1 select-none">
+                        {t("common.status")}
+                        <Filter className={`h-3 w-3 ${statusFilter !== "all" ? "text-primary" : "opacity-40"}`} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => setStatusFilter("all")}>{t("common.all")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter("active")}>{t("common.active")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>{t("common.inactive")}</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableHead>
+                <TableHead>{t("user.role")}</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("joined_at")}>
+                  {t("user.joinedAt")}<SortIcon field="joined_at" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
+                  {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("updated_at")}>
+                  {t("common.updated")}<SortIcon field="updated_at" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 10 }).map((_, j) => (
+                      <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : workspaces.length === 0 ? (
                 <TableRow>
-                  <TableHead>{t("common.name")}</TableHead>
-                  <TableHead>{t("common.displayName")}</TableHead>
-                  <TableHead>{t("user.role")}</TableHead>
-                  <TableHead>{t("user.joinedAt")}</TableHead>
+                  <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
+                    {t("user.noWorkspaces")}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((ws) => (
-                  <TableRow key={ws.id}>
+              ) : (
+                workspaces.map((ws) => (
+                  <TableRow key={ws.metadata.id}>
                     <TableCell className="font-medium">
-                      <Link to={`/workspaces/${ws.id}`} className="text-primary hover:underline">
-                        {ws.name}
+                      <Link to={`/workspaces/${ws.metadata.id}`} className="text-primary hover:underline">
+                        {ws.metadata.name}
                       </Link>
                     </TableCell>
-                    <TableCell>{ws.displayName || "-"}</TableCell>
-                    <TableCell><Badge variant="outline">{ws.role}</Badge></TableCell>
-                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(ws.joinedAt).toLocaleString()}</TableCell>
+                    <TableCell>{ws.spec.displayName || "-"}</TableCell>
+                    <TableCell>{ws.spec.ownerName || "-"}</TableCell>
+                    <TableCell className="text-center">{ws.spec.namespaceCount ?? 0}</TableCell>
+                    <TableCell className="text-center">{ws.spec.memberCount ?? 0}</TableCell>
+                    <TableCell>
+                      <Badge variant={ws.spec.status === "active" ? "default" : "secondary"}>
+                        {ws.spec.status === "active" ? t("common.active") : t("common.inactive")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell><Badge variant="outline">{ws.spec.role}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                      {ws.spec.joinedAt ? new Date(ws.spec.joinedAt).toLocaleString() : "-"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                      {new Date(ws.metadata.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                      {new Date(ws.metadata.updatedAt).toLocaleString()}
+                    </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* pagination */}
+        {totalCount > 0 && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </CardContent>
     </Card>
@@ -252,18 +348,36 @@ function RefWorkspacesCard({ workspaces }: { workspaces?: UserWorkspaceRef[] }) 
 
 // ===== Joined Namespaces Card =====
 
-function RefNamespacesCard({ namespaceRefs }: { namespaceRefs?: UserNamespaceRef[] }) {
+function UserNamespacesCard({ userId }: { userId: string }) {
   const { t } = useTranslation()
-  const [search, setSearch] = useState("")
+  const {
+    page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
+    searchInput, setSearchInput, search,
+  } = useListState({ defaultSortBy: "joined_at", defaultSortOrder: "desc", defaultPageSize: 10 })
+  const [namespaces, setNamespaces] = useState<Namespace[]>([])
+  const [loading, setLoading] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
+  const [statusFilter, setStatusFilter] = useState("all")
 
-  const filtered = useMemo(() => {
-    if (!namespaceRefs?.length) return []
-    if (!search) return namespaceRefs
-    const q = search.toLowerCase()
-    return namespaceRefs.filter(
-      (ns) => ns.name.toLowerCase().includes(q) || ns.displayName?.toLowerCase().includes(q),
-    )
-  }, [namespaceRefs, search])
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params: ListParams = { page, pageSize, sortBy, sortOrder }
+      if (search) params.search = search
+      if (statusFilter !== "all") params.status = statusFilter
+      const data = await listUserNamespaces(userId, params)
+      setNamespaces(data.items ?? [])
+      setTotalCount(data.totalCount)
+    } catch {
+      toast.error(t("api.error.internalError"))
+    } finally {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, page, pageSize, sortBy, sortOrder, search, statusFilter])
+
+  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
 
   return (
     <Card className="mb-6">
@@ -271,50 +385,126 @@ function RefNamespacesCard({ namespaceRefs }: { namespaceRefs?: UserNamespaceRef
         <CardTitle>{t("user.namespaceRefs")}</CardTitle>
       </CardHeader>
       <CardContent>
-        {(namespaceRefs?.length ?? 0) > 0 && (
-          <div className="mb-4">
-            <div className="relative max-w-xs">
-              <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-              <Input
-                placeholder={t("common.search")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+        {/* toolbar */}
+        <div className="mb-4 flex items-center gap-4">
+          <div className="relative max-w-xs">
+            <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
+            <Input
+              placeholder={t("common.search")}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-9"
+            />
           </div>
-        )}
-        {!namespaceRefs?.length ? (
-          <p className="text-sm text-muted-foreground">{t("user.noNamespaceRefs")}</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("common.noSearchResults")}</p>
-        ) : (
-          <div className="border">
-            <Table>
-              <TableHeader>
+        </div>
+
+        {/* table */}
+        <div className="border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
+                  {t("common.name")}<SortIcon field="name" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("display_name")}>
+                  {t("common.displayName")}<SortIcon field="display_name" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead>{t("namespace.workspaceName")}</TableHead>
+                <TableHead>{t("namespace.owner")}</TableHead>
+                <TableHead>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="inline-flex items-center gap-1 select-none">
+                        {t("common.status")}
+                        <Filter className={`h-3 w-3 ${statusFilter !== "all" ? "text-primary" : "opacity-40"}`} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => setStatusFilter("all")}>{t("common.all")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter("active")}>{t("common.active")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>{t("common.inactive")}</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none text-center" onClick={() => handleSort("member_count")}>
+                  {t("namespace.memberCount")}<SortIcon field="member_count" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead>{t("user.role")}</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("joined_at")}>
+                  {t("user.joinedAt")}<SortIcon field="joined_at" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
+                  {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("updated_at")}>
+                  {t("common.updated")}<SortIcon field="updated_at" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 10 }).map((_, j) => (
+                      <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : namespaces.length === 0 ? (
                 <TableRow>
-                  <TableHead>{t("common.name")}</TableHead>
-                  <TableHead>{t("common.displayName")}</TableHead>
-                  <TableHead>{t("user.role")}</TableHead>
-                  <TableHead>{t("user.joinedAt")}</TableHead>
+                  <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
+                    {t("user.noNamespaceRefs")}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((ns) => (
-                  <TableRow key={ns.id}>
+              ) : (
+                namespaces.map((ns) => (
+                  <TableRow key={ns.metadata.id}>
                     <TableCell className="font-medium">
-                      <Link to={`/namespaces/${ns.id}`} className="text-primary hover:underline">
-                        {ns.name}
+                      <Link to={`/namespaces/${ns.metadata.id}`} className="text-primary hover:underline">
+                        {ns.metadata.name}
                       </Link>
                     </TableCell>
-                    <TableCell>{ns.displayName || "-"}</TableCell>
-                    <TableCell><Badge variant="outline">{ns.role}</Badge></TableCell>
-                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(ns.joinedAt).toLocaleString()}</TableCell>
+                    <TableCell>{ns.spec.displayName || "-"}</TableCell>
+                    <TableCell>
+                      {ns.spec.workspaceName ? (
+                        <Link to={`/workspaces/${ns.spec.workspaceId}`} className="text-primary hover:underline">
+                          {ns.spec.workspaceName}
+                        </Link>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell>{ns.spec.ownerName || "-"}</TableCell>
+                    <TableCell>
+                      <Badge variant={ns.spec.status === "active" ? "default" : "secondary"}>
+                        {ns.spec.status === "active" ? t("common.active") : t("common.inactive")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">{ns.spec.memberCount ?? 0}</TableCell>
+                    <TableCell><Badge variant="outline">{ns.spec.role}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                      {ns.spec.joinedAt ? new Date(ns.spec.joinedAt).toLocaleString() : "-"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                      {new Date(ns.metadata.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                      {new Date(ns.metadata.updatedAt).toLocaleString()}
+                    </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* pagination */}
+        {totalCount > 0 && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </CardContent>
     </Card>
@@ -414,7 +604,7 @@ function EditUserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{t("user.edit")}</DialogTitle>
         </DialogHeader>

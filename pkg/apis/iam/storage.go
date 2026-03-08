@@ -24,19 +24,17 @@ type PasswordHasher func(password string) (string, error)
 // userStorage 用户资源的 REST 存储实现，支持 CRUD、批量删除和密码管理。
 type userStorage struct {
 	dbStore    UserStore
-	uwStore    UserWorkspaceStore
-	unStore    UserNamespaceStore
 	hashPasswd PasswordHasher
 }
 
 // NewUserStorage 创建用户 REST 存储（无密码功能）。
-func NewUserStorage(dbStore UserStore, uwStore UserWorkspaceStore, unStore UserNamespaceStore) rest.StandardStorage {
-	return &userStorage{dbStore: dbStore, uwStore: uwStore, unStore: unStore}
+func NewUserStorage(dbStore UserStore) rest.StandardStorage {
+	return &userStorage{dbStore: dbStore}
 }
 
 // NewUserStorageWithPassword 创建支持密码哈希的用户 REST 存储。
-func NewUserStorageWithPassword(dbStore UserStore, uwStore UserWorkspaceStore, unStore UserNamespaceStore, hashPasswd PasswordHasher) rest.StandardStorage {
-	return &userStorage{dbStore: dbStore, uwStore: uwStore, unStore: unStore, hashPasswd: hashPasswd}
+func NewUserStorageWithPassword(dbStore UserStore, hashPasswd PasswordHasher) rest.StandardStorage {
+	return &userStorage{dbStore: dbStore, hashPasswd: hashPasswd}
 }
 
 func (s *userStorage) NewObject() runtime.Object { return &User{} }
@@ -55,44 +53,7 @@ func (s *userStorage) Get(ctx context.Context, options *rest.GetOptions) (runtim
 		return nil, err
 	}
 
-	result := userToAPI(user)
-
-	// Enrich with associated workspaces
-	if s.uwStore != nil {
-		if wsItems, err := s.uwStore.ListByUserID(ctx, uid); err != nil {
-			logger.Infof("failed to enrich user %d with workspaces: %v", uid, err)
-		} else {
-			for _, ws := range wsItems {
-				result.Spec.Workspaces = append(result.Spec.Workspaces, UserWorkspaceRef{
-					ID:          strconv.FormatInt(ws.ID, 10),
-					Name:        ws.Name,
-					DisplayName: ws.DisplayName,
-					Role:        ws.Role,
-					JoinedAt:    ws.JoinedAt.Format(time.RFC3339),
-				})
-			}
-		}
-	}
-
-	// Enrich with associated namespaces
-	if s.unStore != nil {
-		if nsItems, err := s.unStore.ListByUserID(ctx, uid); err != nil {
-			logger.Infof("failed to enrich user %d with namespaces: %v", uid, err)
-		} else {
-			for _, ns := range nsItems {
-				result.Spec.NamespaceRefs = append(result.Spec.NamespaceRefs, UserNamespaceRef{
-					ID:          strconv.FormatInt(ns.ID, 10),
-					Name:        ns.Name,
-					DisplayName: ns.DisplayName,
-					WorkspaceID: strconv.FormatInt(ns.WorkspaceID, 10),
-					Role:        ns.Role,
-					JoinedAt:    ns.JoinedAt.Format(time.RFC3339),
-				})
-			}
-		}
-	}
-
-	return result, nil
+	return userToAPI(user), nil
 }
 
 // List 获取用户列表，支持分页、排序和筛选。
@@ -1080,6 +1041,125 @@ func (s *namespaceUserStorage) DeleteCollection(ctx context.Context, ids []strin
 	return &rest.DeletionResult{
 		SuccessCount: count,
 	}, nil
+}
+
+// ===== userWorkspaceVerbStorage 用户工作空间视图 =====
+
+// userWorkspaceVerbStorage 用户关联工作空间的 custom verb 存储，支持分页、筛选和排序。
+// 注册为 GET /users/{userId}:workspaces
+type userWorkspaceVerbStorage struct {
+	uwStore UserWorkspaceStore
+}
+
+// NewUserWorkspacesVerb 创建用户工作空间视图存储。
+// +openapi:customverb=workspaces
+// +openapi:resource=User
+// +openapi:summary=获取用户关联的工作空间列表
+func NewUserWorkspacesVerb(uwStore UserWorkspaceStore) rest.Lister {
+	return &userWorkspaceVerbStorage{uwStore: uwStore}
+}
+
+func (s *userWorkspaceVerbStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	uid, err := parseID(options.PathParams["userId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", options.PathParams["userId"]), nil)
+	}
+
+	query := restOptionsToListQuery(options)
+
+	result, err := s.uwStore.ListByUserID(ctx, uid, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Workspace, len(result.Items))
+	for i, item := range result.Items {
+		ws := workspaceWithOwnerToAPI(&DBWorkspaceWithOwner{
+			Workspace:      item.Workspace,
+			OwnerUsername:  item.OwnerUsername,
+			NamespaceCount: item.NamespaceCount,
+			MemberCount:    item.MemberCount,
+		})
+		ws.Spec.Role = item.Role
+		ws.Spec.JoinedAt = item.JoinedAt.Format(time.RFC3339)
+		items[i] = *ws
+	}
+
+	return &WorkspaceList{
+		TypeMeta:   runtime.TypeMeta{Kind: "WorkspaceList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// ===== userNamespaceVerbStorage 用户项目视图 =====
+
+// userNamespaceVerbStorage 用户关联项目的 custom verb 存储，支持分页、筛选和排序。
+// 注册为 GET /users/{userId}:namespaces
+type userNamespaceVerbStorage struct {
+	unStore UserNamespaceStore
+}
+
+// NewUserNamespacesVerb 创建用户项目视图存储。
+// +openapi:customverb=namespaces
+// +openapi:resource=User
+// +openapi:summary=获取用户关联的项目列表
+func NewUserNamespacesVerb(unStore UserNamespaceStore) rest.Lister {
+	return &userNamespaceVerbStorage{unStore: unStore}
+}
+
+func (s *userNamespaceVerbStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	uid, err := parseID(options.PathParams["userId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", options.PathParams["userId"]), nil)
+	}
+
+	query := restOptionsToListQuery(options)
+
+	result, err := s.unStore.ListByUserID(ctx, uid, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Namespace, len(result.Items))
+	for i, item := range result.Items {
+		ns := namespaceWithOwnerToAPI(&DBNamespaceWithOwner{
+			Namespace:     item.Namespace,
+			OwnerUsername: item.OwnerUsername,
+			WorkspaceName: item.WorkspaceName,
+			MemberCount:   item.MemberCount,
+		})
+		ns.Spec.Role = item.Role
+		ns.Spec.JoinedAt = item.JoinedAt.Format(time.RFC3339)
+		items[i] = *ns
+	}
+
+	return &NamespaceList{
+		TypeMeta:   runtime.TypeMeta{Kind: "NamespaceList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// restOptionsToListQuery converts REST ListOptions to a db.ListQuery.
+func restOptionsToListQuery(options *rest.ListOptions) db.ListQuery {
+	query := db.ListQuery{
+		Filters: make(map[string]any),
+		Pagination: db.Pagination{
+			Page:     options.Pagination.Page,
+			PageSize: options.Pagination.PageSize,
+		},
+	}
+	for k, v := range options.Filters {
+		query.Filters[k] = v
+	}
+	if options.SortBy != "" {
+		query.SortBy = options.SortBy
+	}
+	if options.SortOrder != "" {
+		query.SortOrder = string(options.SortOrder)
+	}
+	return query
 }
 
 // ===== change-password 修改密码操作 =====

@@ -61,6 +61,31 @@ func (q *Queries) CountUsersByWorkspaceID(ctx context.Context, arg CountUsersByW
 	return count, err
 }
 
+const countWorkspacesByUserID = `-- name: CountWorkspacesByUserID :one
+SELECT count(ws.id)
+FROM workspaces ws
+JOIN user_workspaces uw ON ws.id = uw.workspace_id
+WHERE uw.user_id = $1
+    AND ($2::VARCHAR IS NULL OR ws.status = $2)
+    AND ($3::VARCHAR IS NULL
+         OR ws.name ILIKE '%' || $3 || '%'
+         OR ws.display_name ILIKE '%' || $3 || '%'
+         OR ws.description ILIKE '%' || $3 || '%')
+`
+
+type CountWorkspacesByUserIDParams struct {
+	UserID int64   `json:"user_id"`
+	Status *string `json:"status"`
+	Search *string `json:"search"`
+}
+
+func (q *Queries) CountWorkspacesByUserID(ctx context.Context, arg CountWorkspacesByUserIDParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countWorkspacesByUserID, arg.UserID, arg.Status, arg.Search)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getUserWorkspace = `-- name: GetUserWorkspace :one
 SELECT user_id, workspace_id, role, created_at
 FROM user_workspaces
@@ -182,39 +207,91 @@ func (q *Queries) ListUsersByWorkspaceID(ctx context.Context, arg ListUsersByWor
 	return items, nil
 }
 
-const listWorkspacesByUserID = `-- name: ListWorkspacesByUserID :many
-SELECT
-    w.id, w.name, w.display_name, w.description, w.owner_id,
-    w.status, w.created_at, w.updated_at,
-    uw.role, uw.created_at AS joined_at
-FROM workspaces w
-JOIN user_workspaces uw ON w.id = uw.workspace_id
-WHERE uw.user_id = $1
-ORDER BY uw.created_at DESC
+const listWorkspacesByUserIDPaginated = `-- name: ListWorkspacesByUserIDPaginated :many
+WITH ws_data AS (
+    SELECT
+        ws.id, ws.name, ws.display_name, ws.description, ws.owner_id,
+        ws.status, ws.created_at, ws.updated_at,
+        u.username AS owner_username,
+        (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) AS namespace_count,
+        (SELECT count(*) FROM user_workspaces uw2 WHERE uw2.workspace_id = ws.id) AS member_count,
+        uw.role, uw.created_at AS joined_at
+    FROM workspaces ws
+    JOIN user_workspaces uw ON ws.id = uw.workspace_id
+    JOIN users u ON ws.owner_id = u.id
+    WHERE uw.user_id = $5
+        AND ($6::VARCHAR IS NULL OR ws.status = $6)
+        AND ($7::VARCHAR IS NULL
+             OR ws.name ILIKE '%' || $7 || '%'
+             OR ws.display_name ILIKE '%' || $7 || '%'
+             OR ws.description ILIKE '%' || $7 || '%')
+)
+SELECT id, name, display_name, description, owner_id, status, created_at, updated_at, owner_username, namespace_count, member_count, role, joined_at FROM ws_data
+ORDER BY
+    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
+    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
+    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN $1::VARCHAR = 'status' AND $2::VARCHAR = 'asc' THEN status END ASC,
+    CASE WHEN $1::VARCHAR = 'status' AND $2::VARCHAR = 'desc' THEN status END DESC,
+    CASE WHEN $1::VARCHAR = 'display_name' AND $2::VARCHAR = 'asc' THEN display_name END ASC,
+    CASE WHEN $1::VARCHAR = 'display_name' AND $2::VARCHAR = 'desc' THEN display_name END DESC,
+    CASE WHEN $1::VARCHAR = 'updated_at' AND $2::VARCHAR = 'asc' THEN updated_at END ASC,
+    CASE WHEN $1::VARCHAR = 'updated_at' AND $2::VARCHAR = 'desc' THEN updated_at END DESC,
+    CASE WHEN $1::VARCHAR = 'namespace_count' AND $2::VARCHAR = 'asc' THEN namespace_count END ASC,
+    CASE WHEN $1::VARCHAR = 'namespace_count' AND $2::VARCHAR = 'desc' THEN namespace_count END DESC,
+    CASE WHEN $1::VARCHAR = 'member_count' AND $2::VARCHAR = 'asc' THEN member_count END ASC,
+    CASE WHEN $1::VARCHAR = 'member_count' AND $2::VARCHAR = 'desc' THEN member_count END DESC,
+    CASE WHEN $1::VARCHAR = 'joined_at' AND $2::VARCHAR = 'asc' THEN joined_at END ASC,
+    CASE WHEN $1::VARCHAR = 'joined_at' AND $2::VARCHAR = 'desc' THEN joined_at END DESC,
+    joined_at DESC
+LIMIT $4::INT
+OFFSET $3::INT
 `
 
-type ListWorkspacesByUserIDRow struct {
-	ID          int64     `json:"id"`
-	Name        string    `json:"name"`
-	DisplayName string    `json:"display_name"`
-	Description string    `json:"description"`
-	OwnerID     int64     `json:"owner_id"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Role        string    `json:"role"`
-	JoinedAt    time.Time `json:"joined_at"`
+type ListWorkspacesByUserIDPaginatedParams struct {
+	SortField  string  `json:"sort_field"`
+	SortOrder  string  `json:"sort_order"`
+	PageOffset int32   `json:"page_offset"`
+	PageSize   int32   `json:"page_size"`
+	UserID     int64   `json:"user_id"`
+	Status     *string `json:"status"`
+	Search     *string `json:"search"`
 }
 
-func (q *Queries) ListWorkspacesByUserID(ctx context.Context, userID int64) ([]ListWorkspacesByUserIDRow, error) {
-	rows, err := q.db.Query(ctx, listWorkspacesByUserID, userID)
+type ListWorkspacesByUserIDPaginatedRow struct {
+	ID             int64     `json:"id"`
+	Name           string    `json:"name"`
+	DisplayName    string    `json:"display_name"`
+	Description    string    `json:"description"`
+	OwnerID        int64     `json:"owner_id"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	OwnerUsername  string    `json:"owner_username"`
+	NamespaceCount int64     `json:"namespace_count"`
+	MemberCount    int64     `json:"member_count"`
+	Role           string    `json:"role"`
+	JoinedAt       time.Time `json:"joined_at"`
+}
+
+func (q *Queries) ListWorkspacesByUserIDPaginated(ctx context.Context, arg ListWorkspacesByUserIDPaginatedParams) ([]ListWorkspacesByUserIDPaginatedRow, error) {
+	rows, err := q.db.Query(ctx, listWorkspacesByUserIDPaginated,
+		arg.SortField,
+		arg.SortOrder,
+		arg.PageOffset,
+		arg.PageSize,
+		arg.UserID,
+		arg.Status,
+		arg.Search,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListWorkspacesByUserIDRow{}
+	items := []ListWorkspacesByUserIDPaginatedRow{}
 	for rows.Next() {
-		var i ListWorkspacesByUserIDRow
+		var i ListWorkspacesByUserIDPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -224,6 +301,9 @@ func (q *Queries) ListWorkspacesByUserID(ctx context.Context, userID int64) ([]L
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OwnerUsername,
+			&i.NamespaceCount,
+			&i.MemberCount,
 			&i.Role,
 			&i.JoinedAt,
 		); err != nil {

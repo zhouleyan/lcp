@@ -182,6 +182,13 @@ func (s *namespaceStorage) List(...) { ... }
 // +openapi:resource=User
 // +openapi:summary=修改用户密码
 func NewChangePasswordHandler(...) rest.HandlerFunc { ... }
+
+// Custom verb (read-only list view on resource item):
+// +openapi:customverb=workspaces
+// +openapi:resource=User
+// +openapi:summary=获取用户关联的工作空间列表
+func NewUserWorkspacesVerb(...) rest.Lister { ... }
+// → generates GET /users/{userId}:workspaces returning WorkspaceList
 ```
 
 Method name → operation mapping: `List→list`, `Create→create`, `Get→get`, `Update→update`, `Patch→patch`, `Delete→delete`, `DeleteCollection→deleteCollection`.
@@ -202,6 +209,8 @@ GET  /oidc/userinfo                                               # User info
 # Inactive users receive 401 even with a valid token. Token refresh is also blocked for inactive users.
 /api/iam/v1/users                                                    # CRUD + batch delete
 /api/iam/v1/users/{userId}/change-password                           # POST change password
+/api/iam/v1/users/{userId}:workspaces                                # GET user's joined workspaces (paginated)
+/api/iam/v1/users/{userId}:namespaces                                # GET user's joined namespaces (paginated)
 /api/iam/v1/workspaces                                               # CRUD + batch delete
 /api/iam/v1/workspaces/{workspaceId}/namespaces                      # CRUD + batch delete
 /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users  # list + batch add/remove

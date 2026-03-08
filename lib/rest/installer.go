@@ -77,6 +77,10 @@ func (i *APIInstaller) registerRoutes(basePath, itemPath string, res ResourceInf
 		i.installAction(itemPath, action)
 	}
 
+	for _, verb := range res.CustomVerbs {
+		i.installCustomVerb(itemPath, verb)
+	}
+
 	for _, sub := range res.SubResources {
 		i.installSubResource(itemPath, sub)
 	}
@@ -91,6 +95,15 @@ func (i *APIInstaller) installAction(parentItemPath string, action ActionInfo) {
 	}
 	handler := HandleWithAPIVersion(i.serializer, statusCode, action.Handler, i.group.APIVersion())
 	i.ws.Route(i.ws.METHOD(action.Method, actionPath).To(handler))
+}
+
+// installCustomVerb registers a custom verb route on a resource item.
+// Custom verbs use the format {itemPath}:{verbName}, e.g. /users/{userId}:workspaces
+func (i *APIInstaller) installCustomVerb(parentItemPath string, verb CustomVerbInfo) {
+	parts := strings.Split(strings.TrimPrefix(parentItemPath, "/"), "/")
+	parts[len(parts)-1] = parts[len(parts)-1] + ":" + verb.Name
+	verbPath := "/" + strings.Join(parts, "/")
+	i.ws.Route(i.ws.GET(verbPath).To(i.listHandler(verb.Storage)))
 }
 
 // setAPIVersion sets the APIVersion field on a runtime.Object if it has a TypeMeta.

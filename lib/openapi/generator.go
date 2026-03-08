@@ -504,6 +504,47 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 			},
 		}
 	}
+
+	// Custom verb operations (GET {itemPath}:{verbName})
+	// Only generate on the primary resource path (single-segment, e.g. "/users"),
+	// not on sub-resource paths (e.g. "/workspaces/{workspaceId}/users").
+	isPrimaryPath := len(extractPathParams(resourcePath)) == 0
+	for verbName, verbSummary := range typeInfo.CustomVerbSummary {
+		if !isPrimaryPath {
+			continue
+		}
+		verbPath := itemPath + ":" + verbName
+		verbPathItem := getOrCreatePathItem(doc, verbPath)
+
+		// Derive response list type: "workspaces" → "WorkspaceList"
+		singular := strings.TrimSuffix(verbName, "s")
+		responseType := strings.ToUpper(singular[:1]) + singular[1:] + "List"
+		responseRef := &Schema{Ref: fmt.Sprintf("#/components/schemas/%s", responseType)}
+
+		verbParams := make([]Parameter, len(itemParams))
+		copy(verbParams, itemParams)
+		verbParams = append(verbParams,
+			Parameter{Name: "page", In: "query", Schema: &Schema{Type: "integer"}},
+			Parameter{Name: "pageSize", In: "query", Schema: &Schema{Type: "integer"}},
+			Parameter{Name: "sortBy", In: "query", Schema: &Schema{Type: "string"}},
+			Parameter{Name: "sortOrder", In: "query", Schema: &Schema{Type: "string", Enum: []string{"asc", "desc"}}},
+		)
+
+		verbPathItem.Get = &Operation{
+			Summary:     verbSummary,
+			OperationID: fmt.Sprintf("list%s%s", strings.ToUpper(verbName[:1])+verbName[1:], opSuffix),
+			Tags:        []string{tag},
+			Parameters:  verbParams,
+			Responses: map[string]*Response{
+				"200": {
+					Description: "OK",
+					Content: map[string]MediaType{
+						"application/json": {Schema: responseRef},
+					},
+				},
+			},
+		}
+	}
 }
 
 var pathParamRegexp = regexp.MustCompile(`\{(\w+)\}`)

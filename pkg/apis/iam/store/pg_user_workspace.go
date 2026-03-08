@@ -69,15 +69,41 @@ func (s *pgUserWorkspaceStore) Get(ctx context.Context, userID, workspaceID int6
 	return &row, nil
 }
 
-func (s *pgUserWorkspaceStore) ListByUserID(ctx context.Context, userID int64) ([]iam.DBWorkspaceWithRole, error) {
-	rows, err := s.queries.ListWorkspacesByUserID(ctx, userID)
+func (s *pgUserWorkspaceStore) ListByUserID(ctx context.Context, userID int64, q db.ListQuery) (*db.ListResult[iam.DBWorkspaceWithOwnerAndRole], error) {
+	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
+
+	countParams := generated.CountWorkspacesByUserIDParams{
+		UserID: userID,
+		Status: filterStr(q.Filters, "status"),
+		Search: filterStr(q.Filters, "search"),
+	}
+
+	count, err := s.queries.CountWorkspacesByUserID(ctx, countParams)
+	if err != nil {
+		return nil, fmt.Errorf("count workspaces by user: %w", err)
+	}
+
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	rows, err := s.queries.ListWorkspacesByUserIDPaginated(ctx, generated.ListWorkspacesByUserIDPaginatedParams{
+		UserID:    userID,
+		Status:    countParams.Status,
+		Search:    countParams.Search,
+		SortField: q.SortBy,
+		SortOrder: sortOrder,
+		PageOffset: offset,
+		PageSize:   limit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list workspaces by user: %w", err)
 	}
 
-	items := make([]iam.DBWorkspaceWithRole, 0, len(rows))
+	items := make([]iam.DBWorkspaceWithOwnerAndRole, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, iam.DBWorkspaceWithRole{
+		items = append(items, iam.DBWorkspaceWithOwnerAndRole{
 			Workspace: generated.Workspace{
 				ID:          row.ID,
 				Name:        row.Name,
@@ -88,11 +114,18 @@ func (s *pgUserWorkspaceStore) ListByUserID(ctx context.Context, userID int64) (
 				CreatedAt:   row.CreatedAt,
 				UpdatedAt:   row.UpdatedAt,
 			},
-			Role:     row.Role,
-			JoinedAt: row.JoinedAt,
+			OwnerUsername:  row.OwnerUsername,
+			NamespaceCount: row.NamespaceCount,
+			MemberCount:    row.MemberCount,
+			Role:           row.Role,
+			JoinedAt:       row.JoinedAt,
 		})
 	}
-	return items, nil
+
+	return &db.ListResult[iam.DBWorkspaceWithOwnerAndRole]{
+		Items:      items,
+		TotalCount: count,
+	}, nil
 }
 
 func (s *pgUserWorkspaceStore) ListByWorkspaceID(ctx context.Context, workspaceID int64, q db.ListQuery) (*db.ListResult[iam.DBUserWithRole], error) {

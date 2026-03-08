@@ -65,7 +65,7 @@ type UserWorkspaceStore interface {
 	Remove(ctx context.Context, userID, workspaceID int64) error
 	UpdateRole(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error)
 	Get(ctx context.Context, userID, workspaceID int64) (*DBUserWorkspace, error)
-	ListByUserID(ctx context.Context, userID int64) ([]DBWorkspaceWithRole, error)
+	ListByUserID(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwnerAndRole], error)
 	ListByWorkspaceID(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
 }
 
@@ -75,6 +75,6 @@ type UserNamespaceStore interface {
 	Remove(ctx context.Context, userID, namespaceID int64) error
 	UpdateRole(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error)
 	Get(ctx context.Context, userID, namespaceID int64) (*DBUserNamespace, error)
-	ListByUserID(ctx context.Context, userID int64) ([]DBNamespaceWithRole, error)
+	ListByUserID(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwnerAndRole], error)
 	ListByNamespaceID(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
 }

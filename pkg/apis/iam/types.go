@@ -45,10 +45,6 @@ type UserSpec struct {
 	Status string `json:"status,omitempty"`
 	// +openapi:description=用户所属的项目列表（仅在列表查询时返回）
 	Namespaces []string `json:"namespaces,omitempty"`
-	// +openapi:description=用户关联的工作空间列表（仅在详情查询时返回）
-	Workspaces []UserWorkspaceRef `json:"workspaces,omitempty"`
-	// +openapi:description=用户关联的命名空间列表（仅在详情查询时返回）
-	NamespaceRefs []UserNamespaceRef `json:"namespaceRefs,omitempty"`
 }
 
 // UserList
@@ -92,6 +88,10 @@ type WorkspaceSpec struct {
 	// +openapi:description=工作空间状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
+	// +openapi:description=当前用户在此工作空间的角色（仅 custom verb 查询时返回）
+	Role string `json:"role,omitempty"`
+	// +openapi:description=当前用户加入此工作空间的时间（仅 custom verb 查询时返回）
+	JoinedAt string `json:"joinedAt,omitempty"`
 }
 
 // WorkspaceList
@@ -143,6 +143,10 @@ type NamespaceSpec struct {
 	// +openapi:description=项目状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
+	// +openapi:description=当前用户在此项目的角色（仅 custom verb 查询时返回）
+	Role string `json:"role,omitempty"`
+	// +openapi:description=当前用户加入此项目的时间（仅 custom verb 查询时返回）
+	JoinedAt string `json:"joinedAt,omitempty"`
 }
 
 // NamespaceList
@@ -154,27 +158,6 @@ type NamespaceList struct {
 }
 
 func (n *NamespaceList) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
-
-// --- User reference types (for user detail enrichment) ---
-
-// UserWorkspaceRef 用户关联的工作空间信息
-type UserWorkspaceRef struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	DisplayName string `json:"displayName,omitempty"`
-	Role        string `json:"role"`
-	JoinedAt    string `json:"joinedAt"`
-}
-
-// UserNamespaceRef 用户关联的命名空间信息
-type UserNamespaceRef struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	DisplayName string `json:"displayName,omitempty"`
-	WorkspaceID string `json:"workspaceId"`
-	Role        string `json:"role"`
-	JoinedAt    string `json:"joinedAt"`
-}
 
 // --- Batch request type ---
 
@@ -351,11 +334,14 @@ type DBWorkspaceWithOwner struct {
 	MemberCount    int64  `json:"member_count"`
 }
 
-// DBWorkspaceWithRole is a workspace with the user's role in it.
-type DBWorkspaceWithRole struct {
+// DBWorkspaceWithOwnerAndRole extends DBWorkspaceWithOwner with user's role and join time.
+type DBWorkspaceWithOwnerAndRole struct {
 	generated.Workspace
-	Role     string    `json:"role"`
-	JoinedAt time.Time `json:"joined_at"`
+	OwnerUsername  string    `json:"owner_username"`
+	NamespaceCount int64    `json:"namespace_count"`
+	MemberCount    int64    `json:"member_count"`
+	Role           string   `json:"role"`
+	JoinedAt       time.Time `json:"joined_at"`
 }
 
 // DBNamespaceWithOwner extends Namespace with owner username and statistics.
@@ -366,11 +352,14 @@ type DBNamespaceWithOwner struct {
 	MemberCount   int64  `json:"member_count"`
 }
 
-// DBNamespaceWithRole is a namespace with the user's role in it.
-type DBNamespaceWithRole struct {
+// DBNamespaceWithOwnerAndRole extends DBNamespaceWithOwner with user's role and join time.
+type DBNamespaceWithOwnerAndRole struct {
 	generated.Namespace
-	Role     string    `json:"role"`
-	JoinedAt time.Time `json:"joined_at"`
+	OwnerUsername string    `json:"owner_username"`
+	WorkspaceName string    `json:"workspace_name"`
+	MemberCount   int64     `json:"member_count"`
+	Role          string    `json:"role"`
+	JoinedAt      time.Time `json:"joined_at"`
 }
 
 // DBUserWithRole is a user with their role in a namespace.

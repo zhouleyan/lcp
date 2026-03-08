@@ -12,23 +12,6 @@ export interface ObjectMeta {
 
 // --- User ---
 
-export interface UserWorkspaceRef {
-  id: string
-  name: string
-  displayName?: string
-  role: string
-  joinedAt: string
-}
-
-export interface UserNamespaceRef {
-  id: string
-  name: string
-  displayName?: string
-  workspaceId: string
-  role: string
-  joinedAt: string
-}
-
 export interface UserSpec {
   username: string
   email: string
@@ -37,8 +20,6 @@ export interface UserSpec {
   avatarUrl?: string
   status?: "active" | "inactive"
   namespaces?: string[]
-  workspaces?: UserWorkspaceRef[]
-  namespaceRefs?: UserNamespaceRef[]
 }
 
 export interface User extends TypeMeta {
@@ -61,6 +42,8 @@ export interface WorkspaceSpec {
   namespaceCount?: number
   memberCount?: number
   status?: "active" | "inactive"
+  role?: string
+  joinedAt?: string
 }
 
 export interface Workspace extends TypeMeta {
@@ -86,6 +69,8 @@ export interface NamespaceSpec {
   maxMembers?: number
   memberCount?: number
   status?: "active" | "inactive"
+  role?: string
+  joinedAt?: string
 }
 
 export interface Namespace extends TypeMeta {

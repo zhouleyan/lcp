@@ -20,8 +20,9 @@ type TypeInfo struct {
 	IsListType       bool
 	SchemaOnly       bool              // +openapi:schema — register in components/schemas but do not generate CRUD paths
 	Paths            []string          // from +openapi:path annotations
-	OperationSummary map[string]string // from +openapi:summary.METHOD= (e.g. "list", "create", "get", "update", "patch", "delete", "deleteCollection")
-	ActionSummary    map[string]string // from +openapi:action.NAME.summary= (e.g. "change-password")
+	OperationSummary  map[string]string // from +openapi:summary.METHOD= (e.g. "list", "create", "get", "update", "patch", "delete", "deleteCollection")
+	ActionSummary     map[string]string // from +openapi:action.NAME.summary= (e.g. "change-password")
+	CustomVerbSummary map[string]string // from +openapi:customverb= on standalone functions (e.g. "workspaces" → summary)
 }
 
 // FieldInfo holds parsed information about a struct field.
@@ -193,15 +194,16 @@ func (p *Parser) parseGroup(dir string, dirName string) (*GroupInfo, error) {
 					}
 
 					typeInfo := TypeInfo{
-						Name:             typeSpec.Name.Name,
-						Package:          pkg.Name,
-						Annotations:      annotations,
-						Description:      description,
-						IsListType:       strings.HasSuffix(typeSpec.Name.Name, "List"),
-						SchemaOnly:       schemaOnly,
-						Paths:            paths,
-						OperationSummary: opSummary,
-						ActionSummary:    actionSummary,
+						Name:              typeSpec.Name.Name,
+						Package:           pkg.Name,
+						Annotations:       annotations,
+						Description:       description,
+						IsListType:        strings.HasSuffix(typeSpec.Name.Name, "List"),
+						SchemaOnly:        schemaOnly,
+						Paths:             paths,
+						OperationSummary:  opSummary,
+						ActionSummary:     actionSummary,
+						CustomVerbSummary: make(map[string]string),
 					}
 
 					for _, field := range structType.Fields.List {
@@ -339,16 +341,18 @@ func mergeStorageAnnotations(group *GroupInfo, pkgs map[string]*ast.Package) {
 						}
 					}
 				} else {
-					// Standalone function: check for +openapi:action=
+					// Standalone function: check for +openapi:action= or +openapi:customverb=
 					annotations := ParseAnnotations(funcDecl.Doc)
 					if len(annotations) == 0 {
 						continue
 					}
-					var actionName, summary, resource string
+					var actionName, customVerb, summary, resource string
 					for _, ann := range annotations {
 						switch ann.Key {
 						case "action":
 							actionName = ann.Value
+						case "customverb":
+							customVerb = ann.Value
 						case "summary":
 							summary = ann.Value
 						case "resource":
@@ -358,6 +362,11 @@ func mergeStorageAnnotations(group *GroupInfo, pkgs map[string]*ast.Package) {
 					if actionName != "" && resource != "" {
 						if idx, ok := typeIndex[resource]; ok && summary != "" {
 							group.Types[idx].ActionSummary[actionName] = summary
+						}
+					}
+					if customVerb != "" && resource != "" {
+						if idx, ok := typeIndex[resource]; ok && summary != "" {
+							group.Types[idx].CustomVerbSummary[customVerb] = summary
 						}
 					}
 				}

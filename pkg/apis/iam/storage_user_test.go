@@ -3,12 +3,10 @@ package iam
 import (
 	"context"
 	"testing"
-	"time"
 
 	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/pkg/db"
-	"lcp.io/lcp/pkg/db/generated"
 )
 
 // --- TestUserStorage_Get ---
@@ -25,40 +23,7 @@ func TestUserStorage_Get(t *testing.T) {
 		},
 	}
 
-	uwStore := &mockUserWorkspaceStore{
-		ListByUserIDFn: func(ctx context.Context, userID int64) ([]DBWorkspaceWithRole, error) {
-			return []DBWorkspaceWithRole{
-				{
-					Workspace: generated.Workspace{
-						ID:          10,
-						Name:        "ws-one",
-						DisplayName: "Workspace One",
-					},
-					Role:     "owner",
-					JoinedAt: testTime,
-				},
-			}, nil
-		},
-	}
-
-	unStore := &mockUserNamespaceStore{
-		ListByUserIDFn: func(ctx context.Context, userID int64) ([]DBNamespaceWithRole, error) {
-			return []DBNamespaceWithRole{
-				{
-					Namespace: generated.Namespace{
-						ID:          20,
-						Name:        "ns-one",
-						DisplayName: "Namespace One",
-						WorkspaceID: 10,
-					},
-					Role:     "member",
-					JoinedAt: testTime,
-				},
-			}, nil
-		},
-	}
-
-	storage := NewUserStorage(userStore, uwStore, unStore)
+	storage := NewUserStorage(userStore)
 
 	obj, err := storage.Get(context.Background(), &rest.GetOptions{
 		PathParams: map[string]string{"userId": "1"},
@@ -72,7 +37,6 @@ func TestUserStorage_Get(t *testing.T) {
 		t.Fatalf("expected *User, got %T", obj)
 	}
 
-	// Verify basic fields
 	if user.ObjectMeta.ID != "1" {
 		t.Errorf("expected ID '1', got %q", user.ObjectMeta.ID)
 	}
@@ -91,56 +55,10 @@ func TestUserStorage_Get(t *testing.T) {
 	if user.TypeMeta.Kind != "User" {
 		t.Errorf("expected Kind 'User', got %q", user.TypeMeta.Kind)
 	}
-
-	// Verify enriched workspaces
-	if len(user.Spec.Workspaces) != 1 {
-		t.Fatalf("expected 1 workspace, got %d", len(user.Spec.Workspaces))
-	}
-	ws := user.Spec.Workspaces[0]
-	if ws.ID != "10" {
-		t.Errorf("expected workspace ID '10', got %q", ws.ID)
-	}
-	if ws.Name != "ws-one" {
-		t.Errorf("expected workspace Name 'ws-one', got %q", ws.Name)
-	}
-	if ws.DisplayName != "Workspace One" {
-		t.Errorf("expected workspace DisplayName 'Workspace One', got %q", ws.DisplayName)
-	}
-	if ws.Role != "owner" {
-		t.Errorf("expected workspace Role 'owner', got %q", ws.Role)
-	}
-	expectedJoinedAt := testTime.Format(time.RFC3339)
-	if ws.JoinedAt != expectedJoinedAt {
-		t.Errorf("expected workspace JoinedAt %q, got %q", expectedJoinedAt, ws.JoinedAt)
-	}
-
-	// Verify enriched namespaces
-	if len(user.Spec.NamespaceRefs) != 1 {
-		t.Fatalf("expected 1 namespace ref, got %d", len(user.Spec.NamespaceRefs))
-	}
-	ns := user.Spec.NamespaceRefs[0]
-	if ns.ID != "20" {
-		t.Errorf("expected namespace ID '20', got %q", ns.ID)
-	}
-	if ns.Name != "ns-one" {
-		t.Errorf("expected namespace Name 'ns-one', got %q", ns.Name)
-	}
-	if ns.DisplayName != "Namespace One" {
-		t.Errorf("expected namespace DisplayName 'Namespace One', got %q", ns.DisplayName)
-	}
-	if ns.WorkspaceID != "10" {
-		t.Errorf("expected namespace WorkspaceID '10', got %q", ns.WorkspaceID)
-	}
-	if ns.Role != "member" {
-		t.Errorf("expected namespace Role 'member', got %q", ns.Role)
-	}
-	if ns.JoinedAt != expectedJoinedAt {
-		t.Errorf("expected namespace JoinedAt %q, got %q", expectedJoinedAt, ns.JoinedAt)
-	}
 }
 
 func TestUserStorage_Get_InvalidID(t *testing.T) {
-	storage := NewUserStorage(&mockUserStore{}, &mockUserWorkspaceStore{}, &mockUserNamespaceStore{})
+	storage := NewUserStorage(&mockUserStore{})
 
 	_, err := storage.Get(context.Background(), &rest.GetOptions{
 		PathParams: map[string]string{"userId": "abc"},
@@ -165,7 +83,7 @@ func TestUserStorage_Get_NotFound(t *testing.T) {
 		},
 	}
 
-	storage := NewUserStorage(userStore, &mockUserWorkspaceStore{}, &mockUserNamespaceStore{})
+	storage := NewUserStorage(userStore)
 
 	_, err := storage.Get(context.Background(), &rest.GetOptions{
 		PathParams: map[string]string{"userId": "999"},
@@ -199,7 +117,7 @@ func TestUserStorage_List(t *testing.T) {
 		},
 	}
 
-	storage := NewUserStorage(userStore, nil, nil)
+	storage := NewUserStorage(userStore)
 
 	obj, err := storage.List(context.Background(), &rest.ListOptions{
 		Filters: map[string]string{"status": "active"},
@@ -261,7 +179,7 @@ func TestUserStorage_Create(t *testing.T) {
 		},
 	}
 
-	storage := NewUserStorage(userStore, nil, nil)
+	storage := NewUserStorage(userStore)
 
 	inputUser := &User{
 		Spec: UserSpec{
@@ -294,7 +212,7 @@ func TestUserStorage_Create(t *testing.T) {
 }
 
 func TestUserStorage_Create_ValidationFails(t *testing.T) {
-	storage := NewUserStorage(&mockUserStore{}, nil, nil)
+	storage := NewUserStorage(&mockUserStore{})
 
 	// Missing required fields: username, email, phone
 	inputUser := &User{
@@ -345,7 +263,7 @@ func TestUserStorage_Create_WithPassword(t *testing.T) {
 		return "hashed-Test1234", nil
 	}
 
-	storage := NewUserStorageWithPassword(userStore, nil, nil, hasher)
+	storage := NewUserStorageWithPassword(userStore, hasher)
 
 	inputUser := &User{
 		Spec: UserSpec{
@@ -399,7 +317,7 @@ func TestUserStorage_Update(t *testing.T) {
 		},
 	}
 
-	storage := NewUserStorage(userStore, nil, nil)
+	storage := NewUserStorage(userStore)
 
 	inputUser := &User{
 		Spec: UserSpec{
@@ -451,7 +369,7 @@ func TestUserStorage_Patch(t *testing.T) {
 		},
 	}
 
-	storage := NewUserStorage(userStore, nil, nil)
+	storage := NewUserStorage(userStore)
 
 	inputUser := &User{
 		Spec: UserSpec{
@@ -494,7 +412,7 @@ func TestUserStorage_Delete(t *testing.T) {
 		},
 	}
 
-	storage := NewUserStorage(userStore, nil, nil)
+	storage := NewUserStorage(userStore)
 
 	err := storage.Delete(context.Background(), &rest.DeleteOptions{
 		PathParams: map[string]string{"userId": "1"},
@@ -521,7 +439,7 @@ func TestUserStorage_DeleteCollection(t *testing.T) {
 		},
 	}
 
-	storage := NewUserStorage(userStore, nil, nil)
+	storage := NewUserStorage(userStore)
 
 	result, err := storage.DeleteCollection(context.Background(), []string{"1", "2", "3"}, &rest.DeleteOptions{})
 	if err != nil {
@@ -537,7 +455,7 @@ func TestUserStorage_DeleteCollection(t *testing.T) {
 }
 
 func TestUserStorage_DeleteCollection_InvalidID(t *testing.T) {
-	storage := NewUserStorage(&mockUserStore{}, nil, nil)
+	storage := NewUserStorage(&mockUserStore{})
 
 	_, err := storage.DeleteCollection(context.Background(), []string{"1", "abc", "3"}, &rest.DeleteOptions{})
 	if err == nil {

@@ -13,7 +13,7 @@ func NewAPIGroupInfo(p *iam.RESTStorageProvider, provider *oidc.Provider) *rest.
 
 	if provider != nil {
 		ps := provider.PasswordService()
-		userStorage = iam.NewUserStorageWithPassword(p.UserStore(), p.UserWorkspaceStore(), p.UserNamespaceStore(), ps.Hash)
+		userStorage = iam.NewUserStorageWithPassword(p.UserStore(), ps.Hash)
 		changePasswordActions = []rest.ActionInfo{
 			{
 				Name:   "change-password",
@@ -27,7 +27,12 @@ func NewAPIGroupInfo(p *iam.RESTStorageProvider, provider *oidc.Provider) *rest.
 			},
 		}
 	} else {
-		userStorage = iam.NewUserStorage(p.UserStore(), p.UserWorkspaceStore(), p.UserNamespaceStore())
+		userStorage = iam.NewUserStorage(p.UserStore())
+	}
+
+	userCustomVerbs := []rest.CustomVerbInfo{
+		{Name: "workspaces", Storage: iam.NewUserWorkspacesVerb(p.UserWorkspaceStore())},
+		{Name: "namespaces", Storage: iam.NewUserNamespacesVerb(p.UserNamespaceStore())},
 	}
 
 	wsStorage := iam.NewWorkspaceStorage(p.WorkspaceStore(), p.UserStore())
@@ -39,7 +44,7 @@ func NewAPIGroupInfo(p *iam.RESTStorageProvider, provider *oidc.Provider) *rest.
 		GroupName: "iam",
 		Version:   "v1",
 		Resources: []rest.ResourceInfo{
-			{Name: "users", Storage: userStorage, Actions: changePasswordActions},
+			{Name: "users", Storage: userStorage, Actions: changePasswordActions, CustomVerbs: userCustomVerbs},
 			{
 				Name:    "workspaces",
 				Storage: wsStorage,
