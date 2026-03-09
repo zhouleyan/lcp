@@ -104,6 +104,101 @@ export interface ChangePasswordRequest {
   newPassword: string
 }
 
+// --- Permission ---
+
+export interface PermissionSpec {
+  code: string
+  method: string
+  path: string
+  description?: string
+}
+
+export interface Permission extends TypeMeta {
+  metadata: ObjectMeta
+  spec: PermissionSpec
+}
+
+export interface PermissionList extends TypeMeta {
+  items: Permission[]
+  totalCount: number
+}
+
+// --- Role ---
+
+export interface RoleSpec {
+  name: string
+  displayName?: string
+  description?: string
+  scope: "platform" | "workspace" | "namespace"
+  builtin?: boolean
+  rules?: string[]
+}
+
+export interface Role extends TypeMeta {
+  metadata: ObjectMeta
+  spec: RoleSpec
+}
+
+export interface RoleList extends TypeMeta {
+  items: Role[]
+  totalCount: number
+}
+
+// --- RoleBinding ---
+
+export interface RoleBindingSpec {
+  userId: string
+  roleId: string
+  scope: "platform" | "workspace" | "namespace"
+  workspaceId?: string
+  namespaceId?: string
+  isOwner?: boolean
+  roleName?: string
+  roleDisplayName?: string
+  username?: string
+  userDisplayName?: string
+}
+
+export interface RoleBinding extends TypeMeta {
+  metadata: ObjectMeta
+  spec: RoleBindingSpec
+}
+
+export interface RoleBindingList extends TypeMeta {
+  items: RoleBinding[]
+  totalCount: number
+}
+
+// --- UserPermissions ---
+
+export interface WorkspaceScopePerms {
+  roleNames: string[]
+  permissions: string[]
+}
+
+export interface NamespaceScopePerms {
+  roleNames: string[]
+  workspaceId: string
+  permissions: string[]
+}
+
+export interface UserPermissionsSpec {
+  isPlatformAdmin: boolean
+  platform: string[]
+  workspaces: Record<string, WorkspaceScopePerms>
+  namespaces: Record<string, NamespaceScopePerms>
+}
+
+export interface UserPermissions extends TypeMeta {
+  spec: UserPermissionsSpec
+}
+
+// --- Transfer Ownership ---
+
+export interface TransferOwnershipRequest {
+  newOwnerUserId: string
+}
+
 export interface OIDCUserInfo {
   sub: string
   name?: string

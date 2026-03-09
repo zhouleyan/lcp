@@ -1,0 +1,169 @@
+import { api, apiRequest } from "./client"
+import type {
+  PermissionList,
+  RoleList,
+  Role,
+  RoleBinding,
+  RoleBindingList,
+  UserPermissions,
+  ListParams,
+  TransferOwnershipRequest,
+} from "./types"
+
+// --- Permissions ---
+export async function listPermissions(params?: ListParams): Promise<PermissionList> {
+  return apiRequest(api.get("permissions", { searchParams: params as Record<string, string> }).json())
+}
+
+// --- Platform Roles ---
+export async function listRoles(params?: ListParams): Promise<RoleList> {
+  return apiRequest(api.get("roles", { searchParams: params as Record<string, string> }).json())
+}
+export async function getRole(id: string): Promise<Role> {
+  return apiRequest(api.get(`roles/${id}`).json())
+}
+export async function createRole(data: Pick<Role, "metadata" | "spec">): Promise<Role> {
+  return apiRequest(api.post("roles", { json: data }).json())
+}
+export async function updateRole(id: string, data: Pick<Role, "metadata" | "spec">): Promise<Role> {
+  return apiRequest(api.put(`roles/${id}`, { json: data }).json())
+}
+export async function deleteRole(id: string): Promise<void> {
+  await apiRequest(api.delete(`roles/${id}`).json())
+}
+
+// --- Scoped Roles (read-only) ---
+export async function listWorkspaceRoles(
+  workspaceId: string,
+  params?: ListParams,
+): Promise<RoleList> {
+  return apiRequest(
+    api.get(`workspaces/${workspaceId}/roles`, { searchParams: params as Record<string, string> }).json(),
+  )
+}
+export async function getWorkspaceRole(workspaceId: string, roleId: string): Promise<Role> {
+  return apiRequest(api.get(`workspaces/${workspaceId}/roles/${roleId}`).json())
+}
+export async function listNamespaceRoles(
+  namespaceId: string,
+  params?: ListParams,
+): Promise<RoleList> {
+  return apiRequest(
+    api.get(`namespaces/${namespaceId}/roles`, { searchParams: params as Record<string, string> }).json(),
+  )
+}
+export async function getNamespaceRole(namespaceId: string, roleId: string): Promise<Role> {
+  return apiRequest(api.get(`namespaces/${namespaceId}/roles/${roleId}`).json())
+}
+
+// --- Platform RoleBindings ---
+export async function listRoleBindings(params?: ListParams): Promise<RoleBindingList> {
+  return apiRequest(
+    api.get("rolebindings", { searchParams: params as Record<string, string> }).json(),
+  )
+}
+export async function createRoleBinding(data: Pick<RoleBinding, "spec">): Promise<RoleBinding> {
+  return apiRequest(api.post("rolebindings", { json: data }).json())
+}
+export async function deleteRoleBinding(id: string): Promise<void> {
+  await apiRequest(api.delete(`rolebindings/${id}`).json())
+}
+
+// --- Workspace RoleBindings ---
+export async function listWorkspaceRoleBindings(
+  workspaceId: string,
+  params?: ListParams,
+): Promise<RoleBindingList> {
+  return apiRequest(
+    api
+      .get(`workspaces/${workspaceId}/rolebindings`, {
+        searchParams: params as Record<string, string>,
+      })
+      .json(),
+  )
+}
+export async function createWorkspaceRoleBinding(
+  workspaceId: string,
+  data: Pick<RoleBinding, "spec">,
+): Promise<RoleBinding> {
+  return apiRequest(api.post(`workspaces/${workspaceId}/rolebindings`, { json: data }).json())
+}
+export async function deleteWorkspaceRoleBinding(
+  workspaceId: string,
+  id: string,
+): Promise<void> {
+  await apiRequest(api.delete(`workspaces/${workspaceId}/rolebindings/${id}`).json())
+}
+
+// --- Namespace RoleBindings ---
+export async function listNamespaceRoleBindings(
+  workspaceId: string,
+  namespaceId: string,
+  params?: ListParams,
+): Promise<RoleBindingList> {
+  return apiRequest(
+    api
+      .get(`workspaces/${workspaceId}/namespaces/${namespaceId}/rolebindings`, {
+        searchParams: params as Record<string, string>,
+      })
+      .json(),
+  )
+}
+export async function createNamespaceRoleBinding(
+  workspaceId: string,
+  namespaceId: string,
+  data: Pick<RoleBinding, "spec">,
+): Promise<RoleBinding> {
+  return apiRequest(
+    api
+      .post(`workspaces/${workspaceId}/namespaces/${namespaceId}/rolebindings`, { json: data })
+      .json(),
+  )
+}
+export async function deleteNamespaceRoleBinding(
+  workspaceId: string,
+  namespaceId: string,
+  id: string,
+): Promise<void> {
+  await apiRequest(
+    api.delete(`workspaces/${workspaceId}/namespaces/${namespaceId}/rolebindings/${id}`).json(),
+  )
+}
+
+// --- User Permission & RoleBinding Verbs ---
+export async function getUserPermissions(userId: string): Promise<UserPermissions> {
+  return apiRequest(api.get(`users/${userId}:permissions`).json())
+}
+export async function listUserRoleBindings(
+  userId: string,
+  params?: ListParams,
+): Promise<RoleBindingList> {
+  return apiRequest(
+    api
+      .get(`users/${userId}:rolebindings`, { searchParams: params as Record<string, string> })
+      .json(),
+  )
+}
+
+// --- Transfer Ownership ---
+export async function transferWorkspaceOwnership(
+  workspaceId: string,
+  data: TransferOwnershipRequest,
+): Promise<void> {
+  await apiRequest(
+    api.post(`workspaces/${workspaceId}/transfer-ownership`, { json: data }).json(),
+  )
+}
+export async function transferNamespaceOwnership(
+  workspaceId: string,
+  namespaceId: string,
+  data: TransferOwnershipRequest,
+): Promise<void> {
+  await apiRequest(
+    api
+      .post(`workspaces/${workspaceId}/namespaces/${namespaceId}/transfer-ownership`, {
+        json: data,
+      })
+      .json(),
+  )
+}
