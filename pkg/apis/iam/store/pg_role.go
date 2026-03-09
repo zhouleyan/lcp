@@ -174,7 +174,7 @@ func (s *pgRoleStore) SeedRBAC(ctx context.Context, roles []iam.BuiltinRoleDef, 
 			return fmt.Errorf("upsert builtin role %s: %w", def.Name, err)
 		}
 
-		if def.Name == "platform-admin" {
+		if def.Name == iam.RolePlatformAdmin {
 			platformAdminRoleID = role.ID
 		}
 

@@ -1442,7 +1442,7 @@ func NewTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBACChecker)
 			return nil, apierrors.NewInternalError(fmt.Errorf("check platform admin: %w", err))
 		}
 
-		oldOwnerUID, err := rbStore.TransferOwnership(ctx, "workspace", resourceID, callerID, isPlatformAdmin, newOwnerUID, "workspace-admin")
+		oldOwnerUID, err := rbStore.TransferOwnership(ctx, "workspace", resourceID, callerID, isPlatformAdmin, newOwnerUID, RoleWorkspaceAdmin)
 		if err != nil {
 			return nil, err
 		}
@@ -1491,7 +1491,7 @@ func NewNamespaceTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBA
 			return nil, apierrors.NewInternalError(fmt.Errorf("check platform admin: %w", err))
 		}
 
-		oldOwnerUID, err := rbStore.TransferOwnership(ctx, "namespace", nsID, callerID, isPlatformAdmin, newOwnerUID, "namespace-admin")
+		oldOwnerUID, err := rbStore.TransferOwnership(ctx, "namespace", nsID, callerID, isPlatformAdmin, newOwnerUID, RoleNamespaceAdmin)
 		if err != nil {
 			return nil, err
 		}

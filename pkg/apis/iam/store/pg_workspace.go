@@ -83,7 +83,7 @@ func (s *pgWorkspaceStore) Create(ctx context.Context, ws *iam.DBWorkspace) (*ia
 	}
 
 	// Create workspace-admin role binding with is_owner=true
-	wsAdminRole, err := qtx.GetRoleByName(ctx, "workspace-admin")
+	wsAdminRole, err := qtx.GetRoleByName(ctx, iam.RoleWorkspaceAdmin)
 	if err != nil {
 		return nil, fmt.Errorf("get workspace-admin role: %w", err)
 	}
@@ -98,7 +98,7 @@ func (s *pgWorkspaceStore) Create(ctx context.Context, ws *iam.DBWorkspace) (*ia
 	}
 
 	// Create namespace-admin role binding with is_owner=true for default namespace
-	nsAdminRole, err := qtx.GetRoleByName(ctx, "namespace-admin")
+	nsAdminRole, err := qtx.GetRoleByName(ctx, iam.RoleNamespaceAdmin)
 	if err != nil {
 		return nil, fmt.Errorf("get namespace-admin role: %w", err)
 	}

@@ -63,7 +63,7 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 	}
 
 	// Create namespace-admin role binding with is_owner=true
-	nsAdminRole, err := qtx.GetRoleByName(ctx, "namespace-admin")
+	nsAdminRole, err := qtx.GetRoleByName(ctx, iam.RoleNamespaceAdmin)
 	if err != nil {
 		return nil, fmt.Errorf("get namespace-admin role: %w", err)
 	}

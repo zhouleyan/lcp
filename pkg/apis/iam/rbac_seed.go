@@ -6,6 +6,16 @@ import (
 	"lcp.io/lcp/lib/logger"
 )
 
+// Built-in role name constants.
+const (
+	RolePlatformAdmin   = "platform-admin"
+	RolePlatformViewer  = "platform-viewer"
+	RoleWorkspaceAdmin  = "workspace-admin"
+	RoleWorkspaceViewer = "workspace-viewer"
+	RoleNamespaceAdmin  = "namespace-admin"
+	RoleNamespaceViewer = "namespace-viewer"
+)
+
 // BuiltinRoleDef defines a built-in role with its metadata and permission rule patterns.
 type BuiltinRoleDef struct {
 	Name        string
@@ -19,42 +29,42 @@ type BuiltinRoleDef struct {
 // Wildcard patterns automatically cover new modules and resources.
 var builtinRoles = []BuiltinRoleDef{
 	{
-		Name:        "platform-admin",
+		Name:        RolePlatformAdmin,
 		DisplayName: "Platform Admin",
 		Description: "Full access to all platform resources",
 		Scope:       "platform",
 		Rules:       []string{"*:*"},
 	},
 	{
-		Name:        "platform-viewer",
+		Name:        RolePlatformViewer,
 		DisplayName: "Platform Viewer",
 		Description: "Read-only access to all platform resources",
 		Scope:       "platform",
 		Rules:       []string{"*:list", "*:get"},
 	},
 	{
-		Name:        "workspace-admin",
+		Name:        RoleWorkspaceAdmin,
 		DisplayName: "Workspace Admin",
 		Description: "Full access to all resources within the workspace",
 		Scope:       "workspace",
 		Rules:       []string{"*:*"},
 	},
 	{
-		Name:        "workspace-viewer",
+		Name:        RoleWorkspaceViewer,
 		DisplayName: "Workspace Viewer",
 		Description: "Read-only access to all resources within the workspace",
 		Scope:       "workspace",
 		Rules:       []string{"*:list", "*:get"},
 	},
 	{
-		Name:        "namespace-admin",
+		Name:        RoleNamespaceAdmin,
 		DisplayName: "Namespace Admin",
 		Description: "Full access to all resources within the namespace",
 		Scope:       "namespace",
 		Rules:       []string{"*:*"},
 	},
 	{
-		Name:        "namespace-viewer",
+		Name:        RoleNamespaceViewer,
 		DisplayName: "Namespace Viewer",
 		Description: "Read-only access to all resources within the namespace",
 		Scope:       "namespace",

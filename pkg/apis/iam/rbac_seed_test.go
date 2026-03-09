@@ -112,7 +112,7 @@ func TestSeedRBAC(t *testing.T) {
 	}
 
 	// Check all admin roles have "*:*" rule
-	for _, name := range []string{"platform-admin", "workspace-admin", "namespace-admin"} {
+	for _, name := range []string{RolePlatformAdmin, RoleWorkspaceAdmin, RoleNamespaceAdmin} {
 		role := store.roles[name]
 		if role == nil {
 			t.Fatalf("%s role not found", name)
@@ -124,7 +124,7 @@ func TestSeedRBAC(t *testing.T) {
 	}
 
 	// Check all viewer roles have "*:list" and "*:get" rules
-	for _, name := range []string{"platform-viewer", "workspace-viewer", "namespace-viewer"} {
+	for _, name := range []string{RolePlatformViewer, RoleWorkspaceViewer, RoleNamespaceViewer} {
 		role := store.roles[name]
 		if role == nil {
 			t.Fatalf("%s role not found", name)
@@ -142,12 +142,12 @@ func TestSeedRBAC(t *testing.T) {
 
 	// Check scopes
 	expectedScopes := map[string]string{
-		"platform-admin":   "platform",
-		"platform-viewer":  "platform",
-		"workspace-admin":  "workspace",
-		"workspace-viewer": "workspace",
-		"namespace-admin":  "namespace",
-		"namespace-viewer": "namespace",
+		RolePlatformAdmin:   "platform",
+		RolePlatformViewer:  "platform",
+		RoleWorkspaceAdmin:  "workspace",
+		RoleWorkspaceViewer: "workspace",
+		RoleNamespaceAdmin:  "namespace",
+		RoleNamespaceViewer: "namespace",
 	}
 	for name, scope := range expectedScopes {
 		role := store.roles[name]
@@ -178,9 +178,9 @@ func TestSeedRBACIdempotent(t *testing.T) {
 	}
 
 	// Rules should be correct (overwritten, not accumulated)
-	adminRole := store.roles["platform-admin"]
+	adminRole := store.roles[RolePlatformAdmin]
 	adminRules := store.rules[adminRole.ID]
 	if len(adminRules) != 1 || adminRules[0] != "*:*" {
-		t.Errorf("platform-admin rules after double seed = %v, want [*:*]", adminRules)
+		t.Errorf("%s rules after double seed = %v, want [*:*]", RolePlatformAdmin, adminRules)
 	}
 }
