@@ -23,6 +23,9 @@ func NewAPIGroupInfos(database *db.DB, cfg *config.Config) ([]*rest.APIGroupInfo
 		iamstore.NewPGUserWorkspaceStore(database.Queries),
 		iamstore.NewPGUserNamespaceStore(database.Pool, database.Queries),
 		refreshTokenStore,
+		iamstore.NewPGPermissionStore(database.Pool, database.Queries),
+		iamstore.NewPGRoleStore(database.Pool, database.Queries),
+		iamstore.NewPGRoleBindingStore(database.Pool, database.Queries),
 	)
 
 	var oidcProvider *oidc.Provider

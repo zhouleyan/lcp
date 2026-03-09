@@ -9,6 +9,9 @@ type RESTStorageProvider struct {
 	uwStore           UserWorkspaceStore
 	unStore           UserNamespaceStore
 	refreshTokenStore RefreshTokenStore
+	permissionStore   PermissionStore
+	roleStore         RoleStore
+	roleBindingStore  RoleBindingStore
 }
 
 // NewRESTStorageProvider creates a RESTStorageProvider from pre-built Store instances.
@@ -19,6 +22,9 @@ func NewRESTStorageProvider(
 	uwStore UserWorkspaceStore,
 	unStore UserNamespaceStore,
 	refreshTokenStore RefreshTokenStore,
+	permissionStore PermissionStore,
+	roleStore RoleStore,
+	roleBindingStore RoleBindingStore,
 ) *RESTStorageProvider {
 	return &RESTStorageProvider{
 		userStore:         userStore,
@@ -27,6 +33,9 @@ func NewRESTStorageProvider(
 		uwStore:           uwStore,
 		unStore:           unStore,
 		refreshTokenStore: refreshTokenStore,
+		permissionStore:   permissionStore,
+		roleStore:         roleStore,
+		roleBindingStore:  roleBindingStore,
 	}
 }
 
@@ -36,3 +45,6 @@ func (p *RESTStorageProvider) NamespaceStore() NamespaceStore         { return p
 func (p *RESTStorageProvider) UserWorkspaceStore() UserWorkspaceStore { return p.uwStore }
 func (p *RESTStorageProvider) UserNamespaceStore() UserNamespaceStore { return p.unStore }
 func (p *RESTStorageProvider) RefreshTokenStore() RefreshTokenStore   { return p.refreshTokenStore }
+func (p *RESTStorageProvider) PermissionStore() PermissionStore       { return p.permissionStore }
+func (p *RESTStorageProvider) RoleStore() RoleStore                   { return p.roleStore }
+func (p *RESTStorageProvider) RoleBindingStore() RoleBindingStore     { return p.roleBindingStore }
