@@ -52,14 +52,37 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 		return nil, fmt.Errorf("create namespace: %w", err)
 	}
 
-	// Create namespace-admin role binding with is_owner=true
-	nsAdminRole, err := qtx.GetRoleByName(ctx, iam.RoleNamespaceAdmin)
-	if err != nil {
-		return nil, fmt.Errorf("get namespace-admin role: %w", err)
+	// Create namespace built-in roles (namespace-admin, namespace-viewer)
+	var nsAdminRoleID int64
+	for _, roleDef := range iam.NamespaceBuiltinRoles() {
+		createdRole, err := qtx.CreateRole(ctx, generated.CreateRoleParams{
+			Name:        roleDef.Name,
+			DisplayName: roleDef.DisplayName,
+			Description: roleDef.Description,
+			Scope:       roleDef.Scope,
+			Builtin:     true,
+			NamespaceID: &row.ID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("create namespace role %s: %w", roleDef.Name, err)
+		}
+		for _, pattern := range roleDef.Rules {
+			if err := qtx.AddRolePermissionRule(ctx, generated.AddRolePermissionRuleParams{
+				RoleID:  createdRole.ID,
+				Pattern: pattern,
+			}); err != nil {
+				return nil, fmt.Errorf("add rule %s for role %s: %w", pattern, roleDef.Name, err)
+			}
+		}
+		if roleDef.Name == iam.RoleNamespaceAdmin {
+			nsAdminRoleID = createdRole.ID
+		}
 	}
+
+	// Create namespace owner binding using the new namespace-admin role
 	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
 		UserID:      ns.OwnerID,
-		RoleID:      nsAdminRole.ID,
+		RoleID:      nsAdminRoleID,
 		Scope:       "namespace",
 		WorkspaceID: &ns.WorkspaceID,
 		NamespaceID: &row.ID,
