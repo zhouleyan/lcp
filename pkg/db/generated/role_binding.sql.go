@@ -191,34 +191,45 @@ func (q *Queries) CountRoleBindingsPlatform(ctx context.Context, arg CountRoleBi
 }
 
 const countUserNamespaces = `-- name: CountUserNamespaces :one
-SELECT count(DISTINCT rb.namespace_id)
-FROM role_bindings rb
-JOIN namespaces ns ON ns.id = rb.namespace_id
-WHERE rb.user_id = $1 AND rb.scope = 'namespace'
-  AND ($2::VARCHAR IS NULL OR ns.status = $2)
-  AND ($3::VARCHAR IS NULL OR ns.visibility = $3)
-  AND ($4::BIGINT IS NULL OR ns.workspace_id = $4)
-  AND ($5::VARCHAR IS NULL OR (
-       ns.name ILIKE '%' || $5 || '%'
-       OR ns.display_name ILIKE '%' || $5 || '%'
+WITH user_ns AS (
+    SELECT DISTINCT ON (rb.namespace_id)
+        rb.namespace_id,
+        r.name AS role_name,
+        r.display_name AS role_display_name
+    FROM role_bindings rb
+    JOIN roles r ON r.id = rb.role_id
+    WHERE rb.user_id = $5 AND rb.scope = 'namespace'
+    ORDER BY rb.namespace_id, rb.is_owner DESC, r.name ASC
+)
+SELECT count(*)
+FROM user_ns un
+JOIN namespaces ns ON ns.id = un.namespace_id
+WHERE ($1::VARCHAR IS NULL OR ns.status = $1)
+  AND ($2::VARCHAR IS NULL OR ns.visibility = $2)
+  AND ($3::BIGINT IS NULL OR ns.workspace_id = $3)
+  AND ($4::VARCHAR IS NULL OR (
+       ns.name ILIKE '%' || $4 || '%'
+       OR ns.display_name ILIKE '%' || $4 || '%'
+       OR un.role_name ILIKE '%' || $4 || '%'
+       OR un.role_display_name ILIKE '%' || $4 || '%'
   ))
 `
 
 type CountUserNamespacesParams struct {
-	UserID      int64   `json:"user_id"`
 	Status      *string `json:"status"`
 	Visibility  *string `json:"visibility"`
 	WorkspaceID *int64  `json:"workspace_id"`
 	Search      *string `json:"search"`
+	UserID      int64   `json:"user_id"`
 }
 
 func (q *Queries) CountUserNamespaces(ctx context.Context, arg CountUserNamespacesParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countUserNamespaces,
-		arg.UserID,
 		arg.Status,
 		arg.Visibility,
 		arg.WorkspaceID,
 		arg.Search,
+		arg.UserID,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -226,25 +237,36 @@ func (q *Queries) CountUserNamespaces(ctx context.Context, arg CountUserNamespac
 }
 
 const countUserWorkspaces = `-- name: CountUserWorkspaces :one
-SELECT count(DISTINCT rb.workspace_id)
-FROM role_bindings rb
-JOIN workspaces ws ON ws.id = rb.workspace_id
-WHERE rb.user_id = $1 AND rb.scope = 'workspace'
-  AND ($2::VARCHAR IS NULL OR ws.status = $2)
-  AND ($3::VARCHAR IS NULL OR (
-       ws.name ILIKE '%' || $3 || '%'
-       OR ws.display_name ILIKE '%' || $3 || '%'
+WITH user_ws AS (
+    SELECT DISTINCT ON (rb.workspace_id)
+        rb.workspace_id,
+        r.name AS role_name,
+        r.display_name AS role_display_name
+    FROM role_bindings rb
+    JOIN roles r ON r.id = rb.role_id
+    WHERE rb.user_id = $3 AND rb.scope = 'workspace'
+    ORDER BY rb.workspace_id, rb.is_owner DESC, r.name ASC
+)
+SELECT count(*)
+FROM user_ws uw
+JOIN workspaces ws ON ws.id = uw.workspace_id
+WHERE ($1::VARCHAR IS NULL OR ws.status = $1)
+  AND ($2::VARCHAR IS NULL OR (
+       ws.name ILIKE '%' || $2 || '%'
+       OR ws.display_name ILIKE '%' || $2 || '%'
+       OR uw.role_name ILIKE '%' || $2 || '%'
+       OR uw.role_display_name ILIKE '%' || $2 || '%'
   ))
 `
 
 type CountUserWorkspacesParams struct {
-	UserID int64   `json:"user_id"`
 	Status *string `json:"status"`
 	Search *string `json:"search"`
+	UserID int64   `json:"user_id"`
 }
 
 func (q *Queries) CountUserWorkspaces(ctx context.Context, arg CountUserWorkspacesParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countUserWorkspaces, arg.UserID, arg.Status, arg.Search)
+	row := q.db.QueryRow(ctx, countUserWorkspaces, arg.Status, arg.Search, arg.UserID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -1034,6 +1056,7 @@ WITH user_ns AS (
     SELECT DISTINCT ON (rb.namespace_id)
         rb.namespace_id,
         r.name AS role_name,
+        r.display_name AS role_display_name,
         rb.created_at AS joined_at
     FROM role_bindings rb
     JOIN roles r ON r.id = rb.role_id
@@ -1045,7 +1068,7 @@ SELECT ns.id, ns.name, ns.display_name, ns.description, ns.workspace_id, ns.owne
        u.username AS owner_username,
        w.name AS workspace_name,
        (SELECT count(DISTINCT rb2.user_id) FROM role_bindings rb2 WHERE rb2.scope = 'namespace' AND rb2.namespace_id = ns.id) AS member_count,
-       un.role_name, un.joined_at
+       un.role_name, un.role_display_name, un.joined_at
 FROM user_ns un
 JOIN namespaces ns ON ns.id = un.namespace_id
 JOIN users u ON ns.owner_id = u.id
@@ -1056,10 +1079,14 @@ WHERE ($1::VARCHAR IS NULL OR ns.status = $1)
   AND ($4::VARCHAR IS NULL OR (
        ns.name ILIKE '%' || $4 || '%'
        OR ns.display_name ILIKE '%' || $4 || '%'
+       OR un.role_name ILIKE '%' || $4 || '%'
+       OR un.role_display_name ILIKE '%' || $4 || '%'
   ))
 ORDER BY
     CASE WHEN $5::VARCHAR = 'name' AND $6::VARCHAR = 'asc' THEN ns.name END ASC,
     CASE WHEN $5::VARCHAR = 'name' AND $6::VARCHAR = 'desc' THEN ns.name END DESC,
+    CASE WHEN $5::VARCHAR = 'role_name' AND $6::VARCHAR = 'asc' THEN un.role_name END ASC,
+    CASE WHEN $5::VARCHAR = 'role_name' AND $6::VARCHAR = 'desc' THEN un.role_name END DESC,
     CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'asc' THEN ns.created_at END ASC,
     CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'desc' THEN ns.created_at END DESC,
     CASE WHEN $5::VARCHAR = 'joined_at' AND $6::VARCHAR = 'asc' THEN un.joined_at END ASC,
@@ -1082,22 +1109,23 @@ type ListUserNamespacesParams struct {
 }
 
 type ListUserNamespacesRow struct {
-	ID            int64     `json:"id"`
-	Name          string    `json:"name"`
-	DisplayName   string    `json:"display_name"`
-	Description   string    `json:"description"`
-	WorkspaceID   int64     `json:"workspace_id"`
-	OwnerID       int64     `json:"owner_id"`
-	Visibility    string    `json:"visibility"`
-	MaxMembers    int32     `json:"max_members"`
-	Status        string    `json:"status"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	OwnerUsername string    `json:"owner_username"`
-	WorkspaceName string    `json:"workspace_name"`
-	MemberCount   int64     `json:"member_count"`
-	RoleName      string    `json:"role_name"`
-	JoinedAt      time.Time `json:"joined_at"`
+	ID              int64     `json:"id"`
+	Name            string    `json:"name"`
+	DisplayName     string    `json:"display_name"`
+	Description     string    `json:"description"`
+	WorkspaceID     int64     `json:"workspace_id"`
+	OwnerID         int64     `json:"owner_id"`
+	Visibility      string    `json:"visibility"`
+	MaxMembers      int32     `json:"max_members"`
+	Status          string    `json:"status"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	OwnerUsername   string    `json:"owner_username"`
+	WorkspaceName   string    `json:"workspace_name"`
+	MemberCount     int64     `json:"member_count"`
+	RoleName        string    `json:"role_name"`
+	RoleDisplayName string    `json:"role_display_name"`
+	JoinedAt        time.Time `json:"joined_at"`
 }
 
 func (q *Queries) ListUserNamespaces(ctx context.Context, arg ListUserNamespacesParams) ([]ListUserNamespacesRow, error) {
@@ -1135,6 +1163,7 @@ func (q *Queries) ListUserNamespaces(ctx context.Context, arg ListUserNamespaces
 			&i.WorkspaceName,
 			&i.MemberCount,
 			&i.RoleName,
+			&i.RoleDisplayName,
 			&i.JoinedAt,
 		); err != nil {
 			return nil, err
@@ -1152,6 +1181,7 @@ WITH user_ws AS (
     SELECT DISTINCT ON (rb.workspace_id)
         rb.workspace_id,
         r.name AS role_name,
+        r.display_name AS role_display_name,
         rb.created_at AS joined_at
     FROM role_bindings rb
     JOIN roles r ON r.id = rb.role_id
@@ -1163,7 +1193,7 @@ SELECT ws.id, ws.name, ws.display_name, ws.description, ws.owner_id, ws.status,
        u.username AS owner_username,
        (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) AS namespace_count,
        (SELECT count(DISTINCT rb2.user_id) FROM role_bindings rb2 WHERE rb2.scope = 'workspace' AND rb2.workspace_id = ws.id) AS member_count,
-       uw.role_name, uw.joined_at
+       uw.role_name, uw.role_display_name, uw.joined_at
 FROM user_ws uw
 JOIN workspaces ws ON ws.id = uw.workspace_id
 JOIN users u ON ws.owner_id = u.id
@@ -1171,10 +1201,14 @@ WHERE ($1::VARCHAR IS NULL OR ws.status = $1)
   AND ($2::VARCHAR IS NULL OR (
        ws.name ILIKE '%' || $2 || '%'
        OR ws.display_name ILIKE '%' || $2 || '%'
+       OR uw.role_name ILIKE '%' || $2 || '%'
+       OR uw.role_display_name ILIKE '%' || $2 || '%'
   ))
 ORDER BY
     CASE WHEN $3::VARCHAR = 'name' AND $4::VARCHAR = 'asc' THEN ws.name END ASC,
     CASE WHEN $3::VARCHAR = 'name' AND $4::VARCHAR = 'desc' THEN ws.name END DESC,
+    CASE WHEN $3::VARCHAR = 'role_name' AND $4::VARCHAR = 'asc' THEN uw.role_name END ASC,
+    CASE WHEN $3::VARCHAR = 'role_name' AND $4::VARCHAR = 'desc' THEN uw.role_name END DESC,
     CASE WHEN $3::VARCHAR = 'created_at' AND $4::VARCHAR = 'asc' THEN ws.created_at END ASC,
     CASE WHEN $3::VARCHAR = 'created_at' AND $4::VARCHAR = 'desc' THEN ws.created_at END DESC,
     CASE WHEN $3::VARCHAR = 'joined_at' AND $4::VARCHAR = 'asc' THEN uw.joined_at END ASC,
@@ -1195,19 +1229,20 @@ type ListUserWorkspacesParams struct {
 }
 
 type ListUserWorkspacesRow struct {
-	ID             int64     `json:"id"`
-	Name           string    `json:"name"`
-	DisplayName    string    `json:"display_name"`
-	Description    string    `json:"description"`
-	OwnerID        int64     `json:"owner_id"`
-	Status         string    `json:"status"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	OwnerUsername  string    `json:"owner_username"`
-	NamespaceCount int64     `json:"namespace_count"`
-	MemberCount    int64     `json:"member_count"`
-	RoleName       string    `json:"role_name"`
-	JoinedAt       time.Time `json:"joined_at"`
+	ID              int64     `json:"id"`
+	Name            string    `json:"name"`
+	DisplayName     string    `json:"display_name"`
+	Description     string    `json:"description"`
+	OwnerID         int64     `json:"owner_id"`
+	Status          string    `json:"status"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	OwnerUsername   string    `json:"owner_username"`
+	NamespaceCount  int64     `json:"namespace_count"`
+	MemberCount     int64     `json:"member_count"`
+	RoleName        string    `json:"role_name"`
+	RoleDisplayName string    `json:"role_display_name"`
+	JoinedAt        time.Time `json:"joined_at"`
 }
 
 func (q *Queries) ListUserWorkspaces(ctx context.Context, arg ListUserWorkspacesParams) ([]ListUserWorkspacesRow, error) {
@@ -1240,6 +1275,7 @@ func (q *Queries) ListUserWorkspaces(ctx context.Context, arg ListUserWorkspaces
 			&i.NamespaceCount,
 			&i.MemberCount,
 			&i.RoleName,
+			&i.RoleDisplayName,
 			&i.JoinedAt,
 		); err != nil {
 			return nil, err

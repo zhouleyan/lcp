@@ -270,7 +270,9 @@ function UserWorkspacesCard({ userId }: { userId: string }) {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableHead>
-                <TableHead>{t("user.role")}</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("role_name")}>
+                  {t("user.role")}<SortIcon field="role_name" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort("joined_at")}>
                   {t("user.joinedAt")}<SortIcon field="joined_at" sortBy={sortBy} sortOrder={sortOrder} />
                 </TableHead>
@@ -314,7 +316,7 @@ function UserWorkspacesCard({ userId }: { userId: string }) {
                         {ws.spec.status === "active" ? t("common.active") : t("common.inactive")}
                       </Badge>
                     </TableCell>
-                    <TableCell><Badge variant="outline">{ws.spec.role}</Badge></TableCell>
+                    <TableCell><Badge variant="outline">{t(`role.${ws.spec.role}`, { defaultValue: ws.spec.roleDisplayName || ws.spec.role })}</Badge></TableCell>
                     <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                       {ws.spec.joinedAt ? new Date(ws.spec.joinedAt).toLocaleString() : "-"}
                     </TableCell>
@@ -429,7 +431,9 @@ function UserNamespacesCard({ userId }: { userId: string }) {
                 <TableHead className="cursor-pointer select-none text-center" onClick={() => handleSort("member_count")}>
                   {t("namespace.memberCount")}<SortIcon field="member_count" sortBy={sortBy} sortOrder={sortOrder} />
                 </TableHead>
-                <TableHead>{t("user.role")}</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("role_name")}>
+                  {t("user.role")}<SortIcon field="role_name" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort("joined_at")}>
                   {t("user.joinedAt")}<SortIcon field="joined_at" sortBy={sortBy} sortOrder={sortOrder} />
                 </TableHead>
@@ -479,7 +483,7 @@ function UserNamespacesCard({ userId }: { userId: string }) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">{ns.spec.memberCount ?? 0}</TableCell>
-                    <TableCell><Badge variant="outline">{ns.spec.role}</Badge></TableCell>
+                    <TableCell><Badge variant="outline">{t(`role.${ns.spec.role}`, { defaultValue: ns.spec.roleDisplayName || ns.spec.role })}</Badge></TableCell>
                     <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                       {ns.spec.joinedAt ? new Date(ns.spec.joinedAt).toLocaleString() : "-"}
                     </TableCell>

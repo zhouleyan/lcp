@@ -90,6 +90,8 @@ type WorkspaceSpec struct {
 	Status string `json:"status,omitempty"`
 	// +openapi:description=当前用户在此工作空间的角色（仅 custom verb 查询时返回）
 	Role string `json:"role,omitempty"`
+	// +openapi:description=当前用户在此工作空间的角色显示名称（仅 custom verb 查询时返回）
+	RoleDisplayName string `json:"roleDisplayName,omitempty"`
 	// +openapi:description=当前用户加入此工作空间的时间（仅 custom verb 查询时返回）
 	JoinedAt string `json:"joinedAt,omitempty"`
 }
@@ -145,6 +147,8 @@ type NamespaceSpec struct {
 	Status string `json:"status,omitempty"`
 	// +openapi:description=当前用户在此项目的角色（仅 custom verb 查询时返回）
 	Role string `json:"role,omitempty"`
+	// +openapi:description=当前用户在此项目的角色显示名称（仅 custom verb 查询时返回）
+	RoleDisplayName string `json:"roleDisplayName,omitempty"`
 	// +openapi:description=当前用户加入此项目的时间（仅 custom verb 查询时返回）
 	JoinedAt string `json:"joinedAt,omitempty"`
 }
@@ -331,11 +335,12 @@ type DBWorkspaceWithOwner struct {
 // DBWorkspaceWithOwnerAndRole extends DBWorkspaceWithOwner with user's role and join time.
 type DBWorkspaceWithOwnerAndRole struct {
 	generated.Workspace
-	OwnerUsername  string    `json:"owner_username"`
-	NamespaceCount int64    `json:"namespace_count"`
-	MemberCount    int64    `json:"member_count"`
-	Role           string   `json:"role"`
-	JoinedAt       time.Time `json:"joined_at"`
+	OwnerUsername   string    `json:"owner_username"`
+	NamespaceCount  int64     `json:"namespace_count"`
+	MemberCount     int64     `json:"member_count"`
+	Role            string    `json:"role"`
+	RoleDisplayName string    `json:"role_display_name"`
+	JoinedAt        time.Time `json:"joined_at"`
 }
 
 // DBNamespaceWithOwner extends Namespace with owner username and statistics.
@@ -349,11 +354,12 @@ type DBNamespaceWithOwner struct {
 // DBNamespaceWithOwnerAndRole extends DBNamespaceWithOwner with user's role and join time.
 type DBNamespaceWithOwnerAndRole struct {
 	generated.Namespace
-	OwnerUsername string    `json:"owner_username"`
-	WorkspaceName string    `json:"workspace_name"`
-	MemberCount   int64     `json:"member_count"`
-	Role          string    `json:"role"`
-	JoinedAt      time.Time `json:"joined_at"`
+	OwnerUsername   string    `json:"owner_username"`
+	WorkspaceName   string    `json:"workspace_name"`
+	MemberCount     int64     `json:"member_count"`
+	Role            string    `json:"role"`
+	RoleDisplayName string    `json:"role_display_name"`
+	JoinedAt        time.Time `json:"joined_at"`
 }
 
 // DBUserWithRole is a user with their role in a namespace.

@@ -138,6 +138,14 @@ const zhCN: Messages = {
   "user.role": "角色",
   "user.joinedAt": "加入时间",
 
+  // built-in role display names
+  "role.platform-admin": "平台管理员",
+  "role.platform-viewer": "平台只读",
+  "role.workspace-admin": "工作空间管理员",
+  "role.workspace-viewer": "工作空间只读",
+  "role.namespace-admin": "命名空间管理员",
+  "role.namespace-viewer": "命名空间只读",
+
   // error
   "error.400.title": "请求错误",
   "error.400.desc": "请求无法处理，请重试。",

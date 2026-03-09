@@ -138,6 +138,14 @@ const enUS: Messages = {
   "user.role": "Role",
   "user.joinedAt": "Joined At",
 
+  // built-in role display names
+  "role.platform-admin": "Platform Admin",
+  "role.platform-viewer": "Platform Viewer",
+  "role.workspace-admin": "Workspace Admin",
+  "role.workspace-viewer": "Workspace Viewer",
+  "role.namespace-admin": "Namespace Admin",
+  "role.namespace-viewer": "Namespace Viewer",
+
   // error
   "error.400.title": "Bad Request",
   "error.400.desc": "The request could not be understood. Please try again.",

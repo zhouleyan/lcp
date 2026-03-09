@@ -28,9 +28,11 @@ export function useTranslation() {
   const { locale, setLocale } = useI18nStore()
 
   const t = (key: string, vars?: Record<string, string | number>): string => {
-    let msg = messages[locale]?.[key] ?? key
+    const raw = messages[locale]?.[key]
+    let msg = raw ?? (vars?.defaultValue != null ? String(vars.defaultValue) : key)
     if (vars) {
       for (const [k, v] of Object.entries(vars)) {
+        if (k === "defaultValue") continue
         msg = msg.replace(`{${k}}`, String(v))
       }
     }

@@ -1096,6 +1096,7 @@ func (s *userWorkspaceVerbStorage) List(ctx context.Context, options *rest.ListO
 			MemberCount:    item.MemberCount,
 		})
 		ws.Spec.Role = item.Role
+		ws.Spec.RoleDisplayName = item.RoleDisplayName
 		ws.Spec.JoinedAt = item.JoinedAt.Format(time.RFC3339)
 		items[i] = *ws
 	}
@@ -1145,6 +1146,7 @@ func (s *userNamespaceVerbStorage) List(ctx context.Context, options *rest.ListO
 			MemberCount:   item.MemberCount,
 		})
 		ns.Spec.Role = item.Role
+		ns.Spec.RoleDisplayName = item.RoleDisplayName
 		ns.Spec.JoinedAt = item.JoinedAt.Format(time.RFC3339)
 		items[i] = *ns
 	}
