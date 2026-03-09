@@ -309,6 +309,26 @@ func (s *pgRoleStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[
 // createBuiltinRolesInTx creates built-in roles with permission rules using the provided transaction-scoped queries.
 func createBuiltinRolesInTx(ctx context.Context, qtx *generated.Queries, defs []iam.BuiltinRoleDef, workspaceID *int64, namespaceID *int64) error {
 	for _, def := range defs {
+		// Check if role already exists to avoid unique constraint violation
+		// which aborts the PostgreSQL transaction.
+		var exists bool
+		if workspaceID != nil {
+			_, err := qtx.GetRoleByNameAndWorkspace(ctx, generated.GetRoleByNameAndWorkspaceParams{
+				Name:        def.Name,
+				WorkspaceID: workspaceID,
+			})
+			exists = err == nil
+		} else if namespaceID != nil {
+			_, err := qtx.GetRoleByNameAndNamespace(ctx, generated.GetRoleByNameAndNamespaceParams{
+				Name:        def.Name,
+				NamespaceID: namespaceID,
+			})
+			exists = err == nil
+		}
+		if exists {
+			continue
+		}
+
 		row, err := qtx.CreateRole(ctx, generated.CreateRoleParams{
 			Name:        def.Name,
 			DisplayName: def.DisplayName,
@@ -319,10 +339,6 @@ func createBuiltinRolesInTx(ctx context.Context, qtx *generated.Queries, defs []
 			NamespaceID: namespaceID,
 		})
 		if err != nil {
-			// Skip if already exists (conflict on unique index)
-			if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
-				continue
-			}
 			return fmt.Errorf("create builtin role %s: %w", def.Name, err)
 		}
 		for _, pattern := range def.Rules {

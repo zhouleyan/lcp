@@ -150,6 +150,7 @@ export default function WorkspaceUsersPage() {
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("email")}>{t("user.email")}<SortIcon field="email" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("display_name")}>{t("common.displayName")}<SortIcon field="display_name" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("phone")}>{t("common.phone")}<SortIcon field="phone" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
+              <TableHead>{t("user.role")}</TableHead>
               <TableHead>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -173,10 +174,10 @@ export default function WorkspaceUsersPage() {
           <TableBody>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>{Array.from({ length: 9 }).map((_, j) => (<TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>))}</TableRow>
+                <TableRow key={i}>{Array.from({ length: 10 }).map((_, j) => (<TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>))}</TableRow>
               ))
             ) : members.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-muted-foreground py-8 text-center">{t("workspace.noMembers")}</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-muted-foreground py-8 text-center">{t("workspace.noMembers")}</TableCell></TableRow>
             ) : (
               members.map((m) => (
                 <TableRow key={m.metadata.id}>
@@ -185,6 +186,7 @@ export default function WorkspaceUsersPage() {
                   <TableCell>{m.spec.email}</TableCell>
                   <TableCell>{m.spec.displayName || "-"}</TableCell>
                   <TableCell>{m.spec.phone || "-"}</TableCell>
+                  <TableCell>{m.spec.role ? t(`role.${m.spec.role}`, { defaultValue: m.spec.role }) : "-"}</TableCell>
                   <TableCell>
                     <Badge variant={m.spec.status === "active" ? "default" : "secondary"}>
                       {m.spec.status === "active" ? t("common.active") : t("common.inactive")}

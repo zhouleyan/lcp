@@ -889,7 +889,10 @@ func (s *workspaceUserStorage) List(ctx context.Context, options *rest.ListOptio
 
 	items := make([]User, len(result.Items))
 	for i, m := range result.Items {
-		items[i] = *userToAPI(&m.User)
+		u := userToAPI(&m.User)
+		u.Spec.Role = m.Role
+		u.Spec.JoinedAt = m.JoinedAt.Format(time.RFC3339)
+		items[i] = *u
 	}
 
 	return &UserList{
@@ -981,7 +984,10 @@ func (s *namespaceUserStorage) List(ctx context.Context, options *rest.ListOptio
 
 	items := make([]User, len(result.Items))
 	for i, m := range result.Items {
-		items[i] = *userToAPI(&m.User)
+		u := userToAPI(&m.User)
+		u.Spec.Role = m.Role
+		u.Spec.JoinedAt = m.JoinedAt.Format(time.RFC3339)
+		items[i] = *u
 	}
 
 	return &UserList{

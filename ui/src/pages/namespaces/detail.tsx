@@ -87,11 +87,12 @@ export default function NamespaceDetailPage() {
 
   // Determine active tab from URL
   const pathSuffix = location.pathname.replace(basePath, "").replace(/^\//, "")
-  const activeTab = pathSuffix === "users" ? "users" : "overview"
+  const activeTab = pathSuffix === "users" ? "users" : pathSuffix === "roles" ? "roles" : "overview"
 
   const tabs = [
     { key: "overview", label: t("namespace.overview"), to: basePath },
     { key: "users", label: t("nav.users"), to: `${basePath}/users` },
+    { key: "roles", label: t("nav.roles"), to: `${basePath}/roles` },
   ]
 
   return (

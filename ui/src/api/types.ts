@@ -20,6 +20,8 @@ export interface UserSpec {
   avatarUrl?: string
   status?: "active" | "inactive"
   namespaces?: string[]
+  role?: string
+  joinedAt?: string
 }
 
 export interface User extends TypeMeta {

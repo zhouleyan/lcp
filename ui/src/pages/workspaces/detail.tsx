@@ -90,12 +90,13 @@ export default function WorkspaceDetailPage() {
 
   // Determine active tab from URL
   const pathSuffix = location.pathname.replace(basePath, "").replace(/^\//, "")
-  const activeTab = pathSuffix === "users" ? "users" : pathSuffix === "namespaces" ? "namespaces" : "overview"
+  const activeTab = pathSuffix === "users" ? "users" : pathSuffix === "namespaces" ? "namespaces" : pathSuffix === "roles" ? "roles" : "overview"
 
   const tabs = [
     { key: "overview", label: t("workspace.overview"), to: basePath },
     { key: "users", label: t("nav.users"), to: `${basePath}/users` },
     { key: "namespaces", label: t("nav.namespaces"), to: `${basePath}/namespaces` },
+    { key: "roles", label: t("nav.roles"), to: `${basePath}/roles` },
   ]
 
   return (

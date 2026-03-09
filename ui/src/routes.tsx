@@ -18,6 +18,8 @@ import UserListPage from "@/pages/users/list"
 import UserDetailPage from "@/pages/users/detail"
 import RoleListPage from "@/pages/roles/list"
 import RoleDetailPage from "@/pages/roles/detail"
+import WorkspaceRolesTab from "@/pages/workspaces/roles-tab"
+import NamespaceRolesTab from "@/pages/namespaces/roles-tab"
 
 export const routes: RouteObject[] = [
   {
@@ -52,6 +54,7 @@ export const routes: RouteObject[] = [
               { index: true, element: <WorkspaceOverviewPage /> },
               { path: "users", element: <WorkspaceUsersPage /> },
               { path: "namespaces", element: <WorkspaceNamespacesPage /> },
+              { path: "roles", element: <WorkspaceRolesTab /> },
             ],
           },
         ],
@@ -63,6 +66,7 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <NamespaceOverviewPage /> },
           { path: "users", element: <NamespaceUsersPage /> },
+          { path: "roles", element: <NamespaceRolesTab /> },
         ],
       },
       { path: "users", element: <UserListPage /> },

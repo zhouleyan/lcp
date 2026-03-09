@@ -32,7 +32,7 @@ export async function deleteRole(id: string): Promise<void> {
   await apiRequest(api.delete(`roles/${id}`).json())
 }
 
-// --- Scoped Roles (read-only) ---
+// --- Scoped Roles ---
 export async function listWorkspaceRoles(
   workspaceId: string,
   params?: ListParams,
@@ -44,6 +44,22 @@ export async function listWorkspaceRoles(
 export async function getWorkspaceRole(workspaceId: string, roleId: string): Promise<Role> {
   return apiRequest(api.get(`workspaces/${workspaceId}/roles/${roleId}`).json())
 }
+export async function createWorkspaceRole(
+  workspaceId: string,
+  data: Pick<Role, "metadata" | "spec">,
+): Promise<Role> {
+  return apiRequest(api.post(`workspaces/${workspaceId}/roles`, { json: data }).json())
+}
+export async function updateWorkspaceRole(
+  workspaceId: string,
+  roleId: string,
+  data: Pick<Role, "metadata" | "spec">,
+): Promise<Role> {
+  return apiRequest(api.put(`workspaces/${workspaceId}/roles/${roleId}`, { json: data }).json())
+}
+export async function deleteWorkspaceRole(workspaceId: string, roleId: string): Promise<void> {
+  await apiRequest(api.delete(`workspaces/${workspaceId}/roles/${roleId}`).json())
+}
 export async function listNamespaceRoles(
   namespaceId: string,
   params?: ListParams,
@@ -54,6 +70,22 @@ export async function listNamespaceRoles(
 }
 export async function getNamespaceRole(namespaceId: string, roleId: string): Promise<Role> {
   return apiRequest(api.get(`namespaces/${namespaceId}/roles/${roleId}`).json())
+}
+export async function createNamespaceRole(
+  namespaceId: string,
+  data: Pick<Role, "metadata" | "spec">,
+): Promise<Role> {
+  return apiRequest(api.post(`namespaces/${namespaceId}/roles`, { json: data }).json())
+}
+export async function updateNamespaceRole(
+  namespaceId: string,
+  roleId: string,
+  data: Pick<Role, "metadata" | "spec">,
+): Promise<Role> {
+  return apiRequest(api.put(`namespaces/${namespaceId}/roles/${roleId}`, { json: data }).json())
+}
+export async function deleteNamespaceRole(namespaceId: string, roleId: string): Promise<void> {
+  await apiRequest(api.delete(`namespaces/${namespaceId}/roles/${roleId}`).json())
 }
 
 // --- Platform RoleBindings ---
