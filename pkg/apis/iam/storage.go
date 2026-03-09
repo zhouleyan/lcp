@@ -1744,6 +1744,64 @@ func roleWithRulesToAPI(r *DBRoleWithRules) *Role {
 	return role
 }
 
+// --- Scoped Role Storage (read-only, for workspace/namespace sub-resource) ---
+
+// scopedRoleStorage 作用域角色的只读存储，按 scope 过滤角色列表。
+// 注册为 /workspaces/{workspaceId}/roles 和 /namespaces/{namespaceId}/roles。
+type scopedRoleStorage struct {
+	roleStore RoleStore
+	scope     string // "workspace" or "namespace"
+}
+
+// NewScopedRoleStorage creates a read-only role storage scoped to the given level.
+func NewScopedRoleStorage(roleStore RoleStore, scope string) rest.Storage {
+	return &scopedRoleStorage{roleStore: roleStore, scope: scope}
+}
+
+func (s *scopedRoleStorage) NewObject() runtime.Object { return &Role{} }
+
+// +openapi:summary=获取角色列表
+func (s *scopedRoleStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	query := restOptionsToListQuery(options)
+	query.Filters["scope"] = s.scope
+
+	result, err := s.roleStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Role, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = *roleToAPI(&item)
+	}
+
+	return &RoleList{
+		TypeMeta:   runtime.TypeMeta{Kind: "RoleList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// +openapi:summary=获取角色详情
+func (s *scopedRoleStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
+	id := options.PathParams["roleId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid role ID: %s", id), nil)
+	}
+
+	role, err := s.roleStore.GetByID(ctx, rid)
+	if err != nil {
+		return nil, err
+	}
+
+	if role.Scope != s.scope {
+		return nil, apierrors.NewNotFound("role", id)
+	}
+
+	return roleWithRulesToAPI(role), nil
+}
+
 // --- Permission Storage (read-only) ---
 
 type permissionStorage struct {
