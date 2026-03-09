@@ -1,6 +1,7 @@
 package iam
 
 import (
+	"fmt"
 	"net/mail"
 	"regexp"
 
@@ -136,6 +137,57 @@ func ValidateNamespaceUpdate(spec *NamespaceSpec) validation.ErrorList {
 	}
 	if spec.Status != "" && spec.Status != "active" && spec.Status != "inactive" {
 		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+	return errs
+}
+
+var (
+	roleNameRegexp  = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
+	validRoleScopes = map[string]bool{"platform": true, "workspace": true, "namespace": true}
+)
+
+// ValidateRoleCreate validates a RoleSpec for creation.
+func ValidateRoleCreate(spec *RoleSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	if spec.Name == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.name", Message: "is required"})
+	} else if !roleNameRegexp.MatchString(spec.Name) {
+		errs = append(errs, validation.FieldError{Field: "spec.name", Message: "must match ^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$"})
+	}
+	if !validRoleScopes[spec.Scope] {
+		errs = append(errs, validation.FieldError{Field: "spec.scope", Message: "must be platform, workspace, or namespace"})
+	}
+	if len(spec.Rules) == 0 {
+		errs = append(errs, validation.FieldError{Field: "spec.rules", Message: "must not be empty"})
+	}
+	for i, rule := range spec.Rules {
+		if ruleErrs := ValidatePermissionPattern(rule); ruleErrs.HasErrors() {
+			for _, e := range ruleErrs {
+				errs = append(errs, validation.FieldError{
+					Field:   fmt.Sprintf("spec.rules[%d]", i),
+					Message: e.Message,
+				})
+			}
+		}
+	}
+	return errs
+}
+
+// ValidateRoleUpdate validates a RoleSpec for update.
+func ValidateRoleUpdate(spec *RoleSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	if len(spec.Rules) == 0 {
+		errs = append(errs, validation.FieldError{Field: "spec.rules", Message: "must not be empty"})
+	}
+	for i, rule := range spec.Rules {
+		if ruleErrs := ValidatePermissionPattern(rule); ruleErrs.HasErrors() {
+			for _, e := range ruleErrs {
+				errs = append(errs, validation.FieldError{
+					Field:   fmt.Sprintf("spec.rules[%d]", i),
+					Message: e.Message,
+				})
+			}
+		}
 	}
 	return errs
 }

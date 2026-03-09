@@ -1377,6 +1377,214 @@ func parseID(s string) (int64, error) {
 	return strconv.ParseInt(s, 10, 64)
 }
 
+// --- Role Storage (CRUD) ---
+
+type roleStorage struct {
+	roleStore RoleStore
+}
+
+// NewRoleStorage creates a role REST storage with full CRUD.
+func NewRoleStorage(roleStore RoleStore) rest.Storage {
+	return &roleStorage{roleStore: roleStore}
+}
+
+func (s *roleStorage) NewObject() runtime.Object { return &Role{} }
+
+// +openapi:summary=获取角色详情
+func (s *roleStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
+	id := options.PathParams["roleId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid role ID: %s", id), nil)
+	}
+
+	role, err := s.roleStore.GetByID(ctx, rid)
+	if err != nil {
+		return nil, err
+	}
+
+	return roleWithRulesToAPI(role), nil
+}
+
+// +openapi:summary=获取角色列表
+func (s *roleStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	query := db.ListQuery{
+		Filters: make(map[string]any),
+		Pagination: db.Pagination{
+			Page:     options.Pagination.Page,
+			PageSize: options.Pagination.PageSize,
+		},
+	}
+	for k, v := range options.Filters {
+		query.Filters[k] = v
+	}
+	if options.SortBy != "" {
+		query.SortBy = options.SortBy
+	}
+	if options.SortOrder != "" {
+		query.SortOrder = string(options.SortOrder)
+	}
+
+	result, err := s.roleStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Role, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = *roleToAPI(&item)
+	}
+
+	return &RoleList{
+		TypeMeta:   runtime.TypeMeta{Kind: "RoleList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// +openapi:summary=创建角色
+func (s *roleStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	role, ok := obj.(*Role)
+	if !ok {
+		return nil, fmt.Errorf("expected *Role, got %T", obj)
+	}
+
+	if errs := ValidateRoleCreate(&role.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return role, nil
+	}
+
+	dbRole := &DBRole{
+		Name:        role.Spec.Name,
+		DisplayName: role.Spec.DisplayName,
+		Description: role.Spec.Description,
+		Scope:       role.Spec.Scope,
+	}
+
+	created, err := s.roleStore.Create(ctx, dbRole)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(role.Spec.Rules) > 0 {
+		if err := s.roleStore.SetPermissionRules(ctx, created.ID, role.Spec.Rules); err != nil {
+			return nil, err
+		}
+	}
+
+	// Re-fetch to include rules
+	withRules, err := s.roleStore.GetByID(ctx, created.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return roleWithRulesToAPI(withRules), nil
+}
+
+// +openapi:summary=更新角色
+func (s *roleStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
+	role, ok := obj.(*Role)
+	if !ok {
+		return nil, fmt.Errorf("expected *Role, got %T", obj)
+	}
+
+	id := options.PathParams["roleId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid role ID: %s", id), nil)
+	}
+
+	// Check builtin
+	existing, err := s.roleStore.GetByID(ctx, rid)
+	if err != nil {
+		return nil, err
+	}
+	if existing.Builtin {
+		return nil, apierrors.NewBadRequest("cannot modify built-in role", nil)
+	}
+
+	if errs := ValidateRoleUpdate(&role.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return role, nil
+	}
+
+	dbRole := &DBRole{
+		ID:          rid,
+		DisplayName: role.Spec.DisplayName,
+		Description: role.Spec.Description,
+	}
+
+	if _, err := s.roleStore.Update(ctx, dbRole); err != nil {
+		return nil, err
+	}
+
+	if len(role.Spec.Rules) > 0 {
+		if err := s.roleStore.SetPermissionRules(ctx, rid, role.Spec.Rules); err != nil {
+			return nil, err
+		}
+	}
+
+	withRules, err := s.roleStore.GetByID(ctx, rid)
+	if err != nil {
+		return nil, err
+	}
+
+	return roleWithRulesToAPI(withRules), nil
+}
+
+// +openapi:summary=删除角色
+func (s *roleStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	id := options.PathParams["roleId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid role ID: %s", id), nil)
+	}
+
+	existing, err := s.roleStore.GetByID(ctx, rid)
+	if err != nil {
+		return err
+	}
+	if existing.Builtin {
+		return apierrors.NewBadRequest("cannot delete built-in role", nil)
+	}
+
+	if options.DryRun {
+		return nil
+	}
+
+	return s.roleStore.Delete(ctx, rid)
+}
+
+func roleToAPI(r *DBRole) *Role {
+	return &Role{
+		TypeMeta: runtime.TypeMeta{Kind: "Role"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(r.ID, 10),
+			CreatedAt: &r.CreatedAt,
+			UpdatedAt: &r.UpdatedAt,
+		},
+		Spec: RoleSpec{
+			Name:        r.Name,
+			DisplayName: r.DisplayName,
+			Description: r.Description,
+			Scope:       r.Scope,
+			Builtin:     r.Builtin,
+		},
+	}
+}
+
+func roleWithRulesToAPI(r *DBRoleWithRules) *Role {
+	role := roleToAPI(&r.Role)
+	role.Spec.Rules = r.Rules
+	return role
+}
+
 // --- Permission Storage (read-only) ---
 
 type permissionStorage struct {
