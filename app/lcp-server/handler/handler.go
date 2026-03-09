@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"lcp.io/lcp/lib/httpserver/filters"
+	"lcp.io/lcp/lib/rest/filters"
 	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/oidc"
 	"lcp.io/lcp/lib/rest"
