@@ -93,16 +93,16 @@ func (c *RBACChecker) loadUserEntry(ctx context.Context, userID int64) (*UserPer
 
 	for _, row := range rows {
 		switch row.Scope {
-		case "platform":
+		case ScopePlatform:
 			entry.PlatformRules = append(entry.PlatformRules, row.Pattern)
 			if row.Pattern == "*:*" {
 				entry.IsPlatformAdmin = true
 			}
-		case "workspace":
+		case ScopeWorkspace:
 			if row.WorkspaceID != nil {
 				entry.WorkspaceRules[*row.WorkspaceID] = append(entry.WorkspaceRules[*row.WorkspaceID], row.Pattern)
 			}
-		case "namespace":
+		case ScopeNamespace:
 			if row.NamespaceID != nil {
 				entry.NamespaceRules[*row.NamespaceID] = append(entry.NamespaceRules[*row.NamespaceID], row.Pattern)
 			}

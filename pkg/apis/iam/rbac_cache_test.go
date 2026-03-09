@@ -118,13 +118,13 @@ func TestUserPermissionEntry_HasPermission(t *testing.T) {
 		PlatformRules:   []string{"*:*"},
 	}
 	// Platform admin matches everything
-	if !entry.HasPermission("iam:users:list", "platform", 0, 0) {
+	if !entry.HasPermission("iam:users:list", ScopePlatform, 0, 0) {
 		t.Error("platform admin should match iam:users:list")
 	}
-	if !entry.HasPermission("iam:workspaces:get", "workspace", 1, 0) {
+	if !entry.HasPermission("iam:workspaces:get", ScopeWorkspace, 1, 0) {
 		t.Error("platform admin should match workspace scope")
 	}
-	if !entry.HasPermission("iam:namespaces:get", "namespace", 1, 2) {
+	if !entry.HasPermission("iam:namespaces:get", ScopeNamespace, 1, 2) {
 		t.Error("platform admin should match namespace scope")
 	}
 }
@@ -134,10 +134,10 @@ func TestUserPermissionEntry_HasPermission_PlatformMember(t *testing.T) {
 		PlatformRules: []string{"iam:workspaces:list", "iam:namespaces:list"},
 	}
 
-	if !entry.HasPermission("iam:workspaces:list", "platform", 0, 0) {
+	if !entry.HasPermission("iam:workspaces:list", ScopePlatform, 0, 0) {
 		t.Error("platform member should match iam:workspaces:list")
 	}
-	if entry.HasPermission("iam:users:list", "platform", 0, 0) {
+	if entry.HasPermission("iam:users:list", ScopePlatform, 0, 0) {
 		t.Error("platform member should not match iam:users:list")
 	}
 }
@@ -150,15 +150,15 @@ func TestUserPermissionEntry_HasPermission_WorkspaceScope(t *testing.T) {
 	}
 
 	// Workspace-level permission in workspace scope
-	if !entry.HasPermission("iam:workspaces:get", "workspace", 10, 0) {
+	if !entry.HasPermission("iam:workspaces:get", ScopeWorkspace, 10, 0) {
 		t.Error("should match workspace rule for ws 10")
 	}
 	// Workspace rule doesn't apply to different workspace
-	if entry.HasPermission("iam:workspaces:get", "workspace", 20, 0) {
+	if entry.HasPermission("iam:workspaces:get", ScopeWorkspace, 20, 0) {
 		t.Error("should not match workspace rule for ws 20")
 	}
 	// Workspace rules inherit into namespace scope (scope chain)
-	if !entry.HasPermission("iam:namespaces:list", "namespace", 10, 100) {
+	if !entry.HasPermission("iam:namespaces:list", ScopeNamespace, 10, 100) {
 		t.Error("workspace rule should inherit to namespace scope")
 	}
 }
@@ -170,14 +170,14 @@ func TestUserPermissionEntry_HasPermission_NamespaceScope(t *testing.T) {
 		},
 	}
 
-	if !entry.HasPermission("iam:namespaces:get", "namespace", 10, 100) {
+	if !entry.HasPermission("iam:namespaces:get", ScopeNamespace, 10, 100) {
 		t.Error("should match namespace rule for ns 100")
 	}
-	if entry.HasPermission("iam:namespaces:get", "namespace", 10, 200) {
+	if entry.HasPermission("iam:namespaces:get", ScopeNamespace, 10, 200) {
 		t.Error("should not match namespace rule for ns 200")
 	}
 	// Namespace rules don't apply to workspace scope
-	if entry.HasPermission("iam:namespaces:get", "workspace", 10, 0) {
+	if entry.HasPermission("iam:namespaces:get", ScopeWorkspace, 10, 0) {
 		t.Error("namespace rules should not apply to workspace scope")
 	}
 }
@@ -195,19 +195,19 @@ func TestUserPermissionEntry_HasPermission_ScopeChain(t *testing.T) {
 	}
 
 	// Platform rule available at namespace level
-	if !entry.HasPermission("iam:workspaces:list", "namespace", 10, 100) {
+	if !entry.HasPermission("iam:workspaces:list", ScopeNamespace, 10, 100) {
 		t.Error("platform rule should be available at namespace level")
 	}
 	// Workspace rule available at namespace level
-	if !entry.HasPermission("iam:namespaces:list", "namespace", 10, 100) {
+	if !entry.HasPermission("iam:namespaces:list", ScopeNamespace, 10, 100) {
 		t.Error("workspace rule should be available at namespace level")
 	}
 	// Namespace-specific rule
-	if !entry.HasPermission("iam:namespaces:users:list", "namespace", 10, 100) {
+	if !entry.HasPermission("iam:namespaces:users:list", ScopeNamespace, 10, 100) {
 		t.Error("namespace rule should match at namespace level")
 	}
 	// Namespace rule NOT available at platform level
-	if entry.HasPermission("iam:namespaces:users:list", "platform", 0, 0) {
+	if entry.HasPermission("iam:namespaces:users:list", ScopePlatform, 0, 0) {
 		t.Error("namespace rule should not apply at platform level")
 	}
 }

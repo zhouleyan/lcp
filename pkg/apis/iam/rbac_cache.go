@@ -26,7 +26,7 @@ func (e *UserPermissionEntry) HasPermission(code, scope string, wsID, nsID int64
 		}
 	}
 	// 2. Workspace-level rules apply to workspace and namespace scopes
-	if (scope == "workspace" || scope == "namespace") && wsID > 0 {
+	if (scope == ScopeWorkspace || scope == ScopeNamespace) && wsID > 0 {
 		for _, pattern := range e.WorkspaceRules[wsID] {
 			if MatchPermission(pattern, code) {
 				return true
@@ -34,7 +34,7 @@ func (e *UserPermissionEntry) HasPermission(code, scope string, wsID, nsID int64
 		}
 	}
 	// 3. Namespace-level rules apply to namespace scope only
-	if scope == "namespace" && nsID > 0 {
+	if scope == ScopeNamespace && nsID > 0 {
 		for _, pattern := range e.NamespaceRules[nsID] {
 			if MatchPermission(pattern, code) {
 				return true

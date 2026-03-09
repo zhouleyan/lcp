@@ -83,7 +83,7 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
 		UserID:      ns.OwnerID,
 		RoleID:      nsAdminRoleID,
-		Scope:       "namespace",
+		Scope:       iam.ScopeNamespace,
 		WorkspaceID: &ns.WorkspaceID,
 		NamespaceID: &row.ID,
 		IsOwner:     true,

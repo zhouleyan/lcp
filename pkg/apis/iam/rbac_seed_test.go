@@ -152,8 +152,8 @@ func TestSeedRBAC(t *testing.T) {
 
 	// Check scopes
 	expectedScopes := map[string]string{
-		RolePlatformAdmin:  "platform",
-		RolePlatformViewer: "platform",
+		RolePlatformAdmin:  ScopePlatform,
+		RolePlatformViewer: ScopePlatform,
 	}
 	for name, scope := range expectedScopes {
 		role := store.roles[name]
@@ -197,7 +197,7 @@ func TestBuiltinRoleHelpers(t *testing.T) {
 		t.Errorf("PlatformBuiltinRoles() returned %d roles, want 2", len(platform))
 	}
 	for _, r := range platform {
-		if r.Scope != "platform" {
+		if r.Scope != ScopePlatform {
 			t.Errorf("PlatformBuiltinRoles() role %q has scope %q, want platform", r.Name, r.Scope)
 		}
 	}
@@ -207,7 +207,7 @@ func TestBuiltinRoleHelpers(t *testing.T) {
 		t.Errorf("WorkspaceBuiltinRoles() returned %d roles, want 2", len(workspace))
 	}
 	for _, r := range workspace {
-		if r.Scope != "workspace" {
+		if r.Scope != ScopeWorkspace {
 			t.Errorf("WorkspaceBuiltinRoles() role %q has scope %q, want workspace", r.Name, r.Scope)
 		}
 	}
@@ -217,7 +217,7 @@ func TestBuiltinRoleHelpers(t *testing.T) {
 		t.Errorf("NamespaceBuiltinRoles() returned %d roles, want 2", len(namespace))
 	}
 	for _, r := range namespace {
-		if r.Scope != "namespace" {
+		if r.Scope != ScopeNamespace {
 			t.Errorf("NamespaceBuiltinRoles() role %q has scope %q, want namespace", r.Name, r.Scope)
 		}
 	}

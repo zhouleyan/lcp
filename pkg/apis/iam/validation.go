@@ -143,7 +143,7 @@ func ValidateNamespaceUpdate(spec *NamespaceSpec) validation.ErrorList {
 
 var (
 	roleNameRegexp  = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
-	validRoleScopes = map[string]bool{"platform": true, "workspace": true, "namespace": true}
+	validRoleScopes = map[string]bool{ScopePlatform: true, ScopeWorkspace: true, ScopeNamespace: true}
 )
 
 // ValidateRoleCreate validates a RoleSpec for creation.

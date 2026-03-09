@@ -385,7 +385,7 @@ func (s *pgRoleStore) SeedRBAC(ctx context.Context, roles []iam.BuiltinRoleDef, 
 			_ = qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
 				UserID: adminUser.ID,
 				RoleID: platformAdminRoleID,
-				Scope:  "platform",
+				Scope:  iam.ScopePlatform,
 			})
 		}
 	}
@@ -418,10 +418,10 @@ func (s *pgRoleStore) SeedRBAC(ctx context.Context, roles []iam.BuiltinRoleDef, 
 		scope    string
 	}
 	migrations := []migrationPair{
-		{iam.RoleWorkspaceAdmin, "workspace"},
-		{iam.RoleWorkspaceViewer, "workspace"},
-		{iam.RoleNamespaceAdmin, "namespace"},
-		{iam.RoleNamespaceViewer, "namespace"},
+		{iam.RoleWorkspaceAdmin, iam.ScopeWorkspace},
+		{iam.RoleWorkspaceViewer, iam.ScopeWorkspace},
+		{iam.RoleNamespaceAdmin, iam.ScopeNamespace},
+		{iam.RoleNamespaceViewer, iam.ScopeNamespace},
 	}
 	for _, m := range migrations {
 		// Find old global role (no workspace_id/namespace_id)
@@ -435,7 +435,7 @@ func (s *pgRoleStore) SeedRBAC(ctx context.Context, roles []iam.BuiltinRoleDef, 
 			continue
 		}
 
-		if m.scope == "workspace" {
+		if m.scope == iam.ScopeWorkspace {
 			// Find bindings referencing the old global role and re-point them
 			rows, err := tx.Query(ctx,
 				`SELECT id, workspace_id FROM role_bindings WHERE role_id = $1`,

@@ -1246,13 +1246,13 @@ func (s *userPermissionsVerbStorage) List(ctx context.Context, options *rest.Lis
 
 	for _, row := range rows {
 		switch row.Scope {
-		case "platform":
+		case ScopePlatform:
 			platformPatterns = append(platformPatterns, row.Pattern)
 			platformRoleNames[row.RoleName] = true
 			if row.Pattern == "*:*" {
 				isPlatformAdmin = true
 			}
-		case "workspace":
+		case ScopeWorkspace:
 			if row.WorkspaceID != nil {
 				wsIDStr := strconv.FormatInt(*row.WorkspaceID, 10)
 				entry, ok := wsMap[wsIDStr]
@@ -1263,7 +1263,7 @@ func (s *userPermissionsVerbStorage) List(ctx context.Context, options *rest.Lis
 				entry.patterns = append(entry.patterns, row.Pattern)
 				entry.roleNames[row.RoleName] = true
 			}
-		case "namespace":
+		case ScopeNamespace:
 			if row.NamespaceID != nil {
 				nsIDStr := strconv.FormatInt(*row.NamespaceID, 10)
 				entry, ok := nsMap[nsIDStr]
@@ -1461,7 +1461,7 @@ func NewTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBACChecker)
 			return nil, apierrors.NewInternalError(fmt.Errorf("check platform admin: %w", err))
 		}
 
-		oldOwnerUID, err := rbStore.TransferOwnership(ctx, "workspace", resourceID, callerID, isPlatformAdmin, newOwnerUID, RoleWorkspaceAdmin)
+		oldOwnerUID, err := rbStore.TransferOwnership(ctx, ScopeWorkspace, resourceID, callerID, isPlatformAdmin, newOwnerUID, RoleWorkspaceAdmin)
 		if err != nil {
 			return nil, err
 		}
@@ -1510,7 +1510,7 @@ func NewNamespaceTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBA
 			return nil, apierrors.NewInternalError(fmt.Errorf("check platform admin: %w", err))
 		}
 
-		oldOwnerUID, err := rbStore.TransferOwnership(ctx, "namespace", nsID, callerID, isPlatformAdmin, newOwnerUID, RoleNamespaceAdmin)
+		oldOwnerUID, err := rbStore.TransferOwnership(ctx, ScopeNamespace, nsID, callerID, isPlatformAdmin, newOwnerUID, RoleNamespaceAdmin)
 		if err != nil {
 			return nil, err
 		}
@@ -1687,7 +1687,7 @@ func (s *roleStorage) Get(ctx context.Context, options *rest.GetOptions) (runtim
 		return nil, err
 	}
 
-	if role.Scope != "platform" {
+	if role.Scope != ScopePlatform {
 		return nil, apierrors.NewNotFound("role", id)
 	}
 
@@ -1707,7 +1707,7 @@ func (s *roleStorage) List(ctx context.Context, options *rest.ListOptions) (runt
 		query.Filters[k] = v
 	}
 	// Force platform scope — only return platform roles
-	query.Filters["scope"] = "platform"
+	query.Filters["scope"] = ScopePlatform
 	if options.SortBy != "" {
 		query.SortBy = options.SortBy
 	}
@@ -1740,7 +1740,7 @@ func (s *roleStorage) Create(ctx context.Context, obj runtime.Object, options *r
 	}
 
 	// Force platform scope — scoped roles must be created via workspace/namespace endpoints
-	role.Spec.Scope = "platform"
+	role.Spec.Scope = ScopePlatform
 
 	if errs := ValidateRoleCreate(&role.Spec); errs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", errs)
@@ -1754,7 +1754,7 @@ func (s *roleStorage) Create(ctx context.Context, obj runtime.Object, options *r
 		Name:        role.Spec.Name,
 		DisplayName: role.Spec.DisplayName,
 		Description: role.Spec.Description,
-		Scope:       "platform",
+		Scope:       ScopePlatform,
 	}
 
 	created, err := s.roleStore.Create(ctx, dbRole)
@@ -1794,7 +1794,7 @@ func (s *roleStorage) Update(ctx context.Context, obj runtime.Object, options *r
 	if err != nil {
 		return nil, err
 	}
-	if existing.Scope != "platform" {
+	if existing.Scope != ScopePlatform {
 		return nil, apierrors.NewNotFound("role", id)
 	}
 	if existing.Builtin {
@@ -1845,14 +1845,14 @@ func (s *roleStorage) Delete(ctx context.Context, options *rest.DeleteOptions) e
 	if err != nil {
 		return err
 	}
-	if existing.Scope != "platform" {
+	if existing.Scope != ScopePlatform {
 		return apierrors.NewNotFound("role", id)
 	}
 	if existing.Builtin {
 		return apierrors.NewBadRequest("cannot delete built-in role", nil)
 	}
 
-	count, err := s.rbStore.CountByRoleAndScope(ctx, rid, "platform")
+	count, err := s.rbStore.CountByRoleAndScope(ctx, rid, ScopePlatform)
 	if err != nil {
 		return err
 	}
@@ -1921,7 +1921,7 @@ func roleWithRulesToAPI(r *DBRoleWithRules) *Role {
 type scopedRoleStorage struct {
 	roleStore RoleStore
 	rbStore   RoleBindingStore
-	scope     string // "workspace" or "namespace"
+	scope     string // ScopeWorkspace or ScopeNamespace
 }
 
 // NewScopedRoleStorage creates a scoped role storage with full CRUD.
@@ -1937,7 +1937,7 @@ func (s *scopedRoleStorage) List(ctx context.Context, options *rest.ListOptions)
 	query := restOptionsToListQuery(options)
 	query.Filters["scope"] = s.scope
 
-	if s.scope == "workspace" {
+	if s.scope == ScopeWorkspace {
 		wsID, err := parseID(options.PathParams["workspaceId"])
 		if err != nil {
 			return nil, apierrors.NewBadRequest("invalid workspace ID", nil)
@@ -1985,7 +1985,7 @@ func (s *scopedRoleStorage) Get(ctx context.Context, options *rest.GetOptions) (
 	if role.Scope != s.scope {
 		return nil, apierrors.NewNotFound("role", id)
 	}
-	if s.scope == "workspace" {
+	if s.scope == ScopeWorkspace {
 		wsID, _ := parseID(options.PathParams["workspaceId"])
 		if role.WorkspaceID == nil || *role.WorkspaceID != wsID {
 			return nil, apierrors.NewNotFound("role", id)
@@ -2025,7 +2025,7 @@ func (s *scopedRoleStorage) Create(ctx context.Context, obj runtime.Object, opti
 		Scope:       s.scope,
 	}
 
-	if s.scope == "workspace" {
+	if s.scope == ScopeWorkspace {
 		wsID, err := parseID(options.PathParams["workspaceId"])
 		if err != nil {
 			return nil, apierrors.NewBadRequest("invalid workspace ID", nil)
@@ -2084,7 +2084,7 @@ func (s *scopedRoleStorage) Update(ctx context.Context, obj runtime.Object, opti
 	if existing.Scope != s.scope {
 		return nil, apierrors.NewNotFound("role", id)
 	}
-	if s.scope == "workspace" {
+	if s.scope == ScopeWorkspace {
 		wsID, _ := parseID(options.PathParams["workspaceId"])
 		if existing.WorkspaceID == nil || *existing.WorkspaceID != wsID {
 			return nil, apierrors.NewNotFound("role", id)
@@ -2149,7 +2149,7 @@ func (s *scopedRoleStorage) Delete(ctx context.Context, options *rest.DeleteOpti
 	if existing.Scope != s.scope {
 		return apierrors.NewNotFound("role", id)
 	}
-	if s.scope == "workspace" {
+	if s.scope == ScopeWorkspace {
 		wsID, _ := parseID(options.PathParams["workspaceId"])
 		if existing.WorkspaceID == nil || *existing.WorkspaceID != wsID {
 			return apierrors.NewNotFound("role", id)
@@ -2276,7 +2276,7 @@ func (s *roleBindingStorage) Create(ctx context.Context, obj runtime.Object, opt
 	if err != nil {
 		return nil, err
 	}
-	if role.Scope != "platform" {
+	if role.Scope != ScopePlatform {
 		return nil, apierrors.NewBadRequest("role scope must be 'platform' for platform-level bindings", nil)
 	}
 
@@ -2292,7 +2292,7 @@ func (s *roleBindingStorage) Create(ctx context.Context, obj runtime.Object, opt
 	created, err := s.rbStore.Create(ctx, &DBRoleBinding{
 		UserID: userID,
 		RoleID: roleID,
-		Scope:  "platform",
+		Scope:  ScopePlatform,
 	})
 	if err != nil {
 		return nil, err
@@ -2386,7 +2386,7 @@ func (s *workspaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 	if err != nil {
 		return nil, err
 	}
-	if role.Scope != "workspace" {
+	if role.Scope != ScopeWorkspace {
 		return nil, apierrors.NewBadRequest("role scope must be 'workspace' for workspace-level bindings", nil)
 	}
 	if role.WorkspaceID == nil || *role.WorkspaceID != wsID {
@@ -2405,7 +2405,7 @@ func (s *workspaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 	created, err := s.rbStore.Create(ctx, &DBRoleBinding{
 		UserID:      userID,
 		RoleID:      roleID,
-		Scope:       "workspace",
+		Scope:       ScopeWorkspace,
 		WorkspaceID: &wsID,
 	})
 	if err != nil {
@@ -2508,7 +2508,7 @@ func (s *namespaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 	if err != nil {
 		return nil, err
 	}
-	if role.Scope != "namespace" {
+	if role.Scope != ScopeNamespace {
 		return nil, apierrors.NewBadRequest("role scope must be 'namespace' for namespace-level bindings", nil)
 	}
 	if role.NamespaceID == nil || *role.NamespaceID != nsID {
@@ -2527,7 +2527,7 @@ func (s *namespaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 	created, err := s.rbStore.Create(ctx, &DBRoleBinding{
 		UserID:      userID,
 		RoleID:      roleID,
-		Scope:       "namespace",
+		Scope:       ScopeNamespace,
 		WorkspaceID: &wsID,
 		NamespaceID: &nsID,
 	})

@@ -358,9 +358,9 @@ func (s *pgRoleBindingStore) GetUserRoleBindingsWithRules(ctx context.Context, u
 func (s *pgRoleBindingStore) TransferOwnership(ctx context.Context, scope string, resourceID int64, callerID int64, callerIsPlatformAdmin bool, newOwnerUserID int64, adminRoleName string) (int64, error) {
 	var scopeColumn string
 	switch scope {
-	case "workspace":
+	case iam.ScopeWorkspace:
 		scopeColumn = "workspace_id"
-	case "namespace":
+	case iam.ScopeNamespace:
 		scopeColumn = "namespace_id"
 	default:
 		return 0, fmt.Errorf("unsupported scope for ownership transfer: %s", scope)
@@ -415,7 +415,7 @@ func (s *pgRoleBindingStore) TransferOwnership(ctx context.Context, scope string
 	// 5. Look up admin role ID (scoped to workspace or namespace)
 	var adminRoleID int64
 	var adminRoleQuery string
-	if scope == "workspace" {
+	if scope == iam.ScopeWorkspace {
 		adminRoleQuery = "SELECT id FROM roles WHERE name = $1 AND workspace_id = $2"
 	} else {
 		adminRoleQuery = "SELECT id FROM roles WHERE name = $1 AND namespace_id = $2"
@@ -428,7 +428,7 @@ func (s *pgRoleBindingStore) TransferOwnership(ctx context.Context, scope string
 	}
 
 	// 6. Upsert owner binding for new owner (admin role + is_owner=true)
-	if scope == "namespace" {
+	if scope == iam.ScopeNamespace {
 		// For namespace scope, we also need workspace_id
 		var wsID int64
 		if err := tx.QueryRow(ctx, "SELECT workspace_id FROM namespaces WHERE id = $1", resourceID).Scan(&wsID); err != nil {
@@ -473,7 +473,7 @@ func (s *pgRoleBindingStore) AddWorkspaceMember(ctx context.Context, userID, wor
 	if err := s.queries.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
 		UserID:      userID,
 		RoleID:      viewerRole.ID,
-		Scope:       "workspace",
+		Scope:       iam.ScopeWorkspace,
 		WorkspaceID: wsIDPtr,
 	}); err != nil {
 		return fmt.Errorf("add workspace member: %w", err)
@@ -520,7 +520,7 @@ func (s *pgRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, nam
 	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
 		UserID:      userID,
 		RoleID:      wsViewerRole.ID,
-		Scope:       "workspace",
+		Scope:       iam.ScopeWorkspace,
 		WorkspaceID: wsIDPtr,
 	}); err != nil {
 		return fmt.Errorf("auto-add workspace member: %w", err)
@@ -530,7 +530,7 @@ func (s *pgRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, nam
 	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
 		UserID:      userID,
 		RoleID:      nsViewerRole.ID,
-		Scope:       "namespace",
+		Scope:       iam.ScopeNamespace,
 		WorkspaceID: wsIDPtr,
 		NamespaceID: nsIDPtr,
 	}); err != nil {
