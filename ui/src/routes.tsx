@@ -57,6 +57,15 @@ export const routes: RouteObject[] = [
               { path: "roles", element: <WorkspaceRolesTab /> },
             ],
           },
+          {
+            path: "namespaces/:namespaceId",
+            element: <NamespaceDetailPage />,
+            children: [
+              { index: true, element: <NamespaceOverviewPage /> },
+              { path: "users", element: <NamespaceUsersPage /> },
+              { path: "roles", element: <NamespaceRolesTab /> },
+            ],
+          },
         ],
       },
       { path: "namespaces", element: <NamespaceListPage /> },

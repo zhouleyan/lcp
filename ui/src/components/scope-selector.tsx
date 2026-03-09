@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
+import { useNavigate, useLocation } from "react-router"
 import { Building2, FolderKanban } from "lucide-react"
 import {
   Select,
@@ -14,9 +15,43 @@ import { useTranslation } from "@/i18n"
 import type { Workspace, Namespace } from "@/api/types"
 
 const ALL = "__all__"
+const KNOWN_RESOURCES = ["users", "roles", "namespaces", "workspaces"]
+
+/** 从当前路径中提取用户正在查看的资源类型 */
+function detectResource(pathname: string): string | null {
+  const segments = pathname.split("/").filter(Boolean)
+  for (let i = segments.length - 1; i >= 0; i--) {
+    if (KNOWN_RESOURCES.includes(segments[i])) return segments[i]
+  }
+  return null
+}
+
+/** 根据目标 scope 和当前资源类型，构建导航路径 */
+function buildScopedPath(
+  resource: string | null,
+  wsId: string | null,
+  nsId: string | null,
+): string {
+  if (wsId && nsId) {
+    const prefix = `/workspaces/${wsId}/namespaces/${nsId}`
+    if (resource === "users" || resource === "roles") return `${prefix}/${resource}`
+    return prefix
+  }
+  if (wsId) {
+    const prefix = `/workspaces/${wsId}`
+    if (resource === "users" || resource === "roles" || resource === "namespaces")
+      return `${prefix}/${resource}`
+    return prefix
+  }
+  // 平台范围
+  if (resource && KNOWN_RESOURCES.includes(resource)) return `/${resource}`
+  return "/"
+}
 
 export function ScopeSelector() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const location = useLocation()
   const workspaceId = useScopeStore((s) => s.workspaceId)
   const namespaceId = useScopeStore((s) => s.namespaceId)
   const setWorkspace = useScopeStore((s) => s.setWorkspace)
@@ -61,7 +96,12 @@ export function ScopeSelector() {
     <div className="space-y-1">
       <Select
         value={workspaceId ?? ALL}
-        onValueChange={(v) => setWorkspace(v === ALL ? null : v)}
+        onValueChange={(v) => {
+          const wsId = v === ALL ? null : v
+          setWorkspace(wsId)
+          const resource = detectResource(location.pathname)
+          navigate(buildScopedPath(resource, wsId, null))
+        }}
       >
         <SelectTrigger
           size="sm"
@@ -81,7 +121,12 @@ export function ScopeSelector() {
       </Select>
       <Select
         value={namespaceId ?? ALL}
-        onValueChange={(v) => setNamespace(v === ALL ? null : v)}
+        onValueChange={(v) => {
+          const nsId = v === ALL ? null : v
+          setNamespace(nsId)
+          const resource = detectResource(location.pathname)
+          navigate(buildScopedPath(resource, workspaceId, nsId))
+        }}
         disabled={!workspaceId}
       >
         <SelectTrigger

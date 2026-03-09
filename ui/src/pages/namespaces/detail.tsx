@@ -27,7 +27,7 @@ import type { Namespace } from "@/api/types"
 import { useTranslation } from "@/i18n"
 
 export default function NamespaceDetailPage() {
-  const { namespaceId } = useParams()
+  const { namespaceId, workspaceId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
@@ -36,7 +36,9 @@ export default function NamespaceDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const basePath = `/namespaces/${namespaceId}`
+  const basePath = workspaceId
+    ? `/workspaces/${workspaceId}/namespaces/${namespaceId}`
+    : `/namespaces/${namespaceId}`
 
   const fetchNamespace = useCallback(async () => {
     if (!namespaceId) return
@@ -58,7 +60,7 @@ export default function NamespaceDetailPage() {
     try {
       await deleteNamespace(namespace.metadata.id)
       toast.success(t("action.deleteSuccess"))
-      navigate("/namespaces")
+      navigate(workspaceId ? `/workspaces/${workspaceId}/namespaces` : "/namespaces")
     } catch (err) {
       if (err instanceof ApiError) {
         toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("namespace.title") }) : err.message)

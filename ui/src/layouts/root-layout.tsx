@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { Link, Outlet, useLocation } from "react-router"
 import {
   LayoutDashboard,
@@ -19,6 +19,7 @@ import { isAuthenticated, startAuthFlow } from "@/lib/auth"
 import { useAuthStore } from "@/stores/auth-store"
 import { usePermissionStore } from "@/stores/permission-store"
 import { usePermission } from "@/hooks/use-permission"
+import { useScopeStore } from "@/stores/scope-store"
 
 interface NavItem {
   to: string
@@ -32,8 +33,29 @@ interface NavGroup {
   items: NavItem[]
 }
 
-const navGroups: NavGroup[] = [
-  {
+function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: string | null): NavGroup[] {
+  if (scopeWorkspaceId && scopeNamespaceId) {
+    const prefix = `/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
+    return [{
+      labelKey: "nav.iam",
+      items: [
+        { to: `${prefix}/users`, labelKey: "nav.users", icon: Users },
+        { to: `${prefix}/roles`, labelKey: "nav.roles", icon: Shield },
+      ],
+    }]
+  }
+  if (scopeWorkspaceId) {
+    const prefix = `/workspaces/${scopeWorkspaceId}`
+    return [{
+      labelKey: "nav.iam",
+      items: [
+        { to: `${prefix}/namespaces`, labelKey: "nav.namespaces", icon: FolderKanban },
+        { to: `${prefix}/users`, labelKey: "nav.users", icon: Users },
+        { to: `${prefix}/roles`, labelKey: "nav.roles", icon: Shield },
+      ],
+    }]
+  }
+  return [{
     labelKey: "nav.iam",
     items: [
       { to: "/workspaces", labelKey: "nav.workspaces", icon: Building2 },
@@ -41,8 +63,8 @@ const navGroups: NavGroup[] = [
       { to: "/users", labelKey: "nav.users", icon: Users, permission: "iam:users:list" },
       { to: "/roles", labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list" },
     ],
-  },
-]
+  }]
+}
 
 export default function RootLayout() {
   const location = useLocation()
@@ -52,6 +74,12 @@ export default function RootLayout() {
   const fetchPermissions = usePermissionStore((s) => s.fetchPermissions)
   const permissionsLoaded = usePermissionStore((s) => s.permissions !== null)
   const { hasPermission } = usePermission()
+  const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
+  const scopeNamespaceId = useScopeStore((s) => s.namespaceId)
+  const navGroups = useMemo(
+    () => buildNavGroups(scopeWorkspaceId, scopeNamespaceId),
+    [scopeWorkspaceId, scopeNamespaceId],
+  )
 
   useEffect(() => {
     if (!isAuthenticated()) {
