@@ -62,6 +62,22 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 		return nil, fmt.Errorf("add owner to namespace: %w", err)
 	}
 
+	// Create namespace-admin role binding with is_owner=true
+	nsAdminRole, err := qtx.GetRoleByName(ctx, "namespace-admin")
+	if err != nil {
+		return nil, fmt.Errorf("get namespace-admin role: %w", err)
+	}
+	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
+		UserID:      ns.OwnerID,
+		RoleID:      nsAdminRole.ID,
+		Scope:       "namespace",
+		WorkspaceID: &ns.WorkspaceID,
+		NamespaceID: &row.ID,
+		IsOwner:     true,
+	}); err != nil {
+		return nil, fmt.Errorf("create namespace owner role binding: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit transaction: %w", err)
 	}

@@ -82,6 +82,37 @@ func (s *pgWorkspaceStore) Create(ctx context.Context, ws *iam.DBWorkspace) (*ia
 		return nil, fmt.Errorf("add owner to default namespace: %w", err)
 	}
 
+	// Create workspace-admin role binding with is_owner=true
+	wsAdminRole, err := qtx.GetRoleByName(ctx, "workspace-admin")
+	if err != nil {
+		return nil, fmt.Errorf("get workspace-admin role: %w", err)
+	}
+	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
+		UserID:      ws.OwnerID,
+		RoleID:      wsAdminRole.ID,
+		Scope:       "workspace",
+		WorkspaceID: &row.ID,
+		IsOwner:     true,
+	}); err != nil {
+		return nil, fmt.Errorf("create workspace owner role binding: %w", err)
+	}
+
+	// Create namespace-admin role binding with is_owner=true for default namespace
+	nsAdminRole, err := qtx.GetRoleByName(ctx, "namespace-admin")
+	if err != nil {
+		return nil, fmt.Errorf("get namespace-admin role: %w", err)
+	}
+	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
+		UserID:      ws.OwnerID,
+		RoleID:      nsAdminRole.ID,
+		Scope:       "namespace",
+		WorkspaceID: &row.ID,
+		NamespaceID: &defaultNS.ID,
+		IsOwner:     true,
+	}); err != nil {
+		return nil, fmt.Errorf("create default namespace owner role binding: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
