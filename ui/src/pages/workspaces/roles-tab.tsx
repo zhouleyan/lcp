@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useOutletContext } from "react-router"
+import { useParams } from "react-router"
 import { Plus, Pencil, Trash2, Search } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   listWorkspaceRoles, deleteWorkspaceRole, listPermissions,
 } from "@/api/rbac"
-import type { Workspace, Role, Permission, ListParams } from "@/api/types"
+import type { Role, Permission, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
@@ -24,8 +24,7 @@ import { ScopedRoleFormDialog } from "@/components/scoped-role-form-dialog"
 
 
 export default function WorkspaceRolesTab() {
-  const { workspace } = useOutletContext<{ workspace: Workspace }>()
-  const workspaceId = workspace.metadata.id
+  const workspaceId = useParams().workspaceId!
   const { t } = useTranslation()
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,

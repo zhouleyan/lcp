@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
-import { useParams, useNavigate, useLocation, Link, Outlet } from "react-router"
-import { Pencil, Trash2 } from "lucide-react"
+import { useParams, useNavigate } from "react-router"
+import { Pencil, Trash2, Users } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -20,7 +21,6 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
-import { cn } from "@/lib/utils"
 import { getNamespace, updateNamespace, deleteNamespace } from "@/api/namespaces"
 import { ApiError, translateApiError } from "@/api/client"
 import type { Namespace } from "@/api/types"
@@ -29,16 +29,11 @@ import { useTranslation } from "@/i18n"
 export default function NamespaceDetailPage() {
   const { namespaceId, workspaceId } = useParams()
   const navigate = useNavigate()
-  const location = useLocation()
   const { t } = useTranslation()
   const [namespace, setNamespace] = useState<Namespace | null>(null)
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-
-  const basePath = workspaceId
-    ? `/workspaces/${workspaceId}/namespaces/${namespaceId}`
-    : `/namespaces/${namespaceId}`
 
   const fetchNamespace = useCallback(async () => {
     if (!namespaceId) return
@@ -87,16 +82,6 @@ export default function NamespaceDetailPage() {
     )
   }
 
-  // Determine active tab from URL
-  const pathSuffix = location.pathname.replace(basePath, "").replace(/^\//, "")
-  const activeTab = pathSuffix === "users" ? "users" : pathSuffix === "roles" ? "roles" : "overview"
-
-  const tabs = [
-    { key: "overview", label: t("namespace.overview"), to: basePath },
-    { key: "users", label: t("nav.users"), to: `${basePath}/users` },
-    { key: "roles", label: t("nav.roles"), to: `${basePath}/roles` },
-  ]
-
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -118,26 +103,86 @@ export default function NamespaceDetailPage() {
         </div>
       </div>
 
-      {/* Tab navigation */}
-      <div className="mb-4 inline-flex h-9 items-center bg-muted p-[3px] text-muted-foreground">
-        {tabs.map((tab) => (
-          <Link
-            key={tab.key}
-            to={tab.to}
-            className={cn(
-              "inline-flex h-[calc(100%-1px)] items-center justify-center px-3 py-1 text-sm font-medium whitespace-nowrap transition-all",
-              activeTab === tab.key
-                ? "bg-background text-foreground shadow-sm"
-                : "text-foreground/60 hover:text-foreground",
-            )}
+      {/* Overview content */}
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Card
+            className="cursor-pointer transition-colors hover:bg-muted/50"
+            onClick={() => navigate("users")}
           >
-            {tab.label}
-          </Link>
-        ))}
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
+                <Users className="text-primary h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{namespace.spec.memberCount ?? 0}<span className="text-muted-foreground text-base font-normal">/{namespace.spec.maxMembers || "\u221E"}</span></p>
+                <p className="text-muted-foreground text-sm">{t("namespace.members")}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("namespace.details")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">{t("common.name")}</span>
+                <p className="font-medium">{namespace.metadata.name}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("common.displayName")}</span>
+                <p className="font-medium">{namespace.spec.displayName || "-"}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("namespace.owner")}</span>
+                <p className="font-medium">{namespace.spec.ownerName || namespace.spec.ownerId}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("namespace.workspaceName")}</span>
+                <p className="font-medium">{namespace.spec.workspaceName || namespace.spec.workspaceId}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("namespace.visibility")}</span>
+                <p>
+                  <Badge variant={namespace.spec.visibility === "public" ? "default" : "secondary"}>
+                    {namespace.spec.visibility === "public" ? t("namespace.visibility.public") : t("namespace.visibility.private")}
+                  </Badge>
+                </p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("common.status")}</span>
+                <p>
+                  <Badge variant={namespace.spec.status === "active" ? "default" : "secondary"}>
+                    {namespace.spec.status === "active" ? t("common.active") : t("common.inactive")}
+                  </Badge>
+                </p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("namespace.maxMembers")}</span>
+                <p className="font-medium">{namespace.spec.maxMembers || "\u221E"}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("namespace.memberCount")}</span>
+                <p className="font-medium">{namespace.spec.memberCount ?? 0}/{namespace.spec.maxMembers || "\u221E"}</p>
+              </div>
+              <div className="col-span-2">
+                <span className="text-muted-foreground">{t("common.description")}</span>
+                <p className="font-medium">{namespace.spec.description || "-"}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("common.created")}</span>
+                <p className="font-medium">{new Date(namespace.metadata.createdAt).toLocaleString()}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("common.updated")}</span>
+                <p className="font-medium">{new Date(namespace.metadata.updatedAt).toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Route-based tab content */}
-      <Outlet context={{ namespace, onNamespaceChange: fetchNamespace }} />
 
       {/* edit dialog */}
       <EditNamespaceDialog

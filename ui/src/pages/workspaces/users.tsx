@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useOutletContext } from "react-router"
+import { useParams } from "react-router"
 import { Plus, UserMinus, Search, Filter } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -19,7 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   listWorkspaceUsers, addWorkspaceUsers, removeWorkspaceUsers, listUsers,
 } from "@/api/users"
-import type { Workspace, User, ListParams } from "@/api/types"
+import type { User, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
@@ -29,8 +29,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 
 
 export default function WorkspaceUsersPage() {
-  const { workspace, onWorkspaceChange } = useOutletContext<{ workspace: Workspace; onWorkspaceChange: () => void }>()
-  const workspaceId = workspace.metadata.id
+  const workspaceId = useParams().workspaceId!
   const { t } = useTranslation()
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
@@ -79,7 +78,7 @@ export default function WorkspaceUsersPage() {
       toast.success(t("workspace.memberRemoved"))
       setRemoveTarget(null)
       fetchMembers()
-      onWorkspaceChange()
+
     } catch (err) {
       if (err instanceof ApiError) {
         toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("user.title") }) : err.message)
@@ -96,7 +95,7 @@ export default function WorkspaceUsersPage() {
       setBatchRemoveOpen(false)
       clearSelection()
       fetchMembers()
-      onWorkspaceChange()
+
     } catch (err) {
       if (err instanceof ApiError) {
         toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("user.title") }) : err.message)
@@ -108,7 +107,7 @@ export default function WorkspaceUsersPage() {
 
   const handleAddSuccess = () => {
     fetchMembers()
-    onWorkspaceChange()
+
   }
 
   return (

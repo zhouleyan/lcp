@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useOutletContext } from "react-router"
+import { useParams } from "react-router"
 import { Plus, UserMinus, Search, Filter } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -19,7 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   listNamespaceUsers, addNamespaceUsers, removeNamespaceUsers, listUsers,
 } from "@/api/users"
-import type { Namespace, User, ListParams } from "@/api/types"
+import type { User, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
@@ -29,8 +29,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 
 
 export default function NamespaceUsersPage() {
-  const { namespace, onNamespaceChange } = useOutletContext<{ namespace: Namespace; onNamespaceChange: () => void }>()
-  const namespaceId = namespace.metadata.id
+  const namespaceId = useParams().namespaceId!
   const { t } = useTranslation()
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
@@ -79,7 +78,7 @@ export default function NamespaceUsersPage() {
       toast.success(t("namespace.memberRemoved"))
       setRemoveTarget(null)
       fetchMembers()
-      onNamespaceChange()
+
     } catch (err) {
       if (err instanceof ApiError) {
         toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("user.title") }) : err.message)
@@ -96,7 +95,7 @@ export default function NamespaceUsersPage() {
       setBatchRemoveOpen(false)
       clearSelection()
       fetchMembers()
-      onNamespaceChange()
+
     } catch (err) {
       if (err instanceof ApiError) {
         toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("user.title") }) : err.message)
@@ -108,10 +107,8 @@ export default function NamespaceUsersPage() {
 
   const handleAddSuccess = () => {
     fetchMembers()
-    onNamespaceChange()
-  }
 
-  const memberLimitReached = (namespace.spec.maxMembers ?? 0) > 0 && (namespace.spec.memberCount ?? 0) >= (namespace.spec.maxMembers ?? 0)
+  }
 
   return (
     <div>
@@ -133,9 +130,9 @@ export default function NamespaceUsersPage() {
               {t("namespace.removeMember")} ({selected.size})
             </Button>
           )}
-          <Button size="sm" onClick={() => setAddOpen(true)} disabled={memberLimitReached} title={memberLimitReached ? t("namespace.memberLimitReached") : undefined}>
+          <Button size="sm" onClick={() => setAddOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            {memberLimitReached ? t("namespace.memberLimitReached") : t("namespace.addMember")}
+            {t("namespace.addMember")}
           </Button>
         </div>
       </div>

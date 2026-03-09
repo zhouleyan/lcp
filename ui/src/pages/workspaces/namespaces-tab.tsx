@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useNavigate, useOutletContext } from "react-router"
+import { useNavigate, useParams } from "react-router"
 import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -31,7 +31,7 @@ import {
   deleteNamespace, deleteNamespaces, listNamespaces,
 } from "@/api/namespaces"
 import { ApiError, translateApiError } from "@/api/client"
-import type { Workspace, Namespace, ListParams } from "@/api/types"
+import type { Namespace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
@@ -40,8 +40,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 
 
 export default function WorkspaceNamespacesPage() {
-  const { workspace, onWorkspaceChange } = useOutletContext<{ workspace: Workspace; onWorkspaceChange: () => void }>()
-  const workspaceId = workspace.metadata.id
+  const workspaceId = useParams().workspaceId!
   const navigate = useNavigate()
   const { t } = useTranslation()
   const {
@@ -89,7 +88,7 @@ export default function WorkspaceNamespacesPage() {
       toast.success(t("action.deleteSuccess"))
       setDeleteTarget(null)
       fetchData()
-      onWorkspaceChange()
+
     } catch (err) {
       if (err instanceof ApiError) {
         toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("namespace.title") }) : err.message)
@@ -106,7 +105,7 @@ export default function WorkspaceNamespacesPage() {
       setBatchDeleteOpen(false)
       clearSelection()
       fetchData()
-      onWorkspaceChange()
+
     } catch (err) {
       if (err instanceof ApiError) {
         toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("namespace.title") }) : err.message)
@@ -118,12 +117,12 @@ export default function WorkspaceNamespacesPage() {
 
   const handleCreateSuccess = () => {
     fetchData()
-    onWorkspaceChange()
+
   }
 
   const handleEditSuccess = () => {
     fetchData()
-    onWorkspaceChange()
+
   }
 
   return (
