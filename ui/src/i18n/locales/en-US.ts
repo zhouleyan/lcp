@@ -43,7 +43,12 @@ const enUS: Messages = {
   "nav.workspaces": "Workspaces",
   "nav.namespaces": "Namespaces",
   "nav.users": "Users",
+  "nav.roles": "Roles",
   "nav.apiDocs": "API Docs",
+
+  // scope selector
+  "scope.allWorkspaces": "All Workspaces",
+  "scope.allNamespaces": "All Namespaces",
 
   // workspace
   "workspace.title": "Workspaces",

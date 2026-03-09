@@ -6,19 +6,30 @@ import {
   Building2,
   FolderKanban,
   FileText,
+  Shield,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { UserMenu } from "@/components/user-menu"
 import { AppBreadcrumb } from "@/components/app-breadcrumb"
+import { ScopeSelector } from "@/components/scope-selector"
 import { useTranslation } from "@/i18n"
 import { isAuthenticated, startAuthFlow } from "@/lib/auth"
 import { useAuthStore } from "@/stores/auth-store"
+import { usePermissionStore } from "@/stores/permission-store"
+import { usePermission } from "@/hooks/use-permission"
+
+interface NavItem {
+  to: string
+  labelKey: string
+  icon: React.ComponentType<{ className?: string }>
+  permission?: string
+}
 
 interface NavGroup {
   labelKey: string
-  items: { to: string; labelKey: string; icon: React.ComponentType<{ className?: string }> }[]
+  items: NavItem[]
 }
 
 const navGroups: NavGroup[] = [
@@ -27,7 +38,8 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/workspaces", labelKey: "nav.workspaces", icon: Building2 },
       { to: "/namespaces", labelKey: "nav.namespaces", icon: FolderKanban },
-      { to: "/users", labelKey: "nav.users", icon: Users },
+      { to: "/users", labelKey: "nav.users", icon: Users, permission: "iam:users:list" },
+      { to: "/roles", labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list" },
     ],
   },
 ]
@@ -35,7 +47,11 @@ const navGroups: NavGroup[] = [
 export default function RootLayout() {
   const location = useLocation()
   const { t } = useTranslation()
+  const user = useAuthStore((s) => s.user)
   const fetchUser = useAuthStore((s) => s.fetchUser)
+  const fetchPermissions = usePermissionStore((s) => s.fetchPermissions)
+  const permissionsLoaded = usePermissionStore((s) => s.permissions !== null)
+  const { hasPermission } = usePermission()
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -44,6 +60,12 @@ export default function RootLayout() {
       fetchUser()
     }
   }, [])
+
+  useEffect(() => {
+    if (user?.sub) {
+      fetchPermissions(user.sub)
+    }
+  }, [user?.sub, fetchPermissions])
 
   if (!isAuthenticated()) {
     return null
@@ -59,6 +81,9 @@ export default function RootLayout() {
               <span>LCP Console</span>
             </Link>
           </div>
+          <div className="border-b px-1 py-1.5">
+            <ScopeSelector />
+          </div>
           <nav className="flex-1 space-y-3 p-2">
             {navGroups.map((group) => (
               <div key={group.labelKey}>
@@ -66,21 +91,26 @@ export default function RootLayout() {
                   {t(group.labelKey)}
                 </div>
                 <div className="space-y-0.5">
-                  {group.items.map((item) => (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      className={cn(
-                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                        location.pathname.startsWith(item.to)
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-                      )}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {t(item.labelKey)}
-                    </Link>
-                  ))}
+                  {group.items
+                    .filter(
+                      (item) =>
+                        !item.permission || !permissionsLoaded || hasPermission(item.permission),
+                    )
+                    .map((item) => (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                          location.pathname.startsWith(item.to)
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {t(item.labelKey)}
+                      </Link>
+                    ))}
                 </div>
               </div>
             ))}
@@ -90,17 +120,17 @@ export default function RootLayout() {
           <header className="flex h-14 items-center justify-between border-b px-6">
             <AppBreadcrumb />
             <div className="ml-auto flex items-center gap-2">
-            <a
-              href="/api-docs"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors"
-              title={t("nav.apiDocs")}
-            >
-              <FileText className="h-4 w-4" />
-            </a>
-            <LanguageSwitcher />
-            <UserMenu />
+              <a
+                href="/api-docs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors"
+                title={t("nav.apiDocs")}
+              >
+                <FileText className="h-4 w-4" />
+              </a>
+              <LanguageSwitcher />
+              <UserMenu />
             </div>
           </header>
           <main className="flex-1 overflow-auto">

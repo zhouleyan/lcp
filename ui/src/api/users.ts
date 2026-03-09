@@ -55,6 +55,16 @@ export async function listNamespaceUsers(
   )
 }
 
+export async function listWorkspaceNamespaceUsers(
+  workspaceId: string,
+  namespaceId: string,
+  params?: ListParams,
+): Promise<UserList> {
+  return apiRequest(
+    api.get(`workspaces/${workspaceId}/namespaces/${namespaceId}/users`, { searchParams: params as Record<string, string> }).json(),
+  )
+}
+
 export async function addNamespaceUsers(namespaceId: string, ids: string[]): Promise<void> {
   await apiRequest(api.post(`namespaces/${namespaceId}/users`, { json: { ids } }).json())
 }

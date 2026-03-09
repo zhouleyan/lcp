@@ -47,7 +47,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { listUsers, createUser, updateUser, deleteUser, deleteUsers } from "@/api/users"
+import { listUsers, listWorkspaceUsers, listWorkspaceNamespaceUsers, createUser, updateUser, deleteUser, deleteUsers } from "@/api/users"
+import { useScopeStore } from "@/stores/scope-store"
 import { ApiError, translateDetailMessage, translateApiError } from "@/api/client"
 import type { User, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
@@ -67,6 +68,8 @@ export default function UserListPage() {
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
+  const scopeNamespaceId = useScopeStore((s) => s.namespaceId)
 
   // dialogs
   const [createOpen, setCreateOpen] = useState(false)
@@ -80,7 +83,14 @@ export default function UserListPage() {
       const params: ListParams = { page, pageSize, sortBy, sortOrder }
       if (search) params.search = search
       if (statusFilter !== "all") params.status = statusFilter
-      const data = await listUsers(params)
+      let data
+      if (scopeWorkspaceId && scopeNamespaceId) {
+        data = await listWorkspaceNamespaceUsers(scopeWorkspaceId, scopeNamespaceId, params)
+      } else if (scopeWorkspaceId) {
+        data = await listWorkspaceUsers(scopeWorkspaceId, params)
+      } else {
+        data = await listUsers(params)
+      }
       setUsers(data.items ?? [])
       setTotalCount(data.totalCount)
     } catch {
@@ -89,10 +99,10 @@ export default function UserListPage() {
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, sortBy, sortOrder, search, statusFilter])
+  }, [page, pageSize, sortBy, sortOrder, search, statusFilter, scopeWorkspaceId, scopeNamespaceId])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
-  useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
+  useEffect(() => { setPage(1) }, [search, statusFilter, pageSize, scopeWorkspaceId, scopeNamespaceId])
   useEffect(() => { clearSelection() }, [users])
 
   const handleDelete = async () => {

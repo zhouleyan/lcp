@@ -43,7 +43,12 @@ const zhCN: Messages = {
   "nav.workspaces": "工作空间",
   "nav.namespaces": "命名空间",
   "nav.users": "用户",
+  "nav.roles": "角色管理",
   "nav.apiDocs": "API 文档",
+
+  // scope selector
+  "scope.allWorkspaces": "所有工作空间",
+  "scope.allNamespaces": "所有命名空间",
 
   // workspace
   "workspace.title": "工作空间",

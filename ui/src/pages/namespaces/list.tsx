@@ -30,8 +30,9 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
 import {
-  listNamespaces, createNamespace, updateNamespace, deleteNamespace, deleteNamespaces,
+  listNamespaces, listWorkspaceNamespaces, createNamespace, updateNamespace, deleteNamespace, deleteNamespaces,
 } from "@/api/namespaces"
+import { useScopeStore } from "@/stores/scope-store"
 import { listWorkspaces } from "@/api/workspaces"
 import { ApiError, translateApiError } from "@/api/client"
 import type { Namespace, Workspace, ListParams } from "@/api/types"
@@ -54,6 +55,7 @@ export default function NamespaceListPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibilityFilter, setVisibilityFilter] = useState("all")
+  const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Namespace | null>(null)
@@ -67,7 +69,9 @@ export default function NamespaceListPage() {
       if (search) params.search = search
       if (statusFilter !== "all") params.status = statusFilter
       if (visibilityFilter !== "all") params.visibility = visibilityFilter
-      const data = await listNamespaces(params)
+      const data = scopeWorkspaceId
+        ? await listWorkspaceNamespaces(scopeWorkspaceId, params)
+        : await listNamespaces(params)
       setNamespaces(data.items ?? [])
       setTotalCount(data.totalCount)
     } catch {
@@ -76,10 +80,10 @@ export default function NamespaceListPage() {
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, sortBy, sortOrder, search, statusFilter, visibilityFilter])
+  }, [page, pageSize, sortBy, sortOrder, search, statusFilter, visibilityFilter, scopeWorkspaceId])
 
   useEffect(() => { fetchData() }, [fetchData])
-  useEffect(() => { setPage(1) }, [search, statusFilter, visibilityFilter, pageSize])
+  useEffect(() => { setPage(1) }, [search, statusFilter, visibilityFilter, pageSize, scopeWorkspaceId])
   useEffect(() => { clearSelection() }, [namespaces])
 
   const handleDelete = async () => {
