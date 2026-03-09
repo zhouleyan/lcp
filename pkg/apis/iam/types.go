@@ -374,3 +374,216 @@ type DBRefreshToken = generated.RefreshToken
 
 // DBUserForAuth is an alias for the sqlc-generated GetUserForAuthRow.
 type DBUserForAuth = generated.GetUserForAuthRow
+
+// --- RBAC DB type aliases ---
+
+// DBPermission is an alias for the sqlc-generated Permission model.
+type DBPermission = generated.Permission
+
+// DBRole is an alias for the sqlc-generated Role model.
+type DBRole = generated.Role
+
+// DBRolePermissionRule is an alias for the sqlc-generated RolePermissionRule model.
+type DBRolePermissionRule = generated.RolePermissionRule
+
+// DBRoleBinding is an alias for the sqlc-generated RoleBinding model.
+type DBRoleBinding = generated.RoleBinding
+
+// DBRoleWithRules extends Role with its permission rule patterns.
+type DBRoleWithRules struct {
+	generated.Role
+	Rules []string
+}
+
+// DBRoleBindingWithDetails extends RoleBinding with user and role display info.
+type DBRoleBindingWithDetails struct {
+	generated.RoleBinding
+	Username        string
+	UserDisplayName string
+	RoleName        string
+	RoleDisplayName string
+}
+
+// UserPermissionRuleRow represents a single (scope, resource, pattern) row for cache loading.
+type UserPermissionRuleRow struct {
+	Scope       string
+	WorkspaceID *int64
+	NamespaceID *int64
+	Pattern     string
+}
+
+// UserRoleBindingWithRules represents a binding row with role name and pattern for the permissions API.
+type UserRoleBindingWithRules struct {
+	Scope       string
+	WorkspaceID *int64
+	NamespaceID *int64
+	RoleName    string
+	Pattern     string
+}
+
+// --- RBAC API types ---
+
+// Permission
+// +openapi:description=权限管理：权限由路由自动注册，表示一个 API 操作（如 iam:users:list）。
+type Permission struct {
+	runtime.TypeMeta `json:",inline"`
+	types.ObjectMeta `json:"metadata"`
+	Spec             PermissionSpec `json:"spec"`
+}
+
+func (p *Permission) GetTypeMeta() *runtime.TypeMeta { return &p.TypeMeta }
+
+// PermissionSpec
+// +openapi:description=权限属性：包含权限标识码、HTTP 方法、路径和描述。
+type PermissionSpec struct {
+	// +openapi:required
+	// +openapi:description=权限标识码，如 iam:users:list，首段为模块名
+	Code string `json:"code"`
+	// +openapi:required
+	// +openapi:description=HTTP 方法
+	Method string `json:"method"`
+	// +openapi:required
+	// +openapi:description=API 路径
+	Path string `json:"path"`
+	// +openapi:description=权限描述
+	Description string `json:"description,omitempty"`
+}
+
+// PermissionList
+// +openapi:description=权限列表：分页返回的权限集合。
+type PermissionList struct {
+	runtime.TypeMeta `json:",inline"`
+	Items            []Permission `json:"items"`
+	TotalCount       int64        `json:"totalCount"`
+}
+
+func (p *PermissionList) GetTypeMeta() *runtime.TypeMeta { return &p.TypeMeta }
+
+// Role
+// +openapi:description=角色管理：角色定义了一组权限规则，可绑定到用户。支持内置角色和自定义角色。
+type Role struct {
+	runtime.TypeMeta `json:",inline"`
+	types.ObjectMeta `json:"metadata"`
+	Spec             RoleSpec `json:"spec"`
+}
+
+func (r *Role) GetTypeMeta() *runtime.TypeMeta { return &r.TypeMeta }
+
+// RoleSpec
+// +openapi:description=角色属性：包含名称、作用域、是否内置以及权限规则列表。
+type RoleSpec struct {
+	// +openapi:required
+	// +openapi:description=角色唯一名称，如 platform-admin
+	Name string `json:"name"`
+	// +openapi:description=角色显示名称
+	DisplayName string `json:"displayName,omitempty"`
+	// +openapi:description=角色描述
+	Description string `json:"description,omitempty"`
+	// +openapi:required
+	// +openapi:description=角色作用域
+	// +openapi:enum=platform,workspace,namespace
+	Scope string `json:"scope"`
+	// +openapi:description=是否为内置角色（只读）
+	Builtin bool `json:"builtin,omitempty"`
+	// +openapi:description=权限规则列表，支持精确码和通配符模式（如 *:*、iam:*、iam:users:list）
+	Rules []string `json:"rules,omitempty"`
+}
+
+// RoleList
+// +openapi:description=角色列表：分页返回的角色集合。
+type RoleList struct {
+	runtime.TypeMeta `json:",inline"`
+	Items            []Role `json:"items"`
+	TotalCount       int64  `json:"totalCount"`
+}
+
+func (r *RoleList) GetTypeMeta() *runtime.TypeMeta { return &r.TypeMeta }
+
+// RoleBinding
+// +openapi:description=角色绑定：将用户与角色在特定作用域（平台/工作空间/项目）下关联。
+type RoleBindingObj struct {
+	runtime.TypeMeta `json:",inline"`
+	types.ObjectMeta `json:"metadata"`
+	Spec             RoleBindingSpec `json:"spec"`
+}
+
+func (rb *RoleBindingObj) GetTypeMeta() *runtime.TypeMeta { return &rb.TypeMeta }
+
+// RoleBindingSpec
+// +openapi:description=角色绑定属性：包含用户、角色、作用域和资源 ID。
+type RoleBindingSpec struct {
+	// +openapi:required
+	// +openapi:description=用户 ID
+	UserID string `json:"userId"`
+	// +openapi:required
+	// +openapi:description=角色 ID
+	RoleID string `json:"roleId"`
+	// +openapi:required
+	// +openapi:description=绑定作用域
+	// +openapi:enum=platform,workspace,namespace
+	Scope string `json:"scope"`
+	// +openapi:description=工作空间 ID（workspace/namespace scope 时必填）
+	WorkspaceID *string `json:"workspaceId,omitempty"`
+	// +openapi:description=项目 ID（namespace scope 时必填）
+	NamespaceID *string `json:"namespaceId,omitempty"`
+	// +openapi:description=是否为资源所有者
+	IsOwner bool `json:"isOwner,omitempty"`
+	// +openapi:description=角色名称（只读）
+	RoleName string `json:"roleName,omitempty"`
+	// +openapi:description=角色显示名称（只读）
+	RoleDisplayName string `json:"roleDisplayName,omitempty"`
+	// +openapi:description=用户名（只读）
+	Username string `json:"username,omitempty"`
+	// +openapi:description=用户显示名称（只读）
+	UserDisplayName string `json:"userDisplayName,omitempty"`
+}
+
+// RoleBindingList
+// +openapi:description=角色绑定列表：分页返回的角色绑定集合。
+type RoleBindingList struct {
+	runtime.TypeMeta `json:",inline"`
+	Items            []RoleBindingObj `json:"items"`
+	TotalCount       int64            `json:"totalCount"`
+}
+
+func (rb *RoleBindingList) GetTypeMeta() *runtime.TypeMeta { return &rb.TypeMeta }
+
+// UserPermissions
+// +openapi:description=用户权限视图：返回用户在各作用域下的角色和权限集合。
+type UserPermissions struct {
+	runtime.TypeMeta `json:",inline"`
+	Spec             UserPermissionsSpec `json:"spec"`
+}
+
+func (up *UserPermissions) GetTypeMeta() *runtime.TypeMeta { return &up.TypeMeta }
+
+// UserPermissionsSpec
+// +openapi:description=用户权限详情：按平台、工作空间、项目维度展示。
+type UserPermissionsSpec struct {
+	// +openapi:description=是否为平台管理员
+	IsPlatformAdmin bool `json:"isPlatformAdmin"`
+	// +openapi:description=平台级权限码列表
+	Platform []string `json:"platform"`
+	// +openapi:description=工作空间级权限（key 为 workspaceId）
+	Workspaces map[string]WorkspaceScopePerms `json:"workspaces"`
+	// +openapi:description=项目级权限（key 为 namespaceId）
+	Namespaces map[string]NamespaceScopePerms `json:"namespaces"`
+}
+
+// WorkspaceScopePerms represents permissions within a workspace scope.
+type WorkspaceScopePerms struct {
+	// +openapi:description=角色名称列表
+	RoleNames []string `json:"roleNames"`
+	// +openapi:description=展开后的权限码列表
+	Permissions []string `json:"permissions"`
+}
+
+// NamespaceScopePerms represents permissions within a namespace scope.
+type NamespaceScopePerms struct {
+	// +openapi:description=角色名称列表
+	RoleNames []string `json:"roleNames"`
+	// +openapi:description=所属工作空间 ID
+	WorkspaceID string `json:"workspaceId"`
+	// +openapi:description=展开后的权限码列表
+	Permissions []string `json:"permissions"`
+}

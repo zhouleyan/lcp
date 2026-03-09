@@ -78,3 +78,42 @@ type UserNamespaceStore interface {
 	ListByUserID(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwnerAndRole], error)
 	ListByNamespaceID(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
 }
+
+// PermissionStore defines database operations on permissions.
+type PermissionStore interface {
+	Upsert(ctx context.Context, perm *DBPermission) (*DBPermission, error)
+	DeleteByModuleNotInCodes(ctx context.Context, modulePrefix string, keepCodes []string) error
+	GetByCode(ctx context.Context, code string) (*DBPermission, error)
+	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBPermission], error)
+	ListAllCodes(ctx context.Context) ([]string, error)
+}
+
+// RoleStore defines database operations on roles.
+type RoleStore interface {
+	Create(ctx context.Context, role *DBRole) (*DBRole, error)
+	GetByID(ctx context.Context, id int64) (*DBRoleWithRules, error)
+	GetByName(ctx context.Context, name string) (*DBRole, error)
+	Update(ctx context.Context, role *DBRole) (*DBRole, error)
+	Upsert(ctx context.Context, role *DBRole) (*DBRole, error)
+	Delete(ctx context.Context, id int64) error
+	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBRole], error)
+	SetPermissionRules(ctx context.Context, roleID int64, patterns []string) error
+}
+
+// RoleBindingStore defines database operations on role bindings.
+type RoleBindingStore interface {
+	Create(ctx context.Context, rb *DBRoleBinding) (*DBRoleBinding, error)
+	Delete(ctx context.Context, id int64) error
+	GetByID(ctx context.Context, id int64) (*DBRoleBinding, error)
+	ListPlatform(ctx context.Context, query db.ListQuery) (*db.ListResult[DBRoleBindingWithDetails], error)
+	ListByWorkspaceID(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBRoleBindingWithDetails], error)
+	ListByNamespaceID(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBRoleBindingWithDetails], error)
+	ListByUserID(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBRoleBindingWithDetails], error)
+	CountByRoleAndScope(ctx context.Context, roleID int64, scope string) (int64, error)
+	GetAccessibleWorkspaceIDs(ctx context.Context, userID int64) ([]int64, error)
+	GetAccessibleNamespaceIDs(ctx context.Context, userID int64) ([]int64, error)
+	GetUserIDsByWorkspaceID(ctx context.Context, workspaceID int64) ([]int64, error)
+	GetUserIDsByNamespaceID(ctx context.Context, namespaceID int64) ([]int64, error)
+	LoadUserPermissionRules(ctx context.Context, userID int64) ([]UserPermissionRuleRow, error)
+	GetUserRoleBindingsWithRules(ctx context.Context, userID int64) ([]UserRoleBindingWithRules, error)
+}
