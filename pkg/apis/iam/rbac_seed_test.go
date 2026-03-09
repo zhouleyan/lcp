@@ -76,6 +76,28 @@ func (m *mockRoleStoreForSeed) SetPermissionRules(_ context.Context, roleID int6
 	return nil
 }
 
+func (m *mockRoleStoreForSeed) GetByNameAndWorkspace(_ context.Context, name string, _ int64) (*DBRole, error) {
+	if r, ok := m.roles[name]; ok {
+		return r, nil
+	}
+	return nil, fmt.Errorf("role %q not found", name)
+}
+
+func (m *mockRoleStoreForSeed) GetByNameAndNamespace(_ context.Context, name string, _ int64) (*DBRole, error) {
+	if r, ok := m.roles[name]; ok {
+		return r, nil
+	}
+	return nil, fmt.Errorf("role %q not found", name)
+}
+
+func (m *mockRoleStoreForSeed) CreateBuiltinRolesForWorkspace(_ context.Context, _ int64) error {
+	return nil
+}
+
+func (m *mockRoleStoreForSeed) CreateBuiltinRolesForNamespace(_ context.Context, _ int64) error {
+	return nil
+}
+
 func (m *mockRoleStoreForSeed) SeedRBAC(_ context.Context, roles []BuiltinRoleDef, _ string) error {
 	for _, def := range roles {
 		role, _ := m.Upsert(context.Background(), &DBRole{
@@ -99,9 +121,9 @@ func TestSeedRBAC(t *testing.T) {
 		t.Fatalf("SeedRBAC: %v", err)
 	}
 
-	// Should have created 6 roles
-	if len(store.roles) != 6 {
-		t.Fatalf("expected 6 roles, got %d", len(store.roles))
+	// SeedRBAC now only seeds platform roles (2 roles)
+	if len(store.roles) != 2 {
+		t.Fatalf("expected 2 platform roles, got %d", len(store.roles))
 	}
 
 	// All roles should be builtin
@@ -111,43 +133,35 @@ func TestSeedRBAC(t *testing.T) {
 		}
 	}
 
-	// Check all admin roles have "*:*" rule
-	for _, name := range []string{RolePlatformAdmin, RoleWorkspaceAdmin, RoleNamespaceAdmin} {
-		role := store.roles[name]
-		if role == nil {
-			t.Fatalf("%s role not found", name)
-		}
-		rules := store.rules[role.ID]
-		if len(rules) != 1 || rules[0] != "*:*" {
-			t.Errorf("%s rules = %v, want [*:*]", name, rules)
-		}
+	// Check platform admin role has "*:*" rule
+	adminRole := store.roles[RolePlatformAdmin]
+	if adminRole == nil {
+		t.Fatalf("%s role not found", RolePlatformAdmin)
+	}
+	adminRules := store.rules[adminRole.ID]
+	if len(adminRules) != 1 || adminRules[0] != "*:*" {
+		t.Errorf("%s rules = %v, want [*:*]", RolePlatformAdmin, adminRules)
 	}
 
-	// Check all viewer roles have "*:list" and "*:get" rules
-	for _, name := range []string{RolePlatformViewer, RoleWorkspaceViewer, RoleNamespaceViewer} {
-		role := store.roles[name]
-		if role == nil {
-			t.Fatalf("%s role not found", name)
-		}
-		rules := store.rules[role.ID]
-		if len(rules) != 2 {
-			t.Errorf("%s rules = %v, want [*:list *:get]", name, rules)
-			continue
-		}
-		ruleSet := map[string]bool{rules[0]: true, rules[1]: true}
+	// Check platform viewer role has "*:list" and "*:get" rules
+	viewerRole := store.roles[RolePlatformViewer]
+	if viewerRole == nil {
+		t.Fatalf("%s role not found", RolePlatformViewer)
+	}
+	viewerRules := store.rules[viewerRole.ID]
+	if len(viewerRules) != 2 {
+		t.Errorf("%s rules = %v, want [*:list *:get]", RolePlatformViewer, viewerRules)
+	} else {
+		ruleSet := map[string]bool{viewerRules[0]: true, viewerRules[1]: true}
 		if !ruleSet["*:list"] || !ruleSet["*:get"] {
-			t.Errorf("%s rules = %v, want [*:list *:get]", name, rules)
+			t.Errorf("%s rules = %v, want [*:list *:get]", RolePlatformViewer, viewerRules)
 		}
 	}
 
 	// Check scopes
 	expectedScopes := map[string]string{
-		RolePlatformAdmin:   "platform",
-		RolePlatformViewer:  "platform",
-		RoleWorkspaceAdmin:  "workspace",
-		RoleWorkspaceViewer: "workspace",
-		RoleNamespaceAdmin:  "namespace",
-		RoleNamespaceViewer: "namespace",
+		RolePlatformAdmin:  "platform",
+		RolePlatformViewer: "platform",
 	}
 	for name, scope := range expectedScopes {
 		role := store.roles[name]
@@ -172,9 +186,9 @@ func TestSeedRBACIdempotent(t *testing.T) {
 		t.Fatalf("second SeedRBAC: %v", err)
 	}
 
-	// Should still have exactly 6 roles (no duplicates)
-	if len(store.roles) != 6 {
-		t.Fatalf("expected 6 roles after double seed, got %d", len(store.roles))
+	// Should still have exactly 2 platform roles (no duplicates)
+	if len(store.roles) != 2 {
+		t.Fatalf("expected 2 roles after double seed, got %d", len(store.roles))
 	}
 
 	// Rules should be correct (overwritten, not accumulated)
@@ -182,5 +196,37 @@ func TestSeedRBACIdempotent(t *testing.T) {
 	adminRules := store.rules[adminRole.ID]
 	if len(adminRules) != 1 || adminRules[0] != "*:*" {
 		t.Errorf("%s rules after double seed = %v, want [*:*]", RolePlatformAdmin, adminRules)
+	}
+}
+
+func TestBuiltinRoleHelpers(t *testing.T) {
+	platform := PlatformBuiltinRoles()
+	if len(platform) != 2 {
+		t.Errorf("PlatformBuiltinRoles() returned %d roles, want 2", len(platform))
+	}
+	for _, r := range platform {
+		if r.Scope != "platform" {
+			t.Errorf("PlatformBuiltinRoles() role %q has scope %q, want platform", r.Name, r.Scope)
+		}
+	}
+
+	workspace := WorkspaceBuiltinRoles()
+	if len(workspace) != 2 {
+		t.Errorf("WorkspaceBuiltinRoles() returned %d roles, want 2", len(workspace))
+	}
+	for _, r := range workspace {
+		if r.Scope != "workspace" {
+			t.Errorf("WorkspaceBuiltinRoles() role %q has scope %q, want workspace", r.Name, r.Scope)
+		}
+	}
+
+	namespace := NamespaceBuiltinRoles()
+	if len(namespace) != 2 {
+		t.Errorf("NamespaceBuiltinRoles() returned %d roles, want 2", len(namespace))
+	}
+	for _, r := range namespace {
+		if r.Scope != "namespace" {
+			t.Errorf("NamespaceBuiltinRoles() role %q has scope %q, want namespace", r.Name, r.Scope)
+		}
 	}
 }
