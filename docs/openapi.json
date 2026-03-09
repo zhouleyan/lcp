@@ -1719,7 +1719,7 @@
     },
     "/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/rolebindings": {
       "get": {
-        "summary": "获取项目级角色绑定列表",
+        "summary": "获取工作空间下项目的角色绑定列表",
         "operationId": "listWorkspaceNamespaceRoleBinding",
         "tags": [
           "RoleBinding"
@@ -1788,7 +1788,7 @@
         }
       },
       "post": {
-        "summary": "创建项目级角色绑定",
+        "summary": "创建工作空间下项目的角色绑定",
         "operationId": "createWorkspaceNamespaceRoleBinding",
         "tags": [
           "RoleBinding"
@@ -1837,7 +1837,7 @@
     },
     "/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/rolebindings/{rolebindingId}": {
       "delete": {
-        "summary": "删除项目级角色绑定",
+        "summary": "删除工作空间下项目的角色绑定",
         "operationId": "deleteWorkspaceNamespaceRoleBinding",
         "tags": [
           "RoleBinding"
@@ -1861,6 +1861,264 @@
           },
           {
             "name": "rolebindingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/roles": {
+      "get": {
+        "summary": "获取工作空间下项目的角色列表",
+        "operationId": "listWorkspaceNamespaceRole",
+        "tags": [
+          "Role"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "创建工作空间下项目的自定义角色",
+        "operationId": "createWorkspaceNamespaceRole",
+        "tags": [
+          "Role"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Role"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Role"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/roles/{roleId}": {
+      "get": {
+        "summary": "获取工作空间下项目的角色详情",
+        "operationId": "getWorkspaceNamespaceRole",
+        "tags": [
+          "Role"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Role"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "更新工作空间下项目的角色",
+        "operationId": "updateWorkspaceNamespaceRole",
+        "tags": [
+          "Role"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Role"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Role"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除工作空间下项目的角色",
+        "operationId": "deleteWorkspaceNamespaceRole",
+        "tags": [
+          "Role"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roleId",
             "in": "path",
             "required": true,
             "schema": {
@@ -2079,6 +2337,53 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}": {
+      "get": {
+        "summary": "获取工作空间下项目的成员详情",
+        "operationId": "getWorkspaceNamespaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "namespaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
           }
         }
       }
@@ -2657,6 +2962,45 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/iam/v1/workspaces/{workspaceId}/users/{userId}": {
+      "get": {
+        "summary": "获取工作空间成员详情",
+        "operationId": "getWorkspaceUser",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
           }
         }
       }
@@ -3485,6 +3829,10 @@
             "format": "email",
             "description": "邮箱地址"
           },
+          "joinedAt": {
+            "type": "string",
+            "description": "用户加入工作空间或项目的时间（仅成员列表查询时返回）"
+          },
           "namespaces": {
             "type": "array",
             "description": "用户所属的项目列表（仅在列表查询时返回）",
@@ -3500,6 +3848,10 @@
           "phone": {
             "type": "string",
             "description": "手机号码"
+          },
+          "role": {
+            "type": "string",
+            "description": "用户在工作空间或项目中的角色（仅成员列表查询时返回）"
           },
           "status": {
             "type": "string",

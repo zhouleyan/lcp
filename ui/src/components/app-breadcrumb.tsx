@@ -28,13 +28,33 @@ export function AppBreadcrumb() {
   const location = useLocation()
   const workspaceName = useWorkspaceStore((s) => s.currentWorkspaceName)
 
-  const segments = location.pathname.split("/").filter(Boolean)
+  const rawSegments = location.pathname.split("/").filter(Boolean)
 
   // Don't render breadcrumb on root / index
-  if (segments.length === 0) return null
+  if (rawSegments.length === 0) return null
+
+  // For scoped routes, strip the scope prefix from breadcrumb display
+  // but preserve it in link hrefs so navigation stays within scope.
+  // e.g. /workspaces/4/namespaces/4/roles/35
+  //   → display: Roles > 35
+  //   → hrefs:   /workspaces/4/namespaces/4/roles, (current page)
+  let segments = rawSegments
+  let scopePrefix = ""
+  if (rawSegments[0] === "workspaces" && rawSegments[1]) {
+    // /workspaces/:id/namespaces/:nsId/... → strip first 4, show from sub-resource
+    if (rawSegments[2] === "namespaces" && rawSegments[3] && rawSegments.length > 4) {
+      scopePrefix = `/${rawSegments.slice(0, 4).join("/")}`
+      segments = rawSegments.slice(4)
+    }
+    // /workspaces/:id/... → strip first 2, show from resource onward
+    else if (rawSegments.length > 2) {
+      scopePrefix = `/${rawSegments.slice(0, 2).join("/")}`
+      segments = rawSegments.slice(2)
+    }
+  }
 
   const items: BreadcrumbEntry[] = []
-  let pathAccum = ""
+  let pathAccum = scopePrefix
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i]
@@ -55,7 +75,6 @@ export function AppBreadcrumb() {
           href: isLast ? undefined : pathAccum,
         })
       } else if (parentSeg === "namespaces") {
-        // For namespace IDs, just show the ID (no store for namespace name yet)
         items.push({
           label: seg,
           href: isLast ? undefined : pathAccum,

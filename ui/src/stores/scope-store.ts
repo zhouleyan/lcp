@@ -6,6 +6,7 @@ interface ScopeState {
   namespaceId: string | null
   setWorkspace: (id: string | null) => void
   setNamespace: (id: string | null) => void
+  setScope: (wsId: string | null, nsId: string | null) => void
 }
 
 export const useScopeStore = create<ScopeState>()(
@@ -15,6 +16,7 @@ export const useScopeStore = create<ScopeState>()(
       namespaceId: null,
       setWorkspace: (id) => set({ workspaceId: id, namespaceId: null }),
       setNamespace: (id) => set({ namespaceId: id }),
+      setScope: (wsId, nsId) => set({ workspaceId: wsId, namespaceId: nsId }),
     }),
     { name: "lcp-scope" },
   ),

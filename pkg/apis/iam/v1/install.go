@@ -83,8 +83,17 @@ func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvi
 					{
 						Name:    "namespaces",
 						Storage: nsStorage,
+						Actions: []rest.ActionInfo{
+							{
+								Name:    "transfer-ownership",
+								Method:  "POST",
+								Handler: iam.NewNamespaceTransferOwnershipHandler(p.RoleBinding, checker),
+							},
+						},
 						SubResources: []rest.ResourceInfo{
 							{Name: "users", Storage: nsUserStorage},
+							{Name: "rolebindings", Storage: nsRbStorage},
+							{Name: "roles", Storage: nsRoleStorage},
 						},
 					},
 					{Name: "users", Storage: wsUserStorage},

@@ -33,6 +33,7 @@ export function ScopedRoleFormDialog({
   onOpenChange,
   scope,
   scopeId,
+  workspaceId,
   role,
   permissions,
   onSuccess,
@@ -41,6 +42,7 @@ export function ScopedRoleFormDialog({
   onOpenChange: (open: boolean) => void
   scope: "workspace" | "namespace"
   scopeId: string
+  workspaceId?: string
   role?: Role
   permissions: Permission[]
   onSuccess: () => void
@@ -90,8 +92,9 @@ export function ScopedRoleFormDialog({
   const checkUniqueness = async (value: string) => {
     if (!value) return
     try {
-      const listFn = scope === "workspace" ? listWorkspaceRoles : listNamespaceRoles
-      const data = await listFn(scopeId, { page: 1, pageSize: 1, search: value })
+      const data = scope === "workspace"
+        ? await listWorkspaceRoles(scopeId, { page: 1, pageSize: 1, search: value })
+        : await listNamespaceRoles(workspaceId!, scopeId, { page: 1, pageSize: 1, search: value })
       const exists = data.items?.some((r) => {
         if (isEdit && r.metadata.id === role?.metadata.id) return false
         return r.spec.name === value
@@ -104,29 +107,31 @@ export function ScopedRoleFormDialog({
     setLoading(true)
     try {
       if (isEdit) {
-        const updateFn = scope === "workspace" ? updateWorkspaceRole : updateNamespaceRole
-        await updateFn(scopeId, role.metadata.id, {
-          metadata: role.metadata,
-          spec: {
-            ...role.spec,
-            displayName: values.displayName || undefined,
-            description: values.description || undefined,
-            rules: values.rules,
-          },
-        })
+        if (scope === "workspace") {
+          await updateWorkspaceRole(scopeId, role.metadata.id, {
+            metadata: role.metadata,
+            spec: { ...role.spec, displayName: values.displayName || undefined, description: values.description || undefined, rules: values.rules },
+          })
+        } else {
+          await updateNamespaceRole(workspaceId!, scopeId, role.metadata.id, {
+            metadata: role.metadata,
+            spec: { ...role.spec, displayName: values.displayName || undefined, description: values.description || undefined, rules: values.rules },
+          })
+        }
         toast.success(t("action.updateSuccess"))
       } else {
-        const createFn = scope === "workspace" ? createWorkspaceRole : createNamespaceRole
-        await createFn(scopeId, {
-          metadata: {} as Role["metadata"],
-          spec: {
-            name: values.name,
-            displayName: values.displayName || undefined,
-            description: values.description || undefined,
-            scope,
-            rules: values.rules,
-          } as Role["spec"],
-        })
+        const spec = {
+          name: values.name,
+          displayName: values.displayName || undefined,
+          description: values.description || undefined,
+          scope,
+          rules: values.rules,
+        } as Role["spec"]
+        if (scope === "workspace") {
+          await createWorkspaceRole(scopeId, { metadata: {} as Role["metadata"], spec })
+        } else {
+          await createNamespaceRole(workspaceId!, scopeId, { metadata: {} as Role["metadata"], spec })
+        }
         toast.success(t("action.createSuccess"))
       }
       onOpenChange(false)

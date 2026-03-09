@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useParams } from "react-router"
+import { useParams, Link } from "react-router"
 import { Plus, UserMinus, Search, Filter } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -29,8 +29,10 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 
 
 export default function NamespaceUsersPage() {
+  const workspaceId = useParams().workspaceId!
   const namespaceId = useParams().namespaceId!
   const { t } = useTranslation()
+  const usersBasePath = `/workspaces/${workspaceId}/namespaces/${namespaceId}/users`
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
     searchInput, setSearchInput, search,
@@ -52,7 +54,7 @@ export default function NamespaceUsersPage() {
       const params: ListParams = { page, pageSize, sortBy, sortOrder }
       if (search) params.search = search
       if (statusFilter !== "all") params.status = statusFilter
-      const data = await listNamespaceUsers(namespaceId, params)
+      const data = await listNamespaceUsers(workspaceId, namespaceId, params)
       setMembers(data.items ?? [])
       setTotalCount(data.totalCount)
     } catch (err) {
@@ -74,7 +76,7 @@ export default function NamespaceUsersPage() {
   const handleRemove = async () => {
     if (!removeTarget) return
     try {
-      await removeNamespaceUsers(namespaceId, [removeTarget.metadata.id])
+      await removeNamespaceUsers(workspaceId, namespaceId, [removeTarget.metadata.id])
       toast.success(t("namespace.memberRemoved"))
       setRemoveTarget(null)
       fetchMembers()
@@ -90,7 +92,7 @@ export default function NamespaceUsersPage() {
 
   const handleBatchRemove = async () => {
     try {
-      await removeNamespaceUsers(namespaceId, Array.from(selected))
+      await removeNamespaceUsers(workspaceId, namespaceId, Array.from(selected))
       toast.success(t("namespace.memberRemoved"))
       setBatchRemoveOpen(false)
       clearSelection()
@@ -184,7 +186,11 @@ export default function NamespaceUsersPage() {
               members.map((m) => (
                 <TableRow key={m.metadata.id}>
                   <TableCell><Checkbox checked={selected.has(m.metadata.id)} onCheckedChange={() => toggleOne(m.metadata.id)} /></TableCell>
-                  <TableCell className="font-medium">{m.spec.username}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link to={`${usersBasePath}/${m.metadata.id}`} className="hover:underline">
+                      {m.spec.username}
+                    </Link>
+                  </TableCell>
                   <TableCell>{m.spec.email}</TableCell>
                   <TableCell>{m.spec.displayName || "-"}</TableCell>
                   <TableCell>{m.spec.phone || "-"}</TableCell>
@@ -212,7 +218,7 @@ export default function NamespaceUsersPage() {
       <Pagination totalCount={totalCount} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
 
       {/* add member dialog */}
-      <AddMemberDialog open={addOpen} onOpenChange={setAddOpen} namespaceId={namespaceId} existingMemberIds={members.map((m) => m.metadata.id)} onSuccess={handleAddSuccess} />
+      <AddMemberDialog open={addOpen} onOpenChange={setAddOpen} workspaceId={workspaceId} namespaceId={namespaceId} existingMemberIds={members.map((m) => m.metadata.id)} onSuccess={handleAddSuccess} />
 
       {/* remove confirm */}
       <ConfirmDialog
@@ -240,10 +246,11 @@ export default function NamespaceUsersPage() {
 // ===== Add Member Dialog =====
 
 function AddMemberDialog({
-  open, onOpenChange, namespaceId, existingMemberIds, onSuccess,
+  open, onOpenChange, workspaceId, namespaceId, existingMemberIds, onSuccess,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  workspaceId: string
   namespaceId: string
   existingMemberIds: string[]
   onSuccess: () => void
@@ -290,7 +297,7 @@ function AddMemberDialog({
     if (selectedIds.size === 0) return
     setSubmitting(true)
     try {
-      await addNamespaceUsers(namespaceId, Array.from(selectedIds))
+      await addNamespaceUsers(workspaceId, namespaceId, Array.from(selectedIds))
       toast.success(t("namespace.memberAdded"))
       onOpenChange(false)
       onSuccess()

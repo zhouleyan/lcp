@@ -61,31 +61,34 @@ export async function deleteWorkspaceRole(workspaceId: string, roleId: string): 
   await apiRequest(api.delete(`workspaces/${workspaceId}/roles/${roleId}`).json())
 }
 export async function listNamespaceRoles(
+  workspaceId: string,
   namespaceId: string,
   params?: ListParams,
 ): Promise<RoleList> {
   return apiRequest(
-    api.get(`namespaces/${namespaceId}/roles`, { searchParams: params as Record<string, string> }).json(),
+    api.get(`workspaces/${workspaceId}/namespaces/${namespaceId}/roles`, { searchParams: params as Record<string, string> }).json(),
   )
 }
-export async function getNamespaceRole(namespaceId: string, roleId: string): Promise<Role> {
-  return apiRequest(api.get(`namespaces/${namespaceId}/roles/${roleId}`).json())
+export async function getNamespaceRole(workspaceId: string, namespaceId: string, roleId: string): Promise<Role> {
+  return apiRequest(api.get(`workspaces/${workspaceId}/namespaces/${namespaceId}/roles/${roleId}`).json())
 }
 export async function createNamespaceRole(
+  workspaceId: string,
   namespaceId: string,
   data: Pick<Role, "metadata" | "spec">,
 ): Promise<Role> {
-  return apiRequest(api.post(`namespaces/${namespaceId}/roles`, { json: data }).json())
+  return apiRequest(api.post(`workspaces/${workspaceId}/namespaces/${namespaceId}/roles`, { json: data }).json())
 }
 export async function updateNamespaceRole(
+  workspaceId: string,
   namespaceId: string,
   roleId: string,
   data: Pick<Role, "metadata" | "spec">,
 ): Promise<Role> {
-  return apiRequest(api.put(`namespaces/${namespaceId}/roles/${roleId}`, { json: data }).json())
+  return apiRequest(api.put(`workspaces/${workspaceId}/namespaces/${namespaceId}/roles/${roleId}`, { json: data }).json())
 }
-export async function deleteNamespaceRole(namespaceId: string, roleId: string): Promise<void> {
-  await apiRequest(api.delete(`namespaces/${namespaceId}/roles/${roleId}`).json())
+export async function deleteNamespaceRole(workspaceId: string, namespaceId: string, roleId: string): Promise<void> {
+  await apiRequest(api.delete(`workspaces/${workspaceId}/namespaces/${namespaceId}/roles/${roleId}`).json())
 }
 
 // --- Platform RoleBindings ---

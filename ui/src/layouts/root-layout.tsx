@@ -76,6 +76,28 @@ export default function RootLayout() {
   const { hasPermission } = usePermission()
   const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
   const scopeNamespaceId = useScopeStore((s) => s.namespaceId)
+  const setScope = useScopeStore((s) => s.setScope)
+
+  // Sync scope store from URL when navigating via links or browser back/forward.
+  // /workspaces/:id is a platform-level detail page — scope stays null.
+  // /workspaces/:id/<sub-resource> activates workspace scope.
+  // /workspaces/:id/namespaces/:nsId/<sub-resource> activates namespace scope.
+  useEffect(() => {
+    const segs = location.pathname.split("/").filter(Boolean)
+    let urlWsId: string | null = null
+    let urlNsId: string | null = null
+
+    if (segs[0] === "workspaces" && segs[1] && segs.length > 2) {
+      urlWsId = segs[1]
+      if (segs[2] === "namespaces" && segs[3] && segs.length > 4) {
+        urlNsId = segs[3]
+      }
+    }
+
+    if (urlWsId !== scopeWorkspaceId || urlNsId !== scopeNamespaceId) {
+      setScope(urlWsId, urlNsId)
+    }
+  }, [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
   const navGroups = useMemo(
     () => buildNavGroups(scopeWorkspaceId, scopeNamespaceId),
     [scopeWorkspaceId, scopeNamespaceId],

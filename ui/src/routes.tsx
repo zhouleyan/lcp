@@ -18,6 +18,8 @@ import RoleListPage from "@/pages/roles/list"
 import RoleDetailPage from "@/pages/roles/detail"
 import WorkspaceRolesTab from "@/pages/workspaces/roles-tab"
 import NamespaceRolesTab from "@/pages/namespaces/roles-tab"
+import ScopedRoleDetailPage from "@/pages/roles/scoped-detail"
+import ScopedUserDetailPage from "@/pages/users/scoped-detail"
 
 export const routes: RouteObject[] = [
   {
@@ -48,17 +50,19 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <WorkspaceDetailPage /> },
           { path: "users", element: <WorkspaceUsersPage /> },
+          { path: "users/:userId", element: <ScopedUserDetailPage /> },
           { path: "namespaces", element: <WorkspaceNamespacesPage /> },
           { path: "roles", element: <WorkspaceRolesTab /> },
+          { path: "roles/:roleId", element: <ScopedRoleDetailPage /> },
           { path: "namespaces/:namespaceId", element: <NamespaceDetailPage /> },
           { path: "namespaces/:namespaceId/users", element: <NamespaceUsersPage /> },
+          { path: "namespaces/:namespaceId/users/:userId", element: <ScopedUserDetailPage /> },
           { path: "namespaces/:namespaceId/roles", element: <NamespaceRolesTab /> },
+          { path: "namespaces/:namespaceId/roles/:roleId", element: <ScopedRoleDetailPage /> },
         ],
       },
       { path: "namespaces", element: <NamespaceListPage /> },
       { path: "namespaces/:namespaceId", element: <NamespaceDetailPage /> },
-      { path: "namespaces/:namespaceId/users", element: <NamespaceUsersPage /> },
-      { path: "namespaces/:namespaceId/roles", element: <NamespaceRolesTab /> },
       { path: "users", element: <UserListPage /> },
       { path: "users/:userId", element: <UserDetailPage /> },
       { path: "roles", element: <RoleListPage /> },

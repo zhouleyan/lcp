@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useParams } from "react-router"
+import { useParams, Link } from "react-router"
 import { Plus, Pencil, Trash2, Search } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -24,8 +24,10 @@ import { ScopedRoleFormDialog } from "@/components/scoped-role-form-dialog"
 
 
 export default function NamespaceRolesTab() {
+  const workspaceId = useParams().workspaceId!
   const namespaceId = useParams().namespaceId!
   const { t } = useTranslation()
+  const rolesBasePath = `/workspaces/${workspaceId}/namespaces/${namespaceId}/roles`
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
     searchInput, setSearchInput, search,
@@ -45,7 +47,7 @@ export default function NamespaceRolesTab() {
     try {
       const params: ListParams = { page, pageSize, sortBy, sortOrder }
       if (search) params.search = search
-      const data = await listNamespaceRoles(namespaceId, params)
+      const data = await listNamespaceRoles(workspaceId, namespaceId, params)
       setRoles(data.items ?? [])
       setTotalCount(data.totalCount)
     } catch {
@@ -69,7 +71,7 @@ export default function NamespaceRolesTab() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     try {
-      await deleteNamespaceRole(namespaceId, deleteTarget.metadata.id)
+      await deleteNamespaceRole(workspaceId, namespaceId, deleteTarget.metadata.id)
       toast.success(t("action.deleteSuccess"))
       setDeleteTarget(null)
       fetchRoles()
@@ -85,7 +87,7 @@ export default function NamespaceRolesTab() {
 
   const handleBatchDelete = async () => {
     try {
-      await Promise.all(Array.from(selected).map((id) => deleteNamespaceRole(namespaceId, id)))
+      await Promise.all(Array.from(selected).map((id) => deleteNamespaceRole(workspaceId, namespaceId, id)))
       toast.success(t("action.deleteSuccess"))
       setBatchDeleteOpen(false)
       clearSelection()
@@ -175,7 +177,11 @@ export default function NamespaceRolesTab() {
                       disabled={!!role.spec.builtin}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{role.spec.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link to={`${rolesBasePath}/${role.metadata.id}`} className="hover:underline">
+                      {role.spec.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>{t(`role.${role.spec.name}`, { defaultValue: role.spec.displayName || "-" })}</TableCell>
                   <TableCell>
                     <Badge variant={role.spec.builtin ? "secondary" : "outline"}>
@@ -215,6 +221,7 @@ export default function NamespaceRolesTab() {
         onOpenChange={setCreateOpen}
         scope="namespace"
         scopeId={namespaceId}
+        workspaceId={workspaceId}
         permissions={permissions}
         onSuccess={fetchRoles}
       />
@@ -224,6 +231,7 @@ export default function NamespaceRolesTab() {
         onOpenChange={(v) => { if (!v) setEditRole(null) }}
         scope="namespace"
         scopeId={namespaceId}
+        workspaceId={workspaceId}
         role={editRole ?? undefined}
         permissions={permissions}
         onSuccess={fetchRoles}

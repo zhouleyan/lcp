@@ -29,6 +29,14 @@ export async function deleteUsers(ids: string[]): Promise<void> {
   await apiRequest(api.delete("users", { json: { ids } }).json())
 }
 
+export async function getWorkspaceUser(workspaceId: string, userId: string): Promise<User> {
+  return apiRequest(api.get(`workspaces/${workspaceId}/users/${userId}`).json())
+}
+
+export async function getNamespaceUser(workspaceId: string, namespaceId: string, userId: string): Promise<User> {
+  return apiRequest(api.get(`workspaces/${workspaceId}/namespaces/${namespaceId}/users/${userId}`).json())
+}
+
 export async function listWorkspaceUsers(
   workspaceId: string,
   params?: ListParams,
@@ -47,15 +55,6 @@ export async function removeWorkspaceUsers(workspaceId: string, ids: string[]): 
 }
 
 export async function listNamespaceUsers(
-  namespaceId: string,
-  params?: ListParams,
-): Promise<UserList> {
-  return apiRequest(
-    api.get(`namespaces/${namespaceId}/users`, { searchParams: params as Record<string, string> }).json(),
-  )
-}
-
-export async function listWorkspaceNamespaceUsers(
   workspaceId: string,
   namespaceId: string,
   params?: ListParams,
@@ -65,12 +64,12 @@ export async function listWorkspaceNamespaceUsers(
   )
 }
 
-export async function addNamespaceUsers(namespaceId: string, ids: string[]): Promise<void> {
-  await apiRequest(api.post(`namespaces/${namespaceId}/users`, { json: { ids } }).json())
+export async function addNamespaceUsers(workspaceId: string, namespaceId: string, ids: string[]): Promise<void> {
+  await apiRequest(api.post(`workspaces/${workspaceId}/namespaces/${namespaceId}/users`, { json: { ids } }).json())
 }
 
-export async function removeNamespaceUsers(namespaceId: string, ids: string[]): Promise<void> {
-  await apiRequest(api.delete(`namespaces/${namespaceId}/users`, { json: { ids } }).json())
+export async function removeNamespaceUsers(workspaceId: string, namespaceId: string, ids: string[]): Promise<void> {
+  await apiRequest(api.delete(`workspaces/${workspaceId}/namespaces/${namespaceId}/users`, { json: { ids } }).json())
 }
 
 export async function listUserWorkspaces(

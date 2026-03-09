@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useParams } from "react-router"
+import { useParams, Link } from "react-router"
 import { Plus, Pencil, Trash2, Search } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -175,7 +175,11 @@ export default function WorkspaceRolesTab() {
                       disabled={!!role.spec.builtin}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{role.spec.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link to={`/workspaces/${workspaceId}/roles/${role.metadata.id}`} className="hover:underline">
+                      {role.spec.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>{t(`role.${role.spec.name}`, { defaultValue: role.spec.displayName || "-" })}</TableCell>
                   <TableCell>
                     <Badge variant={role.spec.builtin ? "secondary" : "outline"}>

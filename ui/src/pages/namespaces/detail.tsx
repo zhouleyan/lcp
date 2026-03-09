@@ -108,7 +108,7 @@ export default function NamespaceDetailPage() {
         <div className="grid grid-cols-2 gap-4">
           <Card
             className="cursor-pointer transition-colors hover:bg-muted/50"
-            onClick={() => navigate("users")}
+            onClick={() => navigate(`/workspaces/${namespace.spec.workspaceId}/namespaces/${namespace.metadata.id}/users`)}
           >
             <CardContent className="flex items-center gap-4 p-4">
               <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">

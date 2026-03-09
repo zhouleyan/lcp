@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useParams } from "react-router"
+import { useParams, Link } from "react-router"
 import { Plus, UserMinus, Search, Filter } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -184,7 +184,11 @@ export default function WorkspaceUsersPage() {
               members.map((m) => (
                 <TableRow key={m.metadata.id}>
                   <TableCell><Checkbox checked={selected.has(m.metadata.id)} onCheckedChange={() => toggleOne(m.metadata.id)} /></TableCell>
-                  <TableCell className="font-medium">{m.spec.username}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link to={`/workspaces/${workspaceId}/users/${m.metadata.id}`} className="hover:underline">
+                      {m.spec.username}
+                    </Link>
+                  </TableCell>
                   <TableCell>{m.spec.email}</TableCell>
                   <TableCell>{m.spec.displayName || "-"}</TableCell>
                   <TableCell>{m.spec.phone || "-"}</TableCell>

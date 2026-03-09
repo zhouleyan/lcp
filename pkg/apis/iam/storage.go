@@ -873,6 +873,22 @@ func NewWorkspaceUserStorage(rbStore RoleBindingStore, userStore UserStore) rest
 
 func (s *workspaceUserStorage) NewObject() runtime.Object { return &BatchRequest{} }
 
+// +openapi:summary=获取工作空间成员详情
+func (s *workspaceUserStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
+	id := options.PathParams["userId"]
+	uid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", id), nil)
+	}
+
+	user, err := s.userStore.GetByID(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	return userToAPI(user), nil
+}
+
 // +openapi:summary=获取工作空间成员列表
 func (s *workspaceUserStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	wsID, err := parseID(options.PathParams["workspaceId"])
@@ -966,6 +982,23 @@ func NewNamespaceUserStorage(rbStore RoleBindingStore, nsStore NamespaceStore, u
 }
 
 func (s *namespaceUserStorage) NewObject() runtime.Object { return &BatchRequest{} }
+
+// +openapi:summary=获取项目成员详情
+// +openapi:summary.workspaces.namespaces.users=获取工作空间下项目的成员详情
+func (s *namespaceUserStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
+	id := options.PathParams["userId"]
+	uid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", id), nil)
+	}
+
+	user, err := s.userStore.GetByID(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	return userToAPI(user), nil
+}
 
 // +openapi:summary=获取项目成员列表
 // +openapi:summary.workspaces.namespaces.users=获取工作空间下项目的成员列表
@@ -1920,10 +1953,12 @@ func roleWithRulesToAPI(r *DBRoleWithRules) *Role {
 // --- Scoped Role Storage (full CRUD, for workspace/namespace sub-resource) ---
 
 // scopedRoleStorage 作用域角色的完整 CRUD 存储，按 scope 过滤角色列表。
-// 注册为 /workspaces/{workspaceId}/roles 和 /namespaces/{namespaceId}/roles。
+// 注册为 /workspaces/{workspaceId}/roles、/namespaces/{namespaceId}/roles
+// 和 /workspaces/{workspaceId}/namespaces/{namespaceId}/roles。
 // +openapi:resource=Role
 // +openapi:path=/workspaces/{workspaceId}/roles
 // +openapi:path=/namespaces/{namespaceId}/roles
+// +openapi:path=/workspaces/{workspaceId}/namespaces/{namespaceId}/roles
 type scopedRoleStorage struct {
 	roleStore RoleStore
 	rbStore   RoleBindingStore
@@ -1939,6 +1974,7 @@ func (s *scopedRoleStorage) NewObject() runtime.Object { return &Role{} }
 
 // +openapi:summary=获取工作空间角色列表
 // +openapi:summary.namespaces.roles=获取项目角色列表
+// +openapi:summary.workspaces.namespaces.roles=获取工作空间下项目的角色列表
 func (s *scopedRoleStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	query := restOptionsToListQuery(options)
 	query.Filters["scope"] = s.scope
@@ -1976,6 +2012,7 @@ func (s *scopedRoleStorage) List(ctx context.Context, options *rest.ListOptions)
 
 // +openapi:summary=获取工作空间角色详情
 // +openapi:summary.namespaces.roles=获取项目角色详情
+// +openapi:summary.workspaces.namespaces.roles=获取工作空间下项目的角色详情
 func (s *scopedRoleStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["roleId"]
 	rid, err := parseID(id)
@@ -2008,6 +2045,7 @@ func (s *scopedRoleStorage) Get(ctx context.Context, options *rest.GetOptions) (
 
 // +openapi:summary=创建工作空间自定义角色
 // +openapi:summary.namespaces.roles=创建项目自定义角色
+// +openapi:summary.workspaces.namespaces.roles=创建工作空间下项目的自定义角色
 func (s *scopedRoleStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	role, ok := obj.(*Role)
 	if !ok {
@@ -2066,6 +2104,7 @@ func (s *scopedRoleStorage) Create(ctx context.Context, obj runtime.Object, opti
 
 // +openapi:summary=更新工作空间角色
 // +openapi:summary.namespaces.roles=更新项目角色
+// +openapi:summary.workspaces.namespaces.roles=更新工作空间下项目的角色
 func (s *scopedRoleStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
 	role, ok := obj.(*Role)
 	if !ok {
@@ -2136,6 +2175,7 @@ func (s *scopedRoleStorage) Update(ctx context.Context, obj runtime.Object, opti
 
 // +openapi:summary=删除工作空间角色
 // +openapi:summary.namespaces.roles=删除项目角色
+// +openapi:summary.workspaces.namespaces.roles=删除工作空间下项目的角色
 func (s *scopedRoleStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
 	id := options.PathParams["roleId"]
 	rid, err := parseID(id)
@@ -2470,6 +2510,7 @@ func NewNamespaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStor
 func (s *namespaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
 
 // +openapi:summary=获取项目级角色绑定列表
+// +openapi:summary.workspaces.namespaces.rolebindings=获取工作空间下项目的角色绑定列表
 func (s *namespaceRoleBindingStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	nsID, err := parseID(options.PathParams["namespaceId"])
 	if err != nil {
@@ -2484,6 +2525,7 @@ func (s *namespaceRoleBindingStorage) List(ctx context.Context, options *rest.Li
 }
 
 // +openapi:summary=创建项目级角色绑定
+// +openapi:summary.workspaces.namespaces.rolebindings=创建工作空间下项目的角色绑定
 func (s *namespaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	rb, ok := obj.(*RoleBinding)
 	if !ok {
@@ -2547,6 +2589,7 @@ func (s *namespaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 }
 
 // +openapi:summary=删除项目级角色绑定
+// +openapi:summary.workspaces.namespaces.rolebindings=删除工作空间下项目的角色绑定
 func (s *namespaceRoleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
 	id := options.PathParams["rolebindingId"]
 	rbID, err := parseID(id)

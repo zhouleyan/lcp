@@ -47,7 +47,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { listUsers, listWorkspaceUsers, listWorkspaceNamespaceUsers, createUser, updateUser, deleteUser, deleteUsers } from "@/api/users"
+import { listUsers, listWorkspaceUsers, listNamespaceUsers, createUser, updateUser, deleteUser, deleteUsers } from "@/api/users"
 import { useScopeStore } from "@/stores/scope-store"
 import { ApiError, translateDetailMessage, translateApiError } from "@/api/client"
 import type { User, ListParams } from "@/api/types"
@@ -85,7 +85,7 @@ export default function UserListPage() {
       if (statusFilter !== "all") params.status = statusFilter
       let data
       if (scopeWorkspaceId && scopeNamespaceId) {
-        data = await listWorkspaceNamespaceUsers(scopeWorkspaceId, scopeNamespaceId, params)
+        data = await listNamespaceUsers(scopeWorkspaceId, scopeNamespaceId, params)
       } else if (scopeWorkspaceId) {
         data = await listWorkspaceUsers(scopeWorkspaceId, params)
       } else {
