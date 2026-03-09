@@ -355,6 +355,106 @@ func (s *pgRoleBindingStore) GetUserRoleBindingsWithRules(ctx context.Context, u
 	return items, nil
 }
 
+func (s *pgRoleBindingStore) TransferOwnership(ctx context.Context, scope string, resourceID int64, callerID int64, callerIsPlatformAdmin bool, newOwnerUserID int64, adminRoleName string) (int64, error) {
+	var scopeColumn string
+	switch scope {
+	case "workspace":
+		scopeColumn = "workspace_id"
+	case "namespace":
+		scopeColumn = "namespace_id"
+	default:
+		return 0, fmt.Errorf("unsupported scope for ownership transfer: %s", scope)
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// 1. Find current owner (with row lock)
+	var oldOwnerUserID int64
+	findOwnerQuery := fmt.Sprintf(
+		"SELECT user_id FROM role_bindings WHERE scope = $1 AND %s = $2 AND is_owner = true FOR UPDATE",
+		scopeColumn,
+	)
+	if err := tx.QueryRow(ctx, findOwnerQuery, scope, resourceID).Scan(&oldOwnerUserID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, apierrors.NewNotFound("owner", fmt.Sprintf("scope=%s, id=%d", scope, resourceID))
+		}
+		return 0, fmt.Errorf("find current owner: %w", err)
+	}
+
+	// 2. Authorization: caller must be current owner or platform admin
+	if !callerIsPlatformAdmin && callerID != oldOwnerUserID {
+		return 0, apierrors.NewForbidden("only the current owner or platform admin can transfer ownership")
+	}
+
+	// 3. Verify new owner is a member (has any binding in this scope+resource)
+	memberQuery := fmt.Sprintf(
+		"SELECT EXISTS(SELECT 1 FROM role_bindings WHERE user_id = $1 AND scope = $2 AND %s = $3)",
+		scopeColumn,
+	)
+	var isMember bool
+	if err := tx.QueryRow(ctx, memberQuery, newOwnerUserID, scope, resourceID).Scan(&isMember); err != nil {
+		return 0, fmt.Errorf("check membership: %w", err)
+	}
+	if !isMember {
+		return 0, apierrors.NewBadRequest("new owner must be a member of the resource", nil)
+	}
+
+	// 4. Clear current ownership
+	clearQuery := fmt.Sprintf(
+		"UPDATE role_bindings SET is_owner = false WHERE scope = $1 AND %s = $2 AND is_owner = true",
+		scopeColumn,
+	)
+	if _, err := tx.Exec(ctx, clearQuery, scope, resourceID); err != nil {
+		return 0, fmt.Errorf("clear current ownership: %w", err)
+	}
+
+	// 5. Look up admin role ID
+	var adminRoleID int64
+	if err := tx.QueryRow(ctx, "SELECT id FROM roles WHERE name = $1", adminRoleName).Scan(&adminRoleID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, fmt.Errorf("admin role %q not found", adminRoleName)
+		}
+		return 0, fmt.Errorf("look up admin role: %w", err)
+	}
+
+	// 6. Upsert owner binding for new owner (admin role + is_owner=true)
+	if scope == "namespace" {
+		// For namespace scope, we also need workspace_id
+		var wsID int64
+		if err := tx.QueryRow(ctx, "SELECT workspace_id FROM namespaces WHERE id = $1", resourceID).Scan(&wsID); err != nil {
+			return 0, fmt.Errorf("look up namespace workspace: %w", err)
+		}
+		_, err = tx.Exec(ctx,
+			`INSERT INTO role_bindings (user_id, role_id, scope, workspace_id, namespace_id, is_owner)
+			 VALUES ($1, $2, $3, $4, $5, true)
+			 ON CONFLICT (user_id, role_id, namespace_id) WHERE scope = 'namespace'
+			 DO UPDATE SET is_owner = true`,
+			newOwnerUserID, adminRoleID, scope, wsID, resourceID,
+		)
+	} else {
+		_, err = tx.Exec(ctx,
+			`INSERT INTO role_bindings (user_id, role_id, scope, workspace_id, is_owner)
+			 VALUES ($1, $2, $3, $4, true)
+			 ON CONFLICT (user_id, role_id, workspace_id) WHERE scope = 'workspace'
+			 DO UPDATE SET is_owner = true`,
+			newOwnerUserID, adminRoleID, scope, resourceID,
+		)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("upsert owner binding: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return oldOwnerUserID, nil
+}
+
 // rowToRoleBindingWithDetails converts individual fields to DBRoleBindingWithDetails.
 func rowToRoleBindingWithDetails(
 	id, userID, roleID int64, scope string, workspaceID, namespaceID *int64, isOwner bool, createdAt time.Time,

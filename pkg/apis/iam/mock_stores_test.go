@@ -289,6 +289,9 @@ func (m *mockRoleBindingStore) GetUserIDsByWorkspaceID(context.Context, int64) (
 func (m *mockRoleBindingStore) GetUserIDsByNamespaceID(context.Context, int64) ([]int64, error) {
 	panic("not implemented")
 }
+func (m *mockRoleBindingStore) TransferOwnership(context.Context, string, int64, int64, bool, int64, string) (int64, error) {
+	panic("not implemented")
+}
 
 // --- Test data helpers ---
 

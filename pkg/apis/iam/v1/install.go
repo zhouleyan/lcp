@@ -52,6 +52,8 @@ func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvi
 	wsRoleStorage := iam.NewScopedRoleStorage(p.Role, "workspace")
 	nsRoleStorage := iam.NewScopedRoleStorage(p.Role, "namespace")
 
+	checker := iam.NewRBACChecker(p.RoleBinding)
+
 	group := &rest.APIGroupInfo{
 		GroupName: "iam",
 		Version:   "v1",
@@ -70,6 +72,13 @@ func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvi
 			{
 				Name:    "workspaces",
 				Storage: wsStorage,
+				Actions: []rest.ActionInfo{
+					{
+						Name:    "transfer-ownership",
+						Method:  "POST",
+						Handler: iam.NewTransferOwnershipHandler(p.RoleBinding, checker),
+					},
+				},
 				SubResources: []rest.ResourceInfo{
 					{
 						Name:    "namespaces",
@@ -86,6 +95,13 @@ func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvi
 			{
 				Name:    "namespaces",
 				Storage: nsStorage,
+				Actions: []rest.ActionInfo{
+					{
+						Name:    "transfer-ownership",
+						Method:  "POST",
+						Handler: iam.NewNamespaceTransferOwnershipHandler(p.RoleBinding, checker),
+					},
+				},
 				SubResources: []rest.ResourceInfo{
 					{Name: "users", Storage: nsUserStorage},
 					{Name: "rolebindings", Storage: nsRbStorage},

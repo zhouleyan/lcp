@@ -120,4 +120,8 @@ type RoleBindingStore interface {
 	GetUserIDsByNamespaceID(ctx context.Context, namespaceID int64) ([]int64, error)
 	LoadUserPermissionRules(ctx context.Context, userID int64) ([]UserPermissionRuleRow, error)
 	GetUserRoleBindingsWithRules(ctx context.Context, userID int64) ([]UserRoleBindingWithRules, error)
+	// TransferOwnership transfers ownership of a workspace or namespace to a new user.
+	// callerID + callerIsPlatformAdmin are used for authorization within the transaction.
+	// Returns the old owner's user ID. The new owner must already be a member.
+	TransferOwnership(ctx context.Context, scope string, resourceID int64, callerID int64, callerIsPlatformAdmin bool, newOwnerUserID int64, adminRoleName string) (oldOwnerUserID int64, err error)
 }

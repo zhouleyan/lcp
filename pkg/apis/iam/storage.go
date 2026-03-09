@@ -1402,6 +1402,111 @@ func NewChangePasswordHandler(userStore UserStore, refreshStore RefreshTokenStor
 	}
 }
 
+// ===== transfer-ownership 转移所有权操作 =====
+
+// TransferOwnershipRequest 转移所有权请求。
+type TransferOwnershipRequest struct {
+	NewOwnerUserID string `json:"newOwnerUserId"`
+}
+
+// NewTransferOwnershipHandler 创建工作空间所有权转移处理器。仅当前 owner 或 platform-admin 可操作。
+// +openapi:action=transfer-ownership
+// +openapi:resource=Workspace
+// +openapi:summary=转移工作空间所有权
+func NewTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBACChecker) rest.HandlerFunc {
+	return func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
+		resourceID, err := parseID(params["workspaceId"])
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspace ID: %s", params["workspaceId"]), nil)
+		}
+
+		var req TransferOwnershipRequest
+		if err := json.Unmarshal(body, &req); err != nil {
+			return nil, apierrors.NewBadRequest("invalid request body", nil)
+		}
+		if req.NewOwnerUserID == "" {
+			return nil, apierrors.NewBadRequest("newOwnerUserId is required", nil)
+		}
+		newOwnerUID, err := parseID(req.NewOwnerUserID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid newOwnerUserId: %s", req.NewOwnerUserID), nil)
+		}
+
+		callerID, ok := oidc.UserIDFromContext(ctx)
+		if !ok {
+			return nil, apierrors.NewForbidden("authentication required")
+		}
+
+		isPlatformAdmin, err := checker.IsPlatformAdmin(ctx, callerID)
+		if err != nil {
+			return nil, apierrors.NewInternalError(fmt.Errorf("check platform admin: %w", err))
+		}
+
+		oldOwnerUID, err := rbStore.TransferOwnership(ctx, "workspace", resourceID, callerID, isPlatformAdmin, newOwnerUID, "workspace-admin")
+		if err != nil {
+			return nil, err
+		}
+
+		sharedPermCache.Invalidate(oldOwnerUID)
+		sharedPermCache.Invalidate(newOwnerUID)
+
+		return &StatusResponse{
+			TypeMeta: runtime.TypeMeta{Kind: "Status"},
+			Status:   "Success",
+			Message:  "workspace ownership transferred successfully",
+		}, nil
+	}
+}
+
+// NewNamespaceTransferOwnershipHandler 创建项目所有权转移处理器。仅当前 owner 或 platform-admin 可操作。
+// +openapi:action=transfer-ownership
+// +openapi:resource=Namespace
+// +openapi:summary=转移项目所有权
+func NewNamespaceTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBACChecker) rest.HandlerFunc {
+	return func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
+		nsID, err := parseID(params["namespaceId"])
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid namespace ID: %s", params["namespaceId"]), nil)
+		}
+
+		var req TransferOwnershipRequest
+		if err := json.Unmarshal(body, &req); err != nil {
+			return nil, apierrors.NewBadRequest("invalid request body", nil)
+		}
+		if req.NewOwnerUserID == "" {
+			return nil, apierrors.NewBadRequest("newOwnerUserId is required", nil)
+		}
+		newOwnerUID, err := parseID(req.NewOwnerUserID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid newOwnerUserId: %s", req.NewOwnerUserID), nil)
+		}
+
+		callerID, ok := oidc.UserIDFromContext(ctx)
+		if !ok {
+			return nil, apierrors.NewForbidden("authentication required")
+		}
+
+		isPlatformAdmin, err := checker.IsPlatformAdmin(ctx, callerID)
+		if err != nil {
+			return nil, apierrors.NewInternalError(fmt.Errorf("check platform admin: %w", err))
+		}
+
+		oldOwnerUID, err := rbStore.TransferOwnership(ctx, "namespace", nsID, callerID, isPlatformAdmin, newOwnerUID, "namespace-admin")
+		if err != nil {
+			return nil, err
+		}
+
+		sharedPermCache.Invalidate(oldOwnerUID)
+		sharedPermCache.Invalidate(newOwnerUID)
+
+		return &StatusResponse{
+			TypeMeta: runtime.TypeMeta{Kind: "Status"},
+			Status:   "Success",
+			Message:  "namespace ownership transferred successfully",
+		}, nil
+	}
+}
+
 // ===== helpers =====
 
 func userToAPI(u *DBUser) *User {
