@@ -62,26 +62,6 @@ func (s *pgWorkspaceStore) Create(ctx context.Context, ws *iam.DBWorkspace) (*ia
 		return nil, fmt.Errorf("create default namespace: %w", err)
 	}
 
-	// Add owner to workspace as "owner"
-	_, err = qtx.AddUserToWorkspace(ctx, generated.AddUserToWorkspaceParams{
-		UserID:      ws.OwnerID,
-		WorkspaceID: row.ID,
-		Role:        "owner",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("add owner to workspace: %w", err)
-	}
-
-	// Add owner to default namespace as "owner"
-	_, err = qtx.AddUserToNamespace(ctx, generated.AddUserToNamespaceParams{
-		UserID:      ws.OwnerID,
-		NamespaceID: defaultNS.ID,
-		Role:        "owner",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("add owner to default namespace: %w", err)
-	}
-
 	// Create workspace-admin role binding with is_owner=true
 	wsAdminRole, err := qtx.GetRoleByName(ctx, iam.RoleWorkspaceAdmin)
 	if err != nil {

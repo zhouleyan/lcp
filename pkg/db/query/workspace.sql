@@ -10,7 +10,7 @@ SELECT
     ws.created_at, ws.updated_at,
     u.username AS owner_username,
     (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) AS namespace_count,
-    (SELECT count(*) FROM user_workspaces uw WHERE uw.workspace_id = ws.id) AS member_count
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = ws.id) AS member_count
 FROM workspaces ws
 JOIN users u ON ws.owner_id = u.id
 WHERE ws.id = @id;
@@ -59,7 +59,7 @@ WITH ws_data AS (
         ws.status, ws.created_at, ws.updated_at,
         u.username AS owner_username,
         (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) AS namespace_count,
-        (SELECT count(*) FROM user_workspaces uw WHERE uw.workspace_id = ws.id) AS member_count
+        (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = ws.id) AS member_count
     FROM workspaces ws
     JOIN users u ON ws.owner_id = u.id
     WHERE

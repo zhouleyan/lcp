@@ -10,7 +10,7 @@ SELECT
     ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
     u.username AS owner_username,
     w.name AS workspace_name,
-    (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) AS member_count
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = ns.id) AS member_count
 FROM namespaces ns
 JOIN users u ON ns.owner_id = u.id
 JOIN workspaces w ON ns.workspace_id = w.id
@@ -66,7 +66,7 @@ WITH ns_data AS (
         ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
         u.username AS owner_username,
         w.name AS workspace_name,
-        (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) AS member_count
+        (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = ns.id) AS member_count
     FROM namespaces ns
     JOIN users u ON ns.owner_id = u.id
     JOIN workspaces w ON ns.workspace_id = w.id
@@ -103,9 +103,9 @@ LIMIT sqlc.arg('page_size')::INT
 OFFSET sqlc.arg('page_offset')::INT;
 
 -- name: CountUsersByNamespaceID :one
-SELECT count(user_id)
-FROM user_namespaces
-WHERE namespace_id = @namespace_id;
+SELECT count(DISTINCT user_id)
+FROM role_bindings
+WHERE scope = 'namespace' AND namespace_id = @namespace_id;
 
 -- name: PatchNamespace :one
 UPDATE namespaces

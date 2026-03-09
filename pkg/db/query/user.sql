@@ -70,8 +70,8 @@ SELECT
         '{}'
     )::TEXT[] AS namespace_names
 FROM users u
-LEFT JOIN user_namespaces un ON u.id = un.user_id
-LEFT JOIN namespaces n ON un.namespace_id = n.id
+LEFT JOIN role_bindings rb ON u.id = rb.user_id AND rb.scope = 'namespace'
+LEFT JOIN namespaces n ON rb.namespace_id = n.id
 WHERE
     (sqlc.narg('status')::VARCHAR IS NULL OR u.status = sqlc.narg('status'))
     AND (sqlc.narg('search')::VARCHAR IS NULL OR (

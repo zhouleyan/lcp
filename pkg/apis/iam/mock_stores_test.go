@@ -180,73 +180,20 @@ func (m *mockNamespaceStore) CountUsers(ctx context.Context, namespaceID int64) 
 	return m.CountUsersFn(ctx, namespaceID)
 }
 
-// --- Mock UserWorkspaceStore ---
-
-type mockUserWorkspaceStore struct {
-	AddFn              func(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error)
-	RemoveFn           func(ctx context.Context, userID, workspaceID int64) error
-	UpdateRoleFn       func(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error)
-	GetFn              func(ctx context.Context, userID, workspaceID int64) (*DBUserWorkspace, error)
-	ListByUserIDFn     func(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwnerAndRole], error)
-	ListByWorkspaceIDFn func(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
-}
-
-func (m *mockUserWorkspaceStore) Add(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error) {
-	return m.AddFn(ctx, rel)
-}
-func (m *mockUserWorkspaceStore) Remove(ctx context.Context, userID, workspaceID int64) error {
-	return m.RemoveFn(ctx, userID, workspaceID)
-}
-func (m *mockUserWorkspaceStore) UpdateRole(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error) {
-	return m.UpdateRoleFn(ctx, rel)
-}
-func (m *mockUserWorkspaceStore) Get(ctx context.Context, userID, workspaceID int64) (*DBUserWorkspace, error) {
-	return m.GetFn(ctx, userID, workspaceID)
-}
-func (m *mockUserWorkspaceStore) ListByUserID(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwnerAndRole], error) {
-	return m.ListByUserIDFn(ctx, userID, query)
-}
-func (m *mockUserWorkspaceStore) ListByWorkspaceID(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
-	return m.ListByWorkspaceIDFn(ctx, workspaceID, query)
-}
-
-// --- Mock UserNamespaceStore ---
-
-type mockUserNamespaceStore struct {
-	AddFn               func(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error)
-	RemoveFn            func(ctx context.Context, userID, namespaceID int64) error
-	UpdateRoleFn        func(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error)
-	GetFn               func(ctx context.Context, userID, namespaceID int64) (*DBUserNamespace, error)
-	ListByUserIDFn      func(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwnerAndRole], error)
-	ListByNamespaceIDFn func(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
-}
-
-func (m *mockUserNamespaceStore) Add(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error) {
-	return m.AddFn(ctx, rel)
-}
-func (m *mockUserNamespaceStore) Remove(ctx context.Context, userID, namespaceID int64) error {
-	return m.RemoveFn(ctx, userID, namespaceID)
-}
-func (m *mockUserNamespaceStore) UpdateRole(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error) {
-	return m.UpdateRoleFn(ctx, rel)
-}
-func (m *mockUserNamespaceStore) Get(ctx context.Context, userID, namespaceID int64) (*DBUserNamespace, error) {
-	return m.GetFn(ctx, userID, namespaceID)
-}
-func (m *mockUserNamespaceStore) ListByUserID(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwnerAndRole], error) {
-	return m.ListByUserIDFn(ctx, userID, query)
-}
-func (m *mockUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
-	return m.ListByNamespaceIDFn(ctx, namespaceID, query)
-}
-
-// mockRoleBindingStore provides a minimal mock for RoleBindingStore,
-// implementing only the methods used by RBACChecker.
+// mockRoleBindingStore provides a mock for RoleBindingStore.
 type mockRoleBindingStore struct {
-	LoadUserPermissionRulesFn    func(ctx context.Context, userID int64) ([]UserPermissionRuleRow, error)
-	GetAccessibleWorkspaceIDsFn  func(ctx context.Context, userID int64) ([]int64, error)
-	GetAccessibleNamespaceIDsFn  func(ctx context.Context, userID int64) ([]int64, error)
+	LoadUserPermissionRulesFn      func(ctx context.Context, userID int64) ([]UserPermissionRuleRow, error)
+	GetAccessibleWorkspaceIDsFn    func(ctx context.Context, userID int64) ([]int64, error)
+	GetAccessibleNamespaceIDsFn    func(ctx context.Context, userID int64) ([]int64, error)
 	GetUserRoleBindingsWithRulesFn func(ctx context.Context, userID int64) ([]UserRoleBindingWithRules, error)
+	AddWorkspaceMemberFn           func(ctx context.Context, userID, workspaceID int64) error
+	AddNamespaceMemberFn           func(ctx context.Context, userID, namespaceID int64) error
+	RemoveWorkspaceMemberFn        func(ctx context.Context, userID, workspaceID int64) error
+	RemoveNamespaceMemberFn        func(ctx context.Context, userID, namespaceID int64) error
+	ListWorkspaceMembersFn         func(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
+	ListNamespaceMembersFn         func(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
+	ListUserWorkspacesFn           func(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwnerAndRole], error)
+	ListUserNamespacesFn           func(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwnerAndRole], error)
 }
 
 func (m *mockRoleBindingStore) LoadUserPermissionRules(ctx context.Context, userID int64) ([]UserPermissionRuleRow, error) {
@@ -290,6 +237,54 @@ func (m *mockRoleBindingStore) GetUserIDsByNamespaceID(context.Context, int64) (
 	panic("not implemented")
 }
 func (m *mockRoleBindingStore) TransferOwnership(context.Context, string, int64, int64, bool, int64, string) (int64, error) {
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) AddWorkspaceMember(ctx context.Context, userID, workspaceID int64) error {
+	if m.AddWorkspaceMemberFn != nil {
+		return m.AddWorkspaceMemberFn(ctx, userID, workspaceID)
+	}
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, namespaceID int64) error {
+	if m.AddNamespaceMemberFn != nil {
+		return m.AddNamespaceMemberFn(ctx, userID, namespaceID)
+	}
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) RemoveWorkspaceMember(ctx context.Context, userID, workspaceID int64) error {
+	if m.RemoveWorkspaceMemberFn != nil {
+		return m.RemoveWorkspaceMemberFn(ctx, userID, workspaceID)
+	}
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) RemoveNamespaceMember(ctx context.Context, userID, namespaceID int64) error {
+	if m.RemoveNamespaceMemberFn != nil {
+		return m.RemoveNamespaceMemberFn(ctx, userID, namespaceID)
+	}
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) ListWorkspaceMembers(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
+	if m.ListWorkspaceMembersFn != nil {
+		return m.ListWorkspaceMembersFn(ctx, workspaceID, query)
+	}
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) ListNamespaceMembers(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
+	if m.ListNamespaceMembersFn != nil {
+		return m.ListNamespaceMembersFn(ctx, namespaceID, query)
+	}
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) ListUserWorkspaces(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwnerAndRole], error) {
+	if m.ListUserWorkspacesFn != nil {
+		return m.ListUserWorkspacesFn(ctx, userID, query)
+	}
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) ListUserNamespaces(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwnerAndRole], error) {
+	if m.ListUserNamespacesFn != nil {
+		return m.ListUserNamespacesFn(ctx, userID, query)
+	}
 	panic("not implemented")
 }
 

@@ -59,26 +59,6 @@ type NamespaceStore interface {
 	CountUsers(ctx context.Context, namespaceID int64) (int64, error)
 }
 
-// UserWorkspaceStore defines operations on user-workspace relationships.
-type UserWorkspaceStore interface {
-	Add(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error)
-	Remove(ctx context.Context, userID, workspaceID int64) error
-	UpdateRole(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error)
-	Get(ctx context.Context, userID, workspaceID int64) (*DBUserWorkspace, error)
-	ListByUserID(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwnerAndRole], error)
-	ListByWorkspaceID(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
-}
-
-// UserNamespaceStore defines operations on user-namespace relationships.
-type UserNamespaceStore interface {
-	Add(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error)
-	Remove(ctx context.Context, userID, namespaceID int64) error
-	UpdateRole(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error)
-	Get(ctx context.Context, userID, namespaceID int64) (*DBUserNamespace, error)
-	ListByUserID(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwnerAndRole], error)
-	ListByNamespaceID(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
-}
-
 // PermissionStore defines database operations on permissions.
 type PermissionStore interface {
 	Upsert(ctx context.Context, perm *DBPermission) (*DBPermission, error)
@@ -124,4 +104,13 @@ type RoleBindingStore interface {
 	// callerID + callerIsPlatformAdmin are used for authorization within the transaction.
 	// Returns the old owner's user ID. The new owner must already be a member.
 	TransferOwnership(ctx context.Context, scope string, resourceID int64, callerID int64, callerIsPlatformAdmin bool, newOwnerUserID int64, adminRoleName string) (oldOwnerUserID int64, err error)
+	// Member management (replacing legacy join tables)
+	AddWorkspaceMember(ctx context.Context, userID, workspaceID int64) error
+	AddNamespaceMember(ctx context.Context, userID, namespaceID int64) error
+	RemoveWorkspaceMember(ctx context.Context, userID, workspaceID int64) error
+	RemoveNamespaceMember(ctx context.Context, userID, namespaceID int64) error
+	ListWorkspaceMembers(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
+	ListNamespaceMembers(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
+	ListUserWorkspaces(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwnerAndRole], error)
+	ListUserNamespaces(ctx context.Context, userID int64, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwnerAndRole], error)
 }

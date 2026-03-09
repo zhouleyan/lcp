@@ -15,8 +15,8 @@ import (
 // --- TestWorkspaceUserStorage_List ---
 
 func TestWorkspaceUserStorage_List(t *testing.T) {
-	uwStore := &mockUserWorkspaceStore{
-		ListByWorkspaceIDFn: func(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
+	rbStore := &mockRoleBindingStore{
+		ListWorkspaceMembersFn: func(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
 			if workspaceID != 1 {
 				t.Errorf("expected workspaceID 1, got %d", workspaceID)
 			}
@@ -32,7 +32,7 @@ func TestWorkspaceUserStorage_List(t *testing.T) {
 							CreatedAt:   testTime,
 							UpdatedAt:   testTime,
 						},
-						Role:     "owner",
+						Role:     RoleWorkspaceAdmin,
 						JoinedAt: testTime,
 					},
 					{
@@ -45,7 +45,7 @@ func TestWorkspaceUserStorage_List(t *testing.T) {
 							CreatedAt:   testTime,
 							UpdatedAt:   testTime,
 						},
-						Role:     "member",
+						Role:     RoleWorkspaceViewer,
 						JoinedAt: testTime,
 					},
 				},
@@ -54,7 +54,7 @@ func TestWorkspaceUserStorage_List(t *testing.T) {
 		},
 	}
 
-	s := NewWorkspaceUserStorage(uwStore, nil)
+	s := NewWorkspaceUserStorage(rbStore, nil)
 	lister := s.(rest.Lister)
 
 	obj, err := lister.List(context.Background(), &rest.ListOptions{
@@ -104,7 +104,7 @@ func TestWorkspaceUserStorage_List(t *testing.T) {
 // --- TestWorkspaceUserStorage_List_InvalidID ---
 
 func TestWorkspaceUserStorage_List_InvalidID(t *testing.T) {
-	s := NewWorkspaceUserStorage(&mockUserWorkspaceStore{}, nil)
+	s := NewWorkspaceUserStorage(&mockRoleBindingStore{}, nil)
 	lister := s.(rest.Lister)
 
 	_, err := lister.List(context.Background(), &rest.ListOptions{
@@ -138,25 +138,17 @@ func TestWorkspaceUserStorage_Create(t *testing.T) {
 		},
 	}
 
-	uwStore := &mockUserWorkspaceStore{
-		AddFn: func(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error) {
-			addCalls = append(addCalls, rel.UserID)
-			if rel.WorkspaceID != 1 {
-				t.Errorf("expected workspaceID 1, got %d", rel.WorkspaceID)
+	rbStore := &mockRoleBindingStore{
+		AddWorkspaceMemberFn: func(ctx context.Context, userID, workspaceID int64) error {
+			addCalls = append(addCalls, userID)
+			if workspaceID != 1 {
+				t.Errorf("expected workspaceID 1, got %d", workspaceID)
 			}
-			if rel.Role != "member" {
-				t.Errorf("expected role 'member', got %q", rel.Role)
-			}
-			return &DBUserWorkspace{
-				UserID:      rel.UserID,
-				WorkspaceID: rel.WorkspaceID,
-				Role:        rel.Role,
-				CreatedAt:   testTime,
-			}, nil
+			return nil
 		},
 	}
 
-	s := NewWorkspaceUserStorage(uwStore, userStore)
+	s := NewWorkspaceUserStorage(rbStore, userStore)
 	creator := s.(rest.Creator)
 
 	req := &BatchRequest{IDs: []string{"10", "20", "30"}}
@@ -175,7 +167,7 @@ func TestWorkspaceUserStorage_Create(t *testing.T) {
 
 	// Verify each user was added
 	if len(addCalls) != 3 {
-		t.Errorf("expected 3 uwStore.Add calls, got %d", len(addCalls))
+		t.Errorf("expected 3 rbStore.AddWorkspaceMember calls, got %d", len(addCalls))
 	}
 
 	result, ok := obj.(*rest.DeletionResult)
@@ -196,9 +188,9 @@ func TestWorkspaceUserStorage_Create_UserNotFound(t *testing.T) {
 		},
 	}
 
-	uwStore := &mockUserWorkspaceStore{}
+	rbStore := &mockRoleBindingStore{}
 
-	s := NewWorkspaceUserStorage(uwStore, userStore)
+	s := NewWorkspaceUserStorage(rbStore, userStore)
 	creator := s.(rest.Creator)
 
 	req := &BatchRequest{IDs: []string{"999"}}
@@ -222,7 +214,7 @@ func TestWorkspaceUserStorage_Create_UserNotFound(t *testing.T) {
 // --- TestWorkspaceUserStorage_Create_InvalidWorkspaceID ---
 
 func TestWorkspaceUserStorage_Create_InvalidWorkspaceID(t *testing.T) {
-	s := NewWorkspaceUserStorage(&mockUserWorkspaceStore{}, &mockUserStore{})
+	s := NewWorkspaceUserStorage(&mockRoleBindingStore{}, &mockUserStore{})
 	creator := s.(rest.Creator)
 
 	req := &BatchRequest{IDs: []string{"10"}}
@@ -243,59 +235,13 @@ func TestWorkspaceUserStorage_Create_InvalidWorkspaceID(t *testing.T) {
 	}
 }
 
-// --- TestWorkspaceUserStorage_Create_DuplicateSkipped ---
-
-func TestWorkspaceUserStorage_Create_DuplicateSkipped(t *testing.T) {
-	userStore := &mockUserStore{
-		GetByIDFn: func(ctx context.Context, id int64) (*DBUser, error) {
-			return testUser(id, "user", "user@example.com"), nil
-		},
-	}
-
-	uwStore := &mockUserWorkspaceStore{
-		AddFn: func(ctx context.Context, rel *DBUserWorkspace) (*DBUserWorkspace, error) {
-			// Return nil to indicate duplicate (already a member)
-			if rel.UserID == 20 {
-				return nil, nil
-			}
-			return &DBUserWorkspace{
-				UserID:      rel.UserID,
-				WorkspaceID: rel.WorkspaceID,
-				Role:        rel.Role,
-				CreatedAt:   testTime,
-			}, nil
-		},
-	}
-
-	s := NewWorkspaceUserStorage(uwStore, userStore)
-	creator := s.(rest.Creator)
-
-	req := &BatchRequest{IDs: []string{"10", "20"}}
-
-	obj, err := creator.Create(context.Background(), req, &rest.CreateOptions{
-		PathParams: map[string]string{"workspaceId": "1"},
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	result, ok := obj.(*rest.DeletionResult)
-	if !ok {
-		t.Fatalf("expected *rest.DeletionResult, got %T", obj)
-	}
-	// Only 1 was actually added (user 20 was a duplicate)
-	if result.SuccessCount != 1 {
-		t.Errorf("expected SuccessCount 1, got %d", result.SuccessCount)
-	}
-}
-
 // --- TestWorkspaceUserStorage_DeleteCollection ---
 
 func TestWorkspaceUserStorage_DeleteCollection(t *testing.T) {
 	var removeCalls []int64
 
-	uwStore := &mockUserWorkspaceStore{
-		RemoveFn: func(ctx context.Context, userID, workspaceID int64) error {
+	rbStore := &mockRoleBindingStore{
+		RemoveWorkspaceMemberFn: func(ctx context.Context, userID, workspaceID int64) error {
 			removeCalls = append(removeCalls, userID)
 			if workspaceID != 1 {
 				t.Errorf("expected workspaceID 1, got %d", workspaceID)
@@ -304,7 +250,7 @@ func TestWorkspaceUserStorage_DeleteCollection(t *testing.T) {
 		},
 	}
 
-	s := NewWorkspaceUserStorage(uwStore, nil)
+	s := NewWorkspaceUserStorage(rbStore, nil)
 	deleter := s.(rest.CollectionDeleter)
 
 	result, err := deleter.DeleteCollection(context.Background(), []string{"10", "20"}, &rest.DeleteOptions{
@@ -315,7 +261,7 @@ func TestWorkspaceUserStorage_DeleteCollection(t *testing.T) {
 	}
 
 	if len(removeCalls) != 2 {
-		t.Errorf("expected 2 uwStore.Remove calls, got %d", len(removeCalls))
+		t.Errorf("expected 2 rbStore.RemoveWorkspaceMember calls, got %d", len(removeCalls))
 	}
 	if removeCalls[0] != 10 {
 		t.Errorf("expected first Remove call with userID 10, got %d", removeCalls[0])
@@ -332,7 +278,7 @@ func TestWorkspaceUserStorage_DeleteCollection(t *testing.T) {
 // --- TestWorkspaceUserStorage_DeleteCollection_InvalidWorkspaceID ---
 
 func TestWorkspaceUserStorage_DeleteCollection_InvalidWorkspaceID(t *testing.T) {
-	s := NewWorkspaceUserStorage(&mockUserWorkspaceStore{}, nil)
+	s := NewWorkspaceUserStorage(&mockRoleBindingStore{}, nil)
 	deleter := s.(rest.CollectionDeleter)
 
 	_, err := deleter.DeleteCollection(context.Background(), []string{"10"}, &rest.DeleteOptions{
@@ -356,8 +302,8 @@ func TestWorkspaceUserStorage_DeleteCollection_InvalidWorkspaceID(t *testing.T) 
 // --- TestNamespaceUserStorage_List ---
 
 func TestNamespaceUserStorage_List(t *testing.T) {
-	unStore := &mockUserNamespaceStore{
-		ListByNamespaceIDFn: func(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
+	rbStore := &mockRoleBindingStore{
+		ListNamespaceMembersFn: func(ctx context.Context, namespaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error) {
 			if namespaceID != 5 {
 				t.Errorf("expected namespaceID 5, got %d", namespaceID)
 			}
@@ -373,7 +319,7 @@ func TestNamespaceUserStorage_List(t *testing.T) {
 							CreatedAt:   testTime,
 							UpdatedAt:   testTime,
 						},
-						Role:     "owner",
+						Role:     RoleNamespaceAdmin,
 						JoinedAt: testTime,
 					},
 					{
@@ -386,7 +332,7 @@ func TestNamespaceUserStorage_List(t *testing.T) {
 							CreatedAt:   testTime,
 							UpdatedAt:   testTime,
 						},
-						Role:     "member",
+						Role:     RoleNamespaceViewer,
 						JoinedAt: testTime,
 					},
 				},
@@ -395,7 +341,7 @@ func TestNamespaceUserStorage_List(t *testing.T) {
 		},
 	}
 
-	s := NewNamespaceUserStorage(unStore, nil, nil)
+	s := NewNamespaceUserStorage(rbStore, nil, nil)
 	lister := s.(rest.Lister)
 
 	obj, err := lister.List(context.Background(), &rest.ListOptions{
@@ -445,7 +391,7 @@ func TestNamespaceUserStorage_List(t *testing.T) {
 // --- TestNamespaceUserStorage_List_InvalidID ---
 
 func TestNamespaceUserStorage_List_InvalidID(t *testing.T) {
-	s := NewNamespaceUserStorage(&mockUserNamespaceStore{}, nil, nil)
+	s := NewNamespaceUserStorage(&mockRoleBindingStore{}, nil, nil)
 	lister := s.(rest.Lister)
 
 	_, err := lister.List(context.Background(), &rest.ListOptions{
@@ -493,25 +439,17 @@ func TestNamespaceUserStorage_Create(t *testing.T) {
 		},
 	}
 
-	unStore := &mockUserNamespaceStore{
-		AddFn: func(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error) {
-			addCalls = append(addCalls, rel.UserID)
-			if rel.NamespaceID != 5 {
-				t.Errorf("expected namespaceID 5, got %d", rel.NamespaceID)
+	rbStore := &mockRoleBindingStore{
+		AddNamespaceMemberFn: func(ctx context.Context, userID, namespaceID int64) error {
+			addCalls = append(addCalls, userID)
+			if namespaceID != 5 {
+				t.Errorf("expected namespaceID 5, got %d", namespaceID)
 			}
-			if rel.Role != "member" {
-				t.Errorf("expected role 'member', got %q", rel.Role)
-			}
-			return &DBUserNamespace{
-				UserID:      rel.UserID,
-				NamespaceID: rel.NamespaceID,
-				Role:        rel.Role,
-				CreatedAt:   testTime,
-			}, nil
+			return nil
 		},
 	}
 
-	s := NewNamespaceUserStorage(unStore, nsStore, userStore)
+	s := NewNamespaceUserStorage(rbStore, nsStore, userStore)
 	creator := s.(rest.Creator)
 
 	req := &BatchRequest{IDs: []string{"10", "20"}}
@@ -530,7 +468,7 @@ func TestNamespaceUserStorage_Create(t *testing.T) {
 
 	// Verify each user was added
 	if len(addCalls) != 2 {
-		t.Errorf("expected 2 unStore.Add calls, got %d", len(addCalls))
+		t.Errorf("expected 2 rbStore.AddNamespaceMember calls, got %d", len(addCalls))
 	}
 
 	result, ok := obj.(*rest.DeletionResult)
@@ -557,7 +495,7 @@ func TestNamespaceUserStorage_Create_ExceedsMaxUsers(t *testing.T) {
 		},
 	}
 
-	s := NewNamespaceUserStorage(&mockUserNamespaceStore{}, nsStore, &mockUserStore{})
+	s := NewNamespaceUserStorage(&mockRoleBindingStore{}, nsStore, &mockUserStore{})
 	creator := s.(rest.Creator)
 
 	// Try to add 3 users when there are already 3 and max is 5 (3+3=6 > 5)
@@ -603,18 +541,13 @@ func TestNamespaceUserStorage_Create_WithinMaxUsers(t *testing.T) {
 		},
 	}
 
-	unStore := &mockUserNamespaceStore{
-		AddFn: func(ctx context.Context, rel *DBUserNamespace) (*DBUserNamespace, error) {
-			return &DBUserNamespace{
-				UserID:      rel.UserID,
-				NamespaceID: rel.NamespaceID,
-				Role:        rel.Role,
-				CreatedAt:   testTime,
-			}, nil
+	rbStore := &mockRoleBindingStore{
+		AddNamespaceMemberFn: func(ctx context.Context, userID, namespaceID int64) error {
+			return nil
 		},
 	}
 
-	s := NewNamespaceUserStorage(unStore, nsStore, userStore)
+	s := NewNamespaceUserStorage(rbStore, nsStore, userStore)
 	creator := s.(rest.Creator)
 
 	req := &BatchRequest{IDs: []string{"20", "30"}}
@@ -654,7 +587,7 @@ func TestNamespaceUserStorage_Create_UserNotFound(t *testing.T) {
 		},
 	}
 
-	s := NewNamespaceUserStorage(&mockUserNamespaceStore{}, nsStore, userStore)
+	s := NewNamespaceUserStorage(&mockRoleBindingStore{}, nsStore, userStore)
 	creator := s.(rest.Creator)
 
 	req := &BatchRequest{IDs: []string{"999"}}
@@ -678,7 +611,7 @@ func TestNamespaceUserStorage_Create_UserNotFound(t *testing.T) {
 // --- TestNamespaceUserStorage_Create_InvalidNamespaceID ---
 
 func TestNamespaceUserStorage_Create_InvalidNamespaceID(t *testing.T) {
-	s := NewNamespaceUserStorage(&mockUserNamespaceStore{}, &mockNamespaceStore{}, &mockUserStore{})
+	s := NewNamespaceUserStorage(&mockRoleBindingStore{}, &mockNamespaceStore{}, &mockUserStore{})
 	creator := s.(rest.Creator)
 
 	req := &BatchRequest{IDs: []string{"10"}}
@@ -704,8 +637,8 @@ func TestNamespaceUserStorage_Create_InvalidNamespaceID(t *testing.T) {
 func TestNamespaceUserStorage_DeleteCollection(t *testing.T) {
 	var removeCalls []int64
 
-	unStore := &mockUserNamespaceStore{
-		RemoveFn: func(ctx context.Context, userID, namespaceID int64) error {
+	rbStore := &mockRoleBindingStore{
+		RemoveNamespaceMemberFn: func(ctx context.Context, userID, namespaceID int64) error {
 			removeCalls = append(removeCalls, userID)
 			if namespaceID != 5 {
 				t.Errorf("expected namespaceID 5, got %d", namespaceID)
@@ -714,7 +647,7 @@ func TestNamespaceUserStorage_DeleteCollection(t *testing.T) {
 		},
 	}
 
-	s := NewNamespaceUserStorage(unStore, nil, nil)
+	s := NewNamespaceUserStorage(rbStore, nil, nil)
 	deleter := s.(rest.CollectionDeleter)
 
 	result, err := deleter.DeleteCollection(context.Background(), []string{"10", "20", "30"}, &rest.DeleteOptions{
@@ -725,7 +658,7 @@ func TestNamespaceUserStorage_DeleteCollection(t *testing.T) {
 	}
 
 	if len(removeCalls) != 3 {
-		t.Errorf("expected 3 unStore.Remove calls, got %d", len(removeCalls))
+		t.Errorf("expected 3 rbStore.RemoveNamespaceMember calls, got %d", len(removeCalls))
 	}
 	expectedIDs := []int64{10, 20, 30}
 	for i, id := range removeCalls {
@@ -742,7 +675,7 @@ func TestNamespaceUserStorage_DeleteCollection(t *testing.T) {
 // --- TestNamespaceUserStorage_DeleteCollection_InvalidNamespaceID ---
 
 func TestNamespaceUserStorage_DeleteCollection_InvalidNamespaceID(t *testing.T) {
-	s := NewNamespaceUserStorage(&mockUserNamespaceStore{}, nil, nil)
+	s := NewNamespaceUserStorage(&mockRoleBindingStore{}, nil, nil)
 	deleter := s.(rest.CollectionDeleter)
 
 	_, err := deleter.DeleteCollection(context.Background(), []string{"10"}, &rest.DeleteOptions{

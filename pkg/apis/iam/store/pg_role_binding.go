@@ -455,6 +455,344 @@ func (s *pgRoleBindingStore) TransferOwnership(ctx context.Context, scope string
 	return oldOwnerUserID, nil
 }
 
+func (s *pgRoleBindingStore) AddWorkspaceMember(ctx context.Context, userID, workspaceID int64) error {
+	viewerRole, err := s.queries.GetRoleByName(ctx, iam.RoleWorkspaceViewer)
+	if err != nil {
+		return fmt.Errorf("get workspace-viewer role: %w", err)
+	}
+	wsID := &workspaceID
+	if err := s.queries.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
+		UserID:      userID,
+		RoleID:      viewerRole.ID,
+		Scope:       "workspace",
+		WorkspaceID: wsID,
+	}); err != nil {
+		return fmt.Errorf("add workspace member: %w", err)
+	}
+	return nil
+}
+
+func (s *pgRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, namespaceID int64) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	qtx := s.queries.WithTx(tx)
+
+	// Get namespace to find workspace_id
+	var wsID int64
+	if err := tx.QueryRow(ctx, "SELECT workspace_id FROM namespaces WHERE id = $1", namespaceID).Scan(&wsID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return apierrors.NewNotFound("namespace", fmt.Sprintf("%d", namespaceID))
+		}
+		return fmt.Errorf("get namespace workspace: %w", err)
+	}
+
+	wsViewerRole, err := qtx.GetRoleByName(ctx, iam.RoleWorkspaceViewer)
+	if err != nil {
+		return fmt.Errorf("get workspace-viewer role: %w", err)
+	}
+	nsViewerRole, err := qtx.GetRoleByName(ctx, iam.RoleNamespaceViewer)
+	if err != nil {
+		return fmt.Errorf("get namespace-viewer role: %w", err)
+	}
+
+	// Auto-add to workspace
+	wsIDPtr := &wsID
+	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
+		UserID:      userID,
+		RoleID:      wsViewerRole.ID,
+		Scope:       "workspace",
+		WorkspaceID: wsIDPtr,
+	}); err != nil {
+		return fmt.Errorf("auto-add workspace member: %w", err)
+	}
+
+	// Add to namespace
+	nsIDPtr := &namespaceID
+	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
+		UserID:      userID,
+		RoleID:      nsViewerRole.ID,
+		Scope:       "namespace",
+		WorkspaceID: wsIDPtr,
+		NamespaceID: nsIDPtr,
+	}); err != nil {
+		return fmt.Errorf("add namespace member: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
+
+func (s *pgRoleBindingStore) RemoveWorkspaceMember(ctx context.Context, userID, workspaceID int64) error {
+	wsID := &workspaceID
+	if err := s.queries.DeleteNonOwnerWorkspaceBindings(ctx, generated.DeleteNonOwnerWorkspaceBindingsParams{
+		UserID:      userID,
+		WorkspaceID: wsID,
+	}); err != nil {
+		return fmt.Errorf("remove workspace member: %w", err)
+	}
+	return nil
+}
+
+func (s *pgRoleBindingStore) RemoveNamespaceMember(ctx context.Context, userID, namespaceID int64) error {
+	nsID := &namespaceID
+	if err := s.queries.DeleteNonOwnerNamespaceBindings(ctx, generated.DeleteNonOwnerNamespaceBindingsParams{
+		UserID:      userID,
+		NamespaceID: nsID,
+	}); err != nil {
+		return fmt.Errorf("remove namespace member: %w", err)
+	}
+	return nil
+}
+
+func (s *pgRoleBindingStore) ListWorkspaceMembers(ctx context.Context, workspaceID int64, q db.ListQuery) (*db.ListResult[iam.DBUserWithRole], error) {
+	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
+	wsID := &workspaceID
+
+	countParams := generated.CountWorkspaceMembersParams{
+		WorkspaceID: wsID,
+		Status:      filterStr(q.Filters, "status"),
+		Search:      filterStr(q.Filters, "search"),
+	}
+
+	count, err := s.queries.CountWorkspaceMembers(ctx, countParams)
+	if err != nil {
+		return nil, fmt.Errorf("count workspace members: %w", err)
+	}
+
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	rows, err := s.queries.ListWorkspaceMembers(ctx, generated.ListWorkspaceMembersParams{
+		WorkspaceID: wsID,
+		Status:      countParams.Status,
+		Search:      countParams.Search,
+		SortField:   q.SortBy,
+		SortOrder:   sortOrder,
+		PageOffset:  offset,
+		PageSize:    limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list workspace members: %w", err)
+	}
+
+	items := make([]iam.DBUserWithRole, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, iam.DBUserWithRole{
+			User: generated.User{
+				ID:          r.ID,
+				Username:    r.Username,
+				Email:       r.Email,
+				DisplayName: r.DisplayName,
+				Phone:       r.Phone,
+				AvatarUrl:   r.AvatarUrl,
+				Status:      r.Status,
+				LastLoginAt: r.LastLoginAt,
+				CreatedAt:   r.CreatedAt,
+				UpdatedAt:   r.UpdatedAt,
+			},
+			Role:     r.RoleName,
+			JoinedAt: r.JoinedAt,
+		})
+	}
+
+	return &db.ListResult[iam.DBUserWithRole]{
+		Items:      items,
+		TotalCount: count,
+	}, nil
+}
+
+func (s *pgRoleBindingStore) ListNamespaceMembers(ctx context.Context, namespaceID int64, q db.ListQuery) (*db.ListResult[iam.DBUserWithRole], error) {
+	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
+	nsID := &namespaceID
+
+	countParams := generated.CountNamespaceMembersParams{
+		NamespaceID: nsID,
+		Status:      filterStr(q.Filters, "status"),
+		Search:      filterStr(q.Filters, "search"),
+	}
+
+	count, err := s.queries.CountNamespaceMembers(ctx, countParams)
+	if err != nil {
+		return nil, fmt.Errorf("count namespace members: %w", err)
+	}
+
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	rows, err := s.queries.ListNamespaceMembers(ctx, generated.ListNamespaceMembersParams{
+		NamespaceID: nsID,
+		Status:      countParams.Status,
+		Search:      countParams.Search,
+		SortField:   q.SortBy,
+		SortOrder:   sortOrder,
+		PageOffset:  offset,
+		PageSize:    limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list namespace members: %w", err)
+	}
+
+	items := make([]iam.DBUserWithRole, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, iam.DBUserWithRole{
+			User: generated.User{
+				ID:          r.ID,
+				Username:    r.Username,
+				Email:       r.Email,
+				DisplayName: r.DisplayName,
+				Phone:       r.Phone,
+				AvatarUrl:   r.AvatarUrl,
+				Status:      r.Status,
+				LastLoginAt: r.LastLoginAt,
+				CreatedAt:   r.CreatedAt,
+				UpdatedAt:   r.UpdatedAt,
+			},
+			Role:     r.RoleName,
+			JoinedAt: r.JoinedAt,
+		})
+	}
+
+	return &db.ListResult[iam.DBUserWithRole]{
+		Items:      items,
+		TotalCount: count,
+	}, nil
+}
+
+func (s *pgRoleBindingStore) ListUserWorkspaces(ctx context.Context, userID int64, q db.ListQuery) (*db.ListResult[iam.DBWorkspaceWithOwnerAndRole], error) {
+	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
+
+	countParams := generated.CountUserWorkspacesParams{
+		UserID: userID,
+		Status: filterStr(q.Filters, "status"),
+		Search: filterStr(q.Filters, "search"),
+	}
+
+	count, err := s.queries.CountUserWorkspaces(ctx, countParams)
+	if err != nil {
+		return nil, fmt.Errorf("count user workspaces: %w", err)
+	}
+
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	rows, err := s.queries.ListUserWorkspaces(ctx, generated.ListUserWorkspacesParams{
+		UserID:     userID,
+		Status:     countParams.Status,
+		Search:     countParams.Search,
+		SortField:  q.SortBy,
+		SortOrder:  sortOrder,
+		PageOffset: offset,
+		PageSize:   limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list user workspaces: %w", err)
+	}
+
+	items := make([]iam.DBWorkspaceWithOwnerAndRole, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, iam.DBWorkspaceWithOwnerAndRole{
+			Workspace: generated.Workspace{
+				ID:          r.ID,
+				Name:        r.Name,
+				DisplayName: r.DisplayName,
+				Description: r.Description,
+				OwnerID:     r.OwnerID,
+				Status:      r.Status,
+				CreatedAt:   r.CreatedAt,
+				UpdatedAt:   r.UpdatedAt,
+			},
+			OwnerUsername:  r.OwnerUsername,
+			NamespaceCount: r.NamespaceCount,
+			MemberCount:    r.MemberCount,
+			Role:           r.RoleName,
+			JoinedAt:       r.JoinedAt,
+		})
+	}
+
+	return &db.ListResult[iam.DBWorkspaceWithOwnerAndRole]{
+		Items:      items,
+		TotalCount: count,
+	}, nil
+}
+
+func (s *pgRoleBindingStore) ListUserNamespaces(ctx context.Context, userID int64, q db.ListQuery) (*db.ListResult[iam.DBNamespaceWithOwnerAndRole], error) {
+	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
+
+	countParams := generated.CountUserNamespacesParams{
+		UserID:      userID,
+		Status:      filterStr(q.Filters, "status"),
+		Visibility:  filterStr(q.Filters, "visibility"),
+		WorkspaceID: filterInt64(q.Filters, "workspace_id"),
+		Search:      filterStr(q.Filters, "search"),
+	}
+
+	count, err := s.queries.CountUserNamespaces(ctx, countParams)
+	if err != nil {
+		return nil, fmt.Errorf("count user namespaces: %w", err)
+	}
+
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	rows, err := s.queries.ListUserNamespaces(ctx, generated.ListUserNamespacesParams{
+		UserID:      userID,
+		Status:      countParams.Status,
+		Visibility:  countParams.Visibility,
+		WorkspaceID: countParams.WorkspaceID,
+		Search:      countParams.Search,
+		SortField:   q.SortBy,
+		SortOrder:   sortOrder,
+		PageOffset:  offset,
+		PageSize:    limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list user namespaces: %w", err)
+	}
+
+	items := make([]iam.DBNamespaceWithOwnerAndRole, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, iam.DBNamespaceWithOwnerAndRole{
+			Namespace: generated.Namespace{
+				ID:          r.ID,
+				Name:        r.Name,
+				DisplayName: r.DisplayName,
+				Description: r.Description,
+				WorkspaceID: r.WorkspaceID,
+				OwnerID:     r.OwnerID,
+				Visibility:  r.Visibility,
+				MaxMembers:  r.MaxMembers,
+				Status:      r.Status,
+				CreatedAt:   r.CreatedAt,
+				UpdatedAt:   r.UpdatedAt,
+			},
+			OwnerUsername:  r.OwnerUsername,
+			WorkspaceName: r.WorkspaceName,
+			MemberCount:   r.MemberCount,
+			Role:           r.RoleName,
+			JoinedAt:       r.JoinedAt,
+		})
+	}
+
+	return &db.ListResult[iam.DBNamespaceWithOwnerAndRole]{
+		Items:      items,
+		TotalCount: count,
+	}, nil
+}
+
 // rowToRoleBindingWithDetails converts individual fields to DBRoleBindingWithDetails.
 func rowToRoleBindingWithDetails(
 	id, userID, roleID int64, scope string, workspaceID, namespaceID *int64, isOwner bool, createdAt time.Time,

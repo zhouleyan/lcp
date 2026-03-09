@@ -3,15 +3,13 @@ package iam
 // Stores holds all IAM Store instances.
 // Adding a new store only requires adding a field here.
 type Stores struct {
-	User          UserStore
-	Workspace     WorkspaceStore
-	Namespace     NamespaceStore
-	UserWorkspace UserWorkspaceStore
-	UserNamespace UserNamespaceStore
-	RefreshToken  RefreshTokenStore
-	Permission    PermissionStore
-	Role          RoleStore
-	RoleBinding   RoleBindingStore
+	User         UserStore
+	Workspace    WorkspaceStore
+	Namespace    NamespaceStore
+	RefreshToken RefreshTokenStore
+	Permission   PermissionStore
+	Role         RoleStore
+	RoleBinding  RoleBindingStore
 }
 
 // RESTStorageProvider centralizes all IAM Store instances.

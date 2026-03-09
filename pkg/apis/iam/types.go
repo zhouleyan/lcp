@@ -314,12 +314,6 @@ type DBWorkspace = generated.Workspace
 // DBNamespace is an alias for the sqlc-generated Namespace model.
 type DBNamespace = generated.Namespace
 
-// DBUserWorkspace is an alias for the sqlc-generated UserWorkspace model.
-type DBUserWorkspace = generated.UserWorkspace
-
-// DBUserNamespace is an alias for the sqlc-generated UserNamespace model.
-type DBUserNamespace = generated.UserNamespace
-
 // DBUserWithNamespaces extends the generated User with associated namespace names.
 type DBUserWithNamespaces struct {
 	generated.User

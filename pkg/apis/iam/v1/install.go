@@ -30,11 +30,6 @@ func NewIAMModule(ctx context.Context, database *db.DB) ModuleResult {
 		logger.Fatalf("cannot seed RBAC: %v", err)
 	}
 
-	// Migrate legacy join tables to role_bindings (idempotent)
-	if err := iam.MigrateJoinTablesToRoleBindings(ctx, database.Pool); err != nil {
-		logger.Fatalf("cannot migrate join tables to role_bindings: %v", err)
-	}
-
 	return ModuleResult{
 		Group: group,
 	}
@@ -47,8 +42,8 @@ func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvi
 	userStorage, userActions := newUserStorage(p)
 	wsStorage := iam.NewWorkspaceStorage(p.Workspace, p.User)
 	nsStorage := iam.NewNamespaceStorage(p.Namespace, p.Workspace, p.User)
-	wsUserStorage := iam.NewWorkspaceUserStorage(p.UserWorkspace, p.User)
-	nsUserStorage := iam.NewNamespaceUserStorage(p.UserNamespace, p.Namespace, p.User)
+	wsUserStorage := iam.NewWorkspaceUserStorage(p.RoleBinding, p.User)
+	nsUserStorage := iam.NewNamespaceUserStorage(p.RoleBinding, p.Namespace, p.User)
 	permStorage := iam.NewPermissionStorage(p.Permission)
 	roleStorage := iam.NewRoleStorage(p.Role)
 	rbStorage := iam.NewRoleBindingStorage(p.RoleBinding, p.Role)
@@ -68,8 +63,8 @@ func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvi
 				Storage: userStorage,
 				Actions: userActions,
 				CustomVerbs: []rest.CustomVerbInfo{
-					{Name: "workspaces", Storage: iam.NewUserWorkspacesVerb(p.UserWorkspace)},
-					{Name: "namespaces", Storage: iam.NewUserNamespacesVerb(p.UserNamespace)},
+					{Name: "workspaces", Storage: iam.NewUserWorkspacesVerb(p.RoleBinding)},
+					{Name: "namespaces", Storage: iam.NewUserNamespacesVerb(p.RoleBinding)},
 					{Name: "rolebindings", Storage: iam.NewUserRoleBindingsVerb(p.RoleBinding)},
 					{Name: "permissions", Storage: iam.NewUserPermissionsVerb(p.RoleBinding, p.Permission)},
 				},

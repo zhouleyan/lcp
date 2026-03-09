@@ -50,12 +50,12 @@ func (q *Queries) CountNamespaces(ctx context.Context, arg CountNamespacesParams
 }
 
 const countUsersByNamespaceID = `-- name: CountUsersByNamespaceID :one
-SELECT count(user_id)
-FROM user_namespaces
-WHERE namespace_id = $1
+SELECT count(DISTINCT user_id)
+FROM role_bindings
+WHERE scope = 'namespace' AND namespace_id = $1
 `
 
-func (q *Queries) CountUsersByNamespaceID(ctx context.Context, namespaceID int64) (int64, error) {
+func (q *Queries) CountUsersByNamespaceID(ctx context.Context, namespaceID *int64) (int64, error) {
 	row := q.db.QueryRow(ctx, countUsersByNamespaceID, namespaceID)
 	var count int64
 	err := row.Scan(&count)
@@ -148,7 +148,7 @@ SELECT
     ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
     u.username AS owner_username,
     w.name AS workspace_name,
-    (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) AS member_count
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = ns.id) AS member_count
 FROM namespaces ns
 JOIN users u ON ns.owner_id = u.id
 JOIN workspaces w ON ns.workspace_id = w.id
@@ -227,7 +227,7 @@ WITH ns_data AS (
         ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
         u.username AS owner_username,
         w.name AS workspace_name,
-        (SELECT count(*) FROM user_namespaces un WHERE un.namespace_id = ns.id) AS member_count
+        (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = ns.id) AS member_count
     FROM namespaces ns
     JOIN users u ON ns.owner_id = u.id
     JOIN workspaces w ON ns.workspace_id = w.id

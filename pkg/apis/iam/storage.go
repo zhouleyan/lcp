@@ -821,13 +821,13 @@ func (s *namespaceStorage) DeleteCollection(ctx context.Context, ids []string, o
 
 // workspaceUserStorage 管理工作空间的成员关系，支持查询成员列表、批量添加和批量移除成员。
 type workspaceUserStorage struct {
-	uwStore   UserWorkspaceStore
+	rbStore   RoleBindingStore
 	userStore UserStore
 }
 
 // NewWorkspaceUserStorage 创建工作空间成员管理 REST 存储。
-func NewWorkspaceUserStorage(uwStore UserWorkspaceStore, userStore UserStore) rest.Storage {
-	return &workspaceUserStorage{uwStore: uwStore, userStore: userStore}
+func NewWorkspaceUserStorage(rbStore RoleBindingStore, userStore UserStore) rest.Storage {
+	return &workspaceUserStorage{rbStore: rbStore, userStore: userStore}
 }
 
 func (s *workspaceUserStorage) NewObject() runtime.Object { return &BatchRequest{} }
@@ -839,24 +839,9 @@ func (s *workspaceUserStorage) List(ctx context.Context, options *rest.ListOptio
 		return nil, apierrors.NewBadRequest("invalid workspace ID", nil)
 	}
 
-	query := db.ListQuery{
-		Filters: make(map[string]any),
-		Pagination: db.Pagination{
-			Page:     options.Pagination.Page,
-			PageSize: options.Pagination.PageSize,
-		},
-	}
-	for k, v := range options.Filters {
-		query.Filters[k] = v
-	}
-	if options.SortBy != "" {
-		query.SortBy = options.SortBy
-	}
-	if options.SortOrder != "" {
-		query.SortOrder = string(options.SortOrder)
-	}
+	query := restOptionsToListQuery(options)
 
-	result, err := s.uwStore.ListByWorkspaceID(ctx, wsID, query)
+	result, err := s.rbStore.ListWorkspaceMembers(ctx, wsID, query)
 	if err != nil {
 		return nil, err
 	}
@@ -886,8 +871,10 @@ func (s *workspaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 	}
 
 	added, err := batchAddUsers(ctx, req.IDs, s.userStore, func(ctx context.Context, uid int64) (bool, error) {
-		result, err := s.uwStore.Add(ctx, &DBUserWorkspace{UserID: uid, WorkspaceID: wsID, Role: "member"})
-		return result != nil, err
+		if err := s.rbStore.AddWorkspaceMember(ctx, uid, wsID); err != nil {
+			return false, err
+		}
+		return true, nil
 	})
 	if err != nil {
 		return nil, err
@@ -907,7 +894,7 @@ func (s *workspaceUserStorage) DeleteCollection(ctx context.Context, ids []strin
 	}
 
 	count, err := batchRemoveUsers(ctx, ids, func(ctx context.Context, uid int64) error {
-		return s.uwStore.Remove(ctx, uid, wsID)
+		return s.rbStore.RemoveWorkspaceMember(ctx, uid, wsID)
 	})
 	if err != nil {
 		return nil, err
@@ -924,14 +911,14 @@ func (s *workspaceUserStorage) DeleteCollection(ctx context.Context, ids []strin
 // 添加项目成员时会自动将其加入父工作空间。
 // +openapi:path=/workspaces/{workspaceId}/namespaces/{namespaceId}/users
 type namespaceUserStorage struct {
-	unStore   UserNamespaceStore
+	rbStore   RoleBindingStore
 	nsStore   NamespaceStore
 	userStore UserStore
 }
 
 // NewNamespaceUserStorage 创建项目成员管理 REST 存储。
-func NewNamespaceUserStorage(unStore UserNamespaceStore, nsStore NamespaceStore, userStore UserStore) rest.Storage {
-	return &namespaceUserStorage{unStore: unStore, nsStore: nsStore, userStore: userStore}
+func NewNamespaceUserStorage(rbStore RoleBindingStore, nsStore NamespaceStore, userStore UserStore) rest.Storage {
+	return &namespaceUserStorage{rbStore: rbStore, nsStore: nsStore, userStore: userStore}
 }
 
 func (s *namespaceUserStorage) NewObject() runtime.Object { return &BatchRequest{} }
@@ -944,24 +931,9 @@ func (s *namespaceUserStorage) List(ctx context.Context, options *rest.ListOptio
 		return nil, apierrors.NewBadRequest("invalid namespace ID", nil)
 	}
 
-	query := db.ListQuery{
-		Filters: make(map[string]any),
-		Pagination: db.Pagination{
-			Page:     options.Pagination.Page,
-			PageSize: options.Pagination.PageSize,
-		},
-	}
-	for k, v := range options.Filters {
-		query.Filters[k] = v
-	}
-	if options.SortBy != "" {
-		query.SortBy = options.SortBy
-	}
-	if options.SortOrder != "" {
-		query.SortOrder = string(options.SortOrder)
-	}
+	query := restOptionsToListQuery(options)
 
-	result, err := s.unStore.ListByNamespaceID(ctx, nsID, query)
+	result, err := s.rbStore.ListNamespaceMembers(ctx, nsID, query)
 	if err != nil {
 		return nil, err
 	}
@@ -1010,8 +982,10 @@ func (s *namespaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 	}
 
 	added, err := batchAddUsers(ctx, req.IDs, s.userStore, func(ctx context.Context, uid int64) (bool, error) {
-		result, err := s.unStore.Add(ctx, &DBUserNamespace{UserID: uid, NamespaceID: nsID, Role: "member"})
-		return result != nil, err
+		if err := s.rbStore.AddNamespaceMember(ctx, uid, nsID); err != nil {
+			return false, err
+		}
+		return true, nil
 	})
 	if err != nil {
 		return nil, err
@@ -1032,7 +1006,7 @@ func (s *namespaceUserStorage) DeleteCollection(ctx context.Context, ids []strin
 	}
 
 	count, err := batchRemoveUsers(ctx, ids, func(ctx context.Context, uid int64) error {
-		return s.unStore.Remove(ctx, uid, nsID)
+		return s.rbStore.RemoveNamespaceMember(ctx, uid, nsID)
 	})
 	if err != nil {
 		return nil, err
@@ -1048,15 +1022,15 @@ func (s *namespaceUserStorage) DeleteCollection(ctx context.Context, ids []strin
 // userWorkspaceVerbStorage 用户关联工作空间的 custom verb 存储，支持分页、筛选和排序。
 // 注册为 GET /users/{userId}:workspaces
 type userWorkspaceVerbStorage struct {
-	uwStore UserWorkspaceStore
+	rbStore RoleBindingStore
 }
 
 // NewUserWorkspacesVerb 创建用户工作空间视图存储。
 // +openapi:customverb=workspaces
 // +openapi:resource=User
 // +openapi:summary=获取用户关联的工作空间列表
-func NewUserWorkspacesVerb(uwStore UserWorkspaceStore) rest.Lister {
-	return &userWorkspaceVerbStorage{uwStore: uwStore}
+func NewUserWorkspacesVerb(rbStore RoleBindingStore) rest.Lister {
+	return &userWorkspaceVerbStorage{rbStore: rbStore}
 }
 
 func (s *userWorkspaceVerbStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
@@ -1067,7 +1041,7 @@ func (s *userWorkspaceVerbStorage) List(ctx context.Context, options *rest.ListO
 
 	query := restOptionsToListQuery(options)
 
-	result, err := s.uwStore.ListByUserID(ctx, uid, query)
+	result, err := s.rbStore.ListUserWorkspaces(ctx, uid, query)
 	if err != nil {
 		return nil, err
 	}
@@ -1097,15 +1071,15 @@ func (s *userWorkspaceVerbStorage) List(ctx context.Context, options *rest.ListO
 // userNamespaceVerbStorage 用户关联项目的 custom verb 存储，支持分页、筛选和排序。
 // 注册为 GET /users/{userId}:namespaces
 type userNamespaceVerbStorage struct {
-	unStore UserNamespaceStore
+	rbStore RoleBindingStore
 }
 
 // NewUserNamespacesVerb 创建用户项目视图存储。
 // +openapi:customverb=namespaces
 // +openapi:resource=User
 // +openapi:summary=获取用户关联的项目列表
-func NewUserNamespacesVerb(unStore UserNamespaceStore) rest.Lister {
-	return &userNamespaceVerbStorage{unStore: unStore}
+func NewUserNamespacesVerb(rbStore RoleBindingStore) rest.Lister {
+	return &userNamespaceVerbStorage{rbStore: rbStore}
 }
 
 func (s *userNamespaceVerbStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
@@ -1116,7 +1090,7 @@ func (s *userNamespaceVerbStorage) List(ctx context.Context, options *rest.ListO
 
 	query := restOptionsToListQuery(options)
 
-	result, err := s.unStore.ListByUserID(ctx, uid, query)
+	result, err := s.rbStore.ListUserNamespaces(ctx, uid, query)
 	if err != nil {
 		return nil, err
 	}
