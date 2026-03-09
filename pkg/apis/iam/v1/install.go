@@ -30,6 +30,11 @@ func NewIAMModule(ctx context.Context, database *db.DB) ModuleResult {
 		logger.Fatalf("cannot seed RBAC: %v", err)
 	}
 
+	// Migrate legacy join tables to role_bindings (idempotent)
+	if err := iam.MigrateJoinTablesToRoleBindings(ctx, database.Pool); err != nil {
+		logger.Fatalf("cannot migrate join tables to role_bindings: %v", err)
+	}
+
 	return ModuleResult{
 		Group: group,
 	}
