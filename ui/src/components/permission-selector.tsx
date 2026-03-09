@@ -39,12 +39,11 @@ interface PermNode {
 
 export function patternCovers(pattern: string, code: string): boolean {
   if (pattern === "*:*") return true
-  if (pattern.startsWith("*:")) {
-    const suffix = pattern.slice(1) // ":list"
-    return code.endsWith(suffix)
-  }
-  const prefix = pattern.slice(0, -1)
-  return code.startsWith(prefix)
+  const starIdx = pattern.indexOf("*")
+  if (starIdx === -1) return pattern === code
+  const prefix = pattern.slice(0, starIdx)
+  const suffix = pattern.slice(starIdx + 1)
+  return code.startsWith(prefix) && code.endsWith(suffix) && code.length > prefix.length + suffix.length
 }
 
 function isSelected(rules: string[], code: string): boolean {
@@ -58,13 +57,8 @@ function isLocked(rules: string[], code: string): boolean {
 
 function isCoarserOrEqual(a: string, b: string): boolean {
   if (a === b) return true
-  if (a === "*:*") return true
-  if (!a.includes("*") || !b.includes("*")) return false
-  if (a.startsWith("*:") && !b.startsWith("*:")) return false
-  if (!a.startsWith("*:") && b.startsWith("*:")) return false
-  if (a.startsWith("*:")) return a === b
-  const prefixA = a.slice(0, -1)
-  return b.startsWith(prefixA)
+  if (!a.includes("*")) return false
+  return patternCovers(a, b)
 }
 
 function buildTree(perms: Permission[]): GroupNode {
@@ -265,7 +259,7 @@ export function PermissionSelector({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 min-h-0 flex-1">
       <div className="relative">
         <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
         <Input
@@ -275,7 +269,7 @@ export function PermissionSelector({
           className="h-9 pl-9"
         />
       </div>
-      <div className="h-[min(600px,60vh)] overflow-y-auto rounded-md border py-1">
+      <div className="flex-1 min-h-0 overflow-y-auto rounded-md border py-1">
         <TreeNode
           node={tree}
           value={value}
@@ -352,7 +346,6 @@ function TreeNode({
         if (allPatternsSelected) {
           onChange(value.filter((r) => !patterns.includes(r)))
         } else {
-          // Add missing patterns, remove individual codes they cover
           const newPatterns = patterns.filter((p) => !value.includes(p))
           const cleaned = value.filter((r) => !group.codes.includes(r))
           onChange([...cleaned, ...newPatterns])
@@ -361,7 +354,6 @@ function TreeNode({
         // Non-root: toggle individual codes
         const allSelected = group.codes.every((c) => isSelected(value, c))
         if (allSelected) {
-          // Remove only directly-included codes (not wildcard-covered ones)
           onChange(value.filter((r) => !group.codes.includes(r)))
         } else {
           const toAdd = group.codes.filter((c) => !isSelected(value, c))

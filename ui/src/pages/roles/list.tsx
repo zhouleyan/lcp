@@ -517,9 +517,9 @@ function RoleFormDialog({
                 {form.formState.errors.root.message}
               </div>
             )}
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-3 gap-6 min-h-0 flex-1">
               {/* Left: basic fields */}
-              <div className="col-span-1 space-y-4">
+              <div className="col-span-1 space-y-4 overflow-y-auto">
                 <FormField
                   control={form.control}
                   name="name"
@@ -597,7 +597,7 @@ function RoleFormDialog({
                 control={form.control}
                 name="rules"
                 render={() => (
-                  <FormItem className="col-span-2 flex flex-col">
+                  <FormItem className="col-span-2 flex flex-col min-h-0">
                     <FormLabel>
                       {t("role.rules")}
                       {selectedRules.length > 0 && (
@@ -616,7 +616,7 @@ function RoleFormDialog({
                 )}
               />
             </div>
-            <DialogFooter className="mt-6 pt-4 border-t">
+            <DialogFooter className="mt-6 pt-4 border-t shrink-0">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 {t("common.cancel")}
               </Button>
