@@ -1376,3 +1376,71 @@ func batchRemoveUsers(ctx context.Context, ids []string, removeFn func(ctx conte
 func parseID(s string) (int64, error) {
 	return strconv.ParseInt(s, 10, 64)
 }
+
+// --- Permission Storage (read-only) ---
+
+type permissionStorage struct {
+	permStore PermissionStore
+}
+
+// NewPermissionStorage creates a read-only permission REST storage.
+func NewPermissionStorage(permStore PermissionStore) rest.Storage {
+	return &permissionStorage{permStore: permStore}
+}
+
+func (s *permissionStorage) NewObject() runtime.Object { return &Permission{} }
+
+// +openapi:summary=获取权限列表
+func (s *permissionStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	query := db.ListQuery{
+		Filters: make(map[string]any),
+		Pagination: db.Pagination{
+			Page:     options.Pagination.Page,
+			PageSize: options.Pagination.PageSize,
+		},
+	}
+	if module := options.Filters["module"]; module != "" {
+		query.Filters["module_prefix"] = module + ":"
+	}
+	if search := options.Filters["search"]; search != "" {
+		query.Filters["search"] = search
+	}
+	if options.SortBy != "" {
+		query.SortBy = options.SortBy
+	}
+	if options.SortOrder != "" {
+		query.SortOrder = string(options.SortOrder)
+	}
+
+	result, err := s.permStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Permission, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = *permissionToAPI(&item)
+	}
+
+	return &PermissionList{
+		TypeMeta:   runtime.TypeMeta{Kind: "PermissionList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+func permissionToAPI(p *DBPermission) *Permission {
+	return &Permission{
+		TypeMeta: runtime.TypeMeta{Kind: "Permission"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(p.ID, 10),
+			CreatedAt: &p.CreatedAt,
+		},
+		Spec: PermissionSpec{
+			Code:        p.Code,
+			Method:      p.Method,
+			Path:        p.Path,
+			Description: p.Description,
+		},
+	}
+}

@@ -44,6 +44,7 @@ func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvi
 	nsStorage := iam.NewNamespaceStorage(p.Namespace, p.Workspace, p.User)
 	wsUserStorage := iam.NewWorkspaceUserStorage(p.UserWorkspace, p.User)
 	nsUserStorage := iam.NewNamespaceUserStorage(p.UserNamespace, p.Namespace, p.User)
+	permStorage := iam.NewPermissionStorage(p.Permission)
 
 	group := &rest.APIGroupInfo{
 		GroupName: "iam",
@@ -78,6 +79,10 @@ func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvi
 				SubResources: []rest.ResourceInfo{
 					{Name: "users", Storage: nsUserStorage},
 				},
+			},
+			{
+				Name:    "permissions",
+				Storage: permStorage,
 			},
 		},
 	}
