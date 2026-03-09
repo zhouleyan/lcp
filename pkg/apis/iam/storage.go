@@ -1701,6 +1701,8 @@ func (s *roleStorage) List(ctx context.Context, options *rest.ListOptions) (runt
 	for k, v := range options.Filters {
 		query.Filters[k] = v
 	}
+	// Force platform scope — only return platform roles
+	query.Filters["scope"] = "platform"
 	if options.SortBy != "" {
 		query.SortBy = options.SortBy
 	}
@@ -1732,6 +1734,9 @@ func (s *roleStorage) Create(ctx context.Context, obj runtime.Object, options *r
 		return nil, fmt.Errorf("expected *Role, got %T", obj)
 	}
 
+	// Force platform scope — scoped roles must be created via workspace/namespace endpoints
+	role.Spec.Scope = "platform"
+
 	if errs := ValidateRoleCreate(&role.Spec); errs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
@@ -1744,7 +1749,7 @@ func (s *roleStorage) Create(ctx context.Context, obj runtime.Object, options *r
 		Name:        role.Spec.Name,
 		DisplayName: role.Spec.DisplayName,
 		Description: role.Spec.Description,
-		Scope:       role.Spec.Scope,
+		Scope:       "platform",
 	}
 
 	created, err := s.roleStore.Create(ctx, dbRole)
@@ -1888,30 +1893,45 @@ func roleWithRulesToAPI(r *DBRoleWithRules) *Role {
 	return role
 }
 
-// --- Scoped Role Storage (read-only, for workspace/namespace sub-resource) ---
+// --- Scoped Role Storage (full CRUD, for workspace/namespace sub-resource) ---
 
-// scopedRoleStorage 作用域角色的只读存储，按 scope 过滤角色列表。
+// scopedRoleStorage 作用域角色的完整 CRUD 存储，按 scope 过滤角色列表。
 // 注册为 /workspaces/{workspaceId}/roles 和 /namespaces/{namespaceId}/roles。
 // +openapi:resource=Role
 // +openapi:path=/workspaces/{workspaceId}/roles
 // +openapi:path=/namespaces/{namespaceId}/roles
 type scopedRoleStorage struct {
 	roleStore RoleStore
+	rbStore   RoleBindingStore
 	scope     string // "workspace" or "namespace"
 }
 
-// NewScopedRoleStorage creates a read-only role storage scoped to the given level.
-func NewScopedRoleStorage(roleStore RoleStore, scope string) rest.Storage {
-	return &scopedRoleStorage{roleStore: roleStore, scope: scope}
+// NewScopedRoleStorage creates a scoped role storage with full CRUD.
+func NewScopedRoleStorage(roleStore RoleStore, rbStore RoleBindingStore, scope string) rest.Storage {
+	return &scopedRoleStorage{roleStore: roleStore, rbStore: rbStore, scope: scope}
 }
 
 func (s *scopedRoleStorage) NewObject() runtime.Object { return &Role{} }
 
 // +openapi:summary=获取工作空间角色列表
-// +openapi:summary.namespaces.roles=获取命名空间角色列表
+// +openapi:summary.namespaces.roles=获取项目角色列表
 func (s *scopedRoleStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	query := restOptionsToListQuery(options)
 	query.Filters["scope"] = s.scope
+
+	if s.scope == "workspace" {
+		wsID, err := parseID(options.PathParams["workspaceId"])
+		if err != nil {
+			return nil, apierrors.NewBadRequest("invalid workspace ID", nil)
+		}
+		query.Filters["workspace_id"] = wsID
+	} else {
+		nsID, err := parseID(options.PathParams["namespaceId"])
+		if err != nil {
+			return nil, apierrors.NewBadRequest("invalid namespace ID", nil)
+		}
+		query.Filters["namespace_id"] = nsID
+	}
 
 	result, err := s.roleStore.List(ctx, query)
 	if err != nil {
@@ -1931,7 +1951,7 @@ func (s *scopedRoleStorage) List(ctx context.Context, options *rest.ListOptions)
 }
 
 // +openapi:summary=获取工作空间角色详情
-// +openapi:summary.namespaces.roles=获取命名空间角色详情
+// +openapi:summary.namespaces.roles=获取项目角色详情
 func (s *scopedRoleStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["roleId"]
 	rid, err := parseID(id)
@@ -1947,8 +1967,196 @@ func (s *scopedRoleStorage) Get(ctx context.Context, options *rest.GetOptions) (
 	if role.Scope != s.scope {
 		return nil, apierrors.NewNotFound("role", id)
 	}
+	if s.scope == "workspace" {
+		wsID, _ := parseID(options.PathParams["workspaceId"])
+		if role.WorkspaceID == nil || *role.WorkspaceID != wsID {
+			return nil, apierrors.NewNotFound("role", id)
+		}
+	} else {
+		nsID, _ := parseID(options.PathParams["namespaceId"])
+		if role.NamespaceID == nil || *role.NamespaceID != nsID {
+			return nil, apierrors.NewNotFound("role", id)
+		}
+	}
 
 	return roleWithRulesToAPI(role), nil
+}
+
+// +openapi:summary=创建工作空间自定义角色
+// +openapi:summary.namespaces.roles=创建项目自定义角色
+func (s *scopedRoleStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	role, ok := obj.(*Role)
+	if !ok {
+		return nil, fmt.Errorf("expected *Role, got %T", obj)
+	}
+
+	role.Spec.Scope = s.scope
+
+	if errs := ValidateRoleCreate(&role.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return role, nil
+	}
+
+	dbRole := &DBRole{
+		Name:        role.Spec.Name,
+		DisplayName: role.Spec.DisplayName,
+		Description: role.Spec.Description,
+		Scope:       s.scope,
+	}
+
+	if s.scope == "workspace" {
+		wsID, err := parseID(options.PathParams["workspaceId"])
+		if err != nil {
+			return nil, apierrors.NewBadRequest("invalid workspace ID", nil)
+		}
+		dbRole.WorkspaceID = &wsID
+	} else {
+		nsID, err := parseID(options.PathParams["namespaceId"])
+		if err != nil {
+			return nil, apierrors.NewBadRequest("invalid namespace ID", nil)
+		}
+		dbRole.NamespaceID = &nsID
+	}
+
+	created, err := s.roleStore.Create(ctx, dbRole)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(role.Spec.Rules) > 0 {
+		if err := s.roleStore.SetPermissionRules(ctx, created.ID, role.Spec.Rules); err != nil {
+			return nil, err
+		}
+	}
+
+	withRules, err := s.roleStore.GetByID(ctx, created.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return roleWithRulesToAPI(withRules), nil
+}
+
+// +openapi:summary=更新工作空间角色
+// +openapi:summary.namespaces.roles=更新项目角色
+func (s *scopedRoleStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
+	role, ok := obj.(*Role)
+	if !ok {
+		return nil, fmt.Errorf("expected *Role, got %T", obj)
+	}
+
+	id := options.PathParams["roleId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid role ID: %s", id), nil)
+	}
+
+	existing, err := s.roleStore.GetByID(ctx, rid)
+	if err != nil {
+		return nil, err
+	}
+	if existing.Builtin {
+		return nil, apierrors.NewBadRequest("cannot modify built-in role", nil)
+	}
+
+	// Verify ownership
+	if existing.Scope != s.scope {
+		return nil, apierrors.NewNotFound("role", id)
+	}
+	if s.scope == "workspace" {
+		wsID, _ := parseID(options.PathParams["workspaceId"])
+		if existing.WorkspaceID == nil || *existing.WorkspaceID != wsID {
+			return nil, apierrors.NewNotFound("role", id)
+		}
+	} else {
+		nsID, _ := parseID(options.PathParams["namespaceId"])
+		if existing.NamespaceID == nil || *existing.NamespaceID != nsID {
+			return nil, apierrors.NewNotFound("role", id)
+		}
+	}
+
+	if errs := ValidateRoleUpdate(&role.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return role, nil
+	}
+
+	dbRole := &DBRole{
+		ID:          rid,
+		DisplayName: role.Spec.DisplayName,
+		Description: role.Spec.Description,
+	}
+
+	if _, err := s.roleStore.Update(ctx, dbRole); err != nil {
+		return nil, err
+	}
+
+	if len(role.Spec.Rules) > 0 {
+		if err := s.roleStore.SetPermissionRules(ctx, rid, role.Spec.Rules); err != nil {
+			return nil, err
+		}
+	}
+
+	withRules, err := s.roleStore.GetByID(ctx, rid)
+	if err != nil {
+		return nil, err
+	}
+
+	return roleWithRulesToAPI(withRules), nil
+}
+
+// +openapi:summary=删除工作空间角色
+// +openapi:summary.namespaces.roles=删除项目角色
+func (s *scopedRoleStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	id := options.PathParams["roleId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid role ID: %s", id), nil)
+	}
+
+	existing, err := s.roleStore.GetByID(ctx, rid)
+	if err != nil {
+		return err
+	}
+	if existing.Builtin {
+		return apierrors.NewBadRequest("cannot delete built-in role", nil)
+	}
+
+	// Verify ownership
+	if existing.Scope != s.scope {
+		return apierrors.NewNotFound("role", id)
+	}
+	if s.scope == "workspace" {
+		wsID, _ := parseID(options.PathParams["workspaceId"])
+		if existing.WorkspaceID == nil || *existing.WorkspaceID != wsID {
+			return apierrors.NewNotFound("role", id)
+		}
+	} else {
+		nsID, _ := parseID(options.PathParams["namespaceId"])
+		if existing.NamespaceID == nil || *existing.NamespaceID != nsID {
+			return apierrors.NewNotFound("role", id)
+		}
+	}
+
+	// Check no bindings exist
+	count, err := s.rbStore.CountByRoleAndScope(ctx, rid, s.scope)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return apierrors.NewBadRequest("cannot delete role with active bindings", nil)
+	}
+
+	if options.DryRun {
+		return nil
+	}
+
+	return s.roleStore.Delete(ctx, rid)
 }
 
 // --- Permission Storage (read-only) ---
@@ -2163,6 +2371,9 @@ func (s *workspaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 	if role.Scope != "workspace" {
 		return nil, apierrors.NewBadRequest("role scope must be 'workspace' for workspace-level bindings", nil)
 	}
+	if role.WorkspaceID == nil || *role.WorkspaceID != wsID {
+		return nil, apierrors.NewBadRequest("role does not belong to this workspace", nil)
+	}
 
 	userID, err := parseID(rb.Spec.UserID)
 	if err != nil {
@@ -2281,6 +2492,9 @@ func (s *namespaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 	}
 	if role.Scope != "namespace" {
 		return nil, apierrors.NewBadRequest("role scope must be 'namespace' for namespace-level bindings", nil)
+	}
+	if role.NamespaceID == nil || *role.NamespaceID != nsID {
+		return nil, apierrors.NewBadRequest("role does not belong to this namespace", nil)
 	}
 
 	userID, err := parseID(rb.Spec.UserID)
