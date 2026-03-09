@@ -131,6 +131,7 @@ export interface RoleSpec {
   description?: string
   scope: "platform" | "workspace" | "namespace"
   builtin?: boolean
+  ruleCount?: number
   rules?: string[]
 }
 

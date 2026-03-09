@@ -20,6 +20,7 @@ const routeLabelKeys: Record<string, string> = {
   workspaces: "nav.workspaces",
   namespaces: "nav.namespaces",
   users: "nav.users",
+  roles: "nav.roles",
 }
 
 export function AppBreadcrumb() {

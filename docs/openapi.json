@@ -3154,6 +3154,11 @@
             "type": "string",
             "description": "角色唯一名称，如 platform-admin"
           },
+          "ruleCount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "权限规则数量（仅列表返回）"
+          },
           "rules": {
             "type": "array",
             "description": "权限规则列表，支持精确码和通配符模式（如 *:*、iam:*、iam:users:list）",

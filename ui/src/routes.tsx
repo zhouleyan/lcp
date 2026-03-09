@@ -16,6 +16,8 @@ import NamespaceOverviewPage from "@/pages/namespaces/overview"
 import NamespaceUsersPage from "@/pages/namespaces/users"
 import UserListPage from "@/pages/users/list"
 import UserDetailPage from "@/pages/users/detail"
+import RoleListPage from "@/pages/roles/list"
+import RoleDetailPage from "@/pages/roles/detail"
 
 export const routes: RouteObject[] = [
   {
@@ -65,6 +67,8 @@ export const routes: RouteObject[] = [
       },
       { path: "users", element: <UserListPage /> },
       { path: "users/:userId", element: <UserDetailPage /> },
+      { path: "roles", element: <RoleListPage /> },
+      { path: "roles/:roleId", element: <RoleDetailPage /> },
     ],
   },
   {

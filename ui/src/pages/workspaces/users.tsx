@@ -342,7 +342,7 @@ function AddMemberDialog({
             })
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="mt-6 pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
           <Button onClick={handleSubmit} disabled={selectedIds.size === 0 || submitting}>
             {submitting ? "..." : t("workspace.addMember")} {selectedIds.size > 0 && `(${selectedIds.size})`}

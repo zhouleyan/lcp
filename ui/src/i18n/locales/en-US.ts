@@ -143,6 +143,40 @@ const enUS: Messages = {
   "user.role": "Role",
   "user.joinedAt": "Joined At",
 
+  // role management
+  "role.title": "Roles",
+  "role.manage": "Manage roles. {count} total.",
+  "role.create": "Create Role",
+  "role.edit": "Edit Role",
+  "role.noData": "No roles found.",
+  "role.notFound": "Role not found.",
+  "role.details": "Role Details",
+  "role.name": "Name",
+  "role.scope": "Scope",
+  "role.builtin": "Built-in",
+  "role.custom": "Custom",
+  "role.rules": "Permission Rules",
+  "role.rulesCount": "{count} rules",
+  "role.searchPlaceholder": "Search name, display name, description...",
+  "role.deleteConfirm": "Are you sure you want to delete role \"{name}\"? This action cannot be undone.",
+  "role.batchDelete": "Batch Delete",
+  "role.batchDeleteConfirm": "Are you sure you want to delete {count} selected roles? This action cannot be undone.",
+  "role.builtinCannotEdit": "Built-in roles cannot be edited",
+  "role.builtinCannotDelete": "Built-in roles cannot be deleted",
+  "role.selectPermissions": "Select Permissions",
+  "role.noPermissions": "No permissions selected",
+  "role.matchedPermissions": "Matched {count} permissions",
+  "role.matchCount": "{count} matched",
+  "role.permissionCode": "Permission Code",
+  "role.permissionDescription": "Description",
+  "role.scope.platform": "Platform",
+  "role.scope.workspace": "Workspace",
+  "role.scope.namespace": "Namespace",
+  "role.validation.name.format": "Name must be 3-50 lowercase letters, digits, or hyphens",
+  "role.validation.name.taken": "This role name is already taken",
+  "role.validation.name.hint": "3-50 lowercase letters, digits, or hyphens, e.g. my-role",
+  "role.validation.rules.required": "At least one permission rule is required",
+
   // built-in role display names
   "role.platform-admin": "Platform Admin",
   "role.platform-viewer": "Platform Viewer",
@@ -150,6 +184,124 @@ const enUS: Messages = {
   "role.workspace-viewer": "Workspace Viewer",
   "role.namespace-admin": "Namespace Admin",
   "role.namespace-viewer": "Namespace Viewer",
+
+  // permission selector groups
+  "perm.group.all": "All Permissions",
+  "perm.group.iam": "IAM Management",
+  "perm.group.iam.users": "Users",
+  "perm.group.iam.workspaces": "Workspaces",
+  "perm.group.iam.workspaces.users": "Workspace Members",
+  "perm.group.iam.workspaces.rolebindings": "Workspace Role Bindings",
+  "perm.group.iam.namespaces": "Namespaces",
+  "perm.group.iam.workspaces.roles": "Workspace Roles",
+  "perm.group.iam.namespaces.users": "Namespace Members",
+  "perm.group.iam.namespaces.rolebindings": "Namespace Role Bindings",
+  "perm.group.iam.namespaces.roles": "Namespace Roles",
+  "perm.group.iam.roles": "Roles",
+  "perm.group.iam.rolebindings": "Role Bindings",
+  "perm.group.iam.permissions": "Permissions",
+
+  // permission verb wildcards
+  "perm.verb.list": "All list (*:list)",
+  "perm.verb.get": "All get (*:get)",
+  "perm.verb.create": "All create (*:create)",
+  "perm.verb.update": "All update (*:update)",
+  "perm.verb.patch": "All patch (*:patch)",
+  "perm.verb.delete": "All delete (*:delete)",
+  "perm.verb.deleteCollection": "All batch delete (*:deleteCollection)",
+
+  // permission verb groups
+  "perm.verbGroup.read": "Read",
+  "perm.verbGroup.create": "Create",
+  "perm.verbGroup.update": "Update",
+  "perm.verbGroup.delete": "Delete",
+
+  // permission codes - users
+  "perm.iam:users:list": "List users",
+  "perm.iam:users:get": "Get user details",
+  "perm.iam:users:create": "Create user",
+  "perm.iam:users:update": "Update user",
+  "perm.iam:users:patch": "Patch user",
+  "perm.iam:users:delete": "Delete user",
+  "perm.iam:users:deleteCollection": "Batch delete users",
+  "perm.iam:users:change-password": "Change user password",
+  "perm.iam:users:workspaces": "List user's workspaces",
+  "perm.iam:users:namespaces": "List user's namespaces",
+  "perm.iam:users:rolebindings": "List user's role bindings",
+  "perm.iam:users:permissions": "List user's permissions",
+
+  // permission codes - workspaces
+  "perm.iam:workspaces:list": "List workspaces",
+  "perm.iam:workspaces:get": "Get workspace details",
+  "perm.iam:workspaces:create": "Create workspace",
+  "perm.iam:workspaces:update": "Update workspace",
+  "perm.iam:workspaces:patch": "Patch workspace",
+  "perm.iam:workspaces:delete": "Delete workspace",
+  "perm.iam:workspaces:deleteCollection": "Batch delete workspaces",
+  "perm.iam:workspaces:transfer-ownership": "Transfer workspace ownership",
+
+  // permission codes - workspace members
+  "perm.iam:workspaces:users:list": "List workspace members",
+  "perm.iam:workspaces:users:create": "Add workspace members",
+  "perm.iam:workspaces:users:deleteCollection": "Remove workspace members",
+
+  // permission codes - workspace role bindings
+  "perm.iam:workspaces:rolebindings:list": "List workspace role bindings",
+  "perm.iam:workspaces:rolebindings:create": "Create workspace role binding",
+  "perm.iam:workspaces:rolebindings:delete": "Delete workspace role binding",
+
+  // permission codes - workspace roles (read-only)
+  "perm.iam:workspaces:roles:list": "List workspace-scoped roles",
+  "perm.iam:workspaces:roles:get": "Get workspace-scoped role details",
+
+  // permission codes - namespaces
+  "perm.iam:namespaces:list": "List namespaces",
+  "perm.iam:namespaces:get": "Get namespace details",
+  "perm.iam:namespaces:create": "Create namespace",
+  "perm.iam:namespaces:update": "Update namespace",
+  "perm.iam:namespaces:patch": "Patch namespace",
+  "perm.iam:namespaces:delete": "Delete namespace",
+  "perm.iam:namespaces:deleteCollection": "Batch delete namespaces",
+  "perm.iam:namespaces:transfer-ownership": "Transfer namespace ownership",
+
+  // permission codes - namespace members
+  "perm.iam:namespaces:users:list": "List namespace members",
+  "perm.iam:namespaces:users:create": "Add namespace members",
+  "perm.iam:namespaces:users:deleteCollection": "Remove namespace members",
+
+  // permission codes - namespace role bindings
+  "perm.iam:namespaces:rolebindings:list": "List namespace role bindings",
+  "perm.iam:namespaces:rolebindings:create": "Create namespace role binding",
+  "perm.iam:namespaces:rolebindings:delete": "Delete namespace role binding",
+
+  // permission codes - namespace roles (read-only)
+  "perm.iam:namespaces:roles:list": "List namespace-scoped roles",
+  "perm.iam:namespaces:roles:get": "Get namespace-scoped role details",
+
+  // permission codes - roles
+  "perm.iam:roles:list": "List roles",
+  "perm.iam:roles:get": "Get role details",
+  "perm.iam:roles:create": "Create role",
+  "perm.iam:roles:update": "Update role",
+  "perm.iam:roles:patch": "Patch role",
+  "perm.iam:roles:delete": "Delete role",
+
+  // permission codes - role bindings
+  "perm.iam:rolebindings:list": "List role bindings",
+  "perm.iam:rolebindings:create": "Create role binding",
+  "perm.iam:rolebindings:delete": "Delete role binding",
+
+  // permission codes - permissions
+  "perm.iam:permissions:list": "List permissions",
+  "perm.iam:permissions:get": "Get permission details",
+
+  // built-in role descriptions
+  "role.desc.platform-admin": "Full access to all platform resources",
+  "role.desc.platform-viewer": "Read-only access to all platform resources",
+  "role.desc.workspace-admin": "Full access to all resources within the workspace",
+  "role.desc.workspace-viewer": "Read-only access to all resources within the workspace",
+  "role.desc.namespace-admin": "Full access to all resources within the namespace",
+  "role.desc.namespace-viewer": "Read-only access to all resources within the namespace",
 
   // error
   "error.400.title": "Bad Request",

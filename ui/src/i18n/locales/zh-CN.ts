@@ -143,6 +143,40 @@ const zhCN: Messages = {
   "user.role": "角色",
   "user.joinedAt": "加入时间",
 
+  // role management
+  "role.title": "角色管理",
+  "role.manage": "管理角色。共 {count} 个。",
+  "role.create": "创建角色",
+  "role.edit": "编辑角色",
+  "role.noData": "暂无角色。",
+  "role.notFound": "角色未找到。",
+  "role.details": "角色详情",
+  "role.name": "名称",
+  "role.scope": "作用域",
+  "role.builtin": "内置",
+  "role.custom": "自定义",
+  "role.rules": "权限规则",
+  "role.rulesCount": "{count} 条规则",
+  "role.searchPlaceholder": "搜索名称、显示名称、描述...",
+  "role.deleteConfirm": "确定要删除角色「{name}」吗？此操作不可撤销。",
+  "role.batchDelete": "批量删除",
+  "role.batchDeleteConfirm": "确定要删除选中的 {count} 个角色吗？此操作不可撤销。",
+  "role.builtinCannotEdit": "内置角色不能编辑",
+  "role.builtinCannotDelete": "内置角色不能删除",
+  "role.selectPermissions": "选择权限",
+  "role.noPermissions": "未选择权限",
+  "role.matchedPermissions": "匹配 {count} 个权限",
+  "role.matchCount": "匹配 {count} 个",
+  "role.permissionCode": "权限代码",
+  "role.permissionDescription": "描述",
+  "role.scope.platform": "平台",
+  "role.scope.workspace": "工作空间",
+  "role.scope.namespace": "命名空间",
+  "role.validation.name.format": "名称需为3-50位小写字母、数字或连字符",
+  "role.validation.name.taken": "该角色名称已被使用",
+  "role.validation.name.hint": "3-50位小写字母、数字或连字符，如 my-role",
+  "role.validation.rules.required": "至少需要一条权限规则",
+
   // built-in role display names
   "role.platform-admin": "平台管理员",
   "role.platform-viewer": "平台只读",
@@ -150,6 +184,124 @@ const zhCN: Messages = {
   "role.workspace-viewer": "工作空间只读",
   "role.namespace-admin": "命名空间管理员",
   "role.namespace-viewer": "命名空间只读",
+
+  // permission selector groups
+  "perm.group.all": "全部权限",
+  "perm.group.iam": "IAM 管理",
+  "perm.group.iam.users": "用户",
+  "perm.group.iam.workspaces": "工作空间",
+  "perm.group.iam.workspaces.users": "工作空间成员",
+  "perm.group.iam.workspaces.rolebindings": "工作空间角色绑定",
+  "perm.group.iam.namespaces": "命名空间",
+  "perm.group.iam.workspaces.roles": "工作空间角色",
+  "perm.group.iam.namespaces.users": "命名空间成员",
+  "perm.group.iam.namespaces.rolebindings": "命名空间角色绑定",
+  "perm.group.iam.namespaces.roles": "命名空间角色",
+  "perm.group.iam.roles": "角色",
+  "perm.group.iam.rolebindings": "角色绑定",
+  "perm.group.iam.permissions": "权限",
+
+  // permission verb wildcards
+  "perm.verb.list": "所有列表 (*:list)",
+  "perm.verb.get": "所有详情 (*:get)",
+  "perm.verb.create": "所有创建 (*:create)",
+  "perm.verb.update": "所有更新 (*:update)",
+  "perm.verb.patch": "所有修改 (*:patch)",
+  "perm.verb.delete": "所有删除 (*:delete)",
+  "perm.verb.deleteCollection": "所有批量删除 (*:deleteCollection)",
+
+  // permission verb groups
+  "perm.verbGroup.read": "查询",
+  "perm.verbGroup.create": "创建",
+  "perm.verbGroup.update": "更新",
+  "perm.verbGroup.delete": "删除",
+
+  // permission codes - users
+  "perm.iam:users:list": "查看用户列表",
+  "perm.iam:users:get": "查看用户详情",
+  "perm.iam:users:create": "创建用户",
+  "perm.iam:users:update": "更新用户",
+  "perm.iam:users:patch": "修改用户",
+  "perm.iam:users:delete": "删除用户",
+  "perm.iam:users:deleteCollection": "批量删除用户",
+  "perm.iam:users:change-password": "修改用户密码",
+  "perm.iam:users:workspaces": "查看用户的工作空间",
+  "perm.iam:users:namespaces": "查看用户的命名空间",
+  "perm.iam:users:rolebindings": "查看用户的角色绑定",
+  "perm.iam:users:permissions": "查看用户权限",
+
+  // permission codes - workspaces
+  "perm.iam:workspaces:list": "查看工作空间列表",
+  "perm.iam:workspaces:get": "查看工作空间详情",
+  "perm.iam:workspaces:create": "创建工作空间",
+  "perm.iam:workspaces:update": "更新工作空间",
+  "perm.iam:workspaces:patch": "修改工作空间",
+  "perm.iam:workspaces:delete": "删除工作空间",
+  "perm.iam:workspaces:deleteCollection": "批量删除工作空间",
+  "perm.iam:workspaces:transfer-ownership": "转让工作空间所有权",
+
+  // permission codes - workspace members
+  "perm.iam:workspaces:users:list": "查看工作空间成员",
+  "perm.iam:workspaces:users:create": "添加工作空间成员",
+  "perm.iam:workspaces:users:deleteCollection": "移除工作空间成员",
+
+  // permission codes - workspace role bindings
+  "perm.iam:workspaces:rolebindings:list": "查看工作空间角色绑定",
+  "perm.iam:workspaces:rolebindings:create": "创建工作空间角色绑定",
+  "perm.iam:workspaces:rolebindings:delete": "删除工作空间角色绑定",
+
+  // permission codes - workspace roles (read-only)
+  "perm.iam:workspaces:roles:list": "查看工作空间作用域角色",
+  "perm.iam:workspaces:roles:get": "查看工作空间作用域角色详情",
+
+  // permission codes - namespaces
+  "perm.iam:namespaces:list": "查看命名空间列表",
+  "perm.iam:namespaces:get": "查看命名空间详情",
+  "perm.iam:namespaces:create": "创建命名空间",
+  "perm.iam:namespaces:update": "更新命名空间",
+  "perm.iam:namespaces:patch": "修改命名空间",
+  "perm.iam:namespaces:delete": "删除命名空间",
+  "perm.iam:namespaces:deleteCollection": "批量删除命名空间",
+  "perm.iam:namespaces:transfer-ownership": "转让命名空间所有权",
+
+  // permission codes - namespace members
+  "perm.iam:namespaces:users:list": "查看命名空间成员",
+  "perm.iam:namespaces:users:create": "添加命名空间成员",
+  "perm.iam:namespaces:users:deleteCollection": "移除命名空间成员",
+
+  // permission codes - namespace role bindings
+  "perm.iam:namespaces:rolebindings:list": "查看命名空间角色绑定",
+  "perm.iam:namespaces:rolebindings:create": "创建命名空间角色绑定",
+  "perm.iam:namespaces:rolebindings:delete": "删除命名空间角色绑定",
+
+  // permission codes - namespace roles (read-only)
+  "perm.iam:namespaces:roles:list": "查看命名空间作用域角色",
+  "perm.iam:namespaces:roles:get": "查看命名空间作用域角色详情",
+
+  // permission codes - roles
+  "perm.iam:roles:list": "查看角色列表",
+  "perm.iam:roles:get": "查看角色详情",
+  "perm.iam:roles:create": "创建角色",
+  "perm.iam:roles:update": "更新角色",
+  "perm.iam:roles:patch": "修改角色",
+  "perm.iam:roles:delete": "删除角色",
+
+  // permission codes - role bindings
+  "perm.iam:rolebindings:list": "查看角色绑定列表",
+  "perm.iam:rolebindings:create": "创建角色绑定",
+  "perm.iam:rolebindings:delete": "删除角色绑定",
+
+  // permission codes - permissions
+  "perm.iam:permissions:list": "查看权限列表",
+  "perm.iam:permissions:get": "查看权限详情",
+
+  // built-in role descriptions
+  "role.desc.platform-admin": "对所有平台资源的完全访问权限",
+  "role.desc.platform-viewer": "对所有平台资源的只读访问权限",
+  "role.desc.workspace-admin": "对工作空间内所有资源的完全访问权限",
+  "role.desc.workspace-viewer": "对工作空间内所有资源的只读访问权限",
+  "role.desc.namespace-admin": "对命名空间内所有资源的完全访问权限",
+  "role.desc.namespace-viewer": "对命名空间内所有资源的只读访问权限",
 
   // error
   "error.400.title": "请求错误",

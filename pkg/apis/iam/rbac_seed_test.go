@@ -67,7 +67,7 @@ func (m *mockRoleStoreForSeed) Upsert(_ context.Context, role *DBRole) (*DBRole,
 
 func (m *mockRoleStoreForSeed) Delete(_ context.Context, _ int64) error { return nil }
 
-func (m *mockRoleStoreForSeed) List(_ context.Context, _ db.ListQuery) (*db.ListResult[DBRole], error) {
+func (m *mockRoleStoreForSeed) List(_ context.Context, _ db.ListQuery) (*db.ListResult[DBRoleListRow], error) {
 	return nil, nil
 }
 

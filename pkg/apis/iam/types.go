@@ -383,6 +383,9 @@ type DBPermission = generated.Permission
 // DBRole is an alias for the sqlc-generated Role model.
 type DBRole = generated.Role
 
+// DBRoleListRow is an alias for the sqlc-generated ListRolesRow, which includes rule_count.
+type DBRoleListRow = generated.ListRolesRow
+
 // DBRolePermissionRule is an alias for the sqlc-generated RolePermissionRule model.
 type DBRolePermissionRule = generated.RolePermissionRule
 
@@ -485,6 +488,8 @@ type RoleSpec struct {
 	Scope string `json:"scope"`
 	// +openapi:description=是否为内置角色（只读）
 	Builtin bool `json:"builtin,omitempty"`
+	// +openapi:description=权限规则数量（仅列表返回）
+	RuleCount *int32 `json:"ruleCount,omitempty"`
 	// +openapi:description=权限规则列表，支持精确码和通配符模式（如 *:*、iam:*、iam:users:list）
 	Rules []string `json:"rules,omitempty"`
 }

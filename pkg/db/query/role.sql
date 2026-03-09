@@ -45,7 +45,8 @@ WHERE (sqlc.narg('scope')::VARCHAR IS NULL OR scope = sqlc.narg('scope'))
   ));
 
 -- name: ListRoles :many
-SELECT id, name, display_name, description, scope, builtin, created_at, updated_at
+SELECT id, name, display_name, description, scope, builtin, created_at, updated_at,
+       (SELECT COUNT(*) FROM role_permission_rules WHERE role_id = roles.id)::INT AS rule_count
 FROM roles
 WHERE (sqlc.narg('scope')::VARCHAR IS NULL OR scope = sqlc.narg('scope'))
   AND (sqlc.narg('builtin')::BOOLEAN IS NULL OR builtin = sqlc.narg('builtin'))

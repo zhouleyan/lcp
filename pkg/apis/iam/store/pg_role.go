@@ -108,7 +108,7 @@ func (s *pgRoleStore) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *pgRoleStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[iam.DBRole], error) {
+func (s *pgRoleStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[iam.DBRoleListRow], error) {
 	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
 
 	countParams := generated.CountRolesParams{
@@ -140,12 +140,12 @@ func (s *pgRoleStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[
 		return nil, fmt.Errorf("list roles: %w", err)
 	}
 
-	items := make([]iam.DBRole, len(rows))
+	items := make([]iam.DBRoleListRow, len(rows))
 	for i, r := range rows {
 		items[i] = r
 	}
 
-	return &db.ListResult[iam.DBRole]{
+	return &db.ListResult[iam.DBRoleListRow]{
 		Items:      items,
 		TotalCount: count,
 	}, nil

@@ -78,7 +78,7 @@ type RoleStore interface {
 	Update(ctx context.Context, role *DBRole) (*DBRole, error)
 	Upsert(ctx context.Context, role *DBRole) (*DBRole, error)
 	Delete(ctx context.Context, id int64) error
-	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBRole], error)
+	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBRoleListRow], error)
 	SetPermissionRules(ctx context.Context, roleID int64, patterns []string) error
 	// SeedRBAC upserts built-in roles with rules and creates initial role bindings in a single transaction.
 	SeedRBAC(ctx context.Context, roles []BuiltinRoleDef, adminUsername string) error

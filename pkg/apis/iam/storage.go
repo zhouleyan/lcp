@@ -1715,7 +1715,7 @@ func (s *roleStorage) List(ctx context.Context, options *rest.ListOptions) (runt
 
 	items := make([]Role, len(result.Items))
 	for i, item := range result.Items {
-		items[i] = *roleToAPI(&item)
+		items[i] = *roleListRowToAPI(&item)
 	}
 
 	return &RoleList{
@@ -1862,6 +1862,26 @@ func roleToAPI(r *DBRole) *Role {
 	}
 }
 
+func roleListRowToAPI(r *DBRoleListRow) *Role {
+	rc := r.RuleCount
+	return &Role{
+		TypeMeta: runtime.TypeMeta{Kind: "Role"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(r.ID, 10),
+			CreatedAt: &r.CreatedAt,
+			UpdatedAt: &r.UpdatedAt,
+		},
+		Spec: RoleSpec{
+			Name:        r.Name,
+			DisplayName: r.DisplayName,
+			Description: r.Description,
+			Scope:       r.Scope,
+			Builtin:     r.Builtin,
+			RuleCount:   &rc,
+		},
+	}
+}
+
 func roleWithRulesToAPI(r *DBRoleWithRules) *Role {
 	role := roleToAPI(&r.Role)
 	role.Spec.Rules = r.Rules
@@ -1900,7 +1920,7 @@ func (s *scopedRoleStorage) List(ctx context.Context, options *rest.ListOptions)
 
 	items := make([]Role, len(result.Items))
 	for i, item := range result.Items {
-		items[i] = *roleToAPI(&item)
+		items[i] = *roleListRowToAPI(&item)
 	}
 
 	return &RoleList{

@@ -457,7 +457,7 @@ function WorkspaceFormDialog({
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <DialogFooter className="mt-6 pt-4 border-t">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
               <Button type="submit" disabled={loading}>{loading ? "..." : t("common.save")}</Button>
             </DialogFooter>

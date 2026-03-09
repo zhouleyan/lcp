@@ -7,6 +7,7 @@ package generated
 
 import (
 	"context"
+	"time"
 )
 
 const countRoles = `-- name: CountRoles :one
@@ -124,7 +125,8 @@ func (q *Queries) GetRoleByName(ctx context.Context, name string) (Role, error) 
 }
 
 const listRoles = `-- name: ListRoles :many
-SELECT id, name, display_name, description, scope, builtin, created_at, updated_at
+SELECT id, name, display_name, description, scope, builtin, created_at, updated_at,
+       (SELECT COUNT(*) FROM role_permission_rules WHERE role_id = roles.id)::INT AS rule_count
 FROM roles
 WHERE ($1::VARCHAR IS NULL OR scope = $1)
   AND ($2::BOOLEAN IS NULL OR builtin = $2)
@@ -155,7 +157,19 @@ type ListRolesParams struct {
 	PageSize   int32   `json:"page_size"`
 }
 
-func (q *Queries) ListRoles(ctx context.Context, arg ListRolesParams) ([]Role, error) {
+type ListRolesRow struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	Scope       string    `json:"scope"`
+	Builtin     bool      `json:"builtin"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	RuleCount   int32     `json:"rule_count"`
+}
+
+func (q *Queries) ListRoles(ctx context.Context, arg ListRolesParams) ([]ListRolesRow, error) {
 	rows, err := q.db.Query(ctx, listRoles,
 		arg.Scope,
 		arg.Builtin,
@@ -169,9 +183,9 @@ func (q *Queries) ListRoles(ctx context.Context, arg ListRolesParams) ([]Role, e
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Role{}
+	items := []ListRolesRow{}
 	for rows.Next() {
-		var i Role
+		var i ListRolesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -181,6 +195,7 @@ func (q *Queries) ListRoles(ctx context.Context, arg ListRolesParams) ([]Role, e
 			&i.Builtin,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.RuleCount,
 		); err != nil {
 			return nil, err
 		}
