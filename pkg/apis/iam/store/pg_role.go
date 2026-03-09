@@ -152,6 +152,47 @@ func (s *pgRoleStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[
 	}, nil
 }
 
+func (s *pgRoleStore) SeedBuiltinRoles(ctx context.Context, roles []iam.BuiltinRoleDef) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	qtx := s.queries.WithTx(tx)
+
+	for _, def := range roles {
+		role, err := qtx.UpsertRole(ctx, generated.UpsertRoleParams{
+			Name:        def.Name,
+			DisplayName: def.DisplayName,
+			Description: def.Description,
+			Scope:       def.Scope,
+			Builtin:     true,
+		})
+		if err != nil {
+			return fmt.Errorf("upsert builtin role %s: %w", def.Name, err)
+		}
+
+		if err := qtx.DeleteRolePermissionRules(ctx, role.ID); err != nil {
+			return fmt.Errorf("delete rules for role %s: %w", def.Name, err)
+		}
+
+		for _, pattern := range def.Rules {
+			if err := qtx.AddRolePermissionRule(ctx, generated.AddRolePermissionRuleParams{
+				RoleID:  role.ID,
+				Pattern: pattern,
+			}); err != nil {
+				return fmt.Errorf("add rule %q for role %s: %w", pattern, def.Name, err)
+			}
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
+
 func (s *pgRoleStore) SetPermissionRules(ctx context.Context, roleID int64, patterns []string) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
