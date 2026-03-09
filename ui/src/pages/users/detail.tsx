@@ -316,7 +316,7 @@ function UserWorkspacesCard({ userId }: { userId: string }) {
                         {ws.spec.status === "active" ? t("common.active") : t("common.inactive")}
                       </Badge>
                     </TableCell>
-                    <TableCell><Badge variant="outline">{t(`role.${ws.spec.role}`, { defaultValue: ws.spec.roleDisplayName || ws.spec.role })}</Badge></TableCell>
+                    <TableCell><Badge variant="outline">{t(`role.${ws.spec.role}`, { defaultValue: ws.spec.roleDisplayName || ws.spec.role || "" })}</Badge></TableCell>
                     <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                       {ws.spec.joinedAt ? new Date(ws.spec.joinedAt).toLocaleString() : "-"}
                     </TableCell>
@@ -483,7 +483,7 @@ function UserNamespacesCard({ userId }: { userId: string }) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">{ns.spec.memberCount ?? 0}</TableCell>
-                    <TableCell><Badge variant="outline">{t(`role.${ns.spec.role}`, { defaultValue: ns.spec.roleDisplayName || ns.spec.role })}</Badge></TableCell>
+                    <TableCell><Badge variant="outline">{t(`role.${ns.spec.role}`, { defaultValue: ns.spec.roleDisplayName || ns.spec.role || "" })}</Badge></TableCell>
                     <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                       {ns.spec.joinedAt ? new Date(ns.spec.joinedAt).toLocaleString() : "-"}
                     </TableCell>
