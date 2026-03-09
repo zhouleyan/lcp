@@ -90,14 +90,6 @@ func (m *mockRoleStoreForSeed) GetByNameAndNamespace(_ context.Context, name str
 	return nil, fmt.Errorf("role %q not found", name)
 }
 
-func (m *mockRoleStoreForSeed) CreateBuiltinRolesForWorkspace(_ context.Context, _ int64) error {
-	return nil
-}
-
-func (m *mockRoleStoreForSeed) CreateBuiltinRolesForNamespace(_ context.Context, _ int64) error {
-	return nil
-}
-
 func (m *mockRoleStoreForSeed) SeedRBAC(_ context.Context, roles []BuiltinRoleDef, _ string) error {
 	for _, def := range roles {
 		role, _ := m.Upsert(context.Background(), &DBRole{

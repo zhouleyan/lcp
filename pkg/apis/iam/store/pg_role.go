@@ -337,42 +337,6 @@ func createBuiltinRolesInTx(ctx context.Context, qtx *generated.Queries, defs []
 	return nil
 }
 
-func (s *pgRoleStore) CreateBuiltinRolesForWorkspace(ctx context.Context, workspaceID int64) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	qtx := s.queries.WithTx(tx)
-	if err := createBuiltinRolesInTx(ctx, qtx, iam.WorkspaceBuiltinRoles(), &workspaceID, nil); err != nil {
-		return err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
-	}
-	return nil
-}
-
-func (s *pgRoleStore) CreateBuiltinRolesForNamespace(ctx context.Context, namespaceID int64) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	qtx := s.queries.WithTx(tx)
-	if err := createBuiltinRolesInTx(ctx, qtx, iam.NamespaceBuiltinRoles(), nil, &namespaceID); err != nil {
-		return err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
-	}
-	return nil
-}
-
 func (s *pgRoleStore) SeedRBAC(ctx context.Context, roles []iam.BuiltinRoleDef, adminUsername string) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {

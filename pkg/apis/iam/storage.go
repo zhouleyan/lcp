@@ -1664,11 +1664,12 @@ func parseID(s string) (int64, error) {
 
 type roleStorage struct {
 	roleStore RoleStore
+	rbStore   RoleBindingStore
 }
 
 // NewRoleStorage creates a role REST storage with full CRUD.
-func NewRoleStorage(roleStore RoleStore) rest.Storage {
-	return &roleStorage{roleStore: roleStore}
+func NewRoleStorage(roleStore RoleStore, rbStore RoleBindingStore) rest.Storage {
+	return &roleStorage{roleStore: roleStore, rbStore: rbStore}
 }
 
 func (s *roleStorage) NewObject() runtime.Object { return &Role{} }
@@ -1684,6 +1685,10 @@ func (s *roleStorage) Get(ctx context.Context, options *rest.GetOptions) (runtim
 	role, err := s.roleStore.GetByID(ctx, rid)
 	if err != nil {
 		return nil, err
+	}
+
+	if role.Scope != "platform" {
+		return nil, apierrors.NewNotFound("role", id)
 	}
 
 	return roleWithRulesToAPI(role), nil
@@ -1785,10 +1790,12 @@ func (s *roleStorage) Update(ctx context.Context, obj runtime.Object, options *r
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid role ID: %s", id), nil)
 	}
 
-	// Check builtin
 	existing, err := s.roleStore.GetByID(ctx, rid)
 	if err != nil {
 		return nil, err
+	}
+	if existing.Scope != "platform" {
+		return nil, apierrors.NewNotFound("role", id)
 	}
 	if existing.Builtin {
 		return nil, apierrors.NewBadRequest("cannot modify built-in role", nil)
@@ -1838,8 +1845,19 @@ func (s *roleStorage) Delete(ctx context.Context, options *rest.DeleteOptions) e
 	if err != nil {
 		return err
 	}
+	if existing.Scope != "platform" {
+		return apierrors.NewNotFound("role", id)
+	}
 	if existing.Builtin {
 		return apierrors.NewBadRequest("cannot delete built-in role", nil)
+	}
+
+	count, err := s.rbStore.CountByRoleAndScope(ctx, rid, "platform")
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return apierrors.NewBadRequest("cannot delete role with active bindings", nil)
 	}
 
 	if options.DryRun {
