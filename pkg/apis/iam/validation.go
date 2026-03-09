@@ -7,6 +7,9 @@ import (
 	"lcp.io/lcp/lib/api/validation"
 )
 
+// seg matches a permission code segment: must start with lowercase, allows camelCase for verbs like "deleteCollection".
+const seg = `[a-z][a-zA-Z0-9-]*`
+
 var (
 	usernameRegexp      = regexp.MustCompile(`^[a-zA-Z0-9_]{3,50}$`)
 	phoneRegexp         = regexp.MustCompile(`^1[3-9]\d{9}$`)
@@ -15,6 +18,18 @@ var (
 	passwordUpperRegexp = regexp.MustCompile(`[A-Z]`)
 	passwordLowerRegexp = regexp.MustCompile(`[a-z]`)
 	passwordDigitRegexp = regexp.MustCompile(`[0-9]`)
+
+	// validPatternRegexp validates permission rule patterns:
+	//   *:*                          → match all
+	//   iam:*  iam:namespaces:*      → prefix wildcard
+	//   *:list  *:deleteCollection   → suffix wildcard
+	//   iam:users:list               → exact match (at least 2 segments)
+	validPatternRegexp = regexp.MustCompile(
+		`^(\*:\*` +
+			`|(\*|` + seg + `)((:` + seg + `)*):\*` +
+			`|\*:` + seg + `((:` + seg + `)*)` +
+			`|` + seg + `(:` + seg + `)+)$`,
+	)
 )
 
 // ValidateUserCreate validates a UserSpec for creation.
@@ -121,6 +136,17 @@ func ValidateNamespaceUpdate(spec *NamespaceSpec) validation.ErrorList {
 	}
 	if spec.Status != "" && spec.Status != "active" && spec.Status != "inactive" {
 		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+	return errs
+}
+
+// ValidatePermissionPattern validates a permission rule pattern string.
+func ValidatePermissionPattern(pattern string) validation.ErrorList {
+	var errs validation.ErrorList
+	if pattern == "" {
+		errs = append(errs, validation.FieldError{Field: "pattern", Message: "cannot be empty"})
+	} else if !validPatternRegexp.MatchString(pattern) {
+		errs = append(errs, validation.FieldError{Field: "pattern", Message: "invalid pattern: " + pattern})
 	}
 	return errs
 }
