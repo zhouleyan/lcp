@@ -48,7 +48,7 @@ paths:
                 $ref: '#/components/schemas/OIDCDiscoveryResponse'
   /api/iam/v1/namespaces/{namespaceId}/roles:
     get:
-      summary: 获取命名空间角色列表
+      summary: 获取项目角色列表
       operationId: listNamespaceRole
       tags:
         - Role
@@ -84,9 +84,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RoleList'
+    post:
+      summary: 创建项目自定义角色
+      operationId: createNamespaceRole
+      tags:
+        - Role
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
   /api/iam/v1/namespaces/{namespaceId}/roles/{roleId}:
     get:
-      summary: 获取命名空间角色详情
+      summary: 获取项目角色详情
       operationId: getNamespaceRole
       tags:
         - Role
@@ -108,6 +132,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Role'
+    put:
+      summary: 更新项目角色
+      operationId: updateNamespaceRole
+      tags:
+        - Role
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+    delete:
+      summary: 删除项目角色
+      operationId: deleteNamespaceRole
+      tags:
+        - Role
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
   /api/iam/v1/permissions:
     get:
       summary: 获取权限列表
@@ -1354,6 +1426,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RoleList'
+    post:
+      summary: 创建工作空间自定义角色
+      operationId: createWorkspaceRole
+      tags:
+        - Role
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
   /api/iam/v1/workspaces/{workspaceId}/roles/{roleId}:
     get:
       summary: 获取工作空间角色详情
@@ -1378,6 +1474,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Role'
+    put:
+      summary: 更新工作空间角色
+      operationId: updateWorkspaceRole
+      tags:
+        - Role
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+    delete:
+      summary: 删除工作空间角色
+      operationId: deleteWorkspaceRole
+      tags:
+        - Role
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
   /api/iam/v1/workspaces/{workspaceId}/transfer-ownership:
     post:
       summary: 转移工作空间所有权
