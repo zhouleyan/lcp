@@ -22,8 +22,9 @@ type TypeInfo struct {
 	Paths             []string          // from +openapi:path annotations
 	OperationSummary  map[string]string // from +openapi:summary.METHOD= (e.g. "list", "create", "get", "update", "patch", "delete", "deleteCollection")
 	ActionSummary     map[string]string // from +openapi:action.NAME.summary= (e.g. "change-password")
-	CustomVerbSummary map[string]string // from +openapi:customverb= on standalone functions (e.g. "workspaces" → summary)
-	CustomVerbResponse map[string]string // from +openapi:response= on custom verb functions (e.g. "rolebindings" → "RoleBindingList")
+	CustomVerbSummary  map[string]string            // from +openapi:customverb= on standalone functions (e.g. "workspaces" → summary)
+	CustomVerbResponse map[string]string            // from +openapi:response= on custom verb functions (e.g. "rolebindings" → "RoleBindingList")
+	PathOperations     map[string]map[string]bool   // path → set of implemented operations (e.g. "list", "create", "delete")
 }
 
 // FieldInfo holds parsed information about a struct field.
@@ -323,7 +324,10 @@ func mergeStorageAnnotations(group *GroupInfo, pkgs map[string]*ast.Package) {
 			}
 		}
 
-		// Scan methods for +openapi:summary= annotations
+		// Track implemented operations per storage type
+		storageOps := make(map[string]map[string]bool)
+
+		// Scan methods for +openapi:summary= annotations and detect implemented operations
 		for _, file := range pkg.Files {
 			for _, decl := range file.Decls {
 				funcDecl, ok := decl.(*ast.FuncDecl)
@@ -342,6 +346,12 @@ func mergeStorageAnnotations(group *GroupInfo, pkgs map[string]*ast.Package) {
 					if !ok {
 						continue
 					}
+					// Track this operation as implemented on this storage type
+					if storageOps[recvType] == nil {
+						storageOps[recvType] = make(map[string]bool)
+					}
+					storageOps[recvType][op] = true
+
 					annotations := ParseAnnotations(funcDecl.Doc)
 					if len(annotations) == 0 {
 						continue
@@ -397,6 +407,34 @@ func mergeStorageAnnotations(group *GroupInfo, pkgs map[string]*ast.Package) {
 							}
 						}
 					}
+				}
+			}
+		}
+
+		// Populate PathOperations from detected storage operations
+		for storageName, ops := range storageOps {
+			st, ok := storageTypes[storageName]
+			if !ok {
+				continue
+			}
+			idx, ok := typeIndex[st.resourceName]
+			if !ok {
+				continue
+			}
+			if group.Types[idx].PathOperations == nil {
+				group.Types[idx].PathOperations = make(map[string]map[string]bool)
+			}
+			// Collect all paths served by this storage type
+			allPaths := []string{st.derivedPath}
+			for _, ep := range st.extraPaths {
+				allPaths = appendUnique(allPaths, ep)
+			}
+			for _, p := range allPaths {
+				if group.Types[idx].PathOperations[p] == nil {
+					group.Types[idx].PathOperations[p] = make(map[string]bool)
+				}
+				for op := range ops {
+					group.Types[idx].PathOperations[p][op] = true
 				}
 			}
 		}

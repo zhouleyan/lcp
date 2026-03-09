@@ -300,6 +300,20 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 	// Build a unique operation ID suffix from path segments to avoid collisions
 	opSuffix := operationSuffix(resourcePath, typeName)
 
+	// Check if this path has a known set of implemented operations.
+	// If PathOperations is defined for this path, only generate those operations.
+	// If not defined (backward compat), generate all operations.
+	hasOp := func(op string) bool {
+		if typeInfo.PathOperations == nil {
+			return true
+		}
+		ops, ok := typeInfo.PathOperations[resourcePath]
+		if !ok {
+			return true
+		}
+		return ops[op]
+	}
+
 	// Helper to resolve operation summary: use annotation if present, otherwise default
 	summary := func(op, defaultSummary string) string {
 		if s, ok := typeInfo.OperationSummary[op]; ok {
@@ -327,89 +341,102 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 		return summary(op, defaultSummary)
 	}
 
-	// Collection operations
-	pathItem := getOrCreatePathItem(doc, collectionPath)
-
-	listParams := make([]Parameter, 0, len(pathParams)+4)
-	for _, pp := range pathParams {
-		listParams = append(listParams, Parameter{
-			Name: pp, In: "path", Required: true, Schema: &Schema{Type: "string"},
-		})
+	// Collection operations — only create path if at least one collection operation exists
+	needCollectionPath := hasOp("list") || hasOp("create") || hasOp("deleteCollection")
+	var pathItem *PathItem
+	if needCollectionPath {
+		pathItem = getOrCreatePathItem(doc, collectionPath)
 	}
-	listParams = append(listParams,
-		Parameter{Name: "page", In: "query", Schema: &Schema{Type: "integer"}},
-		Parameter{Name: "pageSize", In: "query", Schema: &Schema{Type: "integer"}},
-		Parameter{Name: "sortBy", In: "query", Schema: &Schema{Type: "string"}},
-		Parameter{Name: "sortOrder", In: "query", Schema: &Schema{Type: "string", Enum: []string{"asc", "desc"}}},
-	)
 
-	pathItem.Get = &Operation{
-		Summary:     qualifiedSummary("list", fmt.Sprintf("List %s", lastSegment(resourcePath))),
-		OperationID: fmt.Sprintf("list%s", opSuffix),
-		Tags:        []string{tag},
-		Parameters:  listParams,
-		Responses: map[string]*Response{
-			"200": {
-				Description: "OK",
-				Content: map[string]MediaType{
-					"application/json": {Schema: listRef},
+	if hasOp("list") {
+		listParams := make([]Parameter, 0, len(pathParams)+4)
+		for _, pp := range pathParams {
+			listParams = append(listParams, Parameter{
+				Name: pp, In: "path", Required: true, Schema: &Schema{Type: "string"},
+			})
+		}
+		listParams = append(listParams,
+			Parameter{Name: "page", In: "query", Schema: &Schema{Type: "integer"}},
+			Parameter{Name: "pageSize", In: "query", Schema: &Schema{Type: "integer"}},
+			Parameter{Name: "sortBy", In: "query", Schema: &Schema{Type: "string"}},
+			Parameter{Name: "sortOrder", In: "query", Schema: &Schema{Type: "string", Enum: []string{"asc", "desc"}}},
+		)
+		pathItem.Get = &Operation{
+			Summary:     qualifiedSummary("list", fmt.Sprintf("List %s", lastSegment(resourcePath))),
+			OperationID: fmt.Sprintf("list%s", opSuffix),
+			Tags:        []string{tag},
+			Parameters:  listParams,
+			Responses: map[string]*Response{
+				"200": {
+					Description: "OK",
+					Content: map[string]MediaType{
+						"application/json": {Schema: listRef},
+					},
 				},
 			},
-		},
+		}
 	}
 
-	createParams := make([]Parameter, 0, len(pathParams))
-	for _, pp := range pathParams {
-		createParams = append(createParams, Parameter{
-			Name: pp, In: "path", Required: true, Schema: &Schema{Type: "string"},
-		})
-	}
-	pathItem.Post = &Operation{
-		Summary:     qualifiedSummary("create", fmt.Sprintf("Create a %s", typeName)),
-		OperationID: fmt.Sprintf("create%s", opSuffix),
-		Tags:        []string{tag},
-		Parameters:  createParams,
-		RequestBody: &RequestBody{
-			Required: true,
-			Content: map[string]MediaType{
-				"application/json": {Schema: ref},
-			},
-		},
-		Responses: map[string]*Response{
-			"201": {
-				Description: "Created",
+	if hasOp("create") {
+		createParams := make([]Parameter, 0, len(pathParams))
+		for _, pp := range pathParams {
+			createParams = append(createParams, Parameter{
+				Name: pp, In: "path", Required: true, Schema: &Schema{Type: "string"},
+			})
+		}
+		pathItem.Post = &Operation{
+			Summary:     qualifiedSummary("create", fmt.Sprintf("Create a %s", typeName)),
+			OperationID: fmt.Sprintf("create%s", opSuffix),
+			Tags:        []string{tag},
+			Parameters:  createParams,
+			RequestBody: &RequestBody{
+				Required: true,
 				Content: map[string]MediaType{
 					"application/json": {Schema: ref},
 				},
 			},
-		},
+			Responses: map[string]*Response{
+				"201": {
+					Description: "Created",
+					Content: map[string]MediaType{
+						"application/json": {Schema: ref},
+					},
+				},
+			},
+		}
 	}
 
 	// Delete collection
-	pathItem.Delete = &Operation{
-		Summary:     qualifiedSummary("deleteCollection", fmt.Sprintf("Batch delete %s", lastSegment(resourcePath))),
-		OperationID: fmt.Sprintf("deleteCollection%s", opSuffix),
-		Tags:        []string{tag},
-		Parameters:  createParams,
-		RequestBody: &RequestBody{
-			Required: true,
-			Content: map[string]MediaType{
-				"application/json": {Schema: &Schema{
-					Type: "object",
-					Properties: map[string]*Schema{
-						"ids": {Type: "array", Items: &Schema{Type: "string"}},
-					},
-				}},
+	if hasOp("deleteCollection") {
+		dcParams := make([]Parameter, 0, len(pathParams))
+		for _, pp := range pathParams {
+			dcParams = append(dcParams, Parameter{
+				Name: pp, In: "path", Required: true, Schema: &Schema{Type: "string"},
+			})
+		}
+		pathItem.Delete = &Operation{
+			Summary:     qualifiedSummary("deleteCollection", fmt.Sprintf("Batch delete %s", lastSegment(resourcePath))),
+			OperationID: fmt.Sprintf("deleteCollection%s", opSuffix),
+			Tags:        []string{tag},
+			Parameters:  dcParams,
+			RequestBody: &RequestBody{
+				Required: true,
+				Content: map[string]MediaType{
+					"application/json": {Schema: &Schema{
+						Type: "object",
+						Properties: map[string]*Schema{
+							"ids": {Type: "array", Items: &Schema{Type: "string"}},
+						},
+					}},
+				},
 			},
-		},
-		Responses: map[string]*Response{
-			"200": {Description: "OK"},
-		},
+			Responses: map[string]*Response{
+				"200": {Description: "OK"},
+			},
+		}
 	}
 
-	// Item operations
-	itemPathItem := getOrCreatePathItem(doc, itemPath)
-
+	// Build item-level path parameters (used by item operations, actions, and custom verbs)
 	itemParams := make([]Parameter, 0, len(pathParams)+1)
 	for _, pp := range pathParams {
 		itemParams = append(itemParams, Parameter{
@@ -420,68 +447,82 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 		Name: idParam, In: "path", Required: true, Schema: &Schema{Type: "string"},
 	})
 
-	itemPathItem.Get = &Operation{
-		Summary:     qualifiedSummary("get", fmt.Sprintf("Get a %s", typeName)),
-		OperationID: fmt.Sprintf("get%s", opSuffix),
-		Tags:        []string{tag},
-		Parameters:  itemParams,
-		Responses: map[string]*Response{
-			"200": {
-				Description: "OK",
-				Content: map[string]MediaType{
-					"application/json": {Schema: ref},
+	// Item operations — only create the item path if at least one item operation exists
+	needItemPath := hasOp("get") || hasOp("update") || hasOp("patch") || hasOp("delete")
+	if needItemPath {
+		itemPathItem := getOrCreatePathItem(doc, itemPath)
+
+		if hasOp("get") {
+			itemPathItem.Get = &Operation{
+				Summary:     qualifiedSummary("get", fmt.Sprintf("Get a %s", typeName)),
+				OperationID: fmt.Sprintf("get%s", opSuffix),
+				Tags:        []string{tag},
+				Parameters:  itemParams,
+				Responses: map[string]*Response{
+					"200": {
+						Description: "OK",
+						Content: map[string]MediaType{
+							"application/json": {Schema: ref},
+						},
+					},
 				},
-			},
-		},
-	}
-	itemPathItem.Put = &Operation{
-		Summary:     qualifiedSummary("update", fmt.Sprintf("Update a %s", typeName)),
-		OperationID: fmt.Sprintf("update%s", opSuffix),
-		Tags:        []string{tag},
-		Parameters:  itemParams,
-		RequestBody: &RequestBody{
-			Required: true,
-			Content: map[string]MediaType{
-				"application/json": {Schema: ref},
-			},
-		},
-		Responses: map[string]*Response{
-			"200": {
-				Description: "OK",
-				Content: map[string]MediaType{
-					"application/json": {Schema: ref},
+			}
+		}
+		if hasOp("update") {
+			itemPathItem.Put = &Operation{
+				Summary:     qualifiedSummary("update", fmt.Sprintf("Update a %s", typeName)),
+				OperationID: fmt.Sprintf("update%s", opSuffix),
+				Tags:        []string{tag},
+				Parameters:  itemParams,
+				RequestBody: &RequestBody{
+					Required: true,
+					Content: map[string]MediaType{
+						"application/json": {Schema: ref},
+					},
 				},
-			},
-		},
-	}
-	itemPathItem.Patch = &Operation{
-		Summary:     qualifiedSummary("patch", fmt.Sprintf("Patch a %s", typeName)),
-		OperationID: fmt.Sprintf("patch%s", opSuffix),
-		Tags:        []string{tag},
-		Parameters:  itemParams,
-		RequestBody: &RequestBody{
-			Required: true,
-			Content: map[string]MediaType{
-				"application/json": {Schema: ref},
-			},
-		},
-		Responses: map[string]*Response{
-			"200": {
-				Description: "OK",
-				Content: map[string]MediaType{
-					"application/json": {Schema: ref},
+				Responses: map[string]*Response{
+					"200": {
+						Description: "OK",
+						Content: map[string]MediaType{
+							"application/json": {Schema: ref},
+						},
+					},
 				},
-			},
-		},
-	}
-	itemPathItem.Delete = &Operation{
-		Summary:     qualifiedSummary("delete", fmt.Sprintf("Delete a %s", typeName)),
-		OperationID: fmt.Sprintf("delete%s", opSuffix),
-		Tags:        []string{tag},
-		Parameters:  itemParams,
-		Responses: map[string]*Response{
-			"204": {Description: "No Content"},
-		},
+			}
+		}
+		if hasOp("patch") {
+			itemPathItem.Patch = &Operation{
+				Summary:     qualifiedSummary("patch", fmt.Sprintf("Patch a %s", typeName)),
+				OperationID: fmt.Sprintf("patch%s", opSuffix),
+				Tags:        []string{tag},
+				Parameters:  itemParams,
+				RequestBody: &RequestBody{
+					Required: true,
+					Content: map[string]MediaType{
+						"application/json": {Schema: ref},
+					},
+				},
+				Responses: map[string]*Response{
+					"200": {
+						Description: "OK",
+						Content: map[string]MediaType{
+							"application/json": {Schema: ref},
+						},
+					},
+				},
+			}
+		}
+		if hasOp("delete") {
+			itemPathItem.Delete = &Operation{
+				Summary:     qualifiedSummary("delete", fmt.Sprintf("Delete a %s", typeName)),
+				OperationID: fmt.Sprintf("delete%s", opSuffix),
+				Tags:        []string{tag},
+				Parameters:  itemParams,
+				Responses: map[string]*Response{
+					"204": {Description: "No Content"},
+				},
+			}
+		}
 	}
 
 	// Action operations

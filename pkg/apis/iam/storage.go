@@ -1673,7 +1673,7 @@ func NewRoleStorage(roleStore RoleStore) rest.Storage {
 
 func (s *roleStorage) NewObject() runtime.Object { return &Role{} }
 
-// +openapi:summary=获取角色详情
+// +openapi:summary=获取平台角色详情
 func (s *roleStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["roleId"]
 	rid, err := parseID(id)
@@ -1689,7 +1689,7 @@ func (s *roleStorage) Get(ctx context.Context, options *rest.GetOptions) (runtim
 	return roleWithRulesToAPI(role), nil
 }
 
-// +openapi:summary=获取角色列表
+// +openapi:summary=获取平台角色列表
 func (s *roleStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	query := db.ListQuery{
 		Filters: make(map[string]any),
@@ -1725,7 +1725,7 @@ func (s *roleStorage) List(ctx context.Context, options *rest.ListOptions) (runt
 	}, nil
 }
 
-// +openapi:summary=创建角色
+// +openapi:summary=创建平台角色
 func (s *roleStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	role, ok := obj.(*Role)
 	if !ok {
@@ -1767,7 +1767,7 @@ func (s *roleStorage) Create(ctx context.Context, obj runtime.Object, options *r
 	return roleWithRulesToAPI(withRules), nil
 }
 
-// +openapi:summary=更新角色
+// +openapi:summary=更新平台角色
 func (s *roleStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
 	role, ok := obj.(*Role)
 	if !ok {
@@ -1821,7 +1821,7 @@ func (s *roleStorage) Update(ctx context.Context, obj runtime.Object, options *r
 	return roleWithRulesToAPI(withRules), nil
 }
 
-// +openapi:summary=删除角色
+// +openapi:summary=删除平台角色
 func (s *roleStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
 	id := options.PathParams["roleId"]
 	rid, err := parseID(id)
@@ -1887,7 +1887,8 @@ func NewScopedRoleStorage(roleStore RoleStore, scope string) rest.Storage {
 
 func (s *scopedRoleStorage) NewObject() runtime.Object { return &Role{} }
 
-// +openapi:summary=获取角色列表
+// +openapi:summary=获取工作空间角色列表
+// +openapi:summary.namespaces.roles=获取命名空间角色列表
 func (s *scopedRoleStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	query := restOptionsToListQuery(options)
 	query.Filters["scope"] = s.scope
@@ -1909,7 +1910,8 @@ func (s *scopedRoleStorage) List(ctx context.Context, options *rest.ListOptions)
 	}, nil
 }
 
-// +openapi:summary=获取角色详情
+// +openapi:summary=获取工作空间角色详情
+// +openapi:summary.namespaces.roles=获取命名空间角色详情
 func (s *scopedRoleStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["roleId"]
 	rid, err := parseID(id)
