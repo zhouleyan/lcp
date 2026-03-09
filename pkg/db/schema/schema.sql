@@ -97,21 +97,36 @@ COMMENT ON COLUMN permissions.description IS '权限描述';
 
 -- roles table (builtin + user-defined)
 CREATE TABLE roles (
-    id           BIGSERIAL    PRIMARY KEY,
-    name         VARCHAR(255) NOT NULL UNIQUE,
-    display_name VARCHAR(255) NOT NULL DEFAULT '',
-    description  TEXT         NOT NULL DEFAULT '',
-    scope        VARCHAR(20)  NOT NULL,
-    builtin      BOOLEAN      NOT NULL DEFAULT false,
-    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    CONSTRAINT chk_role_scope CHECK (scope IN ('platform', 'workspace', 'namespace'))
+    id            BIGSERIAL    PRIMARY KEY,
+    name          VARCHAR(255) NOT NULL,
+    display_name  VARCHAR(255) NOT NULL DEFAULT '',
+    description   TEXT         NOT NULL DEFAULT '',
+    scope         VARCHAR(20)  NOT NULL,
+    workspace_id  BIGINT       REFERENCES workspaces(id) ON DELETE CASCADE,
+    namespace_id  BIGINT       REFERENCES namespaces(id) ON DELETE CASCADE,
+    builtin       BOOLEAN      NOT NULL DEFAULT false,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT chk_role_scope CHECK (
+        (scope = 'platform'  AND workspace_id IS NULL     AND namespace_id IS NULL) OR
+        (scope = 'workspace' AND workspace_id IS NOT NULL AND namespace_id IS NULL) OR
+        (scope = 'namespace' AND workspace_id IS NULL     AND namespace_id IS NOT NULL)
+    )
 );
 
+CREATE UNIQUE INDEX uk_roles_platform
+    ON roles(name) WHERE scope = 'platform';
+CREATE UNIQUE INDEX uk_roles_workspace
+    ON roles(name, workspace_id) WHERE scope = 'workspace';
+CREATE UNIQUE INDEX uk_roles_namespace
+    ON roles(name, namespace_id) WHERE scope = 'namespace';
+
 COMMENT ON TABLE roles IS '角色表：内置角色 + 用户自定义角色';
-COMMENT ON COLUMN roles.name IS '角色唯一名称，如 platform-admin';
+COMMENT ON COLUMN roles.name IS '角色名称，同 scope 内唯一';
 COMMENT ON COLUMN roles.display_name IS '角色显示名称';
-COMMENT ON COLUMN roles.scope IS '角色可绑定的作用域：platform / workspace / namespace';
+COMMENT ON COLUMN roles.scope IS '角色作用域：platform / workspace / namespace';
+COMMENT ON COLUMN roles.workspace_id IS '所属工作空间 ID（workspace scope 时必填）';
+COMMENT ON COLUMN roles.namespace_id IS '所属项目 ID（namespace scope 时必填）';
 COMMENT ON COLUMN roles.builtin IS '是否为内置角色（内置不可删除）';
 
 -- role permission rules (supports exact codes and wildcard patterns)
