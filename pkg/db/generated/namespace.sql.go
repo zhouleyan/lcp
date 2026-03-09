@@ -14,29 +14,32 @@ const countNamespaces = `-- name: CountNamespaces :one
 SELECT count(ns.id)
 FROM namespaces ns
 WHERE
-    ($1::VARCHAR IS NULL OR ns.status = $1)
-    AND ($2::VARCHAR IS NULL OR ns.name ILIKE '%' || $2 || '%')
-    AND ($3::VARCHAR IS NULL OR ns.visibility = $3)
-    AND ($4::BIGINT IS NULL OR ns.owner_id = $4)
-    AND ($5::BIGINT IS NULL OR ns.workspace_id = $5)
-    AND ($6::VARCHAR IS NULL OR (
-        ns.name ILIKE '%' || $6 || '%'
-        OR ns.display_name ILIKE '%' || $6 || '%'
-        OR ns.description ILIKE '%' || $6 || '%'
+    ($1::BIGINT[] IS NULL OR ns.id = ANY($1::BIGINT[]))
+    AND ($2::VARCHAR IS NULL OR ns.status = $2)
+    AND ($3::VARCHAR IS NULL OR ns.name ILIKE '%' || $3 || '%')
+    AND ($4::VARCHAR IS NULL OR ns.visibility = $4)
+    AND ($5::BIGINT IS NULL OR ns.owner_id = $5)
+    AND ($6::BIGINT IS NULL OR ns.workspace_id = $6)
+    AND ($7::VARCHAR IS NULL OR (
+        ns.name ILIKE '%' || $7 || '%'
+        OR ns.display_name ILIKE '%' || $7 || '%'
+        OR ns.description ILIKE '%' || $7 || '%'
     ))
 `
 
 type CountNamespacesParams struct {
-	Status      *string `json:"status"`
-	Name        *string `json:"name"`
-	Visibility  *string `json:"visibility"`
-	OwnerID     *int64  `json:"owner_id"`
-	WorkspaceID *int64  `json:"workspace_id"`
-	Search      *string `json:"search"`
+	AccessibleIds []int64 `json:"accessible_ids"`
+	Status        *string `json:"status"`
+	Name          *string `json:"name"`
+	Visibility    *string `json:"visibility"`
+	OwnerID       *int64  `json:"owner_id"`
+	WorkspaceID   *int64  `json:"workspace_id"`
+	Search        *string `json:"search"`
 }
 
 func (q *Queries) CountNamespaces(ctx context.Context, arg CountNamespacesParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countNamespaces,
+		arg.AccessibleIds,
 		arg.Status,
 		arg.Name,
 		arg.Visibility,
@@ -232,15 +235,16 @@ WITH ns_data AS (
     JOIN users u ON ns.owner_id = u.id
     JOIN workspaces w ON ns.workspace_id = w.id
     WHERE
-        ($5::VARCHAR IS NULL OR ns.status = $5)
-        AND ($6::VARCHAR IS NULL OR ns.name ILIKE '%' || $6 || '%')
-        AND ($7::VARCHAR IS NULL OR ns.visibility = $7)
-        AND ($8::BIGINT IS NULL OR ns.owner_id = $8)
-        AND ($9::BIGINT IS NULL OR ns.workspace_id = $9)
-        AND ($10::VARCHAR IS NULL OR (
-            ns.name ILIKE '%' || $10 || '%'
-            OR ns.display_name ILIKE '%' || $10 || '%'
-            OR ns.description ILIKE '%' || $10 || '%'
+        ($5::BIGINT[] IS NULL OR ns.id = ANY($5::BIGINT[]))
+        AND ($6::VARCHAR IS NULL OR ns.status = $6)
+        AND ($7::VARCHAR IS NULL OR ns.name ILIKE '%' || $7 || '%')
+        AND ($8::VARCHAR IS NULL OR ns.visibility = $8)
+        AND ($9::BIGINT IS NULL OR ns.owner_id = $9)
+        AND ($10::BIGINT IS NULL OR ns.workspace_id = $10)
+        AND ($11::VARCHAR IS NULL OR (
+            ns.name ILIKE '%' || $11 || '%'
+            OR ns.display_name ILIKE '%' || $11 || '%'
+            OR ns.description ILIKE '%' || $11 || '%'
         ))
 )
 SELECT id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status, created_at, updated_at, owner_username, workspace_name, member_count FROM ns_data
@@ -265,16 +269,17 @@ OFFSET $3::INT
 `
 
 type ListNamespacesParams struct {
-	SortField   string  `json:"sort_field"`
-	SortOrder   string  `json:"sort_order"`
-	PageOffset  int32   `json:"page_offset"`
-	PageSize    int32   `json:"page_size"`
-	Status      *string `json:"status"`
-	Name        *string `json:"name"`
-	Visibility  *string `json:"visibility"`
-	OwnerID     *int64  `json:"owner_id"`
-	WorkspaceID *int64  `json:"workspace_id"`
-	Search      *string `json:"search"`
+	SortField     string  `json:"sort_field"`
+	SortOrder     string  `json:"sort_order"`
+	PageOffset    int32   `json:"page_offset"`
+	PageSize      int32   `json:"page_size"`
+	AccessibleIds []int64 `json:"accessible_ids"`
+	Status        *string `json:"status"`
+	Name          *string `json:"name"`
+	Visibility    *string `json:"visibility"`
+	OwnerID       *int64  `json:"owner_id"`
+	WorkspaceID   *int64  `json:"workspace_id"`
+	Search        *string `json:"search"`
 }
 
 type ListNamespacesRow struct {
@@ -300,6 +305,7 @@ func (q *Queries) ListNamespaces(ctx context.Context, arg ListNamespacesParams) 
 		arg.SortOrder,
 		arg.PageOffset,
 		arg.PageSize,
+		arg.AccessibleIds,
 		arg.Status,
 		arg.Name,
 		arg.Visibility,

@@ -224,10 +224,11 @@ func (s *pgWorkspaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
 
 	countParams := generated.CountWorkspacesParams{
-		Status:  filterStr(q.Filters, "status"),
-		Name:    filterStr(q.Filters, "name"),
-		OwnerID: filterInt64(q.Filters, "owner_id"),
-		Search:  filterStr(q.Filters, "search"),
+		AccessibleIds: filterInt64Slice(q.Filters, "accessible_ids"),
+		Status:        filterStr(q.Filters, "status"),
+		Name:          filterStr(q.Filters, "name"),
+		OwnerID:       filterInt64(q.Filters, "owner_id"),
+		Search:        filterStr(q.Filters, "search"),
 	}
 
 	count, err := s.queries.CountWorkspaces(ctx, countParams)
@@ -241,10 +242,11 @@ func (s *pgWorkspaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 	}
 
 	rows, err := s.queries.ListWorkspaces(ctx, generated.ListWorkspacesParams{
-		Status:     countParams.Status,
-		Name:       countParams.Name,
-		OwnerID:    countParams.OwnerID,
-		Search:     countParams.Search,
+		AccessibleIds: countParams.AccessibleIds,
+		Status:        countParams.Status,
+		Name:          countParams.Name,
+		OwnerID:       countParams.OwnerID,
+		Search:        countParams.Search,
 		SortField:  q.SortBy,
 		SortOrder:  sortOrder,
 		PageOffset: offset,

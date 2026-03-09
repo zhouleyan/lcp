@@ -26,7 +26,7 @@ func TestWorkspaceStorage_Get(t *testing.T) {
 		},
 	}
 
-	storage := NewWorkspaceStorage(wsStore, nil)
+	storage := NewWorkspaceStorage(wsStore, nil, nil, nil)
 
 	obj, err := storage.Get(context.Background(), &rest.GetOptions{
 		PathParams: map[string]string{"workspaceId": "1"},
@@ -69,7 +69,7 @@ func TestWorkspaceStorage_Get(t *testing.T) {
 // --- TestWorkspaceStorage_Get_InvalidID ---
 
 func TestWorkspaceStorage_Get_InvalidID(t *testing.T) {
-	storage := NewWorkspaceStorage(&mockWorkspaceStore{}, nil)
+	storage := NewWorkspaceStorage(&mockWorkspaceStore{}, nil, nil, nil)
 
 	_, err := storage.Get(context.Background(), &rest.GetOptions{
 		PathParams: map[string]string{"workspaceId": "abc"},
@@ -128,7 +128,7 @@ func TestWorkspaceStorage_List(t *testing.T) {
 		},
 	}
 
-	storage := NewWorkspaceStorage(wsStore, nil)
+	storage := NewWorkspaceStorage(wsStore, nil, nil, nil)
 
 	obj, err := storage.List(context.Background(), &rest.ListOptions{
 		Filters: map[string]string{"status": "active"},
@@ -218,7 +218,7 @@ func TestWorkspaceStorage_Create(t *testing.T) {
 		},
 	}
 
-	storage := NewWorkspaceStorage(wsStore, userStore)
+	storage := NewWorkspaceStorage(wsStore, userStore, nil, nil)
 
 	inputWs := &Workspace{
 		Spec: WorkspaceSpec{
@@ -272,7 +272,7 @@ func TestWorkspaceStorage_Create_OwnerNotFound(t *testing.T) {
 
 	wsStore := &mockWorkspaceStore{}
 
-	storage := NewWorkspaceStorage(wsStore, userStore)
+	storage := NewWorkspaceStorage(wsStore, userStore, nil, nil)
 
 	inputWs := &Workspace{
 		Spec: WorkspaceSpec{
@@ -319,7 +319,7 @@ func TestWorkspaceStorage_Update(t *testing.T) {
 		},
 	}
 
-	storage := NewWorkspaceStorage(wsStore, nil)
+	storage := NewWorkspaceStorage(wsStore, nil, nil, nil)
 
 	inputWs := &Workspace{
 		Spec: WorkspaceSpec{
@@ -383,7 +383,7 @@ func TestWorkspaceStorage_Patch(t *testing.T) {
 		},
 	}
 
-	storage := NewWorkspaceStorage(wsStore, nil)
+	storage := NewWorkspaceStorage(wsStore, nil, nil, nil)
 
 	// Patch only the displayName
 	inputWs := &Workspace{
@@ -431,7 +431,7 @@ func TestWorkspaceStorage_Delete(t *testing.T) {
 		},
 	}
 
-	storage := NewWorkspaceStorage(wsStore, nil)
+	storage := NewWorkspaceStorage(wsStore, nil, nil, nil)
 
 	err := storage.Delete(context.Background(), &rest.DeleteOptions{
 		PathParams: map[string]string{"workspaceId": "1"},
@@ -464,7 +464,7 @@ func TestWorkspaceStorage_DeleteCollection(t *testing.T) {
 		},
 	}
 
-	storage := NewWorkspaceStorage(wsStore, nil)
+	storage := NewWorkspaceStorage(wsStore, nil, nil, nil)
 
 	result, err := storage.DeleteCollection(context.Background(), []string{"1", "2", "3"}, &rest.DeleteOptions{})
 	if err != nil {

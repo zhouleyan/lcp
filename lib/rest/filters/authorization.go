@@ -20,6 +20,31 @@ type PermissionLookup interface {
 type PermissionChecker interface {
 	CheckPermission(ctx context.Context, userID int64, permCode string, scope string, workspaceID, namespaceID int64) (bool, error)
 	IsPlatformAdmin(ctx context.Context, userID int64) (bool, error)
+	GetAccessibleWorkspaceIDs(ctx context.Context, userID int64) ([]int64, error)
+	GetAccessibleNamespaceIDs(ctx context.Context, userID int64) ([]int64, error)
+}
+
+// AccessFilter holds accessible resource IDs for non-admin users.
+// nil means no filter (admin sees everything); empty slice means no access.
+type AccessFilter struct {
+	WorkspaceIDs []int64
+	NamespaceIDs []int64
+}
+
+type accessFilterCtxKey struct{}
+
+// WithAccessFilter stores the access filter in the context.
+func WithAccessFilter(ctx context.Context, f *AccessFilter) context.Context {
+	return context.WithValue(ctx, accessFilterCtxKey{}, f)
+}
+
+// AccessFilterFromContext retrieves the access filter from the context.
+// Returns nil if no filter is set (admin or auth disabled).
+func AccessFilterFromContext(ctx context.Context) *AccessFilter {
+	if v, ok := ctx.Value(accessFilterCtxKey{}).(*AccessFilter); ok {
+		return v
+	}
+	return nil
 }
 
 // Authorizer bundles the authorization components needed by the middleware chain.
@@ -83,6 +108,32 @@ func WithAuthorization(lookup PermissionLookup, checker PermissionChecker) func(
 
 			// Get scope info from RequestInfo middleware
 			reqInfo := RequestInfoFromContext(r.Context())
+
+			// For top-level list of workspaces/namespaces, allow all authenticated users
+			// but inject access filter so they only see resources they have bindings for.
+			if verb == "list" && reqInfo.Scope == "platform" {
+				if resourceChain == "workspaces" || resourceChain == "namespaces" {
+					ctx := r.Context()
+					af := &AccessFilter{}
+					if resourceChain == "workspaces" {
+						ids, ferr := checker.GetAccessibleWorkspaceIDs(ctx, userID)
+						if ferr != nil {
+							forbiddenError(w, "failed to check accessible workspaces")
+							return
+						}
+						af.WorkspaceIDs = ids
+					} else {
+						ids, ferr := checker.GetAccessibleNamespaceIDs(ctx, userID)
+						if ferr != nil {
+							forbiddenError(w, "failed to check accessible namespaces")
+							return
+						}
+						af.NamespaceIDs = ids
+					}
+					next.ServeHTTP(w, r.WithContext(WithAccessFilter(ctx, af)))
+					return
+				}
+			}
 
 			// Check permission
 			allowed, err := checker.CheckPermission(r.Context(), userID, permCode, reqInfo.Scope, reqInfo.WorkspaceID, reqInfo.NamespaceID)

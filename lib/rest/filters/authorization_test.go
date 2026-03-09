@@ -103,8 +103,10 @@ func (m mockLookup) Get(module, chain, verb string) string {
 }
 
 type mockChecker struct {
-	isAdmin     bool
-	permissions map[string]bool // permCode → allowed
+	isAdmin      bool
+	permissions  map[string]bool // permCode → allowed
+	workspaceIDs []int64
+	namespaceIDs []int64
 }
 
 func (m *mockChecker) CheckPermission(_ context.Context, _ int64, permCode string, _ string, _, _ int64) (bool, error) {
@@ -113,6 +115,14 @@ func (m *mockChecker) CheckPermission(_ context.Context, _ int64, permCode strin
 
 func (m *mockChecker) IsPlatformAdmin(_ context.Context, _ int64) (bool, error) {
 	return m.isAdmin, nil
+}
+
+func (m *mockChecker) GetAccessibleWorkspaceIDs(_ context.Context, _ int64) ([]int64, error) {
+	return m.workspaceIDs, nil
+}
+
+func (m *mockChecker) GetAccessibleNamespaceIDs(_ context.Context, _ int64) ([]int64, error) {
+	return m.namespaceIDs, nil
 }
 
 func TestWithAuthorization_Allowed(t *testing.T) {
@@ -224,6 +234,93 @@ func TestWithAuthorization_NonAPIPassthrough(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 for non-API path, got %d", w.Code)
+	}
+}
+
+func TestWithAuthorization_WorkspaceListInjectsAccessFilter(t *testing.T) {
+	lookup := mockLookup{
+		"iam": {"workspaces": {"list": "iam:workspaces:list"}},
+	}
+	checker := &mockChecker{
+		permissions:  map[string]bool{},
+		workspaceIDs: []int64{1, 2, 3},
+	}
+
+	var capturedFilter *AccessFilter
+	handler := WithAuthorization(lookup, checker)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedFilter = AccessFilterFromContext(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	r := httptest.NewRequest("GET", "/api/iam/v1/workspaces", nil)
+	r = oidc.WithUserID(r, 42)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for workspace list, got %d", w.Code)
+	}
+	if capturedFilter == nil {
+		t.Fatal("expected access filter in context")
+	}
+	if len(capturedFilter.WorkspaceIDs) != 3 {
+		t.Errorf("expected 3 workspace IDs, got %d", len(capturedFilter.WorkspaceIDs))
+	}
+}
+
+func TestWithAuthorization_NamespaceListInjectsAccessFilter(t *testing.T) {
+	lookup := mockLookup{
+		"iam": {"namespaces": {"list": "iam:namespaces:list"}},
+	}
+	checker := &mockChecker{
+		permissions:  map[string]bool{},
+		namespaceIDs: []int64{10, 20},
+	}
+
+	var capturedFilter *AccessFilter
+	handler := WithAuthorization(lookup, checker)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedFilter = AccessFilterFromContext(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	r := httptest.NewRequest("GET", "/api/iam/v1/namespaces", nil)
+	r = oidc.WithUserID(r, 42)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for namespace list, got %d", w.Code)
+	}
+	if capturedFilter == nil {
+		t.Fatal("expected access filter in context")
+	}
+	if len(capturedFilter.NamespaceIDs) != 2 {
+		t.Errorf("expected 2 namespace IDs, got %d", len(capturedFilter.NamespaceIDs))
+	}
+}
+
+func TestWithAuthorization_AdminNoAccessFilter(t *testing.T) {
+	lookup := mockLookup{
+		"iam": {"workspaces": {"list": "iam:workspaces:list"}},
+	}
+	checker := &mockChecker{isAdmin: true}
+
+	var capturedFilter *AccessFilter
+	handler := WithAuthorization(lookup, checker)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedFilter = AccessFilterFromContext(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	r := httptest.NewRequest("GET", "/api/iam/v1/workspaces", nil)
+	r = oidc.WithUserID(r, 1)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for admin, got %d", w.Code)
+	}
+	if capturedFilter != nil {
+		t.Error("expected no access filter for admin")
 	}
 }
 

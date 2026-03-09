@@ -12,6 +12,7 @@ import (
 	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/oidc"
 	"lcp.io/lcp/lib/rest"
+	"lcp.io/lcp/lib/rest/filters"
 	"lcp.io/lcp/lib/runtime"
 	"lcp.io/lcp/pkg/db"
 )
@@ -272,11 +273,13 @@ func (s *userStorage) DeleteCollection(ctx context.Context, ids []string, option
 type workspaceStorage struct {
 	wsStore   WorkspaceStore
 	userStore UserStore
+	rbStore   RoleBindingStore
+	checker   PermissionChecker
 }
 
 // NewWorkspaceStorage 创建工作空间 REST 存储。
-func NewWorkspaceStorage(wsStore WorkspaceStore, userStore UserStore) rest.StandardStorage {
-	return &workspaceStorage{wsStore: wsStore, userStore: userStore}
+func NewWorkspaceStorage(wsStore WorkspaceStore, userStore UserStore, rbStore RoleBindingStore, checker PermissionChecker) rest.StandardStorage {
+	return &workspaceStorage{wsStore: wsStore, userStore: userStore, rbStore: rbStore, checker: checker}
 }
 
 func (s *workspaceStorage) NewObject() runtime.Object { return &Workspace{} }
@@ -313,6 +316,11 @@ func (s *workspaceStorage) List(ctx context.Context, options *rest.ListOptions) 
 	}
 	if options.SortOrder != "" {
 		query.SortOrder = string(options.SortOrder)
+	}
+
+	// Inject access filter for non-admin users
+	if af := filters.AccessFilterFromContext(ctx); af != nil && af.WorkspaceIDs != nil {
+		query.Filters["accessible_ids"] = af.WorkspaceIDs
 	}
 
 	result, err := s.wsStore.List(ctx, query)
@@ -479,8 +487,21 @@ func (s *workspaceStorage) Delete(ctx context.Context, options *rest.DeleteOptio
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid workspace ID: %s", id), nil)
 	}
 
+	// Collect affected user IDs before deletion (CASCADE will remove role_bindings)
+	var affectedUserIDs []int64
+	if s.rbStore != nil {
+		affectedUserIDs, _ = s.rbStore.GetUserIDsByWorkspaceID(ctx, wid)
+	}
+
 	if err := s.wsStore.Delete(ctx, wid); err != nil {
 		return err
+	}
+
+	// Invalidate permission cache for affected users
+	if s.checker != nil {
+		for _, uid := range affectedUserIDs {
+			s.checker.InvalidateCache(uid)
+		}
 	}
 	return nil
 }
@@ -522,11 +543,13 @@ type namespaceStorage struct {
 	nsStore   NamespaceStore
 	wsStore   WorkspaceStore
 	userStore UserStore
+	rbStore   RoleBindingStore
+	checker   PermissionChecker
 }
 
 // NewNamespaceStorage 创建项目 REST 存储。
-func NewNamespaceStorage(nsStore NamespaceStore, wsStore WorkspaceStore, userStore UserStore) rest.StandardStorage {
-	return &namespaceStorage{nsStore: nsStore, wsStore: wsStore, userStore: userStore}
+func NewNamespaceStorage(nsStore NamespaceStore, wsStore WorkspaceStore, userStore UserStore, rbStore RoleBindingStore, checker PermissionChecker) rest.StandardStorage {
+	return &namespaceStorage{nsStore: nsStore, wsStore: wsStore, userStore: userStore, rbStore: rbStore, checker: checker}
 }
 
 func (s *namespaceStorage) NewObject() runtime.Object { return &Namespace{} }
@@ -571,6 +594,11 @@ func (s *namespaceStorage) List(ctx context.Context, options *rest.ListOptions) 
 	// If called via /workspaces/{workspaceId}/namespaces, filter by workspace
 	if wsID, ok := options.PathParams["workspaceId"]; ok && wsID != "" {
 		query.Filters["workspace_id"] = wsID
+	}
+
+	// Inject access filter for non-admin users
+	if af := filters.AccessFilterFromContext(ctx); af != nil && af.NamespaceIDs != nil {
+		query.Filters["accessible_ids"] = af.NamespaceIDs
 	}
 
 	result, err := s.nsStore.List(ctx, query)
@@ -781,8 +809,21 @@ func (s *namespaceStorage) Delete(ctx context.Context, options *rest.DeleteOptio
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid namespace ID: %s", id), nil)
 	}
 
+	// Collect affected user IDs before deletion (CASCADE will remove role_bindings)
+	var affectedUserIDs []int64
+	if s.rbStore != nil {
+		affectedUserIDs, _ = s.rbStore.GetUserIDsByNamespaceID(ctx, nid)
+	}
+
 	if err := s.nsStore.Delete(ctx, nid); err != nil {
 		return err
+	}
+
+	// Invalidate permission cache for affected users
+	if s.checker != nil {
+		for _, uid := range affectedUserIDs {
+			s.checker.InvalidateCache(uid)
+		}
 	}
 	return nil
 }

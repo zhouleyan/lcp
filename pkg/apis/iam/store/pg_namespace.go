@@ -212,12 +212,13 @@ func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
 
 	countParams := generated.CountNamespacesParams{
-		Status:      filterStr(q.Filters, "status"),
-		Name:        filterStr(q.Filters, "name"),
-		Visibility:  filterStr(q.Filters, "visibility"),
-		OwnerID:     filterInt64(q.Filters, "owner_id"),
-		WorkspaceID: filterInt64(q.Filters, "workspace_id"),
-		Search:      filterStr(q.Filters, "search"),
+		AccessibleIds: filterInt64Slice(q.Filters, "accessible_ids"),
+		Status:        filterStr(q.Filters, "status"),
+		Name:          filterStr(q.Filters, "name"),
+		Visibility:    filterStr(q.Filters, "visibility"),
+		OwnerID:       filterInt64(q.Filters, "owner_id"),
+		WorkspaceID:   filterInt64(q.Filters, "workspace_id"),
+		Search:        filterStr(q.Filters, "search"),
 	}
 
 	count, err := s.queries.CountNamespaces(ctx, countParams)
@@ -231,12 +232,13 @@ func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 	}
 
 	rows, err := s.queries.ListNamespaces(ctx, generated.ListNamespacesParams{
-		Status:      countParams.Status,
-		Name:        countParams.Name,
-		Visibility:  countParams.Visibility,
-		OwnerID:     countParams.OwnerID,
-		WorkspaceID: countParams.WorkspaceID,
-		Search:      countParams.Search,
+		AccessibleIds: countParams.AccessibleIds,
+		Status:        countParams.Status,
+		Name:          countParams.Name,
+		Visibility:    countParams.Visibility,
+		OwnerID:       countParams.OwnerID,
+		WorkspaceID:   countParams.WorkspaceID,
+		Search:        countParams.Search,
 		SortField:   q.SortBy,
 		SortOrder:   sortOrder,
 		PageOffset:  offset,

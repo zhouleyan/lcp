@@ -52,6 +52,17 @@ func toNullInt32(n int32) *int32 {
 	return &n
 }
 
+// filterInt64Slice extracts an []int64 filter value from a query filter map.
+// Returns nil if the key is not present (which means "no filter" in SQL).
+func filterInt64Slice(filters map[string]any, key string) []int64 {
+	if v, ok := filters[key]; ok {
+		if ids, ok := v.([]int64); ok {
+			return ids
+		}
+	}
+	return nil
+}
+
 // filterBool extracts a bool filter value from a query filter map.
 // Accepts both bool and string ("true"/"false") values.
 func filterBool(filters map[string]any, key string) *bool {
