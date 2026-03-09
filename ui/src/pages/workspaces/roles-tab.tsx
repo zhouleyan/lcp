@@ -104,7 +104,17 @@ export default function WorkspaceRolesTab() {
   const selectableIds = selectableRoles.map((r) => r.metadata.id)
 
   return (
-    <div>
+    <div className="p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{t("role.title")}</h1>
+          <p className="text-muted-foreground text-sm">{t("role.manage", { count: totalCount })}</p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          {t("role.create")}
+        </Button>
+      </div>
       <div className="mb-4 flex items-center gap-3">
         <div className="relative max-w-xs flex-1">
           <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
@@ -115,18 +125,12 @@ export default function WorkspaceRolesTab() {
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-2">
-          {selected.size > 0 && (
-            <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t("role.batchDelete")} ({selected.size})
-            </Button>
-          )}
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t("role.create")}
+        {selected.size > 0 && (
+          <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t("role.batchDelete")} ({selected.size})
           </Button>
-        </div>
+        )}
       </div>
 
       <div className="border">

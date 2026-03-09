@@ -111,9 +111,18 @@ export default function NamespaceUsersPage() {
   }
 
   return (
-    <div>
-      {/* header */}
-      <div className="mb-4 flex items-center justify-between">
+    <div className="p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{t("namespace.members")}</h1>
+          <p className="text-muted-foreground text-sm">{t("namespace.membersManage", { count: totalCount })}</p>
+        </div>
+        <Button onClick={() => setAddOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          {t("namespace.addMember")}
+        </Button>
+      </div>
+      <div className="mb-4 flex items-center gap-3">
         <div className="relative max-w-xs flex-1">
           <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
           <Input
@@ -123,18 +132,12 @@ export default function NamespaceUsersPage() {
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-2">
-          {selected.size > 0 && (
-            <Button variant="destructive" size="sm" onClick={() => setBatchRemoveOpen(true)}>
-              <UserMinus className="mr-2 h-4 w-4" />
-              {t("namespace.removeMember")} ({selected.size})
-            </Button>
-          )}
-          <Button size="sm" onClick={() => setAddOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t("namespace.addMember")}
+        {selected.size > 0 && (
+          <Button variant="destructive" size="sm" onClick={() => setBatchRemoveOpen(true)}>
+            <UserMinus className="mr-2 h-4 w-4" />
+            {t("namespace.removeMember")} ({selected.size})
           </Button>
-        </div>
+        )}
       </div>
 
       {/* table */}
