@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -57,6 +58,10 @@ func NewConflictMessage(message string) *StatusError {
 	return newStatusError(http.StatusConflict, "Conflict", message, nil)
 }
 
+func NewForbidden(message string) *StatusError {
+	return newStatusError(http.StatusForbidden, "Forbidden", message, nil)
+}
+
 func NewInternalError(err error) *StatusError {
 	msg := "internal server error"
 	if err != nil {
@@ -66,15 +71,22 @@ func NewInternalError(err error) *StatusError {
 }
 
 func IsNotFound(err error) bool {
-	if se, ok := err.(*StatusError); ok {
+	if se, ok := errors.AsType[*StatusError](err); ok {
 		return se.Status == http.StatusNotFound
 	}
 	return false
 }
 
 func IsConflict(err error) bool {
-	if se, ok := err.(*StatusError); ok {
+	if se, ok := errors.AsType[*StatusError](err); ok {
 		return se.Status == http.StatusConflict
+	}
+	return false
+}
+
+func IsForbidden(err error) bool {
+	if se, ok := errors.AsType[*StatusError](err); ok {
+		return se.Status == http.StatusForbidden
 	}
 	return false
 }

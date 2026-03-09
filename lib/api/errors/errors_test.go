@@ -33,6 +33,29 @@ func TestNewInternalError(t *testing.T) {
 	}
 }
 
+func TestNewForbidden(t *testing.T) {
+	err := NewForbidden("access denied")
+	if err.Status != 403 || err.Reason != "Forbidden" {
+		t.Errorf("unexpected: %+v", err)
+	}
+	if err.Message != "access denied" {
+		t.Errorf("unexpected message: %s", err.Message)
+	}
+}
+
+func TestIsForbidden(t *testing.T) {
+	err := NewForbidden("no access")
+	if !IsForbidden(err) {
+		t.Error("expected IsForbidden to be true")
+	}
+	if IsForbidden(NewNotFound("User", "alice")) {
+		t.Error("expected IsForbidden to be false for NotFound")
+	}
+	if IsForbidden(NewBadRequest("x", nil)) {
+		t.Error("expected IsForbidden to be false for BadRequest")
+	}
+}
+
 func TestIsNotFound(t *testing.T) {
 	err := NewNotFound("User", "alice")
 	if !IsNotFound(err) {
