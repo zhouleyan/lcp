@@ -105,3 +105,38 @@ func (s *pgPermissionStore) ListAllCodes(ctx context.Context) ([]string, error) 
 	}
 	return codes, nil
 }
+
+func (s *pgPermissionStore) SyncModule(ctx context.Context, modulePrefix string, perms []iam.DBPermission) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	qtx := s.queries.WithTx(tx)
+
+	codes := make([]string, 0, len(perms))
+	for _, p := range perms {
+		if _, err := qtx.UpsertPermission(ctx, generated.UpsertPermissionParams{
+			Code:        p.Code,
+			Method:      p.Method,
+			Path:        p.Path,
+			Description: p.Description,
+		}); err != nil {
+			return fmt.Errorf("upsert permission %s: %w", p.Code, err)
+		}
+		codes = append(codes, p.Code)
+	}
+
+	if err := qtx.DeletePermissionsByModulePrefix(ctx, generated.DeletePermissionsByModulePrefixParams{
+		ModulePrefix: modulePrefix,
+		KeepCodes:    codes,
+	}); err != nil {
+		return fmt.Errorf("cleanup stale permissions: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
