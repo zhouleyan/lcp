@@ -7,7 +7,7 @@ RACE ?= -race
 EXTRA_GO_BUILD_TAGS ?=
 GO_BUILD_INFO = -X '$(PKG_PREFIX)/lib/buildinfo.Version=$(APP_NAME)-$(DATE_INFO_TAG)-$(BUILD_INFO_TAG)'
 
-.PHONY: lcp-server lcp-server-prod build sqlc-generate openapi-gen test lint fmt vet clean ui-install ui-dev ui-build ui-lint dev
+.PHONY: lcp-server lcp-server-prod build sqlc-generate openapi-gen test lint fmt vet clean ui-install ui-dev ui-build ui-lint dev init-admin
 
 lcp-server:
 	CGO_ENABLED=1 go build $(RACE) -ldflags "$(GO_BUILD_INFO)" -tags "$(EXTRA_GO_BUILD_TAGS)" -o bin/$(APP_NAME)$(RACE) $(PKG_PREFIX)/app/$(APP_NAME)
@@ -36,6 +36,9 @@ lint:
 
 fmt:
 	gofmt -w -s .
+
+init-admin:
+	go run $(PKG_PREFIX)/cmd/init-admin
 
 clean:
 	rm -rf bin/
