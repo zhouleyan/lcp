@@ -51,3 +51,23 @@ func toNullInt32(n int32) *int32 {
 	}
 	return &n
 }
+
+// filterBool extracts a bool filter value from a query filter map.
+// Accepts both bool and string ("true"/"false") values.
+func filterBool(filters map[string]any, key string) *bool {
+	if v, ok := filters[key]; ok {
+		switch val := v.(type) {
+		case bool:
+			return &val
+		case string:
+			if val == "true" {
+				b := true
+				return &b
+			} else if val == "false" {
+				b := false
+				return &b
+			}
+		}
+	}
+	return nil
+}
