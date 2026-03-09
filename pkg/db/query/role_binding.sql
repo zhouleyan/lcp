@@ -455,3 +455,9 @@ WHERE user_id = @user_id AND scope = 'workspace' AND workspace_id = @workspace_i
 -- name: DeleteNonOwnerNamespaceBindings :exec
 DELETE FROM role_bindings
 WHERE user_id = @user_id AND scope = 'namespace' AND namespace_id = @namespace_id AND is_owner = false;
+
+-- name: ListAllWorkspaceIDs :many
+SELECT id FROM workspaces;
+
+-- name: ListAllNamespaceIDsWithWorkspace :many
+SELECT id, workspace_id FROM namespaces;

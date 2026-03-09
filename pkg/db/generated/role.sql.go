@@ -15,30 +15,40 @@ SELECT count(id)
 FROM roles
 WHERE ($1::VARCHAR IS NULL OR scope = $1)
   AND ($2::BOOLEAN IS NULL OR builtin = $2)
-  AND ($3::VARCHAR IS NULL OR (
-       name ILIKE '%' || $3 || '%'
-       OR display_name ILIKE '%' || $3 || '%'
-       OR description ILIKE '%' || $3 || '%'
+  AND ($3::BIGINT IS NULL OR workspace_id = $3)
+  AND ($4::BIGINT IS NULL OR namespace_id = $4)
+  AND ($5::VARCHAR IS NULL OR (
+       name ILIKE '%' || $5 || '%'
+       OR display_name ILIKE '%' || $5 || '%'
+       OR description ILIKE '%' || $5 || '%'
   ))
 `
 
 type CountRolesParams struct {
-	Scope   *string `json:"scope"`
-	Builtin *bool   `json:"builtin"`
-	Search  *string `json:"search"`
+	Scope       *string `json:"scope"`
+	Builtin     *bool   `json:"builtin"`
+	WorkspaceID *int64  `json:"workspace_id"`
+	NamespaceID *int64  `json:"namespace_id"`
+	Search      *string `json:"search"`
 }
 
 func (q *Queries) CountRoles(ctx context.Context, arg CountRolesParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countRoles, arg.Scope, arg.Builtin, arg.Search)
+	row := q.db.QueryRow(ctx, countRoles,
+		arg.Scope,
+		arg.Builtin,
+		arg.WorkspaceID,
+		arg.NamespaceID,
+		arg.Search,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const createRole = `-- name: CreateRole :one
-INSERT INTO roles (name, display_name, description, scope, builtin)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, name, display_name, description, scope, builtin, created_at, updated_at
+INSERT INTO roles (name, display_name, description, scope, builtin, workspace_id, namespace_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, name, display_name, description, scope, builtin, workspace_id, namespace_id, created_at, updated_at
 `
 
 type CreateRoleParams struct {
@@ -47,17 +57,34 @@ type CreateRoleParams struct {
 	Description string `json:"description"`
 	Scope       string `json:"scope"`
 	Builtin     bool   `json:"builtin"`
+	WorkspaceID *int64 `json:"workspace_id"`
+	NamespaceID *int64 `json:"namespace_id"`
 }
 
-func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error) {
+type CreateRoleRow struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	Scope       string    `json:"scope"`
+	Builtin     bool      `json:"builtin"`
+	WorkspaceID *int64    `json:"workspace_id"`
+	NamespaceID *int64    `json:"namespace_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (CreateRoleRow, error) {
 	row := q.db.QueryRow(ctx, createRole,
 		arg.Name,
 		arg.DisplayName,
 		arg.Description,
 		arg.Scope,
 		arg.Builtin,
+		arg.WorkspaceID,
+		arg.NamespaceID,
 	)
-	var i Role
+	var i CreateRoleRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -65,6 +92,8 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, e
 		&i.Description,
 		&i.Scope,
 		&i.Builtin,
+		&i.WorkspaceID,
+		&i.NamespaceID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -81,14 +110,27 @@ func (q *Queries) DeleteRole(ctx context.Context, id int64) error {
 }
 
 const getRoleByID = `-- name: GetRoleByID :one
-SELECT id, name, display_name, description, scope, builtin, created_at, updated_at
+SELECT id, name, display_name, description, scope, builtin, workspace_id, namespace_id, created_at, updated_at
 FROM roles
 WHERE id = $1
 `
 
-func (q *Queries) GetRoleByID(ctx context.Context, id int64) (Role, error) {
+type GetRoleByIDRow struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	Scope       string    `json:"scope"`
+	Builtin     bool      `json:"builtin"`
+	WorkspaceID *int64    `json:"workspace_id"`
+	NamespaceID *int64    `json:"namespace_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (q *Queries) GetRoleByID(ctx context.Context, id int64) (GetRoleByIDRow, error) {
 	row := q.db.QueryRow(ctx, getRoleByID, id)
-	var i Role
+	var i GetRoleByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -96,6 +138,8 @@ func (q *Queries) GetRoleByID(ctx context.Context, id int64) (Role, error) {
 		&i.Description,
 		&i.Scope,
 		&i.Builtin,
+		&i.WorkspaceID,
+		&i.NamespaceID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -103,14 +147,27 @@ func (q *Queries) GetRoleByID(ctx context.Context, id int64) (Role, error) {
 }
 
 const getRoleByName = `-- name: GetRoleByName :one
-SELECT id, name, display_name, description, scope, builtin, created_at, updated_at
+SELECT id, name, display_name, description, scope, builtin, workspace_id, namespace_id, created_at, updated_at
 FROM roles
-WHERE name = $1
+WHERE name = $1 AND scope = 'platform'
 `
 
-func (q *Queries) GetRoleByName(ctx context.Context, name string) (Role, error) {
+type GetRoleByNameRow struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	Scope       string    `json:"scope"`
+	Builtin     bool      `json:"builtin"`
+	WorkspaceID *int64    `json:"workspace_id"`
+	NamespaceID *int64    `json:"namespace_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (q *Queries) GetRoleByName(ctx context.Context, name string) (GetRoleByNameRow, error) {
 	row := q.db.QueryRow(ctx, getRoleByName, name)
-	var i Role
+	var i GetRoleByNameRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -118,6 +175,92 @@ func (q *Queries) GetRoleByName(ctx context.Context, name string) (Role, error) 
 		&i.Description,
 		&i.Scope,
 		&i.Builtin,
+		&i.WorkspaceID,
+		&i.NamespaceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getRoleByNameAndNamespace = `-- name: GetRoleByNameAndNamespace :one
+SELECT id, name, display_name, description, scope, builtin, workspace_id, namespace_id, created_at, updated_at
+FROM roles
+WHERE name = $1 AND scope = 'namespace' AND namespace_id = $2
+`
+
+type GetRoleByNameAndNamespaceParams struct {
+	Name        string `json:"name"`
+	NamespaceID *int64 `json:"namespace_id"`
+}
+
+type GetRoleByNameAndNamespaceRow struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	Scope       string    `json:"scope"`
+	Builtin     bool      `json:"builtin"`
+	WorkspaceID *int64    `json:"workspace_id"`
+	NamespaceID *int64    `json:"namespace_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (q *Queries) GetRoleByNameAndNamespace(ctx context.Context, arg GetRoleByNameAndNamespaceParams) (GetRoleByNameAndNamespaceRow, error) {
+	row := q.db.QueryRow(ctx, getRoleByNameAndNamespace, arg.Name, arg.NamespaceID)
+	var i GetRoleByNameAndNamespaceRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.DisplayName,
+		&i.Description,
+		&i.Scope,
+		&i.Builtin,
+		&i.WorkspaceID,
+		&i.NamespaceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getRoleByNameAndWorkspace = `-- name: GetRoleByNameAndWorkspace :one
+SELECT id, name, display_name, description, scope, builtin, workspace_id, namespace_id, created_at, updated_at
+FROM roles
+WHERE name = $1 AND scope = 'workspace' AND workspace_id = $2
+`
+
+type GetRoleByNameAndWorkspaceParams struct {
+	Name        string `json:"name"`
+	WorkspaceID *int64 `json:"workspace_id"`
+}
+
+type GetRoleByNameAndWorkspaceRow struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	Scope       string    `json:"scope"`
+	Builtin     bool      `json:"builtin"`
+	WorkspaceID *int64    `json:"workspace_id"`
+	NamespaceID *int64    `json:"namespace_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (q *Queries) GetRoleByNameAndWorkspace(ctx context.Context, arg GetRoleByNameAndWorkspaceParams) (GetRoleByNameAndWorkspaceRow, error) {
+	row := q.db.QueryRow(ctx, getRoleByNameAndWorkspace, arg.Name, arg.WorkspaceID)
+	var i GetRoleByNameAndWorkspaceRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.DisplayName,
+		&i.Description,
+		&i.Scope,
+		&i.Builtin,
+		&i.WorkspaceID,
+		&i.NamespaceID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -125,36 +268,40 @@ func (q *Queries) GetRoleByName(ctx context.Context, name string) (Role, error) 
 }
 
 const listRoles = `-- name: ListRoles :many
-SELECT id, name, display_name, description, scope, builtin, created_at, updated_at,
+SELECT id, name, display_name, description, scope, builtin, workspace_id, namespace_id, created_at, updated_at,
        (SELECT COUNT(*) FROM role_permission_rules WHERE role_id = roles.id)::INT AS rule_count
 FROM roles
 WHERE ($1::VARCHAR IS NULL OR scope = $1)
   AND ($2::BOOLEAN IS NULL OR builtin = $2)
-  AND ($3::VARCHAR IS NULL OR (
-       name ILIKE '%' || $3 || '%'
-       OR display_name ILIKE '%' || $3 || '%'
-       OR description ILIKE '%' || $3 || '%'
+  AND ($3::BIGINT IS NULL OR workspace_id = $3)
+  AND ($4::BIGINT IS NULL OR namespace_id = $4)
+  AND ($5::VARCHAR IS NULL OR (
+       name ILIKE '%' || $5 || '%'
+       OR display_name ILIKE '%' || $5 || '%'
+       OR description ILIKE '%' || $5 || '%'
   ))
 ORDER BY
-    CASE WHEN $4::VARCHAR = 'name' AND $5::VARCHAR = 'asc' THEN name END ASC,
-    CASE WHEN $4::VARCHAR = 'name' AND $5::VARCHAR = 'desc' THEN name END DESC,
-    CASE WHEN $4::VARCHAR = 'scope' AND $5::VARCHAR = 'asc' THEN scope END ASC,
-    CASE WHEN $4::VARCHAR = 'scope' AND $5::VARCHAR = 'desc' THEN scope END DESC,
-    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'asc' THEN created_at END ASC,
-    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN $6::VARCHAR = 'name' AND $7::VARCHAR = 'asc' THEN name END ASC,
+    CASE WHEN $6::VARCHAR = 'name' AND $7::VARCHAR = 'desc' THEN name END DESC,
+    CASE WHEN $6::VARCHAR = 'scope' AND $7::VARCHAR = 'asc' THEN scope END ASC,
+    CASE WHEN $6::VARCHAR = 'scope' AND $7::VARCHAR = 'desc' THEN scope END DESC,
+    CASE WHEN $6::VARCHAR = 'created_at' AND $7::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN $6::VARCHAR = 'created_at' AND $7::VARCHAR = 'desc' THEN created_at END DESC,
     created_at DESC
-LIMIT $7::INT
-OFFSET $6::INT
+LIMIT $9::INT
+OFFSET $8::INT
 `
 
 type ListRolesParams struct {
-	Scope      *string `json:"scope"`
-	Builtin    *bool   `json:"builtin"`
-	Search     *string `json:"search"`
-	SortField  string  `json:"sort_field"`
-	SortOrder  string  `json:"sort_order"`
-	PageOffset int32   `json:"page_offset"`
-	PageSize   int32   `json:"page_size"`
+	Scope       *string `json:"scope"`
+	Builtin     *bool   `json:"builtin"`
+	WorkspaceID *int64  `json:"workspace_id"`
+	NamespaceID *int64  `json:"namespace_id"`
+	Search      *string `json:"search"`
+	SortField   string  `json:"sort_field"`
+	SortOrder   string  `json:"sort_order"`
+	PageOffset  int32   `json:"page_offset"`
+	PageSize    int32   `json:"page_size"`
 }
 
 type ListRolesRow struct {
@@ -164,6 +311,8 @@ type ListRolesRow struct {
 	Description string    `json:"description"`
 	Scope       string    `json:"scope"`
 	Builtin     bool      `json:"builtin"`
+	WorkspaceID *int64    `json:"workspace_id"`
+	NamespaceID *int64    `json:"namespace_id"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	RuleCount   int32     `json:"rule_count"`
@@ -173,6 +322,8 @@ func (q *Queries) ListRoles(ctx context.Context, arg ListRolesParams) ([]ListRol
 	rows, err := q.db.Query(ctx, listRoles,
 		arg.Scope,
 		arg.Builtin,
+		arg.WorkspaceID,
+		arg.NamespaceID,
 		arg.Search,
 		arg.SortField,
 		arg.SortOrder,
@@ -193,6 +344,8 @@ func (q *Queries) ListRoles(ctx context.Context, arg ListRolesParams) ([]ListRol
 			&i.Description,
 			&i.Scope,
 			&i.Builtin,
+			&i.WorkspaceID,
+			&i.NamespaceID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.RuleCount,
@@ -213,7 +366,7 @@ SET display_name = $1,
     description = $2,
     updated_at = now()
 WHERE id = $3
-RETURNING id, name, display_name, description, scope, builtin, created_at, updated_at
+RETURNING id, name, display_name, description, scope, builtin, workspace_id, namespace_id, created_at, updated_at
 `
 
 type UpdateRoleParams struct {
@@ -222,9 +375,22 @@ type UpdateRoleParams struct {
 	ID          int64  `json:"id"`
 }
 
-func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error) {
+type UpdateRoleRow struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	Scope       string    `json:"scope"`
+	Builtin     bool      `json:"builtin"`
+	WorkspaceID *int64    `json:"workspace_id"`
+	NamespaceID *int64    `json:"namespace_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (UpdateRoleRow, error) {
 	row := q.db.QueryRow(ctx, updateRole, arg.DisplayName, arg.Description, arg.ID)
-	var i Role
+	var i UpdateRoleRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -232,6 +398,8 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, e
 		&i.Description,
 		&i.Scope,
 		&i.Builtin,
+		&i.WorkspaceID,
+		&i.NamespaceID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -241,11 +409,11 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, e
 const upsertRole = `-- name: UpsertRole :one
 INSERT INTO roles (name, display_name, description, scope, builtin)
 VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (name) DO UPDATE
-SET display_name = EXCLUDED.display_name,
-    description = EXCLUDED.description,
-    updated_at = now()
-RETURNING id, name, display_name, description, scope, builtin, created_at, updated_at
+ON CONFLICT (name) WHERE scope = 'platform'
+DO UPDATE SET display_name = EXCLUDED.display_name,
+              description = EXCLUDED.description,
+              updated_at = now()
+RETURNING id, name, display_name, description, scope, builtin, workspace_id, namespace_id, created_at, updated_at
 `
 
 type UpsertRoleParams struct {
@@ -256,7 +424,20 @@ type UpsertRoleParams struct {
 	Builtin     bool   `json:"builtin"`
 }
 
-func (q *Queries) UpsertRole(ctx context.Context, arg UpsertRoleParams) (Role, error) {
+type UpsertRoleRow struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	Scope       string    `json:"scope"`
+	Builtin     bool      `json:"builtin"`
+	WorkspaceID *int64    `json:"workspace_id"`
+	NamespaceID *int64    `json:"namespace_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (q *Queries) UpsertRole(ctx context.Context, arg UpsertRoleParams) (UpsertRoleRow, error) {
 	row := q.db.QueryRow(ctx, upsertRole,
 		arg.Name,
 		arg.DisplayName,
@@ -264,7 +445,7 @@ func (q *Queries) UpsertRole(ctx context.Context, arg UpsertRoleParams) (Role, e
 		arg.Scope,
 		arg.Builtin,
 	)
-	var i Role
+	var i UpsertRoleRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -272,6 +453,8 @@ func (q *Queries) UpsertRole(ctx context.Context, arg UpsertRoleParams) (Role, e
 		&i.Description,
 		&i.Scope,
 		&i.Builtin,
+		&i.WorkspaceID,
+		&i.NamespaceID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

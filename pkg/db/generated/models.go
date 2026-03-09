@@ -51,13 +51,17 @@ type RefreshToken struct {
 // 角色表：内置角色 + 用户自定义角色
 type Role struct {
 	ID int64 `json:"id"`
-	// 角色唯一名称，如 platform-admin
+	// 角色名称，同 scope 内唯一
 	Name string `json:"name"`
 	// 角色显示名称
 	DisplayName string `json:"display_name"`
 	Description string `json:"description"`
-	// 角色可绑定的作用域：platform / workspace / namespace
+	// 角色作用域：platform / workspace / namespace
 	Scope string `json:"scope"`
+	// 所属工作空间 ID（workspace scope 时必填）
+	WorkspaceID *int64 `json:"workspace_id"`
+	// 所属项目 ID（namespace scope 时必填）
+	NamespaceID *int64 `json:"namespace_id"`
 	// 是否为内置角色（内置不可删除）
 	Builtin   bool      `json:"builtin"`
 	CreatedAt time.Time `json:"created_at"`

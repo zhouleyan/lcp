@@ -577,6 +577,59 @@ func (q *Queries) GetUserRoleBindingsWithRules(ctx context.Context, userID int64
 	return items, nil
 }
 
+const listAllNamespaceIDsWithWorkspace = `-- name: ListAllNamespaceIDsWithWorkspace :many
+SELECT id, workspace_id FROM namespaces
+`
+
+type ListAllNamespaceIDsWithWorkspaceRow struct {
+	ID          int64 `json:"id"`
+	WorkspaceID int64 `json:"workspace_id"`
+}
+
+func (q *Queries) ListAllNamespaceIDsWithWorkspace(ctx context.Context) ([]ListAllNamespaceIDsWithWorkspaceRow, error) {
+	rows, err := q.db.Query(ctx, listAllNamespaceIDsWithWorkspace)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllNamespaceIDsWithWorkspaceRow{}
+	for rows.Next() {
+		var i ListAllNamespaceIDsWithWorkspaceRow
+		if err := rows.Scan(&i.ID, &i.WorkspaceID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllWorkspaceIDs = `-- name: ListAllWorkspaceIDs :many
+SELECT id FROM workspaces
+`
+
+func (q *Queries) ListAllWorkspaceIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listAllWorkspaceIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNamespaceMembers = `-- name: ListNamespaceMembers :many
 WITH members AS (
     SELECT DISTINCT ON (rb.user_id)
