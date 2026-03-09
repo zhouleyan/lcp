@@ -22,6 +22,21 @@ type Namespace struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// 权限表：从路由自动生成，系统只读
+type Permission struct {
+	ID int64 `json:"id"`
+	// 权限标识，如 iam:users:list，首段为模块名
+	Code string `json:"code"`
+	// HTTP 方法，如 GET、POST
+	Method string `json:"method"`
+	// 规范 API 路径
+	Path string `json:"path"`
+	// 权限描述
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 type RefreshToken struct {
 	ID        int64     `json:"id"`
 	TokenHash string    `json:"token_hash"`
@@ -31,6 +46,48 @@ type RefreshToken struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	Revoked   bool      `json:"revoked"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// 角色表：内置角色 + 用户自定义角色
+type Role struct {
+	ID int64 `json:"id"`
+	// 角色唯一名称，如 platform-admin
+	Name string `json:"name"`
+	// 角色显示名称
+	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
+	// 角色可绑定的作用域：platform / workspace / namespace
+	Scope string `json:"scope"`
+	// 是否为内置角色（内置不可删除）
+	Builtin   bool      `json:"builtin"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// 角色绑定：用户与角色的关联，带具体资源实例
+type RoleBinding struct {
+	ID int64 `json:"id"`
+	// 绑定用户 ID
+	UserID int64 `json:"user_id"`
+	// 绑定角色 ID
+	RoleID int64 `json:"role_id"`
+	// 绑定作用域：platform / workspace / namespace
+	Scope string `json:"scope"`
+	// 工作空间 ID（workspace/namespace scope 时必填）
+	WorkspaceID *int64 `json:"workspace_id"`
+	// 项目 ID（namespace scope 时必填）
+	NamespaceID *int64 `json:"namespace_id"`
+	// 是否为资源所有者（ownership 转移时更新）
+	IsOwner   bool      `json:"is_owner"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// 角色权限规则：支持精确匹配和通配符模式
+type RolePermissionRule struct {
+	// 关联角色 ID
+	RoleID int64 `json:"role_id"`
+	// 权限模式：*:*（全通配）、iam:*（前缀）、*:list（后缀）、iam:users:list（精确）
+	Pattern string `json:"pattern"`
 }
 
 type User struct {
