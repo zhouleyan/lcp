@@ -1141,6 +1141,165 @@ func (s *userNamespaceVerbStorage) List(ctx context.Context, options *rest.ListO
 	}, nil
 }
 
+// ===== userRoleBindingsVerbStorage 用户角色绑定视图 =====
+
+// userRoleBindingsVerbStorage 用户角色绑定的 custom verb 存储。
+// 注册为 GET /users/{userId}:rolebindings
+type userRoleBindingsVerbStorage struct {
+	rbStore RoleBindingStore
+}
+
+// NewUserRoleBindingsVerb 创建用户角色绑定视图存储。
+// +openapi:customverb=rolebindings
+// +openapi:resource=User
+// +openapi:summary=获取用户的角色绑定列表
+func NewUserRoleBindingsVerb(rbStore RoleBindingStore) rest.Lister {
+	return &userRoleBindingsVerbStorage{rbStore: rbStore}
+}
+
+func (s *userRoleBindingsVerbStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	uid, err := parseID(options.PathParams["userId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", options.PathParams["userId"]), nil)
+	}
+
+	query := restOptionsToListQuery(options)
+
+	result, err := s.rbStore.ListByUserID(ctx, uid, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return roleBindingListToAPI(result), nil
+}
+
+// ===== userPermissionsVerbStorage 用户权限视图 =====
+
+// userPermissionsVerbStorage 用户权限聚合视图的 custom verb 存储。
+// 注册为 GET /users/{userId}:permissions
+type userPermissionsVerbStorage struct {
+	rbStore   RoleBindingStore
+	permStore PermissionStore
+}
+
+// NewUserPermissionsVerb 创建用户权限视图存储。
+// +openapi:customverb=permissions
+// +openapi:resource=User
+// +openapi:summary=获取用户的权限视图
+func NewUserPermissionsVerb(rbStore RoleBindingStore, permStore PermissionStore) rest.Lister {
+	return &userPermissionsVerbStorage{rbStore: rbStore, permStore: permStore}
+}
+
+func (s *userPermissionsVerbStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	uid, err := parseID(options.PathParams["userId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", options.PathParams["userId"]), nil)
+	}
+
+	// 1. Get all role bindings with rules for this user
+	rows, err := s.rbStore.GetUserRoleBindingsWithRules(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Get all registered permission codes for pattern expansion
+	allCodes, err := s.permStore.ListAllCodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Group by scope and collect patterns + role names
+	var platformPatterns []string
+	platformRoleNames := make(map[string]bool)
+	isPlatformAdmin := false
+
+	type wsEntry struct {
+		patterns  []string
+		roleNames map[string]bool
+	}
+	type nsEntry struct {
+		patterns    []string
+		roleNames   map[string]bool
+		workspaceID string
+	}
+	wsMap := make(map[string]*wsEntry)
+	nsMap := make(map[string]*nsEntry)
+
+	for _, row := range rows {
+		switch row.Scope {
+		case "platform":
+			platformPatterns = append(platformPatterns, row.Pattern)
+			platformRoleNames[row.RoleName] = true
+			if row.Pattern == "*:*" {
+				isPlatformAdmin = true
+			}
+		case "workspace":
+			if row.WorkspaceID != nil {
+				wsIDStr := strconv.FormatInt(*row.WorkspaceID, 10)
+				entry, ok := wsMap[wsIDStr]
+				if !ok {
+					entry = &wsEntry{roleNames: make(map[string]bool)}
+					wsMap[wsIDStr] = entry
+				}
+				entry.patterns = append(entry.patterns, row.Pattern)
+				entry.roleNames[row.RoleName] = true
+			}
+		case "namespace":
+			if row.NamespaceID != nil {
+				nsIDStr := strconv.FormatInt(*row.NamespaceID, 10)
+				entry, ok := nsMap[nsIDStr]
+				if !ok {
+					var wsIDStr string
+					if row.WorkspaceID != nil {
+						wsIDStr = strconv.FormatInt(*row.WorkspaceID, 10)
+					}
+					entry = &nsEntry{roleNames: make(map[string]bool), workspaceID: wsIDStr}
+					nsMap[nsIDStr] = entry
+				}
+				entry.patterns = append(entry.patterns, row.Pattern)
+				entry.roleNames[row.RoleName] = true
+			}
+		}
+	}
+
+	// 4. Expand patterns to concrete permission codes
+	spec := UserPermissionsSpec{
+		IsPlatformAdmin: isPlatformAdmin,
+		Platform:        ExpandPatterns(platformPatterns, allCodes),
+		Workspaces:      make(map[string]WorkspaceScopePerms),
+		Namespaces:      make(map[string]NamespaceScopePerms),
+	}
+
+	for wsID, entry := range wsMap {
+		spec.Workspaces[wsID] = WorkspaceScopePerms{
+			RoleNames:   mapKeys(entry.roleNames),
+			Permissions: ExpandPatterns(entry.patterns, allCodes),
+		}
+	}
+
+	for nsID, entry := range nsMap {
+		spec.Namespaces[nsID] = NamespaceScopePerms{
+			RoleNames:   mapKeys(entry.roleNames),
+			WorkspaceID: entry.workspaceID,
+			Permissions: ExpandPatterns(entry.patterns, allCodes),
+		}
+	}
+
+	return &UserPermissions{
+		TypeMeta: runtime.TypeMeta{Kind: "UserPermissions"},
+		Spec:     spec,
+	}, nil
+}
+
+// mapKeys returns the keys of a map as a sorted slice.
+func mapKeys(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // restOptionsToListQuery converts REST ListOptions to a db.ListQuery.
 func restOptionsToListQuery(options *rest.ListOptions) db.ListQuery {
 	query := db.ListQuery{

@@ -61,6 +61,8 @@ func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvi
 				CustomVerbs: []rest.CustomVerbInfo{
 					{Name: "workspaces", Storage: iam.NewUserWorkspacesVerb(p.UserWorkspace)},
 					{Name: "namespaces", Storage: iam.NewUserNamespacesVerb(p.UserNamespace)},
+					{Name: "rolebindings", Storage: iam.NewUserRoleBindingsVerb(p.RoleBinding)},
+					{Name: "permissions", Storage: iam.NewUserPermissionsVerb(p.RoleBinding, p.Permission)},
 				},
 			},
 			{
