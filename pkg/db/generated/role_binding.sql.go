@@ -370,7 +370,7 @@ func (q *Queries) CreateRoleBindingIfNotExists(ctx context.Context, arg CreateRo
 	return err
 }
 
-const deleteNonOwnerNamespaceBindings = `-- name: DeleteNonOwnerNamespaceBindings :exec
+const deleteNonOwnerNamespaceBindings = `-- name: DeleteNonOwnerNamespaceBindings :execrows
 DELETE FROM role_bindings
 WHERE user_id = $1 AND scope = 'namespace' AND namespace_id = $2 AND is_owner = false
 `
@@ -380,12 +380,15 @@ type DeleteNonOwnerNamespaceBindingsParams struct {
 	NamespaceID *int64 `json:"namespace_id"`
 }
 
-func (q *Queries) DeleteNonOwnerNamespaceBindings(ctx context.Context, arg DeleteNonOwnerNamespaceBindingsParams) error {
-	_, err := q.db.Exec(ctx, deleteNonOwnerNamespaceBindings, arg.UserID, arg.NamespaceID)
-	return err
+func (q *Queries) DeleteNonOwnerNamespaceBindings(ctx context.Context, arg DeleteNonOwnerNamespaceBindingsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteNonOwnerNamespaceBindings, arg.UserID, arg.NamespaceID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const deleteNonOwnerWorkspaceBindings = `-- name: DeleteNonOwnerWorkspaceBindings :exec
+const deleteNonOwnerWorkspaceBindings = `-- name: DeleteNonOwnerWorkspaceBindings :execrows
 DELETE FROM role_bindings
 WHERE user_id = $1 AND scope = 'workspace' AND workspace_id = $2 AND is_owner = false
 `
@@ -395,9 +398,12 @@ type DeleteNonOwnerWorkspaceBindingsParams struct {
 	WorkspaceID *int64 `json:"workspace_id"`
 }
 
-func (q *Queries) DeleteNonOwnerWorkspaceBindings(ctx context.Context, arg DeleteNonOwnerWorkspaceBindingsParams) error {
-	_, err := q.db.Exec(ctx, deleteNonOwnerWorkspaceBindings, arg.UserID, arg.WorkspaceID)
-	return err
+func (q *Queries) DeleteNonOwnerWorkspaceBindings(ctx context.Context, arg DeleteNonOwnerWorkspaceBindingsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteNonOwnerWorkspaceBindings, arg.UserID, arg.WorkspaceID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteRoleBinding = `-- name: DeleteRoleBinding :exec

@@ -545,22 +545,30 @@ func (s *pgRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, nam
 
 func (s *pgRoleBindingStore) RemoveWorkspaceMember(ctx context.Context, userID, workspaceID int64) error {
 	wsID := &workspaceID
-	if err := s.queries.DeleteNonOwnerWorkspaceBindings(ctx, generated.DeleteNonOwnerWorkspaceBindingsParams{
+	n, err := s.queries.DeleteNonOwnerWorkspaceBindings(ctx, generated.DeleteNonOwnerWorkspaceBindingsParams{
 		UserID:      userID,
 		WorkspaceID: wsID,
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("remove workspace member: %w", err)
+	}
+	if n == 0 {
+		return apierrors.NewBadRequest("cannot remove workspace owner", nil)
 	}
 	return nil
 }
 
 func (s *pgRoleBindingStore) RemoveNamespaceMember(ctx context.Context, userID, namespaceID int64) error {
 	nsID := &namespaceID
-	if err := s.queries.DeleteNonOwnerNamespaceBindings(ctx, generated.DeleteNonOwnerNamespaceBindingsParams{
+	n, err := s.queries.DeleteNonOwnerNamespaceBindings(ctx, generated.DeleteNonOwnerNamespaceBindingsParams{
 		UserID:      userID,
 		NamespaceID: nsID,
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("remove namespace member: %w", err)
+	}
+	if n == 0 {
+		return apierrors.NewBadRequest("cannot remove namespace owner", nil)
 	}
 	return nil
 }

@@ -330,6 +330,7 @@ const enUS: Messages = {
   "api.error.memberLimitExceeded": "Member limit exceeded for this namespace",
   "api.error.cannotDeleteWorkspace": "Cannot delete workspace: it still contains namespaces, please delete all namespaces first",
   "api.error.cannotDeleteNamespace": "Cannot delete namespace: it still contains members, please remove all members first",
+  "api.error.cannotRemoveOwner": "Cannot remove the owner from this resource",
   "api.error.oldPasswordIncorrect": "Current password is incorrect",
   "api.error.internalError": "Internal server error, please try again later",
 

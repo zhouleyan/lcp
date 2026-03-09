@@ -448,11 +448,11 @@ ORDER BY
 LIMIT sqlc.arg('page_size')::INT
 OFFSET sqlc.arg('page_offset')::INT;
 
--- name: DeleteNonOwnerWorkspaceBindings :exec
+-- name: DeleteNonOwnerWorkspaceBindings :execrows
 DELETE FROM role_bindings
 WHERE user_id = @user_id AND scope = 'workspace' AND workspace_id = @workspace_id AND is_owner = false;
 
--- name: DeleteNonOwnerNamespaceBindings :exec
+-- name: DeleteNonOwnerNamespaceBindings :execrows
 DELETE FROM role_bindings
 WHERE user_id = @user_id AND scope = 'namespace' AND namespace_id = @namespace_id AND is_owner = false;
 

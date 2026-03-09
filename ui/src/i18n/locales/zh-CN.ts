@@ -330,6 +330,7 @@ const zhCN: Messages = {
   "api.error.memberLimitExceeded": "项目成员数已达上限",
   "api.error.cannotDeleteWorkspace": "无法删除工作空间：仍包含项目，请先删除所有项目",
   "api.error.cannotDeleteNamespace": "无法删除项目：仍包含成员，请先移除所有成员",
+  "api.error.cannotRemoveOwner": "无法移除所有者",
   "api.error.oldPasswordIncorrect": "当前密码不正确",
   "api.error.internalError": "服务器内部错误，请稍后重试",
 
