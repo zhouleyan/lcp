@@ -501,13 +501,13 @@ func (r *RoleList) GetTypeMeta() *runtime.TypeMeta { return &r.TypeMeta }
 
 // RoleBinding
 // +openapi:description=角色绑定：将用户与角色在特定作用域（平台/工作空间/项目）下关联。
-type RoleBindingObj struct {
+type RoleBinding struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
 	Spec             RoleBindingSpec `json:"spec"`
 }
 
-func (rb *RoleBindingObj) GetTypeMeta() *runtime.TypeMeta { return &rb.TypeMeta }
+func (rb *RoleBinding) GetTypeMeta() *runtime.TypeMeta { return &rb.TypeMeta }
 
 // RoleBindingSpec
 // +openapi:description=角色绑定属性：包含用户、角色、作用域和资源 ID。
@@ -542,13 +542,14 @@ type RoleBindingSpec struct {
 // +openapi:description=角色绑定列表：分页返回的角色绑定集合。
 type RoleBindingList struct {
 	runtime.TypeMeta `json:",inline"`
-	Items            []RoleBindingObj `json:"items"`
+	Items            []RoleBinding `json:"items"`
 	TotalCount       int64            `json:"totalCount"`
 }
 
 func (rb *RoleBindingList) GetTypeMeta() *runtime.TypeMeta { return &rb.TypeMeta }
 
 // UserPermissions
+// +openapi:schema
 // +openapi:description=用户权限视图：返回用户在各作用域下的角色和权限集合。
 type UserPermissions struct {
 	runtime.TypeMeta `json:",inline"`
@@ -571,6 +572,8 @@ type UserPermissionsSpec struct {
 }
 
 // WorkspaceScopePerms represents permissions within a workspace scope.
+// +openapi:schema
+// +openapi:description=工作空间级权限：包含角色名称列表和展开后的权限码。
 type WorkspaceScopePerms struct {
 	// +openapi:description=角色名称列表
 	RoleNames []string `json:"roleNames"`
@@ -579,6 +582,8 @@ type WorkspaceScopePerms struct {
 }
 
 // NamespaceScopePerms represents permissions within a namespace scope.
+// +openapi:schema
+// +openapi:description=项目级权限：包含角色名称列表、所属工作空间 ID 和展开后的权限码。
 type NamespaceScopePerms struct {
 	// +openapi:description=角色名称列表
 	RoleNames []string `json:"roleNames"`

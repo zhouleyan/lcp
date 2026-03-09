@@ -516,9 +516,14 @@ func (g *Generator) generatePathsForResource(doc *Document, basePath, resourcePa
 		verbPath := itemPath + ":" + verbName
 		verbPathItem := getOrCreatePathItem(doc, verbPath)
 
-		// Derive response list type: "workspaces" → "WorkspaceList"
-		singular := strings.TrimSuffix(verbName, "s")
-		responseType := strings.ToUpper(singular[:1]) + singular[1:] + "List"
+		// Use explicit response type if annotated, otherwise derive from verb name
+		var responseType string
+		if rt, ok := typeInfo.CustomVerbResponse[verbName]; ok && rt != "" {
+			responseType = rt
+		} else {
+			singular := strings.TrimSuffix(verbName, "s")
+			responseType = strings.ToUpper(singular[:1]) + singular[1:] + "List"
+		}
 		responseRef := &Schema{Ref: fmt.Sprintf("#/components/schemas/%s", responseType)}
 
 		verbParams := make([]Parameter, len(itemParams))

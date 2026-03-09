@@ -1169,6 +1169,7 @@ type userRoleBindingsVerbStorage struct {
 // NewUserRoleBindingsVerb 创建用户角色绑定视图存储。
 // +openapi:customverb=rolebindings
 // +openapi:resource=User
+// +openapi:response=RoleBindingList
 // +openapi:summary=获取用户的角色绑定列表
 func NewUserRoleBindingsVerb(rbStore RoleBindingStore) rest.Lister {
 	return &userRoleBindingsVerbStorage{rbStore: rbStore}
@@ -1202,6 +1203,7 @@ type userPermissionsVerbStorage struct {
 // NewUserPermissionsVerb 创建用户权限视图存储。
 // +openapi:customverb=permissions
 // +openapi:resource=User
+// +openapi:response=UserPermissions
 // +openapi:summary=获取用户的权限视图
 func NewUserPermissionsVerb(rbStore RoleBindingStore, permStore PermissionStore) rest.Lister {
 	return &userPermissionsVerbStorage{rbStore: rbStore, permStore: permStore}
@@ -1870,6 +1872,9 @@ func roleWithRulesToAPI(r *DBRoleWithRules) *Role {
 
 // scopedRoleStorage 作用域角色的只读存储，按 scope 过滤角色列表。
 // 注册为 /workspaces/{workspaceId}/roles 和 /namespaces/{namespaceId}/roles。
+// +openapi:resource=Role
+// +openapi:path=/workspaces/{workspaceId}/roles
+// +openapi:path=/namespaces/{namespaceId}/roles
 type scopedRoleStorage struct {
 	roleStore RoleStore
 	scope     string // "workspace" or "namespace"
@@ -1980,6 +1985,8 @@ func (s *permissionStorage) List(ctx context.Context, options *rest.ListOptions)
 
 // ===== roleBindingStorage 平台级角色绑定 =====
 
+// +openapi:resource=RoleBinding
+// +openapi:path=/rolebindings
 type roleBindingStorage struct {
 	rbStore   RoleBindingStore
 	roleStore RoleStore
@@ -1990,7 +1997,7 @@ func NewRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore) rest.S
 	return &roleBindingStorage{rbStore: rbStore, roleStore: roleStore}
 }
 
-func (s *roleBindingStorage) NewObject() runtime.Object { return &RoleBindingObj{} }
+func (s *roleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
 
 // +openapi:summary=获取平台级角色绑定列表
 func (s *roleBindingStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
@@ -2004,9 +2011,9 @@ func (s *roleBindingStorage) List(ctx context.Context, options *rest.ListOptions
 
 // +openapi:summary=创建平台级角色绑定
 func (s *roleBindingStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
-	rb, ok := obj.(*RoleBindingObj)
+	rb, ok := obj.(*RoleBinding)
 	if !ok {
-		return nil, fmt.Errorf("expected *RoleBindingObj, got %T", obj)
+		return nil, fmt.Errorf("expected *RoleBinding, got %T", obj)
 	}
 
 	if errs := ValidateRoleBindingCreate(&rb.Spec); errs.HasErrors() {
@@ -2079,6 +2086,8 @@ func (s *roleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOpt
 
 // ===== workspaceRoleBindingStorage 工作空间级角色绑定 =====
 
+// +openapi:resource=RoleBinding
+// +openapi:path=/workspaces/{workspaceId}/rolebindings
 type workspaceRoleBindingStorage struct {
 	rbStore   RoleBindingStore
 	roleStore RoleStore
@@ -2089,7 +2098,7 @@ func NewWorkspaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStor
 	return &workspaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore}
 }
 
-func (s *workspaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBindingObj{} }
+func (s *workspaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
 
 // +openapi:summary=获取工作空间级角色绑定列表
 func (s *workspaceRoleBindingStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
@@ -2107,9 +2116,9 @@ func (s *workspaceRoleBindingStorage) List(ctx context.Context, options *rest.Li
 
 // +openapi:summary=创建工作空间级角色绑定
 func (s *workspaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
-	rb, ok := obj.(*RoleBindingObj)
+	rb, ok := obj.(*RoleBinding)
 	if !ok {
-		return nil, fmt.Errorf("expected *RoleBindingObj, got %T", obj)
+		return nil, fmt.Errorf("expected *RoleBinding, got %T", obj)
 	}
 
 	if errs := ValidateRoleBindingCreate(&rb.Spec); errs.HasErrors() {
@@ -2188,6 +2197,8 @@ func (s *workspaceRoleBindingStorage) Delete(ctx context.Context, options *rest.
 
 // ===== namespaceRoleBindingStorage 项目级角色绑定 =====
 
+// +openapi:resource=RoleBinding
+// +openapi:path=/workspaces/{workspaceId}/namespaces/{namespaceId}/rolebindings
 type namespaceRoleBindingStorage struct {
 	rbStore   RoleBindingStore
 	roleStore RoleStore
@@ -2199,7 +2210,7 @@ func NewNamespaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStor
 	return &namespaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore, nsStore: nsStore}
 }
 
-func (s *namespaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBindingObj{} }
+func (s *namespaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
 
 // +openapi:summary=获取项目级角色绑定列表
 func (s *namespaceRoleBindingStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
@@ -2217,9 +2228,9 @@ func (s *namespaceRoleBindingStorage) List(ctx context.Context, options *rest.Li
 
 // +openapi:summary=创建项目级角色绑定
 func (s *namespaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
-	rb, ok := obj.(*RoleBindingObj)
+	rb, ok := obj.(*RoleBinding)
 	if !ok {
-		return nil, fmt.Errorf("expected *RoleBindingObj, got %T", obj)
+		return nil, fmt.Errorf("expected *RoleBinding, got %T", obj)
 	}
 
 	if errs := ValidateRoleBindingCreate(&rb.Spec); errs.HasErrors() {
@@ -2305,7 +2316,7 @@ func (s *namespaceRoleBindingStorage) Delete(ctx context.Context, options *rest.
 }
 
 // roleBindingToAPI converts a DBRoleBinding to the API type with optional display info.
-func roleBindingToAPI(rb *DBRoleBinding, username, userDisplayName, roleName, roleDisplayName string) *RoleBindingObj {
+func roleBindingToAPI(rb *DBRoleBinding, username, userDisplayName, roleName, roleDisplayName string) *RoleBinding {
 	var wsID, nsID *string
 	if rb.WorkspaceID != nil {
 		s := strconv.FormatInt(*rb.WorkspaceID, 10)
@@ -2315,7 +2326,7 @@ func roleBindingToAPI(rb *DBRoleBinding, username, userDisplayName, roleName, ro
 		s := strconv.FormatInt(*rb.NamespaceID, 10)
 		nsID = &s
 	}
-	return &RoleBindingObj{
+	return &RoleBinding{
 		TypeMeta: runtime.TypeMeta{Kind: "RoleBinding"},
 		ObjectMeta: types.ObjectMeta{
 			ID:        strconv.FormatInt(rb.ID, 10),
@@ -2336,12 +2347,12 @@ func roleBindingToAPI(rb *DBRoleBinding, username, userDisplayName, roleName, ro
 	}
 }
 
-func roleBindingWithDetailsToAPI(rb *DBRoleBindingWithDetails) *RoleBindingObj {
+func roleBindingWithDetailsToAPI(rb *DBRoleBindingWithDetails) *RoleBinding {
 	return roleBindingToAPI(&rb.RoleBinding, rb.Username, rb.UserDisplayName, rb.RoleName, rb.RoleDisplayName)
 }
 
 func roleBindingListToAPI(result *db.ListResult[DBRoleBindingWithDetails]) *RoleBindingList {
-	items := make([]RoleBindingObj, len(result.Items))
+	items := make([]RoleBinding, len(result.Items))
 	for i, item := range result.Items {
 		items[i] = *roleBindingWithDetailsToAPI(&item)
 	}

@@ -10,6 +10,12 @@ tags:
     description: 工作空间管理：工作空间是平台的顶层租户/组织单元，包含多个项目（Namespace）和成员。创建工作空间时会自动创建默认项目并将创建者设为所有者。
   - name: Namespace
     description: 项目管理：项目（Namespace）是工作空间下的子单元，用于组织团队和资源。项目归属于某个工作空间，拥有独立的成员列表。添加项目成员时会自动将其加入父工作空间。
+  - name: Permission
+    description: 权限管理：权限由路由自动注册，表示一个 API 操作（如 iam:users:list）。
+  - name: Role
+    description: 角色管理：角色定义了一组权限规则，可绑定到用户。支持内置角色和自定义角色。
+  - name: RoleBinding
+    description: 角色绑定：将用户与角色在特定作用域（平台/工作空间/项目）下关联。
   - name: OIDC
 paths:
   /.well-known/jwks.json:
@@ -40,163 +46,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OIDCDiscoveryResponse'
-  /api/iam/v1/namespaces:
+  /api/iam/v1/namespaces/{namespaceId}/roles:
     get:
-      summary: 获取项目列表
-      operationId: listNamespace
+      summary: 获取角色列表
+      operationId: listNamespaceRole
       tags:
-        - Namespace
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NamespaceList'
-    post:
-      summary: 创建项目
-      operationId: createNamespace
-      tags:
-        - Namespace
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Namespace'
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Namespace'
-    delete:
-      summary: 批量删除项目
-      operationId: deleteCollectionNamespace
-      tags:
-        - Namespace
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ids:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        "200":
-          description: OK
-  /api/iam/v1/namespaces/{namespaceId}:
-    get:
-      summary: 获取项目详情
-      operationId: getNamespace
-      tags:
-        - Namespace
-      parameters:
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Namespace'
-    put:
-      summary: 更新项目信息（全量）
-      operationId: updateNamespace
-      tags:
-        - Namespace
-      parameters:
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Namespace'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Namespace'
-    patch:
-      summary: 更新项目信息（部分）
-      operationId: patchNamespace
-      tags:
-        - Namespace
-      parameters:
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Namespace'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Namespace'
-    delete:
-      summary: 删除项目
-      operationId: deleteNamespace
-      tags:
-        - Namespace
-      parameters:
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-  /api/iam/v1/namespaces/{namespaceId}/users:
-    get:
-      summary: 获取项目成员列表
-      operationId: listNamespaceUser
-      tags:
-        - User
+        - Role
       parameters:
         - name: namespaceId
           in: path
@@ -228,12 +83,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserList'
+                $ref: '#/components/schemas/RoleList'
     post:
-      summary: 批量添加项目成员
-      operationId: createNamespaceUser
+      summary: 创建角色
+      operationId: createNamespaceRole
       tags:
-        - User
+        - Role
       parameters:
         - name: namespaceId
           in: path
@@ -245,19 +100,19 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/User'
+              $ref: '#/components/schemas/Role'
       responses:
         "201":
           description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/Role'
     delete:
-      summary: 批量移除项目成员
-      operationId: deleteCollectionNamespaceUser
+      summary: Batch delete roles
+      operationId: deleteCollectionNamespaceRole
       tags:
-        - User
+        - Role
       parameters:
         - name: namespaceId
           in: path
@@ -278,19 +133,19 @@ paths:
       responses:
         "200":
           description: OK
-  /api/iam/v1/namespaces/{namespaceId}/users/{userId}:
+  /api/iam/v1/namespaces/{namespaceId}/roles/{roleId}:
     get:
-      summary: 获取用户详情
-      operationId: getNamespaceUser
+      summary: 获取角色详情
+      operationId: getNamespaceRole
       tags:
-        - User
+        - Role
       parameters:
         - name: namespaceId
           in: path
           required: true
           schema:
             type: string
-        - name: userId
+        - name: roleId
           in: path
           required: true
           schema:
@@ -301,19 +156,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/Role'
     put:
-      summary: 更新用户信息（全量）
-      operationId: updateNamespaceUser
+      summary: 更新角色
+      operationId: updateNamespaceRole
       tags:
-        - User
+        - Role
       parameters:
         - name: namespaceId
           in: path
           required: true
           schema:
             type: string
-        - name: userId
+        - name: roleId
           in: path
           required: true
           schema:
@@ -323,26 +178,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/User'
+              $ref: '#/components/schemas/Role'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/Role'
     patch:
-      summary: 更新用户信息（部分）
-      operationId: patchNamespaceUser
+      summary: Patch a Role
+      operationId: patchNamespaceRole
       tags:
-        - User
+        - Role
       parameters:
         - name: namespaceId
           in: path
           required: true
           schema:
             type: string
-        - name: userId
+        - name: roleId
           in: path
           required: true
           schema:
@@ -352,26 +207,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/User'
+              $ref: '#/components/schemas/Role'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/Role'
     delete:
-      summary: 删除用户
-      operationId: deleteNamespaceUser
+      summary: 删除角色
+      operationId: deleteNamespaceRole
       tags:
-        - User
+        - Role
       parameters:
         - name: namespaceId
           in: path
           required: true
           schema:
             type: string
-        - name: userId
+        - name: roleId
           in: path
           required: true
           schema:
@@ -379,19 +234,102 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/iam/v1/namespaces/{namespaceId}/users/{userId}/change-password:
-    post:
-      summary: 修改用户密码
-      operationId: changePasswordNamespaceUser
+  /api/iam/v1/permissions:
+    get:
+      summary: 获取权限列表
+      operationId: listPermission
       tags:
-        - User
+        - Permission
       parameters:
-        - name: namespaceId
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionList'
+    post:
+      summary: Create a Permission
+      operationId: createPermission
+      tags:
+        - Permission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Permission'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permission'
+    delete:
+      summary: Batch delete permissions
+      operationId: deleteCollectionPermission
+      tags:
+        - Permission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/iam/v1/permissions/{permissionId}:
+    get:
+      summary: Get a Permission
+      operationId: getPermission
+      tags:
+        - Permission
+      parameters:
+        - name: permissionId
           in: path
           required: true
           schema:
             type: string
-        - name: userId
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permission'
+    put:
+      summary: Update a Permission
+      operationId: updatePermission
+      tags:
+        - Permission
+      parameters:
+        - name: permissionId
           in: path
           required: true
           schema:
@@ -401,10 +339,354 @@ paths:
         content:
           application/json:
             schema:
-              type: object
+              $ref: '#/components/schemas/Permission'
       responses:
         "200":
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permission'
+    patch:
+      summary: Patch a Permission
+      operationId: patchPermission
+      tags:
+        - Permission
+      parameters:
+        - name: permissionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Permission'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permission'
+    delete:
+      summary: Delete a Permission
+      operationId: deletePermission
+      tags:
+        - Permission
+      parameters:
+        - name: permissionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/iam/v1/rolebindings:
+    get:
+      summary: 获取平台级角色绑定列表
+      operationId: listRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBindingList'
+    post:
+      summary: 创建平台级角色绑定
+      operationId: createRoleBinding
+      tags:
+        - RoleBinding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleBinding'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    delete:
+      summary: Batch delete rolebindings
+      operationId: deleteCollectionRoleBinding
+      tags:
+        - RoleBinding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/iam/v1/rolebindings/{rolebindingId}:
+    get:
+      summary: Get a RoleBinding
+      operationId: getRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    put:
+      summary: Update a RoleBinding
+      operationId: updateRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleBinding'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    patch:
+      summary: Patch a RoleBinding
+      operationId: patchRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleBinding'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    delete:
+      summary: 删除平台级角色绑定
+      operationId: deleteRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/iam/v1/roles:
+    get:
+      summary: 获取角色列表
+      operationId: listRole
+      tags:
+        - Role
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleList'
+    post:
+      summary: 创建角色
+      operationId: createRole
+      tags:
+        - Role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+    delete:
+      summary: Batch delete roles
+      operationId: deleteCollectionRole
+      tags:
+        - Role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/iam/v1/roles/{roleId}:
+    get:
+      summary: 获取角色详情
+      operationId: getRole
+      tags:
+        - Role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+    put:
+      summary: 更新角色
+      operationId: updateRole
+      tags:
+        - Role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+    patch:
+      summary: Patch a Role
+      operationId: patchRole
+      tags:
+        - Role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+    delete:
+      summary: 删除角色
+      operationId: deleteRole
+      tags:
+        - Role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
   /api/iam/v1/users:
     get:
       summary: 获取用户列表
@@ -615,6 +897,82 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NamespaceList'
+  /api/iam/v1/users/{userId}:permissions:
+    get:
+      summary: 获取用户的权限视图
+      operationId: listPermissionsUser
+      tags:
+        - User
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPermissions'
+  /api/iam/v1/users/{userId}:rolebindings:
+    get:
+      summary: 获取用户的角色绑定列表
+      operationId: listRolebindingsUser
+      tags:
+        - User
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBindingList'
   /api/iam/v1/users/{userId}:workspaces:
     get:
       summary: 获取用户关联的工作空间列表
@@ -992,6 +1350,255 @@ paths:
       responses:
         "204":
           description: No Content
+  /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/rolebindings:
+    get:
+      summary: 获取项目级角色绑定列表
+      operationId: listWorkspaceNamespaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBindingList'
+    post:
+      summary: 创建项目级角色绑定
+      operationId: createWorkspaceNamespaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleBinding'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    delete:
+      summary: Batch delete rolebindings
+      operationId: deleteCollectionWorkspaceNamespaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/rolebindings/{rolebindingId}:
+    get:
+      summary: Get a RoleBinding
+      operationId: getWorkspaceNamespaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    put:
+      summary: Update a RoleBinding
+      operationId: updateWorkspaceNamespaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleBinding'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    patch:
+      summary: Patch a RoleBinding
+      operationId: patchWorkspaceNamespaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleBinding'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    delete:
+      summary: 删除项目级角色绑定
+      operationId: deleteWorkspaceNamespaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/transfer-ownership:
+    post:
+      summary: 转移项目所有权
+      operationId: transferOwnershipWorkspaceNamespace
+      tags:
+        - Namespace
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
   /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users:
     get:
       summary: 获取工作空间下项目的成员列表
@@ -1233,6 +1840,403 @@ paths:
           schema:
             type: string
         - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/iam/v1/workspaces/{workspaceId}/rolebindings:
+    get:
+      summary: 获取工作空间级角色绑定列表
+      operationId: listWorkspaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBindingList'
+    post:
+      summary: 创建工作空间级角色绑定
+      operationId: createWorkspaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleBinding'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    delete:
+      summary: Batch delete rolebindings
+      operationId: deleteCollectionWorkspaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/iam/v1/workspaces/{workspaceId}/rolebindings/{rolebindingId}:
+    get:
+      summary: Get a RoleBinding
+      operationId: getWorkspaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    put:
+      summary: Update a RoleBinding
+      operationId: updateWorkspaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleBinding'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    patch:
+      summary: Patch a RoleBinding
+      operationId: patchWorkspaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleBinding'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleBinding'
+    delete:
+      summary: 删除工作空间级角色绑定
+      operationId: deleteWorkspaceRoleBinding
+      tags:
+        - RoleBinding
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: rolebindingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/iam/v1/workspaces/{workspaceId}/roles:
+    get:
+      summary: 获取角色列表
+      operationId: listWorkspaceRole
+      tags:
+        - Role
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleList'
+    post:
+      summary: 创建角色
+      operationId: createWorkspaceRole
+      tags:
+        - Role
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+    delete:
+      summary: Batch delete roles
+      operationId: deleteCollectionWorkspaceRole
+      tags:
+        - Role
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/iam/v1/workspaces/{workspaceId}/roles/{roleId}:
+    get:
+      summary: 获取角色详情
+      operationId: getWorkspaceRole
+      tags:
+        - Role
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+    put:
+      summary: 更新角色
+      operationId: updateWorkspaceRole
+      tags:
+        - Role
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+    patch:
+      summary: Patch a Role
+      operationId: patchWorkspaceRole
+      tags:
+        - Role
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+    delete:
+      summary: 删除角色
+      operationId: deleteWorkspaceRole
+      tags:
+        - Role
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/iam/v1/workspaces/{workspaceId}/transfer-ownership:
+    post:
+      summary: 转移工作空间所有权
+      operationId: transferOwnershipWorkspace
+      tags:
+        - Workspace
+      parameters:
+        - name: workspaceId
           in: path
           required: true
           schema:
@@ -1578,6 +2582,22 @@ components:
         totalCount:
           type: integer
           format: int64
+    NamespaceScopePerms:
+      type: object
+      properties:
+        permissions:
+          type: array
+          description: 展开后的权限码列表
+          items:
+            type: string
+        roleNames:
+          type: array
+          description: 角色名称列表
+          items:
+            type: string
+        workspaceId:
+          type: string
+          description: 所属工作空间 ID
     NamespaceSpec:
       type: object
       properties:
@@ -1607,6 +2627,9 @@ components:
         role:
           type: string
           description: 当前用户在此项目的角色（仅 custom verb 查询时返回）
+        roleDisplayName:
+          type: string
+          description: 当前用户在此项目的角色显示名称（仅 custom verb 查询时返回）
         status:
           type: string
           description: 项目状态
@@ -1797,6 +2820,141 @@ components:
           description: 用户唯一标识
       required:
         - sub
+    Permission:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/PermissionSpec'
+    PermissionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+        totalCount:
+          type: integer
+          format: int64
+    PermissionSpec:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 权限标识码，如 iam:users:list，首段为模块名
+        description:
+          type: string
+          description: 权限描述
+        method:
+          type: string
+          description: HTTP 方法
+        path:
+          type: string
+          description: API 路径
+      required:
+        - code
+        - method
+        - path
+    Role:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/RoleSpec'
+    RoleBinding:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/RoleBindingSpec'
+    RoleBindingList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleBinding'
+        totalCount:
+          type: integer
+          format: int64
+    RoleBindingSpec:
+      type: object
+      properties:
+        isOwner:
+          type: boolean
+          description: 是否为资源所有者
+        namespaceId:
+          type: string
+          description: 项目 ID（namespace scope 时必填）
+        roleDisplayName:
+          type: string
+          description: 角色显示名称（只读）
+        roleId:
+          type: string
+          description: 角色 ID
+        roleName:
+          type: string
+          description: 角色名称（只读）
+        scope:
+          type: string
+          description: 绑定作用域
+          enum:
+            - platform
+            - workspace
+            - namespace
+        userDisplayName:
+          type: string
+          description: 用户显示名称（只读）
+        userId:
+          type: string
+          description: 用户 ID
+        username:
+          type: string
+          description: 用户名（只读）
+        workspaceId:
+          type: string
+          description: 工作空间 ID（workspace/namespace scope 时必填）
+      required:
+        - userId
+        - roleId
+        - scope
+    RoleList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+        totalCount:
+          type: integer
+          format: int64
+    RoleSpec:
+      type: object
+      properties:
+        builtin:
+          type: boolean
+          description: 是否为内置角色（只读）
+        description:
+          type: string
+          description: 角色描述
+        displayName:
+          type: string
+          description: 角色显示名称
+        name:
+          type: string
+          description: 角色唯一名称，如 platform-admin
+        rules:
+          type: array
+          description: 权限规则列表，支持精确码和通配符模式（如 *:*、iam:*、iam:users:list）
+          items:
+            type: string
+        scope:
+          type: string
+          description: 角色作用域
+          enum:
+            - platform
+            - workspace
+            - namespace
+      required:
+        - name
+        - scope
     User:
       type: object
       properties:
@@ -1812,6 +2970,28 @@ components:
         totalCount:
           type: integer
           format: int64
+    UserPermissions:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/UserPermissionsSpec'
+    UserPermissionsSpec:
+      type: object
+      properties:
+        isPlatformAdmin:
+          type: boolean
+          description: 是否为平台管理员
+        namespaces:
+          type: object
+          description: 项目级权限（key 为 namespaceId）
+        platform:
+          type: array
+          description: 平台级权限码列表
+          items:
+            type: string
+        workspaces:
+          type: object
+          description: 工作空间级权限（key 为 workspaceId）
     UserSpec:
       type: object
       properties:
@@ -1865,6 +3045,19 @@ components:
         totalCount:
           type: integer
           format: int64
+    WorkspaceScopePerms:
+      type: object
+      properties:
+        permissions:
+          type: array
+          description: 展开后的权限码列表
+          items:
+            type: string
+        roleNames:
+          type: array
+          description: 角色名称列表
+          items:
+            type: string
     WorkspaceSpec:
       type: object
       properties:
@@ -1894,6 +3087,9 @@ components:
         role:
           type: string
           description: 当前用户在此工作空间的角色（仅 custom verb 查询时返回）
+        roleDisplayName:
+          type: string
+          description: 当前用户在此工作空间的角色显示名称（仅 custom verb 查询时返回）
         status:
           type: string
           description: 工作空间状态
@@ -1908,4 +3104,7 @@ x-tagGroups:
       - User
       - Workspace
       - Namespace
+      - Permission
+      - Role
+      - RoleBinding
       - OIDC
