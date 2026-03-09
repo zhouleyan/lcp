@@ -412,9 +412,15 @@ func (s *pgRoleBindingStore) TransferOwnership(ctx context.Context, scope string
 		return 0, fmt.Errorf("clear current ownership: %w", err)
 	}
 
-	// 5. Look up admin role ID
+	// 5. Look up admin role ID (scoped to workspace or namespace)
 	var adminRoleID int64
-	if err := tx.QueryRow(ctx, "SELECT id FROM roles WHERE name = $1", adminRoleName).Scan(&adminRoleID); err != nil {
+	var adminRoleQuery string
+	if scope == "workspace" {
+		adminRoleQuery = "SELECT id FROM roles WHERE name = $1 AND workspace_id = $2"
+	} else {
+		adminRoleQuery = "SELECT id FROM roles WHERE name = $1 AND namespace_id = $2"
+	}
+	if err := tx.QueryRow(ctx, adminRoleQuery, adminRoleName, resourceID).Scan(&adminRoleID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, fmt.Errorf("admin role %q not found", adminRoleName)
 		}
@@ -456,16 +462,19 @@ func (s *pgRoleBindingStore) TransferOwnership(ctx context.Context, scope string
 }
 
 func (s *pgRoleBindingStore) AddWorkspaceMember(ctx context.Context, userID, workspaceID int64) error {
-	viewerRole, err := s.queries.GetRoleByName(ctx, iam.RoleWorkspaceViewer)
+	wsIDPtr := &workspaceID
+	viewerRole, err := s.queries.GetRoleByNameAndWorkspace(ctx, generated.GetRoleByNameAndWorkspaceParams{
+		Name:        iam.RoleWorkspaceViewer,
+		WorkspaceID: wsIDPtr,
+	})
 	if err != nil {
 		return fmt.Errorf("get workspace-viewer role: %w", err)
 	}
-	wsID := &workspaceID
 	if err := s.queries.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
 		UserID:      userID,
 		RoleID:      viewerRole.ID,
 		Scope:       "workspace",
-		WorkspaceID: wsID,
+		WorkspaceID: wsIDPtr,
 	}); err != nil {
 		return fmt.Errorf("add workspace member: %w", err)
 	}
@@ -490,17 +499,24 @@ func (s *pgRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, nam
 		return fmt.Errorf("get namespace workspace: %w", err)
 	}
 
-	wsViewerRole, err := qtx.GetRoleByName(ctx, iam.RoleWorkspaceViewer)
+	wsIDPtr := &wsID
+	wsViewerRole, err := qtx.GetRoleByNameAndWorkspace(ctx, generated.GetRoleByNameAndWorkspaceParams{
+		Name:        iam.RoleWorkspaceViewer,
+		WorkspaceID: wsIDPtr,
+	})
 	if err != nil {
 		return fmt.Errorf("get workspace-viewer role: %w", err)
 	}
-	nsViewerRole, err := qtx.GetRoleByName(ctx, iam.RoleNamespaceViewer)
+	nsIDPtr := &namespaceID
+	nsViewerRole, err := qtx.GetRoleByNameAndNamespace(ctx, generated.GetRoleByNameAndNamespaceParams{
+		Name:        iam.RoleNamespaceViewer,
+		NamespaceID: nsIDPtr,
+	})
 	if err != nil {
 		return fmt.Errorf("get namespace-viewer role: %w", err)
 	}
 
 	// Auto-add to workspace
-	wsIDPtr := &wsID
 	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
 		UserID:      userID,
 		RoleID:      wsViewerRole.ID,
@@ -511,7 +527,6 @@ func (s *pgRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, nam
 	}
 
 	// Add to namespace
-	nsIDPtr := &namespaceID
 	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
 		UserID:      userID,
 		RoleID:      nsViewerRole.ID,
