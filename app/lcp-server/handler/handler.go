@@ -1,15 +1,25 @@
 package handler
 
 import (
+	"io/fs"
 	"net/http"
+	"path"
 	"strings"
 
-	"lcp.io/lcp/lib/rest/filters"
 	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/oidc"
 	"lcp.io/lcp/lib/rest"
+	"lcp.io/lcp/lib/rest/filters"
 	"lcp.io/lcp/lib/runtime"
+	"lcp.io/lcp/pkg/apis/iam"
 )
+
+// APIServerConfig holds the configuration for creating an API server handler.
+type APIServerConfig struct {
+	Name         string
+	OIDCProvider *oidc.Provider
+	Authorizer   *filters.Authorizer // nil = no authorization
+}
 
 // APIServerHandler holds the different http.Handlers used by the API server.
 type APIServerHandler struct {
@@ -21,15 +31,18 @@ type APIServerHandler struct {
 	groups     []*rest.APIGroupInfo
 }
 
-func NewAPIServerHandler(name string, oidcProvider *oidc.Provider, groups ...*rest.APIGroupInfo) (*APIServerHandler, error) {
+func NewAPIServerHandler(
+	cfg APIServerConfig,
+	groups ...*rest.APIGroupInfo,
+) (*APIServerHandler, error) {
 	container := rest.NewContainer()
 
 	director := director{
-		name:      name,
+		name:      cfg.Name,
 		container: container,
 	}
 	a := &APIServerHandler{
-		FullHandlerChain:   DefaultChainBuilder(director, oidcProvider),
+		FullHandlerChain:   buildChain(director, cfg),
 		GoRestfulContainer: container,
 		Director:           director,
 		serializer:         runtime.NewCodecFactory(),
@@ -43,11 +56,6 @@ func NewAPIServerHandler(name string, oidcProvider *oidc.Provider, groups ...*re
 	return a, nil
 }
 
-func (a *APIServerHandler) RequestHandler(w http.ResponseWriter, r *http.Request) bool {
-	a.ServeHTTP(w, r)
-	return true
-}
-
 func (a *APIServerHandler) InstallAPIs() error {
 	logger.Infof("installing lcp-server APIs...")
 	return rest.InstallAPIGroups(a.GoRestfulContainer, a.serializer, a.groups...)
@@ -58,8 +66,56 @@ func (a *APIServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.FullHandlerChain.ServeHTTP(w, r)
 }
 
-// ChainBuilderFn is used to wrap the API handler using provided handler chain.
-type ChainBuilderFn func(apiHandler http.Handler) http.Handler
+// RootHandlerConfig holds the components needed by the top-level request router.
+type RootHandlerConfig struct {
+	APIHandler   *APIServerHandler
+	OIDCProvider *oidc.Provider
+	OpenAPISpec  []byte
+	FrontendFS   fs.FS
+}
+
+// NewRootHandler creates the top-level request handler that routes between
+// OIDC public endpoints, OpenAPI spec, API handler, and frontend static files.
+func NewRootHandler(cfg RootHandlerConfig) func(http.ResponseWriter, *http.Request) bool {
+	var oidcMux http.Handler
+	if cfg.OIDCProvider != nil {
+		oidcMux = iam.NewOIDCMux(cfg.OIDCProvider)
+	}
+
+	var staticHandler http.Handler
+	if cfg.FrontendFS != nil {
+		staticHandler = http.FileServer(http.FS(cfg.FrontendFS))
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) bool {
+		urlPath := r.URL.Path
+
+		// Route OIDC endpoints to public mux (no auth middleware)
+		if oidcMux != nil && (strings.HasPrefix(urlPath, "/.well-known/") || strings.HasPrefix(urlPath, "/oidc/")) {
+			oidcMux.ServeHTTP(w, r)
+			return true
+		}
+
+		// Serve OpenAPI spec (no auth)
+		if urlPath == "/docs/openapi.json" && cfg.OpenAPISpec != nil {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(cfg.OpenAPISpec)
+			return true
+		}
+
+		// API requests go through the API handler (with auth middleware)
+		if strings.HasPrefix(urlPath, "/api/") {
+			cfg.APIHandler.ServeHTTP(w, r)
+			return true
+		}
+
+		// Serve frontend static files; fallback to index.html for SPA routes
+		if staticHandler != nil {
+			serveFrontend(w, r, cfg.FrontendFS, staticHandler)
+		}
+		return true
+	}
+}
 
 type director struct {
 	name      string
@@ -67,17 +123,17 @@ type director struct {
 }
 
 func (d director) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
+	p := r.URL.Path
 
 	for _, ws := range d.container.RegisteredWebServices() {
 		switch {
 		case ws.RootPath() == "/apis":
-			if path == "/apis" || path == "/apis/" {
+			if p == "/apis" || p == "/apis/" {
 				d.container.Dispatch(w, r)
 				return
 			}
-		case strings.HasPrefix(path, ws.RootPath()):
-			if len(path) == len(ws.RootPath()) || path[len(ws.RootPath())] == '/' {
+		case strings.HasPrefix(p, ws.RootPath()):
+			if len(p) == len(ws.RootPath()) || p[len(ws.RootPath())] == '/' {
 				d.container.Dispatch(w, r)
 				return
 			}
@@ -85,11 +141,41 @@ func (d director) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func DefaultChainBuilder(apiHandler http.Handler, oidcProvider *oidc.Provider) http.Handler {
+// buildChain assembles the middleware chain from APIServerConfig.
+// Order (innermost → outermost): director → WithAuthorization → WithRequestInfo → WithAuthentication → WithRequestLog
+func buildChain(apiHandler http.Handler, cfg APIServerConfig) http.Handler {
 	handler := apiHandler
-	if oidcProvider != nil {
-		handler = filters.WithAuthentication(oidcProvider)(handler)
+	if authz := cfg.Authorizer; authz != nil {
+		if authz.Lookup != nil && authz.Checker != nil {
+			handler = filters.WithAuthorization(authz.Lookup, authz.Checker)(handler)
+		}
+		if authz.NSResolver != nil {
+			handler = filters.WithRequestInfo(authz.NSResolver)(handler)
+		}
+	}
+	if cfg.OIDCProvider != nil {
+		handler = filters.WithAuthentication(cfg.OIDCProvider)(handler)
 	}
 	handler = filters.WithRequestLog(handler)
 	return handler
+}
+
+// serveFrontend serves static files from the embedded frontend.
+// If the requested file exists, it is served directly.
+// Otherwise, index.html is served to support SPA client-side routing.
+func serveFrontend(w http.ResponseWriter, r *http.Request, distFS fs.FS, staticHandler http.Handler) {
+	filePath := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+	if filePath == "" {
+		filePath = "index.html"
+	}
+
+	if f, err := distFS.Open(filePath); err == nil {
+		_ = f.Close()
+		staticHandler.ServeHTTP(w, r)
+		return
+	}
+
+	// SPA fallback: serve index.html for all non-file routes
+	r.URL.Path = "/"
+	staticHandler.ServeHTTP(w, r)
 }

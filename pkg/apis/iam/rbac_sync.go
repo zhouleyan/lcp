@@ -83,6 +83,22 @@ func SyncPermissions(ctx context.Context, permStore PermissionStore, apiGroups [
 	return lookup, nil
 }
 
+// BuildPermissionLookup derives a PermissionLookup from API group definitions.
+// Pure function — no DB access, no side effects.
+func BuildPermissionLookup(apiGroups []*rest.APIGroupInfo) PermissionLookup {
+	lookup := make(PermissionLookup)
+	for _, group := range apiGroups {
+		module := group.GroupName
+		if module == "" {
+			module = "core"
+		}
+		entries := collectStorageEntries(group.Resources, nil, nil)
+		canonical := canonicalize(entries)
+		buildLookup(lookup, entries, canonical, module)
+	}
+	return lookup
+}
+
 // collectStorageEntries recursively walks the resource tree and collects storage entries.
 func collectStorageEntries(resources []rest.ResourceInfo, parentCodeParts, parentPathParts []string) []storageEntry {
 	var entries []storageEntry

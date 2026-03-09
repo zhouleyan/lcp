@@ -18,7 +18,6 @@ type Stores struct {
 // Downstream code (e.g. v1/install.go) accesses stores via exported fields.
 type RESTStorageProvider struct {
 	Stores
-	PermissionLookup PermissionLookup
 }
 
 // NewRESTStorageProvider creates a RESTStorageProvider from a Stores struct.

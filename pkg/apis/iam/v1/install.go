@@ -16,23 +16,23 @@ type ModuleResult struct {
 }
 
 // NewIAMModule initializes the IAM module: builds the API group,
-// syncs permissions, and seeds built-in roles.
+// syncs permissions to DB, and seeds built-in roles.
 func NewIAMModule(ctx context.Context, database *db.DB) ModuleResult {
 	group, p := newAPIGroupInfo(database)
 
-	// Sync permissions
-	lookup, err := iam.SyncPermissions(ctx, p.Permission, []*rest.APIGroupInfo{group})
-	if err != nil {
+	// Sync permissions to DB
+	if _, err := iam.SyncPermissions(ctx, p.Permission, []*rest.APIGroupInfo{group}); err != nil {
 		logger.Fatalf("cannot sync IAM permissions: %v", err)
 	}
-	p.PermissionLookup = lookup
 
 	// Seed built-in roles, permission rules, and initial bindings
 	if err := iam.SeedRBAC(ctx, p.Role); err != nil {
 		logger.Fatalf("cannot seed RBAC: %v", err)
 	}
 
-	return ModuleResult{Group: group}
+	return ModuleResult{
+		Group: group,
+	}
 }
 
 // newAPIGroupInfo initializes the full IAM storage stack and builds the API group.

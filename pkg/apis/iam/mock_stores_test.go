@@ -240,6 +240,56 @@ func (m *mockUserNamespaceStore) ListByNamespaceID(ctx context.Context, namespac
 	return m.ListByNamespaceIDFn(ctx, namespaceID, query)
 }
 
+// mockRoleBindingStore provides a minimal mock for RoleBindingStore,
+// implementing only the methods used by RBACChecker.
+type mockRoleBindingStore struct {
+	LoadUserPermissionRulesFn    func(ctx context.Context, userID int64) ([]UserPermissionRuleRow, error)
+	GetAccessibleWorkspaceIDsFn  func(ctx context.Context, userID int64) ([]int64, error)
+	GetAccessibleNamespaceIDsFn  func(ctx context.Context, userID int64) ([]int64, error)
+	GetUserRoleBindingsWithRulesFn func(ctx context.Context, userID int64) ([]UserRoleBindingWithRules, error)
+}
+
+func (m *mockRoleBindingStore) LoadUserPermissionRules(ctx context.Context, userID int64) ([]UserPermissionRuleRow, error) {
+	return m.LoadUserPermissionRulesFn(ctx, userID)
+}
+func (m *mockRoleBindingStore) GetAccessibleWorkspaceIDs(ctx context.Context, userID int64) ([]int64, error) {
+	return m.GetAccessibleWorkspaceIDsFn(ctx, userID)
+}
+func (m *mockRoleBindingStore) GetAccessibleNamespaceIDs(ctx context.Context, userID int64) ([]int64, error) {
+	return m.GetAccessibleNamespaceIDsFn(ctx, userID)
+}
+func (m *mockRoleBindingStore) GetUserRoleBindingsWithRules(ctx context.Context, userID int64) ([]UserRoleBindingWithRules, error) {
+	return m.GetUserRoleBindingsWithRulesFn(ctx, userID)
+}
+func (m *mockRoleBindingStore) Create(context.Context, *DBRoleBinding) (*DBRoleBinding, error) {
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) Delete(context.Context, int64) error { panic("not implemented") }
+func (m *mockRoleBindingStore) GetByID(context.Context, int64) (*DBRoleBinding, error) {
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) ListPlatform(context.Context, db.ListQuery) (*db.ListResult[DBRoleBindingWithDetails], error) {
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) ListByWorkspaceID(context.Context, int64, db.ListQuery) (*db.ListResult[DBRoleBindingWithDetails], error) {
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) ListByNamespaceID(context.Context, int64, db.ListQuery) (*db.ListResult[DBRoleBindingWithDetails], error) {
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) ListByUserID(context.Context, int64, db.ListQuery) (*db.ListResult[DBRoleBindingWithDetails], error) {
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) CountByRoleAndScope(context.Context, int64, string) (int64, error) {
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) GetUserIDsByWorkspaceID(context.Context, int64) ([]int64, error) {
+	panic("not implemented")
+}
+func (m *mockRoleBindingStore) GetUserIDsByNamespaceID(context.Context, int64) ([]int64, error) {
+	panic("not implemented")
+}
+
 // --- Test data helpers ---
 
 var testTime = time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
