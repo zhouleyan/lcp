@@ -23,15 +23,14 @@ type PermissionChecker interface {
 	InvalidateCacheAll()
 }
 
-// RBACChecker implements PermissionChecker using a TTL cache backed by RoleBindingStore.
+// RBACChecker implements PermissionChecker using the shared permission cache backed by RoleBindingStore.
 type RBACChecker struct {
 	rbStore RoleBindingStore
-	cache   *PermissionCache
 }
 
-// NewRBACChecker creates a new checker with the given store and cache.
-func NewRBACChecker(rbStore RoleBindingStore, cache *PermissionCache) *RBACChecker {
-	return &RBACChecker{rbStore: rbStore, cache: cache}
+// NewRBACChecker creates a new checker with the given store.
+func NewRBACChecker(rbStore RoleBindingStore) *RBACChecker {
+	return &RBACChecker{rbStore: rbStore}
 }
 
 func (c *RBACChecker) CheckPermission(ctx context.Context, userID int64, permCode string, scope string, workspaceID, namespaceID int64) (bool, error) {
@@ -59,23 +58,23 @@ func (c *RBACChecker) GetAccessibleNamespaceIDs(ctx context.Context, userID int6
 }
 
 func (c *RBACChecker) InvalidateCache(userID int64) {
-	c.cache.Invalidate(userID)
+	sharedPermCache.Invalidate(userID)
 }
 
 func (c *RBACChecker) InvalidateCacheAll() {
-	c.cache.InvalidateAll()
+	sharedPermCache.InvalidateAll()
 }
 
 // getOrLoad returns the cached entry for a user, loading from DB on cache miss.
 func (c *RBACChecker) getOrLoad(ctx context.Context, userID int64) (*UserPermissionEntry, error) {
-	if entry := c.cache.Get(userID); entry != nil {
+	if entry := sharedPermCache.Get(userID); entry != nil {
 		return entry, nil
 	}
 	entry, err := c.loadUserEntry(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	c.cache.Set(userID, entry)
+	sharedPermCache.Set(userID, entry)
 	return entry, nil
 }
 

@@ -1637,6 +1637,382 @@ func (s *permissionStorage) List(ctx context.Context, options *rest.ListOptions)
 	}, nil
 }
 
+// --- RoleBinding Storage (three-level) ---
+
+// ===== roleBindingStorage 平台级角色绑定 =====
+
+type roleBindingStorage struct {
+	rbStore   RoleBindingStore
+	roleStore RoleStore
+}
+
+// NewRoleBindingStorage creates a platform-level role binding REST storage.
+func NewRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore) rest.Storage {
+	return &roleBindingStorage{rbStore: rbStore, roleStore: roleStore}
+}
+
+func (s *roleBindingStorage) NewObject() runtime.Object { return &RoleBindingObj{} }
+
+// +openapi:summary=获取平台级角色绑定列表
+func (s *roleBindingStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	query := restOptionsToListQuery(options)
+	result, err := s.rbStore.ListPlatform(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	return roleBindingListToAPI(result), nil
+}
+
+// +openapi:summary=创建平台级角色绑定
+func (s *roleBindingStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	rb, ok := obj.(*RoleBindingObj)
+	if !ok {
+		return nil, fmt.Errorf("expected *RoleBindingObj, got %T", obj)
+	}
+
+	if errs := ValidateRoleBindingCreate(&rb.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	roleID, err := parseID(rb.Spec.RoleID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid role ID: %s", rb.Spec.RoleID), nil)
+	}
+	role, err := s.roleStore.GetByID(ctx, roleID)
+	if err != nil {
+		return nil, err
+	}
+	if role.Scope != "platform" {
+		return nil, apierrors.NewBadRequest("role scope must be 'platform' for platform-level bindings", nil)
+	}
+
+	userID, err := parseID(rb.Spec.UserID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", rb.Spec.UserID), nil)
+	}
+
+	if options.DryRun {
+		return rb, nil
+	}
+
+	created, err := s.rbStore.Create(ctx, &DBRoleBinding{
+		UserID: userID,
+		RoleID: roleID,
+		Scope:  "platform",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sharedPermCache.Invalidate(userID)
+
+	return roleBindingToAPI(created, "", "", role.Name, role.DisplayName), nil
+}
+
+// +openapi:summary=删除平台级角色绑定
+func (s *roleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	id := options.PathParams["rolebindingId"]
+	rbID, err := parseID(id)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid role binding ID: %s", id), nil)
+	}
+
+	existing, err := s.rbStore.GetByID(ctx, rbID)
+	if err != nil {
+		return err
+	}
+	if existing.IsOwner {
+		return apierrors.NewBadRequest("cannot delete owner role binding", nil)
+	}
+
+	if options.DryRun {
+		return nil
+	}
+
+	if err := s.rbStore.Delete(ctx, rbID); err != nil {
+		return err
+	}
+
+	sharedPermCache.Invalidate(existing.UserID)
+
+	return nil
+}
+
+// ===== workspaceRoleBindingStorage 工作空间级角色绑定 =====
+
+type workspaceRoleBindingStorage struct {
+	rbStore   RoleBindingStore
+	roleStore RoleStore
+}
+
+// NewWorkspaceRoleBindingStorage creates a workspace-level role binding REST storage.
+func NewWorkspaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore) rest.Storage {
+	return &workspaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore}
+}
+
+func (s *workspaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBindingObj{} }
+
+// +openapi:summary=获取工作空间级角色绑定列表
+func (s *workspaceRoleBindingStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	wsID, err := parseID(options.PathParams["workspaceId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid workspace ID", nil)
+	}
+	query := restOptionsToListQuery(options)
+	result, err := s.rbStore.ListByWorkspaceID(ctx, wsID, query)
+	if err != nil {
+		return nil, err
+	}
+	return roleBindingListToAPI(result), nil
+}
+
+// +openapi:summary=创建工作空间级角色绑定
+func (s *workspaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	rb, ok := obj.(*RoleBindingObj)
+	if !ok {
+		return nil, fmt.Errorf("expected *RoleBindingObj, got %T", obj)
+	}
+
+	if errs := ValidateRoleBindingCreate(&rb.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	wsID, err := parseID(options.PathParams["workspaceId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid workspace ID", nil)
+	}
+
+	roleID, err := parseID(rb.Spec.RoleID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid role ID: %s", rb.Spec.RoleID), nil)
+	}
+	role, err := s.roleStore.GetByID(ctx, roleID)
+	if err != nil {
+		return nil, err
+	}
+	if role.Scope != "workspace" {
+		return nil, apierrors.NewBadRequest("role scope must be 'workspace' for workspace-level bindings", nil)
+	}
+
+	userID, err := parseID(rb.Spec.UserID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", rb.Spec.UserID), nil)
+	}
+
+	if options.DryRun {
+		return rb, nil
+	}
+
+	created, err := s.rbStore.Create(ctx, &DBRoleBinding{
+		UserID:      userID,
+		RoleID:      roleID,
+		Scope:       "workspace",
+		WorkspaceID: &wsID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sharedPermCache.Invalidate(userID)
+
+	return roleBindingToAPI(created, "", "", role.Name, role.DisplayName), nil
+}
+
+// +openapi:summary=删除工作空间级角色绑定
+func (s *workspaceRoleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	id := options.PathParams["rolebindingId"]
+	rbID, err := parseID(id)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid role binding ID: %s", id), nil)
+	}
+
+	existing, err := s.rbStore.GetByID(ctx, rbID)
+	if err != nil {
+		return err
+	}
+	if existing.IsOwner {
+		return apierrors.NewBadRequest("cannot delete owner role binding", nil)
+	}
+
+	if options.DryRun {
+		return nil
+	}
+
+	if err := s.rbStore.Delete(ctx, rbID); err != nil {
+		return err
+	}
+
+	sharedPermCache.Invalidate(existing.UserID)
+
+	return nil
+}
+
+// ===== namespaceRoleBindingStorage 项目级角色绑定 =====
+
+type namespaceRoleBindingStorage struct {
+	rbStore   RoleBindingStore
+	roleStore RoleStore
+	nsStore   NamespaceStore
+}
+
+// NewNamespaceRoleBindingStorage creates a namespace-level role binding REST storage.
+func NewNamespaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore, nsStore NamespaceStore) rest.Storage {
+	return &namespaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore, nsStore: nsStore}
+}
+
+func (s *namespaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBindingObj{} }
+
+// +openapi:summary=获取项目级角色绑定列表
+func (s *namespaceRoleBindingStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	nsID, err := parseID(options.PathParams["namespaceId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid namespace ID", nil)
+	}
+	query := restOptionsToListQuery(options)
+	result, err := s.rbStore.ListByNamespaceID(ctx, nsID, query)
+	if err != nil {
+		return nil, err
+	}
+	return roleBindingListToAPI(result), nil
+}
+
+// +openapi:summary=创建项目级角色绑定
+func (s *namespaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	rb, ok := obj.(*RoleBindingObj)
+	if !ok {
+		return nil, fmt.Errorf("expected *RoleBindingObj, got %T", obj)
+	}
+
+	if errs := ValidateRoleBindingCreate(&rb.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	nsID, err := parseID(options.PathParams["namespaceId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid namespace ID", nil)
+	}
+
+	// Look up namespace to get workspace ID
+	ns, err := s.nsStore.GetByID(ctx, nsID)
+	if err != nil {
+		return nil, err
+	}
+	wsID := ns.WorkspaceID
+
+	roleID, err := parseID(rb.Spec.RoleID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid role ID: %s", rb.Spec.RoleID), nil)
+	}
+	role, err := s.roleStore.GetByID(ctx, roleID)
+	if err != nil {
+		return nil, err
+	}
+	if role.Scope != "namespace" {
+		return nil, apierrors.NewBadRequest("role scope must be 'namespace' for namespace-level bindings", nil)
+	}
+
+	userID, err := parseID(rb.Spec.UserID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid user ID: %s", rb.Spec.UserID), nil)
+	}
+
+	if options.DryRun {
+		return rb, nil
+	}
+
+	created, err := s.rbStore.Create(ctx, &DBRoleBinding{
+		UserID:      userID,
+		RoleID:      roleID,
+		Scope:       "namespace",
+		WorkspaceID: &wsID,
+		NamespaceID: &nsID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sharedPermCache.Invalidate(userID)
+
+	return roleBindingToAPI(created, "", "", role.Name, role.DisplayName), nil
+}
+
+// +openapi:summary=删除项目级角色绑定
+func (s *namespaceRoleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	id := options.PathParams["rolebindingId"]
+	rbID, err := parseID(id)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid role binding ID: %s", id), nil)
+	}
+
+	existing, err := s.rbStore.GetByID(ctx, rbID)
+	if err != nil {
+		return err
+	}
+	if existing.IsOwner {
+		return apierrors.NewBadRequest("cannot delete owner role binding", nil)
+	}
+
+	if options.DryRun {
+		return nil
+	}
+
+	if err := s.rbStore.Delete(ctx, rbID); err != nil {
+		return err
+	}
+
+	sharedPermCache.Invalidate(existing.UserID)
+
+	return nil
+}
+
+// roleBindingToAPI converts a DBRoleBinding to the API type with optional display info.
+func roleBindingToAPI(rb *DBRoleBinding, username, userDisplayName, roleName, roleDisplayName string) *RoleBindingObj {
+	var wsID, nsID *string
+	if rb.WorkspaceID != nil {
+		s := strconv.FormatInt(*rb.WorkspaceID, 10)
+		wsID = &s
+	}
+	if rb.NamespaceID != nil {
+		s := strconv.FormatInt(*rb.NamespaceID, 10)
+		nsID = &s
+	}
+	return &RoleBindingObj{
+		TypeMeta: runtime.TypeMeta{Kind: "RoleBinding"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(rb.ID, 10),
+			CreatedAt: &rb.CreatedAt,
+		},
+		Spec: RoleBindingSpec{
+			UserID:          strconv.FormatInt(rb.UserID, 10),
+			RoleID:          strconv.FormatInt(rb.RoleID, 10),
+			Scope:           rb.Scope,
+			WorkspaceID:     wsID,
+			NamespaceID:     nsID,
+			IsOwner:         rb.IsOwner,
+			RoleName:        roleName,
+			RoleDisplayName: roleDisplayName,
+			Username:        username,
+			UserDisplayName: userDisplayName,
+		},
+	}
+}
+
+func roleBindingWithDetailsToAPI(rb *DBRoleBindingWithDetails) *RoleBindingObj {
+	return roleBindingToAPI(&rb.RoleBinding, rb.Username, rb.UserDisplayName, rb.RoleName, rb.RoleDisplayName)
+}
+
+func roleBindingListToAPI(result *db.ListResult[DBRoleBindingWithDetails]) *RoleBindingList {
+	items := make([]RoleBindingObj, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = *roleBindingWithDetailsToAPI(&item)
+	}
+	return &RoleBindingList{
+		TypeMeta:   runtime.TypeMeta{Kind: "RoleBindingList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}
+}
+
 func permissionToAPI(p *DBPermission) *Permission {
 	return &Permission{
 		TypeMeta: runtime.TypeMeta{Kind: "Permission"},

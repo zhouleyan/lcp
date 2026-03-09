@@ -60,6 +60,14 @@ HTTP Request
           → pkg/db/generated/ (sqlc-generated queries)
 ```
 
+### Module Registration & Assembly Rules
+
+- **`apis.Result`** only contains `Groups []*rest.APIGroupInfo` — no stores, caches, authorizers, or other implementation details. `NewAPIGroupInfos` is purely for module registration.
+- **`v1.ModuleResult`** only contains `Group *rest.APIGroupInfo` — same principle at the module level.
+- **`main.go`** must not import `iam`, `iamstore`, or any internal package. It only calls `apis.*` and `handler.*` factory functions.
+- **`apis` package** is the assembly/bridge layer. Cross-cutting concerns (shared caches, authorizer wiring) live here as package-level state, not in `Result`.
+- **`handler` package** owns routing logic (`NewRootHandler`, `buildChain`), not main.go.
+
 ### Adding a New Resource (Checklist)
 
 1. **Schema**: Add table to `pkg/db/schema/schema.sql`

@@ -44,6 +44,10 @@ func (e *UserPermissionEntry) HasPermission(code, scope string, wsID, nsID int64
 	return false
 }
 
+// sharedPermCache is the singleton permission cache shared between
+// RBACChecker (for caching) and role binding storages (for invalidation).
+var sharedPermCache = NewPermissionCache(5 * time.Minute)
+
 // PermissionCache is a TTL-based in-memory cache for user permission entries.
 type PermissionCache struct {
 	mu    sync.RWMutex

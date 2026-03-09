@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
-	"time"
 )
 
 func newTestChecker(rules []UserPermissionRuleRow) (*RBACChecker, *atomic.Int32) {
@@ -15,8 +14,9 @@ func newTestChecker(rules []UserPermissionRuleRow) (*RBACChecker, *atomic.Int32)
 			return rules, nil
 		},
 	}
-	cache := NewPermissionCache(1 * time.Minute)
-	return NewRBACChecker(store, cache), &loadCount
+	// Reset the shared cache before each test
+	sharedPermCache.InvalidateAll()
+	return NewRBACChecker(store), &loadCount
 }
 
 func ptr[T any](v T) *T { return &v }
