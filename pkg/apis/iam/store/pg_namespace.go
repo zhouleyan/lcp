@@ -46,8 +46,7 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 		Status:      ns.Status,
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
 			return nil, apierrors.NewConflict("namespace", ns.Name)
 		}
 		return nil, fmt.Errorf("create namespace: %w", err)
@@ -128,7 +127,7 @@ func (s *pgNamespaceStore) GetByName(ctx context.Context, name string) (*iam.DBN
 		}
 		return nil, fmt.Errorf("get namespace by name: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgNamespaceStore) Update(ctx context.Context, ns *iam.DBNamespace) (*iam.DBNamespace, error) {
@@ -149,7 +148,7 @@ func (s *pgNamespaceStore) Update(ctx context.Context, ns *iam.DBNamespace) (*ia
 		}
 		return nil, fmt.Errorf("update namespace: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgNamespaceStore) Patch(ctx context.Context, id int64, ns *iam.DBNamespace) (*iam.DBNamespace, error) {
@@ -170,7 +169,7 @@ func (s *pgNamespaceStore) Patch(ctx context.Context, id int64, ns *iam.DBNamesp
 		}
 		return nil, fmt.Errorf("patch namespace: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgNamespaceStore) Delete(ctx context.Context, id int64) error {
@@ -329,7 +328,7 @@ func (s *pgUserNamespaceStore) Add(ctx context.Context, rel *iam.DBUserNamespace
 		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgUserNamespaceStore) Remove(ctx context.Context, userID, namespaceID int64) error {
@@ -351,7 +350,7 @@ func (s *pgUserNamespaceStore) UpdateRole(ctx context.Context, rel *iam.DBUserNa
 	if err != nil {
 		return nil, fmt.Errorf("update user namespace role: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgUserNamespaceStore) Get(ctx context.Context, userID, namespaceID int64) (*iam.DBUserNamespace, error) {
@@ -362,7 +361,7 @@ func (s *pgUserNamespaceStore) Get(ctx context.Context, userID, namespaceID int6
 	if err != nil {
 		return nil, fmt.Errorf("get user namespace: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgUserNamespaceStore) ListByUserID(ctx context.Context, userID int64, q db.ListQuery) (*db.ListResult[iam.DBNamespaceWithOwnerAndRole], error) {

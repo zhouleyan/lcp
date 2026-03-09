@@ -33,8 +33,7 @@ func (s *pgRoleStore) Create(ctx context.Context, role *iam.DBRole) (*iam.DBRole
 		Builtin:     role.Builtin,
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
 			return nil, apierrors.NewConflict("role", role.Name)
 		}
 		return nil, fmt.Errorf("create role: %w", err)
@@ -152,7 +151,7 @@ func (s *pgRoleStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[
 	}, nil
 }
 
-func (s *pgRoleStore) SeedBuiltinRoles(ctx context.Context, roles []iam.BuiltinRoleDef) error {
+func (s *pgRoleStore) SeedRBAC(ctx context.Context, roles []iam.BuiltinRoleDef, adminUsername string) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -161,6 +160,8 @@ func (s *pgRoleStore) SeedBuiltinRoles(ctx context.Context, roles []iam.BuiltinR
 
 	qtx := s.queries.WithTx(tx)
 
+	// Upsert built-in roles and their permission rules
+	var platformAdminRoleID int64
 	for _, def := range roles {
 		role, err := qtx.UpsertRole(ctx, generated.UpsertRoleParams{
 			Name:        def.Name,
@@ -171,6 +172,10 @@ func (s *pgRoleStore) SeedBuiltinRoles(ctx context.Context, roles []iam.BuiltinR
 		})
 		if err != nil {
 			return fmt.Errorf("upsert builtin role %s: %w", def.Name, err)
+		}
+
+		if def.Name == "platform-admin" {
+			platformAdminRoleID = role.ID
 		}
 
 		if err := qtx.DeleteRolePermissionRules(ctx, role.ID); err != nil {
@@ -184,6 +189,18 @@ func (s *pgRoleStore) SeedBuiltinRoles(ctx context.Context, roles []iam.BuiltinR
 			}); err != nil {
 				return fmt.Errorf("add rule %q for role %s: %w", pattern, def.Name, err)
 			}
+		}
+	}
+
+	// Create initial platform-admin binding for admin user (if exists)
+	if adminUsername != "" && platformAdminRoleID != 0 {
+		adminUser, err := qtx.GetUserByUsername(ctx, adminUsername)
+		if err == nil {
+			_ = qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
+				UserID: adminUser.ID,
+				RoleID: platformAdminRoleID,
+				Scope:  "platform",
+			})
 		}
 	}
 

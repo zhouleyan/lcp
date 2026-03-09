@@ -197,6 +197,33 @@ func (q *Queries) CreateRoleBinding(ctx context.Context, arg CreateRoleBindingPa
 	return i, err
 }
 
+const createRoleBindingIfNotExists = `-- name: CreateRoleBindingIfNotExists :exec
+INSERT INTO role_bindings (user_id, role_id, scope, workspace_id, namespace_id, is_owner)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT DO NOTHING
+`
+
+type CreateRoleBindingIfNotExistsParams struct {
+	UserID      int64  `json:"user_id"`
+	RoleID      int64  `json:"role_id"`
+	Scope       string `json:"scope"`
+	WorkspaceID *int64 `json:"workspace_id"`
+	NamespaceID *int64 `json:"namespace_id"`
+	IsOwner     bool   `json:"is_owner"`
+}
+
+func (q *Queries) CreateRoleBindingIfNotExists(ctx context.Context, arg CreateRoleBindingIfNotExistsParams) error {
+	_, err := q.db.Exec(ctx, createRoleBindingIfNotExists,
+		arg.UserID,
+		arg.RoleID,
+		arg.Scope,
+		arg.WorkspaceID,
+		arg.NamespaceID,
+		arg.IsOwner,
+	)
+	return err
+}
+
 const deleteRoleBinding = `-- name: DeleteRoleBinding :exec
 DELETE FROM role_bindings WHERE id = $1
 `

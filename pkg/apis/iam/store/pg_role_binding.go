@@ -35,13 +35,12 @@ func (s *pgRoleBindingStore) Create(ctx context.Context, rb *iam.DBRoleBinding) 
 		IsOwner:     rb.IsOwner,
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
 			return nil, apierrors.NewConflictMessage("role binding already exists")
 		}
 		return nil, fmt.Errorf("create role binding: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgRoleBindingStore) Delete(ctx context.Context, id int64) error {
@@ -59,7 +58,7 @@ func (s *pgRoleBindingStore) GetByID(ctx context.Context, id int64) (*iam.DBRole
 		}
 		return nil, fmt.Errorf("get role binding by id: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgRoleBindingStore) ListPlatform(ctx context.Context, q db.ListQuery) (*db.ListResult[iam.DBRoleBindingWithDetails], error) {

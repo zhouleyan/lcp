@@ -33,7 +33,7 @@ func (s *pgPermissionStore) Upsert(ctx context.Context, perm *iam.DBPermission) 
 	if err != nil {
 		return nil, fmt.Errorf("upsert permission: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgPermissionStore) DeleteByModuleNotInCodes(ctx context.Context, modulePrefix string, keepCodes []string) error {
@@ -54,7 +54,7 @@ func (s *pgPermissionStore) GetByCode(ctx context.Context, code string) (*iam.DB
 		}
 		return nil, fmt.Errorf("get permission by code: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgPermissionStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[iam.DBPermission], error) {

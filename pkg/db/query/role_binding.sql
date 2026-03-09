@@ -3,6 +3,11 @@ INSERT INTO role_bindings (user_id, role_id, scope, workspace_id, namespace_id, 
 VALUES (@user_id, @role_id, @scope, @workspace_id, @namespace_id, @is_owner)
 RETURNING id, user_id, role_id, scope, workspace_id, namespace_id, is_owner, created_at;
 
+-- name: CreateRoleBindingIfNotExists :exec
+INSERT INTO role_bindings (user_id, role_id, scope, workspace_id, namespace_id, is_owner)
+VALUES (@user_id, @role_id, @scope, @workspace_id, @namespace_id, @is_owner)
+ON CONFLICT DO NOTHING;
+
 -- name: DeleteRoleBinding :exec
 DELETE FROM role_bindings WHERE id = @id;
 

@@ -515,11 +515,12 @@ func Errorf(w http.ResponseWriter, r *http.Request, format string, args ...any) 
 
 	// Extract statusCode from args
 	statusCode := http.StatusBadRequest
-	var esc *ErrorWithStatusCode
 	for _, arg := range args {
-		if err, ok := arg.(error); ok && errors.As(err, &esc) {
-			statusCode = esc.StatusCode
-			break
+		if err, ok := arg.(error); ok {
+			if esc, ok := errors.AsType[*ErrorWithStatusCode](err); ok {
+				statusCode = esc.StatusCode
+				break
+			}
 		}
 	}
 

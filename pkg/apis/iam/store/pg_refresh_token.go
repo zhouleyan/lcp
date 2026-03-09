@@ -31,7 +31,7 @@ func (s *pgRefreshTokenStore) Create(ctx context.Context, token *iam.DBRefreshTo
 	if err != nil {
 		return nil, fmt.Errorf("create refresh token: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgRefreshTokenStore) GetByHash(ctx context.Context, tokenHash string) (*iam.DBRefreshToken, error) {
@@ -42,7 +42,7 @@ func (s *pgRefreshTokenStore) GetByHash(ctx context.Context, tokenHash string) (
 		}
 		return nil, fmt.Errorf("get refresh token: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgRefreshTokenStore) ConsumeByHash(ctx context.Context, tokenHash string) (*iam.DBRefreshToken, error) {
@@ -53,7 +53,7 @@ func (s *pgRefreshTokenStore) ConsumeByHash(ctx context.Context, tokenHash strin
 		}
 		return nil, fmt.Errorf("consume refresh token: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgRefreshTokenStore) Revoke(ctx context.Context, tokenHash string) error {

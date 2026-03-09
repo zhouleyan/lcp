@@ -1,50 +1,63 @@
 package v1
 
 import (
-	"lcp.io/lcp/lib/oidc"
+	"context"
+
+	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/pkg/apis/iam"
+	iamstore "lcp.io/lcp/pkg/apis/iam/store"
+	"lcp.io/lcp/pkg/db"
 )
 
-// NewAPIGroupInfo creates the APIGroupInfo for the IAM module.
-func NewAPIGroupInfo(p *iam.RESTStorageProvider, provider *oidc.Provider) *rest.APIGroupInfo {
-	var userStorage rest.StandardStorage
-	var changePasswordActions []rest.ActionInfo
+// ModuleResult holds the output of IAM module initialization.
+type ModuleResult struct {
+	Group *rest.APIGroupInfo
+}
 
-	if provider != nil {
-		ps := provider.PasswordService()
-		userStorage = iam.NewUserStorageWithPassword(p.UserStore(), ps.Hash)
-		changePasswordActions = []rest.ActionInfo{
-			{
-				Name:   "change-password",
-				Method: "POST",
-				Handler: iam.NewChangePasswordHandler(
-					p.UserStore(),
-					p.RefreshTokenStore(),
-					ps.Hash,
-					ps.Verify,
-				),
-			},
-		}
-	} else {
-		userStorage = iam.NewUserStorage(p.UserStore())
+// NewIAMModule initializes the IAM module: builds the API group,
+// syncs permissions, and seeds built-in roles.
+func NewIAMModule(ctx context.Context, database *db.DB) ModuleResult {
+	group, p := newAPIGroupInfo(database)
+
+	// Sync permissions
+	lookup, err := iam.SyncPermissions(ctx, p.Permission, []*rest.APIGroupInfo{group})
+	if err != nil {
+		logger.Fatalf("cannot sync IAM permissions: %v", err)
+	}
+	p.PermissionLookup = lookup
+
+	// Seed built-in roles, permission rules, and initial bindings
+	if err := iam.SeedRBAC(ctx, p.Role); err != nil {
+		logger.Fatalf("cannot seed RBAC: %v", err)
 	}
 
-	userCustomVerbs := []rest.CustomVerbInfo{
-		{Name: "workspaces", Storage: iam.NewUserWorkspacesVerb(p.UserWorkspaceStore())},
-		{Name: "namespaces", Storage: iam.NewUserNamespacesVerb(p.UserNamespaceStore())},
-	}
+	return ModuleResult{Group: group}
+}
 
-	wsStorage := iam.NewWorkspaceStorage(p.WorkspaceStore(), p.UserStore())
-	nsStorage := iam.NewNamespaceStorage(p.NamespaceStore(), p.WorkspaceStore(), p.UserStore())
-	wsUserStorage := iam.NewWorkspaceUserStorage(p.UserWorkspaceStore(), p.UserStore())
-	nsUserStorage := iam.NewNamespaceUserStorage(p.UserNamespaceStore(), p.NamespaceStore(), p.UserStore())
+// newAPIGroupInfo initializes the full IAM storage stack and builds the API group.
+func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvider) {
+	p := iam.NewRESTStorageProvider(iamstore.NewStores(database))
 
-	return &rest.APIGroupInfo{
+	userStorage, userActions := newUserStorage(p)
+	wsStorage := iam.NewWorkspaceStorage(p.Workspace, p.User)
+	nsStorage := iam.NewNamespaceStorage(p.Namespace, p.Workspace, p.User)
+	wsUserStorage := iam.NewWorkspaceUserStorage(p.UserWorkspace, p.User)
+	nsUserStorage := iam.NewNamespaceUserStorage(p.UserNamespace, p.Namespace, p.User)
+
+	group := &rest.APIGroupInfo{
 		GroupName: "iam",
 		Version:   "v1",
 		Resources: []rest.ResourceInfo{
-			{Name: "users", Storage: userStorage, Actions: changePasswordActions, CustomVerbs: userCustomVerbs},
+			{
+				Name:    "users",
+				Storage: userStorage,
+				Actions: userActions,
+				CustomVerbs: []rest.CustomVerbInfo{
+					{Name: "workspaces", Storage: iam.NewUserWorkspacesVerb(p.UserWorkspace)},
+					{Name: "namespaces", Storage: iam.NewUserNamespacesVerb(p.UserNamespace)},
+				},
+			},
 			{
 				Name:    "workspaces",
 				Storage: wsStorage,
@@ -68,4 +81,20 @@ func NewAPIGroupInfo(p *iam.RESTStorageProvider, provider *oidc.Provider) *rest.
 			},
 		},
 	}
+
+	return group, p
+}
+
+// newUserStorage creates the user REST storage with password hashing and change-password action.
+func newUserStorage(p *iam.RESTStorageProvider) (rest.StandardStorage, []rest.ActionInfo) {
+	ps := iam.NewPasswordService()
+	storage := iam.NewUserStorageWithPassword(p.User, ps.Hash)
+	actions := []rest.ActionInfo{
+		{
+			Name:    "change-password",
+			Method:  "POST",
+			Handler: iam.NewChangePasswordHandler(p.User, p.RefreshToken, ps.Hash, ps.Verify),
+		},
+	}
+	return storage, actions
 }

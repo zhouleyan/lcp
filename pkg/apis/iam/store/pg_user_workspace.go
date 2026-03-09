@@ -33,7 +33,7 @@ func (s *pgUserWorkspaceStore) Add(ctx context.Context, rel *iam.DBUserWorkspace
 		}
 		return nil, fmt.Errorf("add user to workspace: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgUserWorkspaceStore) Remove(ctx context.Context, userID, workspaceID int64) error {
@@ -55,7 +55,7 @@ func (s *pgUserWorkspaceStore) UpdateRole(ctx context.Context, rel *iam.DBUserWo
 	if err != nil {
 		return nil, fmt.Errorf("update user workspace role: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgUserWorkspaceStore) Get(ctx context.Context, userID, workspaceID int64) (*iam.DBUserWorkspace, error) {
@@ -66,7 +66,7 @@ func (s *pgUserWorkspaceStore) Get(ctx context.Context, userID, workspaceID int6
 	if err != nil {
 		return nil, fmt.Errorf("get user workspace: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgUserWorkspaceStore) ListByUserID(ctx context.Context, userID int64, q db.ListQuery) (*db.ListResult[iam.DBWorkspaceWithOwnerAndRole], error) {

@@ -41,8 +41,7 @@ func (s *pgWorkspaceStore) Create(ctx context.Context, ws *iam.DBWorkspace) (*ia
 		Status:      ws.Status,
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
 			return nil, apierrors.NewConflict("workspace", ws.Name)
 		}
 		return nil, fmt.Errorf("create workspace: %w", err)
@@ -142,7 +141,7 @@ func (s *pgWorkspaceStore) GetByName(ctx context.Context, name string) (*iam.DBW
 		}
 		return nil, fmt.Errorf("get workspace by name: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgWorkspaceStore) Update(ctx context.Context, ws *iam.DBWorkspace) (*iam.DBWorkspace, error) {
@@ -160,7 +159,7 @@ func (s *pgWorkspaceStore) Update(ctx context.Context, ws *iam.DBWorkspace) (*ia
 		}
 		return nil, fmt.Errorf("update workspace: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgWorkspaceStore) Patch(ctx context.Context, id int64, ws *iam.DBWorkspace) (*iam.DBWorkspace, error) {
@@ -178,7 +177,7 @@ func (s *pgWorkspaceStore) Patch(ctx context.Context, id int64, ws *iam.DBWorksp
 		}
 		return nil, fmt.Errorf("patch workspace: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgWorkspaceStore) Delete(ctx context.Context, id int64) error {

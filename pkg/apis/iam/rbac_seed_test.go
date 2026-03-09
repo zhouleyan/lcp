@@ -8,11 +8,11 @@ import (
 	"lcp.io/lcp/pkg/db"
 )
 
-// --- mock RoleStore for SeedBuiltinRoles ---
+// --- mock RoleStore for SeedRBAC ---
 
 type mockRoleStoreForSeed struct {
-	roles map[string]*DBRole
-	rules map[int64][]string
+	roles  map[string]*DBRole
+	rules  map[int64][]string
 	nextID int64
 }
 
@@ -27,7 +27,6 @@ func newMockRoleStoreForSeed() *mockRoleStoreForSeed {
 func (m *mockRoleStoreForSeed) Create(_ context.Context, role *DBRole) (*DBRole, error) {
 	m.nextID++
 	role.ID = m.nextID
-	role.Builtin = true
 	m.roles[role.Name] = role
 	return role, nil
 }
@@ -77,7 +76,7 @@ func (m *mockRoleStoreForSeed) SetPermissionRules(_ context.Context, roleID int6
 	return nil
 }
 
-func (m *mockRoleStoreForSeed) SeedBuiltinRoles(_ context.Context, roles []BuiltinRoleDef) error {
+func (m *mockRoleStoreForSeed) SeedRBAC(_ context.Context, roles []BuiltinRoleDef, _ string) error {
 	for _, def := range roles {
 		role, _ := m.Upsert(context.Background(), &DBRole{
 			Name:        def.Name,
@@ -93,11 +92,11 @@ func (m *mockRoleStoreForSeed) SeedBuiltinRoles(_ context.Context, roles []Built
 
 // --- tests ---
 
-func TestSeedBuiltinRoles(t *testing.T) {
+func TestSeedRBAC(t *testing.T) {
 	store := newMockRoleStoreForSeed()
 
-	if err := SeedBuiltinRoles(context.Background(), store); err != nil {
-		t.Fatalf("SeedBuiltinRoles: %v", err)
+	if err := SeedRBAC(context.Background(), store); err != nil {
+		t.Fatalf("SeedRBAC: %v", err)
 	}
 
 	// Should have created 6 roles
@@ -112,18 +111,8 @@ func TestSeedBuiltinRoles(t *testing.T) {
 		}
 	}
 
-	// Check platform-admin has "*:*" rule
-	adminRole := store.roles["platform-admin"]
-	if adminRole == nil {
-		t.Fatal("platform-admin role not found")
-	}
-	adminRules := store.rules[adminRole.ID]
-	if len(adminRules) != 1 || adminRules[0] != "*:*" {
-		t.Errorf("platform-admin rules = %v, want [*:*]", adminRules)
-	}
-
 	// Check all admin roles have "*:*" rule
-	for _, name := range []string{"workspace-admin", "namespace-admin"} {
+	for _, name := range []string{"platform-admin", "workspace-admin", "namespace-admin"} {
 		role := store.roles[name]
 		if role == nil {
 			t.Fatalf("%s role not found", name)
@@ -172,15 +161,15 @@ func TestSeedBuiltinRoles(t *testing.T) {
 	}
 }
 
-func TestSeedBuiltinRolesIdempotent(t *testing.T) {
+func TestSeedRBACIdempotent(t *testing.T) {
 	store := newMockRoleStoreForSeed()
 
 	// Seed twice
-	if err := SeedBuiltinRoles(context.Background(), store); err != nil {
-		t.Fatalf("first SeedBuiltinRoles: %v", err)
+	if err := SeedRBAC(context.Background(), store); err != nil {
+		t.Fatalf("first SeedRBAC: %v", err)
 	}
-	if err := SeedBuiltinRoles(context.Background(), store); err != nil {
-		t.Fatalf("second SeedBuiltinRoles: %v", err)
+	if err := SeedRBAC(context.Background(), store); err != nil {
+		t.Fatalf("second SeedRBAC: %v", err)
 	}
 
 	// Should still have exactly 6 roles (no duplicates)

@@ -32,14 +32,12 @@ func (s *pgUserStore) Create(ctx context.Context, user *iam.DBUser) (*iam.DBUser
 		Status:      user.Status,
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
 			return nil, apierrors.NewConflict("user", user.Username)
 		}
 		return nil, fmt.Errorf("create user: %w", err)
 	}
-	u := createRowToUser(row)
-	return &u, nil
+	return new(createRowToUser(row)), nil
 }
 
 func (s *pgUserStore) GetByID(ctx context.Context, id int64) (*iam.DBUser, error) {
@@ -50,8 +48,7 @@ func (s *pgUserStore) GetByID(ctx context.Context, id int64) (*iam.DBUser, error
 		}
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
-	u := getByIDRowToUser(row)
-	return &u, nil
+	return new(getByIDRowToUser(row)), nil
 }
 
 func (s *pgUserStore) GetByUsername(ctx context.Context, username string) (*iam.DBUser, error) {
@@ -62,8 +59,7 @@ func (s *pgUserStore) GetByUsername(ctx context.Context, username string) (*iam.
 		}
 		return nil, fmt.Errorf("get user by username: %w", err)
 	}
-	u := getByUsernameRowToUser(row)
-	return &u, nil
+	return new(getByUsernameRowToUser(row)), nil
 }
 
 func (s *pgUserStore) GetByEmail(ctx context.Context, email string) (*iam.DBUser, error) {
@@ -74,8 +70,7 @@ func (s *pgUserStore) GetByEmail(ctx context.Context, email string) (*iam.DBUser
 		}
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
-	u := getByEmailRowToUser(row)
-	return &u, nil
+	return new(getByEmailRowToUser(row)), nil
 }
 
 func (s *pgUserStore) GetByPhone(ctx context.Context, phone string) (*iam.DBUser, error) {
@@ -86,8 +81,7 @@ func (s *pgUserStore) GetByPhone(ctx context.Context, phone string) (*iam.DBUser
 		}
 		return nil, fmt.Errorf("get user by phone: %w", err)
 	}
-	u := getByPhoneRowToUser(row)
-	return &u, nil
+	return new(getByPhoneRowToUser(row)), nil
 }
 
 func (s *pgUserStore) Update(ctx context.Context, user *iam.DBUser) (*iam.DBUser, error) {
@@ -104,14 +98,12 @@ func (s *pgUserStore) Update(ctx context.Context, user *iam.DBUser) (*iam.DBUser
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apierrors.NewNotFound("user", fmt.Sprintf("%d", user.ID))
 		}
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
 			return nil, apierrors.NewConflict("user", user.Username)
 		}
 		return nil, fmt.Errorf("update user: %w", err)
 	}
-	u := updateRowToUser(row)
-	return &u, nil
+	return new(updateRowToUser(row)), nil
 }
 
 func (s *pgUserStore) Patch(ctx context.Context, id int64, user *iam.DBUser) (*iam.DBUser, error) {
@@ -128,14 +120,12 @@ func (s *pgUserStore) Patch(ctx context.Context, id int64, user *iam.DBUser) (*i
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apierrors.NewNotFound("user", fmt.Sprintf("%d", id))
 		}
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
 			return nil, apierrors.NewConflict("user", user.Username)
 		}
 		return nil, fmt.Errorf("patch user: %w", err)
 	}
-	u := patchRowToUser(row)
-	return &u, nil
+	return new(patchRowToUser(row)), nil
 }
 
 func (s *pgUserStore) UpdateLastLogin(ctx context.Context, id int64) error {
@@ -227,7 +217,7 @@ func (s *pgUserStore) GetUserForAuth(ctx context.Context, identifier string) (*i
 		}
 		return nil, fmt.Errorf("get user for auth: %w", err)
 	}
-	return &row, nil
+	return new(row), nil
 }
 
 func (s *pgUserStore) SetPasswordHash(ctx context.Context, id int64, hash string) error {

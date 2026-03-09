@@ -18,11 +18,14 @@ import (
 	"lcp.io/lcp/lib/profile"
 	"lcp.io/lcp/lib/utils/procutil"
 
+	"lcp.io/lcp/lib/oidc"
+
 	"lcp.io/lcp/docs"
 	"lcp.io/lcp/pkg/apis"
 	"lcp.io/lcp/pkg/apis/iam"
+	iamstore "lcp.io/lcp/pkg/apis/iam/store"
 	"lcp.io/lcp/pkg/db"
-	ui "lcp.io/lcp/ui"
+	"lcp.io/lcp/ui"
 )
 
 var (
@@ -83,8 +86,11 @@ func main() {
 		}
 	}()
 
-	// API module registration (includes OIDC provider setup)
-	groups, oidcProvider := apis.NewAPIGroupInfos(database, cfg)
+	// OIDC provider (app-level infrastructure, independent of API modules)
+	oidcProvider := setupOIDC(database, &cfg.OIDC)
+
+	// API module registration (permission sync, role seeding)
+	groups := apis.NewAPIGroupInfos(ctx, database)
 
 	// 2. Start http server
 	listenAddrs := *httpListenAddrs
@@ -124,7 +130,7 @@ func main() {
 		// Serve OpenAPI spec (no auth)
 		if urlPath == "/docs/openapi.json" {
 			w.Header().Set("Content-Type", "application/json")
-			w.Write(docs.OpenAPISpec)
+			_, _ = w.Write(docs.OpenAPISpec)
 			return true
 		}
 		// API requests go through the API handler (with auth middleware)
@@ -219,7 +225,7 @@ func serveFrontend(w http.ResponseWriter, r *http.Request, distFS fs.FS, staticH
 
 	// Check if the file exists in the embedded FS
 	if f, err := distFS.Open(filePath); err == nil {
-		f.Close()
+		_ = f.Close()
 		staticHandler.ServeHTTP(w, r)
 		return
 	}
@@ -227,6 +233,36 @@ func serveFrontend(w http.ResponseWriter, r *http.Request, distFS fs.FS, staticH
 	// SPA fallback: serve index.html for all non-file routes
 	r.URL.Path = "/"
 	staticHandler.ServeHTTP(w, r)
+}
+
+// setupOIDC initializes the OIDC provider. Returns nil if not configured.
+func setupOIDC(database *db.DB, cfg *config.OIDCConfig) *oidc.Provider {
+	if cfg.PrivateKeyFile == "" || cfg.PublicKeyFile == "" {
+		logger.Infof("OIDC not configured (no key files), authentication disabled")
+		return nil
+	}
+
+	providerCfg, err := oidc.ParseConfig(cfg)
+	if err != nil {
+		logger.Fatalf("invalid OIDC config: %v", err)
+	}
+
+	keySet, err := oidc.LoadKeySet(cfg.PrivateKeyFile, cfg.PublicKeyFile)
+	if err != nil {
+		logger.Fatalf("cannot load OIDC keys: %v", err)
+	}
+
+	userStore := iamstore.NewPGUserStore(database.Queries)
+	refreshStore := iamstore.NewPGRefreshTokenStore(database.Queries)
+
+	provider := oidc.NewProvider(providerCfg, keySet,
+		iam.NewUserLookupAdapter(userStore),
+		iam.NewRefreshTokenAdapter(refreshStore),
+	)
+	provider.SetClients(oidc.ParseClients(cfg.Clients))
+
+	logger.Infof("OIDC provider initialized (issuer=%s)", cfg.Issuer)
+	return provider
 }
 
 func usage() {
