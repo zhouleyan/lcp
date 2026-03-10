@@ -4,6 +4,8 @@ info:
   description: LCP Platform API
   version: v1
 tags:
+  - name: Overview
+    description: 概览统计
   - name: User
     description: 用户管理：平台用户的增删改查，支持密码设置与修改。用户可被添加为租户或项目的成员。
   - name: Workspace
@@ -46,6 +48,120 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OIDCDiscoveryResponse'
+  /api/dashboard/v1/overview:
+    get:
+      summary: 获取平台概览统计
+      operationId: listOverview
+      tags:
+        - Overview
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverviewList'
+  /api/dashboard/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/overview:
+    get:
+      summary: 获取项目概览统计
+      operationId: listWorkspaceNamespaceOverview
+      tags:
+        - Overview
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverviewList'
+  /api/dashboard/v1/workspaces/{workspaceId}/overview:
+    get:
+      summary: 获取租户概览统计
+      operationId: listWorkspaceOverview
+      tags:
+        - Overview
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverviewList'
   /api/iam/v1/namespaces/{namespaceId}/roles:
     get:
       summary: 获取项目角色列表
@@ -2224,6 +2340,11 @@ components:
           description: 用户唯一标识
       required:
         - sub
+    Overview:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/OverviewSpec'
     Permission:
       type: object
       properties:
@@ -2521,6 +2642,9 @@ components:
       required:
         - ownerId
 x-tagGroups:
+  - name: dashboard
+    tags:
+      - Overview
   - name: iam
     tags:
       - User

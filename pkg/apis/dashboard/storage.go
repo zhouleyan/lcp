@@ -19,23 +19,25 @@ type OverviewStore interface {
 
 // --- Platform Overview Storage ---
 
+// +openapi:path=/overview
+// +openapi:resource=Overview
 type platformOverviewStorage struct {
 	store OverviewStore
 }
 
 // NewPlatformOverviewStorage creates a Lister that returns platform-level statistics.
-// +openapi:summary=获取平台概览统计
 func NewPlatformOverviewStorage(store OverviewStore) rest.Lister {
 	return &platformOverviewStorage{store: store}
 }
 
+// +openapi:summary=获取平台概览统计
 func (s *platformOverviewStorage) List(ctx context.Context, _ *rest.ListOptions) (runtime.Object, error) {
 	stats, err := s.store.GetPlatformStats(ctx)
 	if err != nil {
 		return nil, apierrors.NewInternalError(err)
 	}
-	return &PlatformOverview{
-		Spec: PlatformOverviewSpec{
+	return &Overview{
+		Spec: OverviewSpec{
 			WorkspaceCount: stats.WorkspaceCount,
 			NamespaceCount: stats.NamespaceCount,
 			UserCount:      stats.UserCount,
@@ -46,16 +48,18 @@ func (s *platformOverviewStorage) List(ctx context.Context, _ *rest.ListOptions)
 
 // --- Workspace Overview Storage ---
 
+// +openapi:path=/workspaces/{workspaceId}/overview
+// +openapi:resource=Overview
 type workspaceOverviewStorage struct {
 	store OverviewStore
 }
 
 // NewWorkspaceOverviewStorage creates a Lister that returns workspace-level statistics.
-// +openapi:summary=获取租户概览统计
 func NewWorkspaceOverviewStorage(store OverviewStore) rest.Lister {
 	return &workspaceOverviewStorage{store: store}
 }
 
+// +openapi:summary=获取租户概览统计
 func (s *workspaceOverviewStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	wsID, err := parseID(options.PathParams["workspaceId"])
 	if err != nil {
@@ -65,8 +69,8 @@ func (s *workspaceOverviewStorage) List(ctx context.Context, options *rest.ListO
 	if err != nil {
 		return nil, apierrors.NewInternalError(err)
 	}
-	return &WorkspaceOverview{
-		Spec: WorkspaceOverviewSpec{
+	return &Overview{
+		Spec: OverviewSpec{
 			NamespaceCount: stats.NamespaceCount,
 			MemberCount:    stats.MemberCount,
 			RoleCount:      stats.RoleCount,
@@ -76,16 +80,18 @@ func (s *workspaceOverviewStorage) List(ctx context.Context, options *rest.ListO
 
 // --- Namespace Overview Storage ---
 
+// +openapi:path=/workspaces/{workspaceId}/namespaces/{namespaceId}/overview
+// +openapi:resource=Overview
 type namespaceOverviewStorage struct {
 	store OverviewStore
 }
 
 // NewNamespaceOverviewStorage creates a Lister that returns namespace-level statistics.
-// +openapi:summary=获取项目概览统计
 func NewNamespaceOverviewStorage(store OverviewStore) rest.Lister {
 	return &namespaceOverviewStorage{store: store}
 }
 
+// +openapi:summary=获取项目概览统计
 func (s *namespaceOverviewStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	nsID, err := parseID(options.PathParams["namespaceId"])
 	if err != nil {
@@ -95,8 +101,8 @@ func (s *namespaceOverviewStorage) List(ctx context.Context, options *rest.ListO
 	if err != nil {
 		return nil, apierrors.NewInternalError(err)
 	}
-	return &NamespaceOverview{
-		Spec: NamespaceOverviewSpec{
+	return &Overview{
+		Spec: OverviewSpec{
 			MemberCount: stats.MemberCount,
 			RoleCount:   stats.RoleCount,
 		},

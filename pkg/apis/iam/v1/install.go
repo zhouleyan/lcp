@@ -3,8 +3,11 @@ package v1
 import (
 	"context"
 
+	"lcp.io/lcp/lib/config"
 	"lcp.io/lcp/lib/logger"
+	"lcp.io/lcp/lib/oidc"
 	"lcp.io/lcp/lib/rest"
+	"lcp.io/lcp/lib/rest/filters"
 	"lcp.io/lcp/pkg/apis/iam"
 	iamstore "lcp.io/lcp/pkg/apis/iam/store"
 	"lcp.io/lcp/pkg/db"
@@ -15,15 +18,10 @@ type ModuleResult struct {
 	Group *rest.APIGroupInfo
 }
 
-// NewIAMModule initializes the IAM module: builds the API group,
-// syncs permissions to DB, and seeds built-in roles.
+// NewIAMModule initializes the IAM module: builds the API group and seeds built-in roles.
+// Permission sync is handled centrally by apis.NewAPIGroupInfos after all modules are registered.
 func NewIAMModule(ctx context.Context, database *db.DB) ModuleResult {
 	group, p := newAPIGroupInfo(database)
-
-	// Sync permissions to DB
-	if _, err := iam.SyncPermissions(ctx, p.Permission, []*rest.APIGroupInfo{group}); err != nil {
-		logger.Fatalf("cannot sync IAM permissions: %v", err)
-	}
 
 	// Seed built-in roles, permission rules, and initial bindings
 	if err := iam.SeedRBAC(ctx, p.Role); err != nil {
@@ -133,6 +131,52 @@ func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvi
 	}
 
 	return group, p
+}
+
+// SyncAllPermissions syncs permissions for all API groups to the database.
+func SyncAllPermissions(ctx context.Context, database *db.DB, groups []*rest.APIGroupInfo) {
+	permStore := iamstore.NewPGPermissionStore(database.Pool, database.Queries)
+	if _, err := iam.SyncPermissions(ctx, permStore, groups); err != nil {
+		logger.Fatalf("cannot sync permissions: %v", err)
+	}
+}
+
+// NewAuthorizer creates a fully-wired Authorizer from API group definitions and database.
+func NewAuthorizer(database *db.DB, groups []*rest.APIGroupInfo) *filters.Authorizer {
+	rbStore := iamstore.NewPGRoleBindingStore(database.Pool, database.Queries)
+	nsStore := iamstore.NewPGNamespaceStore(database.Pool, database.Queries)
+	return iam.NewAuthorizer(rbStore, nsStore, groups)
+}
+
+// NewOIDCProvider creates the OIDC provider with all internal store wiring.
+// Returns nil if OIDC is not configured (no key files).
+func NewOIDCProvider(database *db.DB, cfg *config.OIDCConfig) *oidc.Provider {
+	if cfg.PrivateKeyFile == "" || cfg.PublicKeyFile == "" {
+		logger.Infof("OIDC not configured (no key files), authentication disabled")
+		return nil
+	}
+
+	providerCfg, err := oidc.ParseConfig(cfg)
+	if err != nil {
+		logger.Fatalf("invalid OIDC config: %v", err)
+	}
+
+	keySet, err := oidc.LoadKeySet(cfg.PrivateKeyFile, cfg.PublicKeyFile)
+	if err != nil {
+		logger.Fatalf("cannot load OIDC keys: %v", err)
+	}
+
+	userStore := iamstore.NewPGUserStore(database.Queries)
+	refreshStore := iamstore.NewPGRefreshTokenStore(database.Queries)
+
+	provider := oidc.NewProvider(providerCfg, keySet,
+		iam.NewUserLookupAdapter(userStore),
+		iam.NewRefreshTokenAdapter(refreshStore),
+	)
+	provider.SetClients(oidc.ParseClients(cfg.Clients))
+
+	logger.Infof("OIDC provider initialized (issuer=%s)", cfg.Issuer)
+	return provider
 }
 
 // newUserStorage creates the user REST storage with password hashing and change-password action.
