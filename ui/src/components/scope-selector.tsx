@@ -15,7 +15,7 @@ import { useTranslation } from "@/i18n"
 import type { Workspace, Namespace } from "@/api/types"
 
 const ALL = "__all__"
-const KNOWN_RESOURCES = ["overview", "users", "roles", "namespaces", "workspaces"]
+const KNOWN_RESOURCES = ["overview", "users", "roles", "rolebindings", "namespaces", "workspaces"]
 
 /** 从当前路径中提取用户正在查看的资源类型 */
 function detectResource(pathname: string): string | null {
@@ -35,13 +35,13 @@ function buildScopedPath(
   if (wsId && nsId) {
     const iamPrefix = `/iam/workspaces/${wsId}/namespaces/${nsId}`
     if (resource === "overview") return `/dashboard/workspaces/${wsId}/namespaces/${nsId}/overview`
-    if (resource === "users" || resource === "roles") return `${iamPrefix}/${resource}`
+    if (resource === "users" || resource === "roles" || resource === "rolebindings") return `${iamPrefix}/${resource}`
     return `/dashboard/workspaces/${wsId}/namespaces/${nsId}/overview`
   }
   if (wsId) {
     const iamPrefix = `/iam/workspaces/${wsId}`
     if (resource === "overview") return `/dashboard/workspaces/${wsId}/overview`
-    if (resource === "users" || resource === "roles" || resource === "namespaces")
+    if (resource === "users" || resource === "roles" || resource === "rolebindings" || resource === "namespaces")
       return `${iamPrefix}/${resource}`
     return `/dashboard/workspaces/${wsId}/overview`
   }
