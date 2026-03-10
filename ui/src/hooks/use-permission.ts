@@ -19,7 +19,8 @@ export function getDefaultPath(perms: UserPermissionsSpec): string {
     const [nsId, nsPerms] = nsEntries[0]
     return `/dashboard/workspaces/${nsPerms.workspaceId}/namespaces/${nsId}/overview`
   }
-  return "/dashboard/overview"
+  // Zero-permission users get redirected to 403 by RootLayout; avoid extra redirect hop.
+  return "/error?status=403"
 }
 
 export function usePermission() {
