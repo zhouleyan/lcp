@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/form"
 import { getUser, updateUser, deleteUser, listUsers, listUserWorkspaces, listUserNamespaces } from "@/api/iam/users"
 import { listUserRoleBindings } from "@/api/iam/rbac"
-import { ApiError, translateApiError, translateDetailMessage } from "@/api/client"
+import { ApiError, showApiError, translateApiError, translateDetailMessage } from "@/api/client"
 import type { User, Workspace, Namespace, RoleBinding, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
@@ -66,12 +66,7 @@ export default function UserDetailPage() {
       toast.success(t("action.deleteSuccess"))
       navigate("/iam/users")
     } catch (err) {
-      if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "user.title")
     }
   }
 
@@ -223,12 +218,7 @@ function UserWorkspacesCard({ userId }: { userId: string }) {
       setWorkspaces(data.items ?? [])
       setTotalCount(data.totalCount)
     } catch (err) {
-      if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "workspace.title")
     } finally {
       setLoading(false)
     }
@@ -391,12 +381,7 @@ function UserNamespacesCard({ userId }: { userId: string }) {
       setNamespaces(data.items ?? [])
       setTotalCount(data.totalCount)
     } catch (err) {
-      if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "namespace.title")
     } finally {
       setLoading(false)
     }
@@ -546,33 +531,32 @@ function UserRoleBindingsCard({ userId }: { userId: string }) {
   const { t } = useTranslation()
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
+    searchInput, setSearchInput, search,
   } = useListState({ defaultSortBy: "created_at", defaultSortOrder: "desc", defaultPageSize: 10 })
   const [bindings, setBindings] = useState<RoleBinding[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
+  const [scopeFilter, setScopeFilter] = useState("all")
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const params: ListParams = { page, pageSize, sortBy, sortOrder }
+      if (search) params.search = search
+      if (scopeFilter !== "all") params.scope = scopeFilter
       const data = await listUserRoleBindings(userId, params)
       setBindings(data.items ?? [])
       setTotalCount(data.totalCount)
     } catch (err) {
-      if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "rolebinding.title")
     } finally {
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, page, pageSize, sortBy, sortOrder])
+  }, [userId, page, pageSize, sortBy, sortOrder, search, scopeFilter])
 
   useEffect(() => { fetchData() }, [fetchData])
-  useEffect(() => { setPage(1) }, [pageSize])
+  useEffect(() => { setPage(1) }, [search, scopeFilter, pageSize])
 
   const scopeLabel = (scope: string) => {
     if (scope === "platform") return t("rolebinding.scope.platform")
@@ -592,6 +576,17 @@ function UserRoleBindingsCard({ userId }: { userId: string }) {
         <CardTitle>{t("user.rolebindings")}</CardTitle>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 flex items-center gap-4">
+          <div className="relative max-w-xs">
+            <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
+            <Input
+              placeholder={t("common.search")}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
         <div className="border rounded-md">
           <Table>
             <TableHeader>
@@ -599,7 +594,22 @@ function UserRoleBindingsCard({ userId }: { userId: string }) {
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort("role_name")}>
                   {t("role.title")}<SortIcon field="role_name" sortBy={sortBy} sortOrder={sortOrder} />
                 </TableHead>
-                <TableHead>{t("rolebinding.scope")}</TableHead>
+                <TableHead>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="inline-flex items-center gap-1 select-none">
+                        {t("rolebinding.scope")}
+                        <Filter className={`h-3 w-3 ${scopeFilter !== "all" ? "text-primary" : "opacity-40"}`} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => setScopeFilter("all")}>{t("common.all")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setScopeFilter("platform")}>{t("rolebinding.scope.platform")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setScopeFilter("workspace")}>{t("rolebinding.scope.workspace")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setScopeFilter("namespace")}>{t("rolebinding.scope.namespace")}</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableHead>
                 <TableHead>{t("rolebinding.owner")}</TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
                   {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
