@@ -1,69 +1,6 @@
-import type { Messages } from "../types"
+import type { Messages } from "../../types"
 
-const zhCN: Messages = {
-  // common
-  "common.name": "名称",
-  "common.displayName": "显示名称",
-  "common.status": "状态",
-  "common.created": "创建时间",
-  "common.total": "共 {count} 个",
-  "common.delete": "删除",
-  "common.description": "描述",
-  "common.edit": "编辑",
-  "common.cancel": "取消",
-  "common.confirm": "确认",
-  "common.save": "保存",
-  "common.search": "搜索",
-  "common.actions": "操作",
-  "common.active": "活跃",
-  "common.inactive": "停用",
-  "common.all": "全部",
-  "common.phone": "手机号",
-  "common.password": "密码",
-  "common.previous": "上一页",
-  "common.next": "下一页",
-  "common.pageSize": "每页",
-  "common.page": "第 {page} 页，共 {total} 页",
-  "common.noSearchResults": "未找到匹配结果",
-  "common.reset": "重置",
-
-  // auth
-  "auth.authenticating": "登录中...",
-  "auth.missingCode": "缺少授权码",
-
-  // login
-  "login.title": "LCP Console",
-  "login.username": "用户名",
-  "login.password": "密码",
-  "login.usernamePlaceholder": "请输入用户名",
-  "login.passwordPlaceholder": "请输入密码",
-  "login.signIn": "登录",
-
-  // nav
-  "nav.overview": "概览",
-  "nav.dashboard": "仪表盘",
-  "nav.iam": "组织",
-  "nav.workspaces": "租户",
-  "nav.namespaces": "项目",
-  "nav.users": "用户",
-  "nav.roles": "角色管理",
-  "nav.audit": "审计",
-  "nav.auditLogs": "审计日志",
-  "nav.rolebindings": "角色绑定",
-  "nav.apiDocs": "API 文档",
-
-  // overview
-  "overview.platform.title": "平台概览",
-  "overview.platform.desc": "查看平台整体资源概况",
-  "overview.workspace.title": "租户概览",
-  "overview.workspace.desc": "查看当前租户的资源概况",
-  "overview.namespace.title": "项目概览",
-  "overview.namespace.desc": "查看当前项目的资源概况",
-
-  // scope selector
-  "scope.allWorkspaces": "所有租户",
-  "scope.allNamespaces": "所有项目",
-
+const iam: Messages = {
   // workspace
   "workspace.title": "租户",
   "workspace.manage": "管理租户。共 {count} 个。",
@@ -148,7 +85,6 @@ const zhCN: Messages = {
   "user.username": "用户名",
   "user.email": "邮箱",
   "user.searchPlaceholder": "搜索用户名、邮箱、手机号、显示名称...",
-  "common.updated": "更新时间",
   "user.deleteConfirm": "确定要删除用户「{name}」吗？此操作不可撤销。",
   "user.batchDelete": "批量删除",
   "user.batchDeleteConfirm": "确定要删除选中的 {count} 个用户吗？此操作不可撤销。",
@@ -217,8 +153,15 @@ const zhCN: Messages = {
   "role.namespace-admin": "项目管理员",
   "role.namespace-viewer": "项目只读",
 
-  // permission selector groups
-  "perm.group.all": "全部权限",
+  // built-in role descriptions
+  "role.desc.platform-admin": "对所有平台资源的完全访问权限",
+  "role.desc.platform-viewer": "对所有平台资源的只读访问权限",
+  "role.desc.workspace-admin": "对租户内所有资源的完全访问权限",
+  "role.desc.workspace-viewer": "对租户内所有资源的只读访问权限",
+  "role.desc.namespace-admin": "对项目内所有资源的完全访问权限",
+  "role.desc.namespace-viewer": "对项目内所有资源的只读访问权限",
+
+  // permission selector groups - IAM
   "perm.group.iam": "IAM 管理",
   "perm.group.iam.users": "用户",
   "perm.group.iam.workspaces": "租户",
@@ -232,26 +175,6 @@ const zhCN: Messages = {
   "perm.group.iam.roles": "角色",
   "perm.group.iam.rolebindings": "角色绑定",
   "perm.group.iam.permissions": "权限",
-  "perm.group.dashboard": "仪表盘",
-  "perm.group.dashboard.overview": "平台概览",
-  "perm.group.dashboard.workspaces": "租户仪表盘",
-  "perm.group.dashboard.workspaces.overview": "租户概览",
-  "perm.group.dashboard.workspaces.namespaces:overview": "项目概览",
-
-  // permission verb wildcards
-  "perm.verb.list": "所有列表 (*:list)",
-  "perm.verb.get": "所有详情 (*:get)",
-  "perm.verb.create": "所有创建 (*:create)",
-  "perm.verb.update": "所有更新 (*:update)",
-  "perm.verb.patch": "所有修改 (*:patch)",
-  "perm.verb.delete": "所有删除 (*:delete)",
-  "perm.verb.deleteCollection": "所有批量删除 (*:deleteCollection)",
-
-  // permission verb groups
-  "perm.verbGroup.read": "查询",
-  "perm.verbGroup.create": "创建",
-  "perm.verbGroup.update": "更新",
-  "perm.verbGroup.delete": "删除",
 
   // permission codes - users
   "perm.iam:users:list": "查看用户列表",
@@ -339,133 +262,6 @@ const zhCN: Messages = {
   // permission codes - permissions
   "perm.iam:permissions:list": "查看权限列表",
   "perm.iam:permissions:get": "查看权限详情",
-
-  // permission codes - dashboard
-  "perm.dashboard:overview:list": "查看平台概览",
-  "perm.dashboard:workspaces:overview:list": "查看租户概览",
-  "perm.dashboard:workspaces:namespaces:overview:list": "查看项目概览",
-
-  // built-in role descriptions
-  "role.desc.platform-admin": "对所有平台资源的完全访问权限",
-  "role.desc.platform-viewer": "对所有平台资源的只读访问权限",
-  "role.desc.workspace-admin": "对租户内所有资源的完全访问权限",
-  "role.desc.workspace-viewer": "对租户内所有资源的只读访问权限",
-  "role.desc.namespace-admin": "对项目内所有资源的完全访问权限",
-  "role.desc.namespace-viewer": "对项目内所有资源的只读访问权限",
-
-  // audit
-  "audit.title": "审计日志",
-  "audit.manage": "查看系统审计日志。共 {count} 条。",
-  "audit.noData": "暂无审计日志。",
-  "audit.viewDetail": "查看详情",
-  "audit.detail": "日志详情",
-  "audit.username": "用户名",
-  "audit.eventType": "事件类型",
-  "audit.action": "操作",
-  "audit.resourceType": "资源类型",
-  "audit.resourceId": "资源 ID",
-  "audit.module": "模块",
-  "audit.scope": "作用域",
-  "audit.success": "结果",
-  "audit.statusCode": "状态码",
-  "audit.duration": "耗时",
-  "audit.clientIp": "客户端 IP",
-  "audit.userAgent": "User Agent",
-  "audit.httpMethod": "HTTP 方法",
-  "audit.httpPath": "HTTP 路径",
-  "audit.detail.field": "详情",
-  "audit.userId": "用户 ID",
-  "audit.workspaceId": "租户 ID",
-  "audit.namespaceId": "项目 ID",
-  "audit.createdAt": "时间",
-  "audit.success.true": "成功",
-  "audit.success.false": "失败",
-  "audit.eventType.api_operation": "API 操作",
-  "audit.eventType.authentication": "认证",
-  "audit.action.create": "创建",
-  "audit.action.update": "更新",
-  "audit.action.patch": "修改",
-  "audit.action.delete": "删除",
-  "audit.action.deleteCollection": "批量删除",
-  "audit.action.login": "登录",
-  "audit.action.login_failed": "登录失败",
-  "audit.action.token_refresh": "令牌刷新",
-  "audit.action.token_refresh_blocked": "令牌刷新被阻止",
-  "audit.action.token_refresh_failed": "令牌刷新失败",
-  "audit.searchPlaceholder": "搜索用户名、资源类型、模块、状态码...",
-  "audit.filter.eventType": "事件类型",
-  "audit.filter.action": "操作",
-  "audit.filter.module": "模块",
-  "audit.filter.success": "结果",
-  "audit.filter.startTime": "开始时间",
-  "audit.filter.endTime": "结束时间",
-  "audit.filter.dateRange": "选择时间范围",
-
-  // permission codes - audit
-  "perm.group.audit": "审计",
-  "perm.group.audit.logs": "审计日志",
-  "perm.audit:logs:list": "查看审计日志列表",
-  "perm.audit:logs:get": "查看审计日志详情",
-
-  // error
-  "error.400.title": "请求错误",
-  "error.400.desc": "请求无法处理，请重试。",
-  "error.401.title": "未授权",
-  "error.401.desc": "请登录后继续。",
-  "error.403.title": "禁止访问",
-  "error.403.desc": "您没有权限访问此页面。",
-  "error.404.title": "页面不存在",
-  "error.404.desc": "您访问的页面不存在。",
-  "error.500.title": "服务器错误",
-  "error.500.desc": "系统出现问题，请稍后再试。",
-  "error.backHome": "返回首页",
-
-  // login errors
-  "login.error.invalidCredentials": "用户名或密码错误",
-  "login.error.accountInactive": "账号已被停用",
-  "login.error.failed": "登录失败，请重试",
-
-  // api errors
-  "api.error.badRequest": "请求参数错误",
-  "api.error.notFound": "{resource}不存在",
-  "api.error.conflict": "{resource}已存在",
-  "api.error.memberLimitExceeded": "项目成员数已达上限",
-  "api.error.cannotDeleteWorkspace": "无法删除租户：仍包含项目，请先删除所有项目",
-  "api.error.cannotDeleteNamespace": "无法删除项目：仍包含成员，请先移除所有成员",
-  "api.error.cannotRemoveOwner": "无法移除所有者",
-  "api.error.oldPasswordIncorrect": "当前密码不正确",
-  "api.error.internalError": "服务器内部错误，请稍后重试",
-
-  // validation errors
-  "api.validation.required": "{field}不能为空",
-  "api.validation.username.format": "用户名需为3-50位字母、数字或下划线",
-  "api.validation.email.format": "请输入有效的邮箱地址",
-  "api.validation.phone.format": "请输入有效的手机号（如 13800138000）",
-  "api.validation.password.length": "密码长度需为8-128位",
-  "api.validation.password.uppercase": "密码需包含至少一个大写字母",
-  "api.validation.password.lowercase": "密码需包含至少一个小写字母",
-  "api.validation.password.digit": "密码需包含至少一个数字",
-  "api.validation.status.format": "状态必须为「活跃」或「停用」",
-  "api.validation.username.taken": "该用户名已被使用",
-  "api.validation.email.taken": "该邮箱已被使用",
-  "api.validation.phone.taken": "该手机号已被使用",
-  "api.validation.password.hint": "8-128位，需包含大写字母、小写字母和数字",
-
-  // action feedback
-  "action.createSuccess": "创建成功",
-  "action.updateSuccess": "更新成功",
-  "action.deleteSuccess": "删除成功",
-  "action.changePasswordSuccess": "密码修改成功",
-
-  // user menu
-  "userMenu.profile": "个人信息",
-  "userMenu.changePassword": "修改密码",
-  "userMenu.logout": "退出登录",
-  "userMenu.oldPassword": "当前密码",
-  "userMenu.newPassword": "新密码",
-  "userMenu.confirmPassword": "确认新密码",
-  "userMenu.passwordMismatch": "两次输入的密码不一致",
-  "userMenu.passwordSameAsOld": "新密码不能与当前密码相同",
 }
 
-export default zhCN
+export default iam

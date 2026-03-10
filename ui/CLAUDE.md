@@ -26,7 +26,8 @@ src/
   api/iam/          # IAM module API functions (users, workspaces, namespaces, rbac)
   components/       # Shared components (user-menu, scope-selector, permission-selector, ui/ for shadcn primitives)
   hooks/            # Custom hooks (use-permission, use-list-state)
-  i18n/             # i18n setup, locale files (en-US, zh-CN), type definitions
+  i18n/             # i18n setup, type definitions
+  i18n/locales/     # Per-module locale files (en-US/, zh-CN/ each with common, iam, dashboard, audit)
   lib/              # Auth utilities (OIDC PKCE flow, token management)
   modules.ts        # Module definitions (iam, dashboard) with nav items and routes
   pages/iam/        # IAM module pages (users, workspaces, namespaces, roles)
@@ -189,10 +190,16 @@ Backend returns English error messages. The frontend translates them to i18n key
 ## I18n Conventions
 
 - All user-visible text must use `t("key")` — no hardcoded strings
-- Locale files: `src/i18n/locales/en-US.ts` and `zh-CN.ts`
+- Locale files are split by module under `src/i18n/locales/{locale}/`:
+  - `common.ts` — common.*, auth.*, login.*, nav.*, scope.*, overview.*, error.*, api.*, action.*, userMenu.*, perm.group.all, perm.verb.*, perm.verbGroup.*
+  - `iam.ts` — workspace.*, namespace.*, user.*, role.*, rolebinding.*, perm.group.iam.*, perm.iam:*
+  - `dashboard.ts` — perm.group.dashboard.*, perm.dashboard:*
+  - `audit.ts` — audit.*, perm.group.audit.*, perm.audit:*
+  - `index.ts` — re-exports merged messages
+- When adding a new module, create a new `{module}.ts` file in each locale directory and import it in `index.ts`
 - Key naming: `{domain}.{subkey}` (e.g., `user.create`, `api.validation.required`, `common.save`)
 - Parameterized messages use `{param}` syntax: `t("api.validation.required", { field: t("common.phone") })`
-- Both locale files must always have the same keys (typed via `Messages`)
+- Both locale directories must always have the same keys (typed via `Messages`)
 
 ## List/Table Conventions
 
