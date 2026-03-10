@@ -203,7 +203,7 @@ func (p *Provider) RefreshTokens(ctx context.Context, req *RefreshRequest) (*Tok
 	}
 
 	// Block inactive users from refreshing tokens
-	if err := p.CheckUserActive(ctx, rtData.UserID); err != nil {
+	if _, err := p.CheckUserActive(ctx, rtData.UserID); err != nil {
 		return nil, fmt.Errorf("account is not active")
 	}
 
@@ -258,15 +258,16 @@ func (p *Provider) VerifyBearerToken(tokenStr string) (int64, error) {
 }
 
 // CheckUserActive verifies that the user is still in active status.
-func (p *Provider) CheckUserActive(ctx context.Context, userID int64) error {
+// Returns the username on success.
+func (p *Provider) CheckUserActive(ctx context.Context, userID int64) (string, error) {
 	user, err := p.users.GetByID(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("user not found")
+		return "", fmt.Errorf("user not found")
 	}
 	if user.Status != "active" {
-		return fmt.Errorf("account is not active")
+		return "", fmt.Errorf("account is not active")
 	}
-	return nil
+	return user.Username, nil
 }
 
 // DiscoveryDocument returns the OIDC discovery metadata.

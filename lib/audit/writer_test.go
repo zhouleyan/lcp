@@ -47,7 +47,7 @@ func TestWriter_BatchFlush(t *testing.T) {
 
 	// Send exactly BatchSize events to trigger a flush
 	for i := range 5 {
-		w.Log(Event{Action: "create", Detail: string(rune('A' + i))})
+		w.Log(Event{Action: "create", Detail: JSONString(string(rune('A' + i)))})
 	}
 
 	// Wait for flush to happen

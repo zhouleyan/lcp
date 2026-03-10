@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -27,6 +28,10 @@ func NewPGAuditLogStore(queries *generated.Queries) *pgAuditLogStore {
 
 func (s *pgAuditLogStore) BatchCreate(ctx context.Context, events []libaudit.Event) error {
 	for _, e := range events {
+		detail := e.Detail
+		if detail == nil {
+			detail = json.RawMessage("null")
+		}
 		err := s.queries.CreateAuditLog(ctx, generated.CreateAuditLogParams{
 			UserID:       e.UserID,
 			Username:     e.Username,
@@ -45,7 +50,7 @@ func (s *pgAuditLogStore) BatchCreate(ctx context.Context, events []libaudit.Eve
 			UserAgent:    e.UserAgent,
 			DurationMs:   int32(e.DurationMs),
 			Success:      e.Success,
-			Detail:       e.Detail,
+			Detail:       detail,
 			CreatedAt:    e.CreatedAt,
 		})
 		if err != nil {
@@ -83,8 +88,10 @@ func (s *pgAuditLogStore) List(ctx context.Context, query db.ListQuery) (*db.Lis
 		WorkspaceID:  filterParams.WorkspaceID,
 		NamespaceID:  filterParams.NamespaceID,
 		Success:      filterParams.Success,
+		StatusCode:   filterParams.StatusCode,
 		StartTime:    filterParams.StartTime,
 		EndTime:      filterParams.EndTime,
+		Search:       filterParams.Search,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("count audit logs: %w", err)
@@ -109,8 +116,10 @@ func (s *pgAuditLogStore) List(ctx context.Context, query db.ListQuery) (*db.Lis
 		WorkspaceID:  filterParams.WorkspaceID,
 		NamespaceID:  filterParams.NamespaceID,
 		Success:      filterParams.Success,
+		StatusCode:   filterParams.StatusCode,
 		StartTime:    filterParams.StartTime,
 		EndTime:      filterParams.EndTime,
+		Search:       filterParams.Search,
 		SortField:    sortField,
 		SortOrder:    sortOrder,
 		PageOffset:   offset,
@@ -137,7 +146,9 @@ func buildFilterParams(filters map[string]any) generated.ListAuditLogsParams {
 		WorkspaceID:  filterInt64(filters, "workspaceId"),
 		NamespaceID:  filterInt64(filters, "namespaceId"),
 		Success:      filterBool(filters, "success"),
+		StatusCode:   filterInt32(filters, "statusCode"),
 		StartTime:    filterTime(filters, "startTime"),
 		EndTime:      filterTime(filters, "endTime"),
+		Search:       filterStr(filters, "search"),
 	}
 }

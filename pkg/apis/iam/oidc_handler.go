@@ -209,7 +209,7 @@ func handleLogin(provider *oidc.Provider, auditLogger audit.Logger) http.Handler
 					ClientIP:   audit.ClientIP(r),
 					UserAgent:  r.UserAgent(),
 					Success:    false,
-					Detail:     description,
+					Detail:     audit.JSONString(description),
 					CreatedAt:  time.Now(),
 				})
 			}
@@ -387,7 +387,7 @@ func handleRefreshToken(w http.ResponseWriter, r *http.Request, provider *oidc.P
 				ClientIP:   audit.ClientIP(r),
 				UserAgent:  r.UserAgent(),
 				Success:    false,
-				Detail:     detail,
+				Detail:     audit.JSONString(detail),
 				CreatedAt:  time.Now(),
 			})
 		}

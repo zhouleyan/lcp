@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -24,8 +25,14 @@ type Event struct {
 	UserAgent    string
 	DurationMs   int
 	Success      bool
-	Detail       string
+	Detail       json.RawMessage
 	CreatedAt    time.Time
+}
+
+// JSONString wraps a plain string as a JSON-encoded string value (e.g. `"hello"`).
+func JSONString(s string) json.RawMessage {
+	b, _ := json.Marshal(s)
+	return b
 }
 
 // Logger is the interface for emitting audit events.

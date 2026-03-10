@@ -7,6 +7,7 @@ package generated
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -23,8 +24,15 @@ WHERE
     AND ($7::BIGINT IS NULL OR workspace_id = $7)
     AND ($8::BIGINT IS NULL OR namespace_id = $8)
     AND ($9::BOOLEAN IS NULL OR success = $9)
-    AND ($10::TIMESTAMPTZ IS NULL OR created_at >= $10)
-    AND ($11::TIMESTAMPTZ IS NULL OR created_at <= $11)
+    AND ($10::INT IS NULL OR status_code = $10)
+    AND ($11::TIMESTAMPTZ IS NULL OR created_at >= $11)
+    AND ($12::TIMESTAMPTZ IS NULL OR created_at <= $12)
+    AND ($13::VARCHAR IS NULL OR (
+        username ILIKE '%' || $13 || '%'
+        OR resource_type ILIKE '%' || $13 || '%'
+        OR module ILIKE '%' || $13 || '%'
+        OR CAST(status_code AS VARCHAR) ILIKE '%' || $13 || '%'
+    ))
 `
 
 type CountAuditLogsParams struct {
@@ -37,8 +45,10 @@ type CountAuditLogsParams struct {
 	WorkspaceID  *int64     `json:"workspace_id"`
 	NamespaceID  *int64     `json:"namespace_id"`
 	Success      *bool      `json:"success"`
+	StatusCode   *int32     `json:"status_code"`
 	StartTime    *time.Time `json:"start_time"`
 	EndTime      *time.Time `json:"end_time"`
+	Search       *string    `json:"search"`
 }
 
 func (q *Queries) CountAuditLogs(ctx context.Context, arg CountAuditLogsParams) (int64, error) {
@@ -52,8 +62,10 @@ func (q *Queries) CountAuditLogs(ctx context.Context, arg CountAuditLogsParams) 
 		arg.WorkspaceID,
 		arg.NamespaceID,
 		arg.Success,
+		arg.StatusCode,
 		arg.StartTime,
 		arg.EndTime,
+		arg.Search,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -75,25 +87,25 @@ INSERT INTO audit_logs (
 `
 
 type CreateAuditLogParams struct {
-	UserID       *int64    `json:"user_id"`
-	Username     string    `json:"username"`
-	EventType    string    `json:"event_type"`
-	Action       string    `json:"action"`
-	ResourceType string    `json:"resource_type"`
-	ResourceID   string    `json:"resource_id"`
-	Module       string    `json:"module"`
-	Scope        string    `json:"scope"`
-	WorkspaceID  *int64    `json:"workspace_id"`
-	NamespaceID  *int64    `json:"namespace_id"`
-	HttpMethod   string    `json:"http_method"`
-	HttpPath     string    `json:"http_path"`
-	StatusCode   int32     `json:"status_code"`
-	ClientIp     string    `json:"client_ip"`
-	UserAgent    string    `json:"user_agent"`
-	DurationMs   int32     `json:"duration_ms"`
-	Success      bool      `json:"success"`
-	Detail       string    `json:"detail"`
-	CreatedAt    time.Time `json:"created_at"`
+	UserID       *int64          `json:"user_id"`
+	Username     string          `json:"username"`
+	EventType    string          `json:"event_type"`
+	Action       string          `json:"action"`
+	ResourceType string          `json:"resource_type"`
+	ResourceID   string          `json:"resource_id"`
+	Module       string          `json:"module"`
+	Scope        string          `json:"scope"`
+	WorkspaceID  *int64          `json:"workspace_id"`
+	NamespaceID  *int64          `json:"namespace_id"`
+	HttpMethod   string          `json:"http_method"`
+	HttpPath     string          `json:"http_path"`
+	StatusCode   int32           `json:"status_code"`
+	ClientIp     string          `json:"client_ip"`
+	UserAgent    string          `json:"user_agent"`
+	DurationMs   int32           `json:"duration_ms"`
+	Success      bool            `json:"success"`
+	Detail       json.RawMessage `json:"detail"`
+	CreatedAt    time.Time       `json:"created_at"`
 }
 
 func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error {
@@ -174,20 +186,35 @@ WHERE
     AND ($7::BIGINT IS NULL OR workspace_id = $7)
     AND ($8::BIGINT IS NULL OR namespace_id = $8)
     AND ($9::BOOLEAN IS NULL OR success = $9)
-    AND ($10::TIMESTAMPTZ IS NULL OR created_at >= $10)
-    AND ($11::TIMESTAMPTZ IS NULL OR created_at <= $11)
+    AND ($10::INT IS NULL OR status_code = $10)
+    AND ($11::TIMESTAMPTZ IS NULL OR created_at >= $11)
+    AND ($12::TIMESTAMPTZ IS NULL OR created_at <= $12)
+    AND ($13::VARCHAR IS NULL OR (
+        username ILIKE '%' || $13 || '%'
+        OR resource_type ILIKE '%' || $13 || '%'
+        OR module ILIKE '%' || $13 || '%'
+        OR CAST(status_code AS VARCHAR) ILIKE '%' || $13 || '%'
+    ))
 ORDER BY
-    CASE WHEN $12::VARCHAR = 'created_at' AND $13::VARCHAR = 'asc' THEN created_at END ASC,
-    CASE WHEN $12::VARCHAR = 'created_at' AND $13::VARCHAR = 'desc' THEN created_at END DESC,
-    CASE WHEN $12::VARCHAR = 'event_type' AND $13::VARCHAR = 'asc' THEN event_type END ASC,
-    CASE WHEN $12::VARCHAR = 'event_type' AND $13::VARCHAR = 'desc' THEN event_type END DESC,
-    CASE WHEN $12::VARCHAR = 'action' AND $13::VARCHAR = 'asc' THEN action END ASC,
-    CASE WHEN $12::VARCHAR = 'action' AND $13::VARCHAR = 'desc' THEN action END DESC,
-    CASE WHEN $12::VARCHAR = 'username' AND $13::VARCHAR = 'asc' THEN username END ASC,
-    CASE WHEN $12::VARCHAR = 'username' AND $13::VARCHAR = 'desc' THEN username END DESC,
+    CASE WHEN $14::VARCHAR = 'created_at' AND $15::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN $14::VARCHAR = 'created_at' AND $15::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN $14::VARCHAR = 'event_type' AND $15::VARCHAR = 'asc' THEN event_type END ASC,
+    CASE WHEN $14::VARCHAR = 'event_type' AND $15::VARCHAR = 'desc' THEN event_type END DESC,
+    CASE WHEN $14::VARCHAR = 'action' AND $15::VARCHAR = 'asc' THEN action END ASC,
+    CASE WHEN $14::VARCHAR = 'action' AND $15::VARCHAR = 'desc' THEN action END DESC,
+    CASE WHEN $14::VARCHAR = 'username' AND $15::VARCHAR = 'asc' THEN username END ASC,
+    CASE WHEN $14::VARCHAR = 'username' AND $15::VARCHAR = 'desc' THEN username END DESC,
+    CASE WHEN $14::VARCHAR = 'resource_type' AND $15::VARCHAR = 'asc' THEN resource_type END ASC,
+    CASE WHEN $14::VARCHAR = 'resource_type' AND $15::VARCHAR = 'desc' THEN resource_type END DESC,
+    CASE WHEN $14::VARCHAR = 'module' AND $15::VARCHAR = 'asc' THEN module END ASC,
+    CASE WHEN $14::VARCHAR = 'module' AND $15::VARCHAR = 'desc' THEN module END DESC,
+    CASE WHEN $14::VARCHAR = 'status_code' AND $15::VARCHAR = 'asc' THEN status_code END ASC,
+    CASE WHEN $14::VARCHAR = 'status_code' AND $15::VARCHAR = 'desc' THEN status_code END DESC,
+    CASE WHEN $14::VARCHAR = 'duration_ms' AND $15::VARCHAR = 'asc' THEN duration_ms END ASC,
+    CASE WHEN $14::VARCHAR = 'duration_ms' AND $15::VARCHAR = 'desc' THEN duration_ms END DESC,
     created_at DESC
-LIMIT $15::INT
-OFFSET $14::INT
+LIMIT $17::INT
+OFFSET $16::INT
 `
 
 type ListAuditLogsParams struct {
@@ -200,8 +227,10 @@ type ListAuditLogsParams struct {
 	WorkspaceID  *int64     `json:"workspace_id"`
 	NamespaceID  *int64     `json:"namespace_id"`
 	Success      *bool      `json:"success"`
+	StatusCode   *int32     `json:"status_code"`
 	StartTime    *time.Time `json:"start_time"`
 	EndTime      *time.Time `json:"end_time"`
+	Search       *string    `json:"search"`
 	SortField    string     `json:"sort_field"`
 	SortOrder    string     `json:"sort_order"`
 	PageOffset   int32      `json:"page_offset"`
@@ -219,8 +248,10 @@ func (q *Queries) ListAuditLogs(ctx context.Context, arg ListAuditLogsParams) ([
 		arg.WorkspaceID,
 		arg.NamespaceID,
 		arg.Success,
+		arg.StatusCode,
 		arg.StartTime,
 		arg.EndTime,
+		arg.Search,
 		arg.SortField,
 		arg.SortOrder,
 		arg.PageOffset,

@@ -1,6 +1,9 @@
 package filters
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -9,15 +12,28 @@ import (
 	"lcp.io/lcp/lib/oidc"
 )
 
-// statusWriter wraps http.ResponseWriter to capture the status code.
+// maxBodyCapture is the maximum request body size captured for audit (64 KB).
+const maxBodyCapture = 64 * 1024
+
+// statusWriter wraps http.ResponseWriter to capture the status code
+// and optionally the response body (for extracting created resource IDs).
 type statusWriter struct {
 	http.ResponseWriter
-	code int
+	code    int
+	buf     bytes.Buffer
+	capture bool
 }
 
 func (sw *statusWriter) WriteHeader(code int) {
 	sw.code = code
 	sw.ResponseWriter.WriteHeader(code)
+}
+
+func (sw *statusWriter) Write(b []byte) (int, error) {
+	if sw.capture && sw.buf.Len() < maxBodyCapture {
+		sw.buf.Write(b)
+	}
+	return sw.ResponseWriter.Write(b)
 }
 
 // WithAudit returns middleware that logs API write operations (POST/PUT/PATCH/DELETE).
@@ -29,13 +45,42 @@ func WithAudit(logger audit.Logger) func(http.Handler) http.Handler {
 				return
 			}
 
-			sw := &statusWriter{ResponseWriter: w, code: http.StatusOK}
+			// Capture request body before downstream consumes it.
+			// Read the full body (downstream json.Decode would do the same),
+			// restore it for the handler, and only truncate when writing to audit detail.
+			var bodyDetail json.RawMessage
+			if r.Body != nil && hasRequestBody(r.Method) {
+				buf, err := io.ReadAll(r.Body)
+				if err == nil && len(buf) > 0 {
+					// Only store if it's valid JSON.
+					if json.Valid(buf) {
+						if len(buf) > maxBodyCapture {
+							bodyDetail = buf[:maxBodyCapture]
+						} else {
+							bodyDetail = buf
+						}
+					}
+				}
+				// Restore the full body so downstream handlers can read it.
+				r.Body = io.NopCloser(bytes.NewReader(buf))
+			}
+
+			_, _, verb := ResolveResourceAndVerb(r.Method, r.URL.Path)
+			sw := &statusWriter{
+				ResponseWriter: w,
+				code:           http.StatusOK,
+				capture:        verb == "create",
+			}
 			start := time.Now()
 
 			next.ServeHTTP(sw, r)
 
 			duration := time.Since(start)
 			event := buildAuditEvent(r, sw.code, duration)
+			event.Detail = bodyDetail
+			if verb == "create" && sw.code >= 200 && sw.code < 300 {
+				event.ResourceID = extractResourceIDFromResponse(sw.buf.Bytes())
+			}
 			logger.Log(event)
 		})
 	}
@@ -48,6 +93,15 @@ func isAuditableRequest(r *http.Request) bool {
 	}
 	switch r.Method {
 	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	}
+	return false
+}
+
+// hasRequestBody returns true for HTTP methods that typically carry a request body.
+func hasRequestBody(method string) bool {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch:
 		return true
 	}
 	return false
@@ -85,9 +139,23 @@ func buildAuditEvent(r *http.Request, statusCode int, duration time.Duration) au
 	if userID, ok := oidc.UserIDFromContext(r.Context()); ok {
 		event.UserID = &userID
 	}
+	event.Username = oidc.UsernameFromContext(r.Context())
 	event.ResourceID = extractResourceID(r.URL.Path, verb)
 
 	return event
+}
+
+// extractResourceIDFromResponse parses the JSON response body to find the created resource ID.
+func extractResourceIDFromResponse(body []byte) string {
+	var resp struct {
+		Metadata struct {
+			ID string `json:"id"`
+		} `json:"metadata"`
+	}
+	if json.Unmarshal(body, &resp) == nil && resp.Metadata.ID != "" {
+		return resp.Metadata.ID
+	}
+	return ""
 }
 
 // extractResourceID extracts the target resource ID from the URL path for single-resource operations.

@@ -192,7 +192,7 @@ CREATE TABLE audit_logs (
     user_agent    VARCHAR(500) NOT NULL DEFAULT '',
     duration_ms   INT          NOT NULL DEFAULT 0,
     success       BOOLEAN      NOT NULL DEFAULT true,
-    detail        TEXT         NOT NULL DEFAULT '',
+    detail        JSONB,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 

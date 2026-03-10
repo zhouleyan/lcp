@@ -1,7 +1,9 @@
 package audit
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -83,7 +85,7 @@ func dbAuditLogToAPI(row *DBAuditLog) *AuditLog {
 		UserAgent:    row.UserAgent,
 		DurationMs:   int(row.DurationMs),
 		Success:      row.Success,
-		Detail:       row.Detail,
+		Detail:       nonNullJSON(row.Detail),
 		CreatedAt:    row.CreatedAt.Format(time.RFC3339),
 	}
 	if row.UserID != nil {
@@ -122,4 +124,12 @@ func restOptionsToListQuery(options *rest.ListOptions) db.ListQuery {
 		query.SortOrder = string(options.SortOrder)
 	}
 	return query
+}
+
+// nonNullJSON returns nil for SQL NULL / JSON null values so omitempty works correctly.
+func nonNullJSON(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil
+	}
+	return raw
 }

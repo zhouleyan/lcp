@@ -8,6 +8,7 @@ import {
   FileText,
   Shield,
   Home,
+  ScrollText,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -84,6 +85,12 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
         { to: "/iam/namespaces", labelKey: "nav.namespaces", icon: FolderKanban },
         { to: "/iam/users", labelKey: "nav.users", icon: Users, permission: "iam:users:list" },
         { to: "/iam/roles", labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list" },
+      ],
+    },
+    {
+      labelKey: "nav.audit",
+      items: [
+        { to: "/audit/logs", labelKey: "nav.auditLogs", icon: ScrollText, permission: "audit:logs:list" },
       ],
     },
   ]

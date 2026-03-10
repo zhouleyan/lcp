@@ -1,6 +1,8 @@
 package audit
 
 import (
+	"encoding/json"
+
 	"lcp.io/lcp/lib/runtime"
 	"lcp.io/lcp/pkg/db/generated"
 )
@@ -58,8 +60,8 @@ type AuditLogSpec struct {
 	DurationMs int `json:"durationMs,omitempty"`
 	// +openapi:description=是否成功
 	Success bool `json:"success"`
-	// +openapi:description=额外信息
-	Detail string `json:"detail,omitempty"`
+	// +openapi:description=请求体（JSON）
+	Detail json.RawMessage `json:"detail,omitempty"`
 	// +openapi:description=创建时间
 	CreatedAt string `json:"createdAt"`
 }

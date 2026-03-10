@@ -14,6 +14,24 @@ func filterStr(filters map[string]any, key string) *string {
 	return nil
 }
 
+func filterInt32(filters map[string]any, key string) *int32 {
+	if v, ok := filters[key]; ok {
+		switch val := v.(type) {
+		case int32:
+			return &val
+		case int64:
+			i := int32(val)
+			return &i
+		case string:
+			if i, err := strconv.ParseInt(val, 10, 32); err == nil {
+				i32 := int32(i)
+				return &i32
+			}
+		}
+	}
+	return nil
+}
+
 func filterInt64(filters map[string]any, key string) *int64 {
 	if v, ok := filters[key]; ok {
 		switch val := v.(type) {
