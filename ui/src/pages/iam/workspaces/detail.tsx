@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router"
-import { Pencil, Trash2, FolderKanban, Users } from "lucide-react"
+import { Pencil, Trash2, FolderKanban, Users, ShieldCheck } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -108,7 +108,7 @@ export default function WorkspaceDetailPage() {
 
       {/* Overview content */}
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <Card
             className="cursor-pointer transition-colors hover:bg-muted/50"
             onClick={() => navigate("namespaces")}
@@ -134,6 +134,19 @@ export default function WorkspaceDetailPage() {
               <div>
                 <p className="text-2xl font-bold">{workspace.spec.memberCount ?? 0}</p>
                 <p className="text-muted-foreground text-sm">{t("workspace.members")}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card
+            className="cursor-pointer transition-colors hover:bg-muted/50"
+            onClick={() => navigate("rolebindings")}
+          >
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
+                <ShieldCheck className="text-primary h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-muted-foreground text-sm">{t("rolebinding.title")}</p>
               </div>
             </CardContent>
           </Card>

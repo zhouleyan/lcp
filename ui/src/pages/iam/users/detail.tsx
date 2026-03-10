@@ -26,8 +26,9 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
 import { getUser, updateUser, deleteUser, listUsers, listUserWorkspaces, listUserNamespaces } from "@/api/iam/users"
+import { listUserRoleBindings } from "@/api/iam/rbac"
 import { ApiError, translateApiError, translateDetailMessage } from "@/api/client"
-import type { User, Workspace, Namespace, ListParams } from "@/api/types"
+import type { User, Workspace, Namespace, RoleBinding, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
@@ -157,6 +158,9 @@ export default function UserDetailPage() {
 
       {/* associated namespaces */}
       <UserNamespacesCard userId={user.metadata.id} />
+
+      {/* role bindings */}
+      <UserRoleBindingsCard userId={user.metadata.id} />
 
       {/* edit dialog */}
       <EditUserDialog
@@ -509,6 +513,105 @@ function UserNamespacesCard({ userId }: { userId: string }) {
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
           />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ===== User Role Bindings Card =====
+
+function UserRoleBindingsCard({ userId }: { userId: string }) {
+  const { t } = useTranslation()
+  const {
+    page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
+  } = useListState({ defaultSortBy: "created_at", defaultSortOrder: "desc", defaultPageSize: 10 })
+  const [bindings, setBindings] = useState<RoleBinding[]>([])
+  const [loading, setLoading] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params: ListParams = { page, pageSize, sortBy, sortOrder }
+      const data = await listUserRoleBindings(userId, params)
+      setBindings(data.items ?? [])
+      setTotalCount(data.totalCount)
+    } catch {
+      toast.error(t("api.error.internalError"))
+    } finally {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, page, pageSize, sortBy, sortOrder])
+
+  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { setPage(1) }, [pageSize])
+
+  const scopeLabel = (scope: string) => {
+    if (scope === "platform") return t("rolebinding.scope.platform")
+    if (scope === "workspace") return t("rolebinding.scope.workspace")
+    return t("rolebinding.scope.namespace")
+  }
+
+  const scopeVariant = (scope: string): "default" | "secondary" | "outline" => {
+    if (scope === "platform") return "default"
+    if (scope === "workspace") return "secondary"
+    return "outline"
+  }
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle>{t("user.rolebindings")}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("role_name")}>
+                  {t("role.title")}<SortIcon field="role_name" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+                <TableHead>{t("rolebinding.scope")}</TableHead>
+                <TableHead>{t("rolebinding.owner")}</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
+                  {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>{Array.from({ length: 4 }).map((_, j) => (<TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>))}</TableRow>
+                ))
+              ) : bindings.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="text-muted-foreground py-8 text-center">{t("user.noRolebindings")}</TableCell></TableRow>
+              ) : (
+                bindings.map((b) => (
+                  <TableRow key={b.metadata.id}>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {t(`role.${b.spec.roleName}`, { defaultValue: b.spec.roleDisplayName || b.spec.roleName || "" })}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={scopeVariant(b.spec.scope)}>{scopeLabel(b.spec.scope)}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {b.spec.isOwner && <Badge variant="default">{t("rolebinding.owner")}</Badge>}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                      {new Date(b.metadata.createdAt).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        {totalCount > 0 && (
+          <Pagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} onPageSizeChange={setPageSize} />
         )}
       </CardContent>
     </Card>

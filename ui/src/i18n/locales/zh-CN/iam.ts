@@ -92,6 +92,8 @@ const iam: Messages = {
   "user.namespaceRefs": "加入的项目",
   "user.noWorkspaces": "暂未加入租户。",
   "user.noNamespaceRefs": "暂未加入项目。",
+  "user.rolebindings": "角色绑定",
+  "user.noRolebindings": "暂无角色绑定。",
   "user.role": "角色",
   "user.joinedAt": "加入时间",
 
@@ -143,6 +145,10 @@ const iam: Messages = {
   "rolebinding.batchDelete": "批量删除",
   "rolebinding.batchDeleteConfirm": "确定要删除选中的 {count} 个角色绑定吗？",
   "rolebinding.owner": "所有者",
+  "rolebinding.scope": "作用域",
+  "rolebinding.scope.platform": "平台",
+  "rolebinding.scope.workspace": "工作空间",
+  "rolebinding.scope.namespace": "项目",
   "rolebinding.searchPlaceholder": "搜索用户名、角色名...",
 
   // built-in role display names

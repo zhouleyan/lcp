@@ -92,6 +92,8 @@ const iam: Messages = {
   "user.namespaceRefs": "Joined Namespaces",
   "user.noWorkspaces": "Not joined any workspace yet.",
   "user.noNamespaceRefs": "Not joined any namespace yet.",
+  "user.rolebindings": "Role Bindings",
+  "user.noRolebindings": "No role bindings.",
   "user.role": "Role",
   "user.joinedAt": "Joined At",
 
@@ -143,6 +145,10 @@ const iam: Messages = {
   "rolebinding.batchDelete": "Batch Delete",
   "rolebinding.batchDeleteConfirm": "Are you sure you want to delete {count} selected role bindings?",
   "rolebinding.owner": "Owner",
+  "rolebinding.scope": "Scope",
+  "rolebinding.scope.platform": "Platform",
+  "rolebinding.scope.workspace": "Workspace",
+  "rolebinding.scope.namespace": "Namespace",
   "rolebinding.searchPlaceholder": "Search username, role name...",
 
   // built-in role display names

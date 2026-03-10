@@ -19,7 +19,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   listWorkspaceUsers, addWorkspaceUsers, removeWorkspaceUsers, listUsers,
 } from "@/api/iam/users"
-import type { User, ListParams } from "@/api/types"
+import { listWorkspaceRoles, createWorkspaceRoleBinding } from "@/api/iam/rbac"
+import type { User, Role, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
@@ -254,6 +255,8 @@ function AddMemberDialog({
 }) {
   const { t } = useTranslation()
   const [allUsers, setAllUsers] = useState<User[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
+  const [selectedRoleId, setSelectedRoleId] = useState("")
   const [loading, setLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
@@ -262,11 +265,21 @@ function AddMemberDialog({
   useEffect(() => {
     if (open) {
       setSelectedIds(new Set())
+      setSelectedRoleId("")
       setSearchQuery("")
       setLoading(true)
-      listUsers({ pageSize: 100 }).then((data) => setAllUsers(data.items ?? [])).finally(() => setLoading(false))
+      Promise.all([
+        listUsers({ pageSize: 100 }),
+        listWorkspaceRoles(workspaceId, { pageSize: 100 }),
+      ]).then(([userData, roleData]) => {
+        setAllUsers(userData.items ?? [])
+        const items = roleData.items ?? []
+        setRoles(items)
+        const viewer = items.find((r) => r.spec.name.includes("viewer"))
+        if (viewer) setSelectedRoleId(viewer.metadata.id)
+      }).finally(() => setLoading(false))
     }
-  }, [open])
+  }, [open, workspaceId])
 
   const availableUsers = allUsers.filter((u) => !existingMemberIds.includes(u.metadata.id))
 
@@ -294,7 +307,13 @@ function AddMemberDialog({
     if (selectedIds.size === 0) return
     setSubmitting(true)
     try {
-      await addWorkspaceUsers(workspaceId, Array.from(selectedIds))
+      const userIds = Array.from(selectedIds)
+      await addWorkspaceUsers(workspaceId, userIds)
+      if (selectedRoleId) {
+        await Promise.all(userIds.map((uid) =>
+          createWorkspaceRoleBinding(workspaceId, { spec: { userId: uid, roleId: selectedRoleId, scope: "workspace" } })
+        ))
+      }
       toast.success(t("workspace.memberAdded"))
       onOpenChange(false)
       onSuccess()
@@ -311,21 +330,39 @@ function AddMemberDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{t("workspace.addMember")}</DialogTitle>
           <DialogDescription>{t("workspace.addMemberDesc")}</DialogDescription>
         </DialogHeader>
-        <div className="relative">
-          <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-          <Input
-            placeholder={t("user.searchPlaceholder")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+        <div>
+          <p className="mb-2 text-sm font-medium">{t("rolebinding.selectRole")}</p>
+          <div className="max-h-[120px] overflow-auto border rounded-md">
+            {loading ? (
+              <div className="space-y-2 p-4">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+            ) : roles.map((role) => (
+              <label key={role.metadata.id} className={`flex cursor-pointer items-center gap-3 px-4 py-2 hover:bg-muted/50 ${selectedRoleId === role.metadata.id ? "bg-muted" : ""}`}>
+                <Checkbox checked={selectedRoleId === role.metadata.id} onCheckedChange={() => setSelectedRoleId(role.metadata.id)} />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{t(`role.${role.spec.name}`, { defaultValue: role.spec.displayName || role.spec.name })}</p>
+                  <p className="text-muted-foreground text-xs">{t(`role.desc.${role.spec.name}`, { defaultValue: role.spec.description || "" })}</p>
+                </div>
+              </label>
+            ))}
+          </div>
         </div>
-        <div className="max-h-[300px] overflow-auto border">
+        <div>
+          <p className="mb-2 text-sm font-medium">{t("rolebinding.selectUser")}</p>
+          <div className="relative mb-2">
+            <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
+            <Input
+              placeholder={t("user.searchPlaceholder")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="max-h-[200px] overflow-auto border rounded-md">
           {loading ? (
             <div className="space-y-2 p-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
           ) : filteredUsers.length === 0 ? (
@@ -349,10 +386,11 @@ function AddMemberDialog({
               )
             })
           )}
+          </div>
         </div>
         <DialogFooter className="mt-6 pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-          <Button onClick={handleSubmit} disabled={selectedIds.size === 0 || submitting}>
+          <Button onClick={handleSubmit} disabled={selectedIds.size === 0 || !selectedRoleId || submitting}>
             {submitting ? "..." : t("workspace.addMember")} {selectedIds.size > 0 && `(${selectedIds.size})`}
           </Button>
         </DialogFooter>
