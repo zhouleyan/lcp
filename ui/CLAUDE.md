@@ -12,8 +12,9 @@
 ## Key Commands
 
 ```bash
-npm run dev          # Start dev server (port 5173)
-npm run build        # Production build
+pnpm dev             # Start dev server (port 5173)
+pnpm build           # Production build
+pnpm test            # Run unit tests (vitest)
 npx tsc --noEmit     # Type check
 ```
 
@@ -21,12 +22,18 @@ npx tsc --noEmit     # Type check
 
 ```
 src/
-  api/           # API client, type definitions, per-resource API functions
-  components/    # Shared components (user-menu, ui/ for shadcn primitives)
-  i18n/          # i18n setup, locale files (en-US, zh-CN), type definitions
-  lib/           # Auth utilities (OIDC PKCE flow, token management)
-  pages/         # Page components by route
-  stores/        # Zustand stores (auth-store)
+  api/              # API client, shared types
+  api/iam/          # IAM module API functions (users, workspaces, namespaces, rbac)
+  components/       # Shared components (user-menu, scope-selector, permission-selector, ui/ for shadcn primitives)
+  hooks/            # Custom hooks (use-permission, use-list-state)
+  i18n/             # i18n setup, locale files (en-US, zh-CN), type definitions
+  lib/              # Auth utilities (OIDC PKCE flow, token management)
+  modules.ts        # Module definitions (iam, dashboard) with nav items and routes
+  pages/iam/        # IAM module pages (users, workspaces, namespaces, roles)
+  pages/dashboard/  # Dashboard module pages (overview)
+  routes.tsx        # Route definitions with module-based lazy loading
+  stores/           # Zustand stores (auth-store, permission-store, scope-store, workspace-store)
+  test/             # Test setup (vitest)
 ```
 
 ## Form Validation Conventions
@@ -231,8 +238,42 @@ Frontend routes must mirror backend API routes to enable unified RBAC permission
 
 **Key rule**: Use the same resource name on both sides (e.g., `users` not `members`). Frontend routes include the module prefix (`/iam/`) to align with backend API groups. This ensures the permission middleware can match frontend route segments to backend API paths directly.
 
+## Module Architecture
+
+The UI is organized into modules (IAM, Dashboard) defined in `src/modules.ts`. Each module has its own route prefix, navigation items, and lazy-loaded pages.
+
+- **IAM module** (`/iam/`): Users, workspaces, namespaces, roles
+- **Dashboard module** (`/dashboard/`): Overview statistics
+
+The root layout (`layouts/root-layout.tsx`) renders navigation items from the active module and integrates the scope selector.
+
+## RBAC & Permissions
+
+### Permission Store (`stores/permission-store.ts`)
+
+Zustand store that fetches the current user's expanded permissions from `/users/{userId}:permissions`. Provides the raw permission data organized by scope (platform, workspaces, namespaces).
+
+### Permission Hook (`hooks/use-permission.ts`)
+
+`usePermission()` hook provides `hasPermission(code)` that checks permissions with scope chain inheritance (platform → workspace → namespace), matching the backend's `HasPermission` logic. The current scope is determined by the `scope-store`.
+
+### Scope Selector (`components/scope-selector.tsx`)
+
+Dropdown that switches between platform/workspace/namespace scope context. Updates `scope-store` which affects permission checks and data filtering across all pages.
+
+### Permission Selector (`components/permission-selector.tsx`)
+
+Tree-based checkbox component for selecting permission rules when creating/editing roles. Groups permissions by module and resource, supports wildcard patterns, and filters by scope.
+
+## Testing
+
+- Unit tests via Vitest: `pnpm test`
+- Test files: `hooks/__tests__/`, `stores/__tests__/`
+- Test setup in `src/test/setup.ts`
+
 ## API Client Conventions
 
 - Use `ky` via the shared `api` instance (`api/client.ts`) which handles auth tokens and 401 refresh
+- Module-specific API functions live in `api/iam/` (e.g., `rbac.ts`, `users.ts`, `workspaces.ts`, `namespaces.ts`)
 - Wrap all API calls with `apiRequest()` to convert HTTP errors to `ApiError`
 - `ApiError` carries `status`, `reason`, `message`, and optional `details[]`

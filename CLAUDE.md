@@ -12,16 +12,18 @@ The project has a custom-built REST API framework (inspired by Kubernetes apiser
 app/lcp-server/       # Main server entry point (config, wiring, HTTP listener)
 lib/                  # Internal framework libraries (REST framework, runtime, config, logger, etc.)
 lib/oidc/             # OIDC provider: JWT tokens, auth codes, sessions, keys, password hashing
-lib/httpserver/filters/ # HTTP middleware (request logging, authentication)
+lib/rest/filters/     # HTTP middleware (request logging, authentication, authorization, request info)
 pkg/apis/             # Business logic: API types, store interfaces, REST storage, validation
-pkg/apis/iam/         # IAM module: users, workspaces, namespaces, memberships, OIDC handlers
+pkg/apis/iam/         # IAM module: users, workspaces, namespaces, RBAC, OIDC handlers
 pkg/apis/iam/store/   # PostgreSQL store implementations (pg_*.go)
 pkg/apis/iam/v1/      # Route registration (install.go)
+pkg/apis/dashboard/   # Dashboard module: overview statistics API
 pkg/db/               # Database: connection pool, pagination helpers, sqlc config
 pkg/db/schema/        # PostgreSQL DDL (schema.sql)
 pkg/db/query/         # sqlc SQL query files (*.sql)
 pkg/db/generated/     # sqlc auto-generated Go code (DO NOT EDIT)
 cmd/openapi-gen/      # OpenAPI spec generator from +openapi: annotations
+cmd/init-admin/       # CLI tool to initialize admin user in database
 docs/                 # Generated OpenAPI specs, design docs
 scripts/              # Utility scripts (e.g. seed-test-users.sh)
 ```
@@ -65,7 +67,8 @@ HTTP Request
 - **`apis.Result`** only contains `Groups []*rest.APIGroupInfo` — no stores, caches, authorizers, or other implementation details. `NewAPIGroupInfos` is purely for module registration.
 - **`v1.ModuleResult`** only contains `Group *rest.APIGroupInfo` — same principle at the module level.
 - **`main.go`** must not import `iam`, `iamstore`, or any internal package. It only calls `apis.*` and `handler.*` factory functions.
-- **`apis` package** is the assembly/bridge layer. Cross-cutting concerns (shared caches, authorizer wiring) live here as package-level state, not in `Result`.
+- **`handler` package** must not import `iam` or any module package. It receives OIDC mux as `http.Handler` via `RootHandlerConfig.OIDCMux`.
+- **`apis` package** is the assembly/bridge layer. Cross-cutting concerns (shared caches, authorizer wiring, OIDC mux creation) live here as bridge functions, not in `Result`.
 - **`handler` package** owns routing logic (`NewRootHandler`, `buildChain`), not main.go.
 
 ### Adding a New Resource (Checklist)
@@ -88,8 +91,8 @@ HTTP Request
 - **All API objects** must implement `runtime.Object` (embed `runtime.TypeMeta`, implement `GetTypeMeta()`)
 - **URL path params** are auto-derived from resource names: `"users"` → `{userId}`, `"workspaces"` → `{workspaceId}`
 - **Sub-resources** are nested via `ResourceInfo.SubResources` (supports recursive nesting)
-- **IDs**: `int64` (BIGSERIAL) in DB, `string` in API layer. Conversion via `strconv.FormatInt` / `strconv.ParseInt`
-- **List queries**: Use `db.ListQuery{Filters, Pagination}` → `db.ListResult[T]{Items, TotalCount}`
+- **IDs**: `int64` (BIGSERIAL) in DB, `string` in API layer. Use `rest.ParseID()` for string→int64 conversion
+- **List queries**: Use `restOptionsToListQuery(options)` to convert `rest.ListOptions` → `db.ListQuery`. Result type: `db.ListResult[T]{Items, TotalCount}`
 - **Pagination**: `page` (1-based), `pageSize` (default 20, max 100), `sortBy`, `sortOrder`
 - **Batch operations**: Use `BatchRequest{IDs []string}` for batch add; `rest.DeleteCollectionRequest{IDs}` for batch delete
 - **Content negotiation**: JSON (default) + YAML (via `Accept: application/yaml`)
@@ -98,6 +101,7 @@ HTTP Request
 
 ```go
 apierrors.NewBadRequest(message, details)   // 400
+apierrors.NewForbidden(message)             // 403
 apierrors.NewNotFound(resource, name)       // 404
 apierrors.NewConflict(resource, name)       // 409
 apierrors.NewInternalError(err)             // 500
@@ -214,17 +218,38 @@ GET  /oidc/userinfo                                               # User info
 
 # Business API (authenticated via Bearer token when OIDC is enabled)
 # Authentication middleware checks both token validity AND user active status on every request.
+# Authorization middleware checks RBAC permissions per request (scope + permission code).
 # Inactive users receive 401 even with a valid token. Token refresh is also blocked for inactive users.
+
+# IAM Module
 /api/iam/v1/users                                                    # CRUD + batch delete
 /api/iam/v1/users/{userId}/change-password                           # POST change password
-/api/iam/v1/users/{userId}:workspaces                                # GET user's joined workspaces (paginated)
-/api/iam/v1/users/{userId}:namespaces                                # GET user's joined namespaces (paginated)
+/api/iam/v1/users/{userId}:workspaces                                # GET user's joined workspaces
+/api/iam/v1/users/{userId}:namespaces                                # GET user's joined namespaces
+/api/iam/v1/users/{userId}:rolebindings                              # GET user's role bindings
+/api/iam/v1/users/{userId}:permissions                               # GET user's expanded permissions
 /api/iam/v1/workspaces                                               # CRUD + batch delete
+/api/iam/v1/workspaces/{workspaceId}/transfer-ownership              # POST transfer ownership
+/api/iam/v1/workspaces/{workspaceId}/users                           # list + batch add/remove
 /api/iam/v1/workspaces/{workspaceId}/namespaces                      # CRUD + batch delete
 /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users  # list + batch add/remove
-/api/iam/v1/workspaces/{workspaceId}/users                           # list + batch add/remove
+/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/transfer-ownership  # POST
+/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/rolebindings  # list + create/delete
+/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/roles  # CRUD (scoped)
+/api/iam/v1/workspaces/{workspaceId}/rolebindings                    # list + create/delete
+/api/iam/v1/workspaces/{workspaceId}/roles                           # CRUD (scoped)
 /api/iam/v1/namespaces                                               # CRUD + batch delete
 /api/iam/v1/namespaces/{namespaceId}/users                           # list + batch add/remove
+/api/iam/v1/namespaces/{namespaceId}/rolebindings                    # list + create/delete
+/api/iam/v1/namespaces/{namespaceId}/roles                           # CRUD (scoped)
+/api/iam/v1/permissions                                              # list (read-only, auto-registered)
+/api/iam/v1/roles                                                    # list (platform-level, read-only)
+/api/iam/v1/rolebindings                                             # list + create/delete (platform-level)
+
+# Dashboard Module
+/api/dashboard/v1/overview                                           # GET platform stats
+/api/dashboard/v1/workspaces/{workspaceId}/overview                  # GET workspace stats
+/api/dashboard/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/overview  # GET namespace stats
 ```
 
 ## Resource Hierarchy
@@ -232,18 +257,45 @@ GET  /oidc/userinfo                                               # User info
 ```
 Workspace (tenant/organization)
   └── Namespace (project/team scope)
-       └── User (member with role)
+       └── User (member with role binding)
+
+Role (scoped: platform / workspace / namespace)
+  └── Permission Rules (wildcard patterns, e.g. "iam:users:*")
+
+RoleBinding (user + role + scope)
+Permission (auto-registered from resource tree, read-only)
 ```
 
-- Creating a Workspace auto-creates a default Namespace and adds owner as member
+- Creating a Workspace auto-creates a default Namespace, built-in roles, and adds owner as member
+- Creating a Namespace auto-creates built-in roles and adds owner as member
 - Adding a User to a Namespace auto-adds them to the parent Workspace
 - Deleting a Workspace requires no child Namespaces
 - Deleting a Namespace requires no member Users
+- Ownership can be transferred via dedicated endpoints (workspace/namespace)
+
+## RBAC Architecture
+
+### Permission Auto-Registration
+
+Permissions are auto-generated from the resource tree at startup via `SyncPermissions`. Each resource + verb combination produces a permission code (e.g., `iam:users:list`, `iam:workspaces:namespaces:create`). No manual permission maintenance needed.
+
+### Three-Level Scope Chain
+
+Permission checking follows `platform → workspace → namespace` inheritance: a platform-level permission grants access at all scopes.
+
+### Permission Cache
+
+`RBACChecker` caches user permission entries with a TTL. Uses `singleflight.Group` to deduplicate concurrent DB loads for the same user. Cache invalidation happens on role binding changes, workspace/namespace deletion (including batch), and ownership transfers — always through the `PermissionChecker` interface, never via direct `sharedPermCache` access.
+
+### Built-in Role Seeding
+
+`SeedRBAC` runs at startup: upserts platform roles with rules, creates scoped roles for existing workspaces/namespaces, and migrates old global roles to scoped roles. Split into sub-functions (`seedBuiltinRoles`, `seedScopedRolesForWorkspaces`, `seedScopedRolesForNamespaces`, `migrateGlobalRolesToScoped`) for clarity.
 
 ## Testing
 
-- Unit tests live in `lib/` (standard `testing` package + `httptest`)
-- No test files under `pkg/` or `app/` currently
+- Unit tests in `lib/` and `pkg/apis/iam/` (standard `testing` package + `httptest`)
+- RBAC tests: `rbac_checker_test.go`, `rbac_cache_test.go`, `rbac_match_test.go`, `rbac_seed_test.go`, `rbac_sync_test.go`
+- Authorization middleware tests: `lib/rest/filters/authorization_test.go`, `requestinfo_test.go`
 - E2E testing: start server, use `curl` against `localhost:8428`
 
 ## Configuration
