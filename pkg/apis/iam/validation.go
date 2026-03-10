@@ -207,20 +207,6 @@ func scopeLevel(scope string) int {
 	}
 }
 
-// patternCovers checks if a wildcard pattern covers a specific code.
-func patternCovers(pattern, code string) bool {
-	if pattern == "*:*" {
-		return true
-	}
-	starIdx := strings.Index(pattern, "*")
-	if starIdx == -1 {
-		return pattern == code
-	}
-	prefix := pattern[:starIdx]
-	suffix := pattern[starIdx+1:]
-	return strings.HasPrefix(code, prefix) && strings.HasSuffix(code, suffix) && len(code) > len(prefix)+len(suffix)
-}
-
 // ValidateRuleScopes checks that all permission rules are within the allowed scope.
 func ValidateRuleScopes(roleScope string, rules []string, permissionsByCode map[string]string) validation.ErrorList {
 	var errs validation.ErrorList
@@ -240,7 +226,7 @@ func ValidateRuleScopes(roleScope string, rules []string, permissionsByCode map[
 
 		if strings.Contains(rule, "*") {
 			for code, permScope := range permissionsByCode {
-				if patternCovers(rule, code) {
+				if MatchPermission(rule, code) {
 					if scopeLevel(permScope) < minLevel {
 						errs = append(errs, validation.FieldError{
 							Field:   fmt.Sprintf("spec.rules[%d]", i),

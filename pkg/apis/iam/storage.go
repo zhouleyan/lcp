@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -1387,6 +1388,7 @@ func mapKeys(m map[string]bool) []string {
 	for k := range m {
 		keys = append(keys, k)
 	}
+	slices.Sort(keys)
 	return keys
 }
 
@@ -1537,8 +1539,8 @@ func NewTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBACChecker)
 			return nil, err
 		}
 
-		sharedPermCache.Invalidate(oldOwnerUID)
-		sharedPermCache.Invalidate(newOwnerUID)
+		checker.InvalidateCache(oldOwnerUID)
+		checker.InvalidateCache(newOwnerUID)
 
 		return &StatusResponse{
 			TypeMeta: runtime.TypeMeta{Kind: "Status"},
@@ -1586,8 +1588,8 @@ func NewNamespaceTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBA
 			return nil, err
 		}
 
-		sharedPermCache.Invalidate(oldOwnerUID)
-		sharedPermCache.Invalidate(newOwnerUID)
+		checker.InvalidateCache(oldOwnerUID)
+		checker.InvalidateCache(newOwnerUID)
 
 		return &StatusResponse{
 			TypeMeta: runtime.TypeMeta{Kind: "Status"},
@@ -2022,6 +2024,14 @@ func NewScopedRoleStorage(roleStore RoleStore, rbStore RoleBindingStore, permSto
 
 func (s *scopedRoleStorage) NewObject() runtime.Object { return &Role{} }
 
+// scopeOwnerID returns the scope-specific resource ID from path params.
+func (s *scopedRoleStorage) scopeOwnerID(params map[string]string) (int64, error) {
+	if s.scope == ScopeWorkspace {
+		return parseID(params["workspaceId"])
+	}
+	return parseID(params["namespaceId"])
+}
+
 // +openapi:summary=获取租户角色列表
 // +openapi:summary.namespaces.roles=获取项目角色列表
 // +openapi:summary.workspaces.namespaces.roles=获取租户下项目的角色列表
@@ -2078,14 +2088,16 @@ func (s *scopedRoleStorage) Get(ctx context.Context, options *rest.GetOptions) (
 	if role.Scope != s.scope {
 		return nil, apierrors.NewNotFound("role", id)
 	}
+	ownerID, err := s.scopeOwnerID(options.PathParams)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid %s ID", s.scope), nil)
+	}
 	if s.scope == ScopeWorkspace {
-		wsID, _ := parseID(options.PathParams["workspaceId"])
-		if role.WorkspaceID == nil || *role.WorkspaceID != wsID {
+		if role.WorkspaceID == nil || *role.WorkspaceID != ownerID {
 			return nil, apierrors.NewNotFound("role", id)
 		}
 	} else {
-		nsID, _ := parseID(options.PathParams["namespaceId"])
-		if role.NamespaceID == nil || *role.NamespaceID != nsID {
+		if role.NamespaceID == nil || *role.NamespaceID != ownerID {
 			return nil, apierrors.NewNotFound("role", id)
 		}
 	}
@@ -2187,14 +2199,16 @@ func (s *scopedRoleStorage) Update(ctx context.Context, obj runtime.Object, opti
 	if existing.Scope != s.scope {
 		return nil, apierrors.NewNotFound("role", id)
 	}
+	ownerID, err := s.scopeOwnerID(options.PathParams)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid %s ID", s.scope), nil)
+	}
 	if s.scope == ScopeWorkspace {
-		wsID, _ := parseID(options.PathParams["workspaceId"])
-		if existing.WorkspaceID == nil || *existing.WorkspaceID != wsID {
+		if existing.WorkspaceID == nil || *existing.WorkspaceID != ownerID {
 			return nil, apierrors.NewNotFound("role", id)
 		}
 	} else {
-		nsID, _ := parseID(options.PathParams["namespaceId"])
-		if existing.NamespaceID == nil || *existing.NamespaceID != nsID {
+		if existing.NamespaceID == nil || *existing.NamespaceID != ownerID {
 			return nil, apierrors.NewNotFound("role", id)
 		}
 	}
@@ -2261,14 +2275,16 @@ func (s *scopedRoleStorage) Delete(ctx context.Context, options *rest.DeleteOpti
 	if existing.Scope != s.scope {
 		return apierrors.NewNotFound("role", id)
 	}
+	ownerID, err := s.scopeOwnerID(options.PathParams)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid %s ID", s.scope), nil)
+	}
 	if s.scope == ScopeWorkspace {
-		wsID, _ := parseID(options.PathParams["workspaceId"])
-		if existing.WorkspaceID == nil || *existing.WorkspaceID != wsID {
+		if existing.WorkspaceID == nil || *existing.WorkspaceID != ownerID {
 			return apierrors.NewNotFound("role", id)
 		}
 	} else {
-		nsID, _ := parseID(options.PathParams["namespaceId"])
-		if existing.NamespaceID == nil || *existing.NamespaceID != nsID {
+		if existing.NamespaceID == nil || *existing.NamespaceID != ownerID {
 			return apierrors.NewNotFound("role", id)
 		}
 	}
@@ -2353,11 +2369,12 @@ func (s *permissionStorage) List(ctx context.Context, options *rest.ListOptions)
 type roleBindingStorage struct {
 	rbStore   RoleBindingStore
 	roleStore RoleStore
+	checker   PermissionChecker
 }
 
 // NewRoleBindingStorage creates a platform-level role binding REST storage.
-func NewRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore) rest.Storage {
-	return &roleBindingStorage{rbStore: rbStore, roleStore: roleStore}
+func NewRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore, checker PermissionChecker) rest.Storage {
+	return &roleBindingStorage{rbStore: rbStore, roleStore: roleStore, checker: checker}
 }
 
 func (s *roleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
@@ -2413,7 +2430,7 @@ func (s *roleBindingStorage) Create(ctx context.Context, obj runtime.Object, opt
 		return nil, err
 	}
 
-	sharedPermCache.Invalidate(userID)
+	s.checker.InvalidateCache(userID)
 
 	return roleBindingToAPI(created, "", "", role.Name, role.DisplayName), nil
 }
@@ -2442,7 +2459,7 @@ func (s *roleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOpt
 		return err
 	}
 
-	sharedPermCache.Invalidate(existing.UserID)
+	s.checker.InvalidateCache(existing.UserID)
 
 	return nil
 }
@@ -2454,11 +2471,12 @@ func (s *roleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOpt
 type workspaceRoleBindingStorage struct {
 	rbStore   RoleBindingStore
 	roleStore RoleStore
+	checker   PermissionChecker
 }
 
 // NewWorkspaceRoleBindingStorage creates a workspace-level role binding REST storage.
-func NewWorkspaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore) rest.Storage {
-	return &workspaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore}
+func NewWorkspaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore, checker PermissionChecker) rest.Storage {
+	return &workspaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore, checker: checker}
 }
 
 func (s *workspaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
@@ -2527,7 +2545,7 @@ func (s *workspaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 		return nil, err
 	}
 
-	sharedPermCache.Invalidate(userID)
+	s.checker.InvalidateCache(userID)
 
 	return roleBindingToAPI(created, "", "", role.Name, role.DisplayName), nil
 }
@@ -2556,7 +2574,7 @@ func (s *workspaceRoleBindingStorage) Delete(ctx context.Context, options *rest.
 		return err
 	}
 
-	sharedPermCache.Invalidate(existing.UserID)
+	s.checker.InvalidateCache(existing.UserID)
 
 	return nil
 }
@@ -2569,11 +2587,12 @@ type namespaceRoleBindingStorage struct {
 	rbStore   RoleBindingStore
 	roleStore RoleStore
 	nsStore   NamespaceStore
+	checker   PermissionChecker
 }
 
 // NewNamespaceRoleBindingStorage creates a namespace-level role binding REST storage.
-func NewNamespaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore, nsStore NamespaceStore) rest.Storage {
-	return &namespaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore, nsStore: nsStore}
+func NewNamespaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore, nsStore NamespaceStore, checker PermissionChecker) rest.Storage {
+	return &namespaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore, nsStore: nsStore, checker: checker}
 }
 
 func (s *namespaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
@@ -2652,7 +2671,7 @@ func (s *namespaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 		return nil, err
 	}
 
-	sharedPermCache.Invalidate(userID)
+	s.checker.InvalidateCache(userID)
 
 	return roleBindingToAPI(created, "", "", role.Name, role.DisplayName), nil
 }
@@ -2682,7 +2701,7 @@ func (s *namespaceRoleBindingStorage) Delete(ctx context.Context, options *rest.
 		return err
 	}
 
-	sharedPermCache.Invalidate(existing.UserID)
+	s.checker.InvalidateCache(existing.UserID)
 
 	return nil
 }

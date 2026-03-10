@@ -92,10 +92,10 @@ func main() {
 	}
 
 	rootHandler := handler.NewRootHandler(handler.RootHandlerConfig{
-		APIHandler:   apiHandler,
-		OIDCProvider: oidcProvider,
-		OpenAPISpec:  docs.OpenAPISpec,
-		FrontendFS:   distFS,
+		APIHandler:  apiHandler,
+		OIDCMux:     apis.NewOIDCMux(oidcProvider),
+		OpenAPISpec: docs.OpenAPISpec,
+		FrontendFS:  distFS,
 	})
 
 	go httpserver.Serve(listenAddrs, rootHandler, httpserver.ServerOptions{

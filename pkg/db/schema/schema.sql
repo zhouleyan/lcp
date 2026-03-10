@@ -54,29 +54,6 @@ CREATE INDEX idx_namespaces_status ON namespaces(status);
 CREATE INDEX idx_namespaces_visibility ON namespaces(visibility);
 CREATE INDEX idx_namespaces_created_at ON namespaces(created_at);
 
--- user_workspaces join table (many-to-many)
-CREATE TABLE user_workspaces (
-    user_id      BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    workspace_id BIGINT      NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    role         VARCHAR(50) NOT NULL DEFAULT 'member',
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_id, workspace_id)
-);
-
-CREATE INDEX idx_user_workspaces_workspace_id ON user_workspaces(workspace_id);
-CREATE INDEX idx_user_workspaces_role ON user_workspaces(role);
-
--- user_namespaces join table (many-to-many)
-CREATE TABLE user_namespaces (
-    user_id      BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    namespace_id BIGINT      NOT NULL REFERENCES namespaces(id) ON DELETE CASCADE,
-    role         VARCHAR(50) NOT NULL DEFAULT 'member',
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_id, namespace_id)
-);
-
-CREATE INDEX idx_user_namespaces_namespace_id ON user_namespaces(namespace_id);
-CREATE INDEX idx_user_namespaces_role ON user_namespaces(role);
 
 -- permissions table (auto-generated from routes, read-only)
 CREATE TABLE permissions (

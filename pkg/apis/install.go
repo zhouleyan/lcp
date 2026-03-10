@@ -2,11 +2,13 @@ package apis
 
 import (
 	"context"
+	"net/http"
 
 	"lcp.io/lcp/lib/config"
 	"lcp.io/lcp/lib/oidc"
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/lib/rest/filters"
+	"lcp.io/lcp/pkg/apis/iam"
 	dashboardv1 "lcp.io/lcp/pkg/apis/dashboard/v1"
 	iamv1 "lcp.io/lcp/pkg/apis/iam/v1"
 	"lcp.io/lcp/pkg/db"
@@ -45,4 +47,13 @@ func NewAuthorizer(database *db.DB, groups []*rest.APIGroupInfo) *filters.Author
 // Returns nil if OIDC is not configured (no key files).
 func NewOIDCProvider(database *db.DB, cfg *config.OIDCConfig) *oidc.Provider {
 	return iamv1.NewOIDCProvider(database, cfg)
+}
+
+// NewOIDCMux creates the OIDC public endpoint HTTP handler.
+// Returns nil if provider is nil.
+func NewOIDCMux(provider *oidc.Provider) http.Handler {
+	if provider == nil {
+		return nil
+	}
+	return iam.NewOIDCMux(provider)
 }

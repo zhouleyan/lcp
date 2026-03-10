@@ -46,9 +46,9 @@ func newAPIGroupInfo(database *db.DB) (*rest.APIGroupInfo, *iam.RESTStorageProvi
 	nsUserStorage := iam.NewNamespaceUserStorage(p.RoleBinding, p.Namespace, p.User)
 	permStorage := iam.NewPermissionStorage(p.Permission)
 	roleStorage := iam.NewRoleStorage(p.Role, p.RoleBinding, p.Permission)
-	rbStorage := iam.NewRoleBindingStorage(p.RoleBinding, p.Role)
-	wsRbStorage := iam.NewWorkspaceRoleBindingStorage(p.RoleBinding, p.Role)
-	nsRbStorage := iam.NewNamespaceRoleBindingStorage(p.RoleBinding, p.Role, p.Namespace)
+	rbStorage := iam.NewRoleBindingStorage(p.RoleBinding, p.Role, checker)
+	wsRbStorage := iam.NewWorkspaceRoleBindingStorage(p.RoleBinding, p.Role, checker)
+	nsRbStorage := iam.NewNamespaceRoleBindingStorage(p.RoleBinding, p.Role, p.Namespace, checker)
 	wsRoleStorage := iam.NewScopedRoleStorage(p.Role, p.RoleBinding, p.Permission, iam.ScopeWorkspace)
 	nsRoleStorage := iam.NewScopedRoleStorage(p.Role, p.RoleBinding, p.Permission, iam.ScopeNamespace)
 

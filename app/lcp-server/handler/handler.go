@@ -11,7 +11,6 @@ import (
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/lib/rest/filters"
 	"lcp.io/lcp/lib/runtime"
-	"lcp.io/lcp/pkg/apis/iam"
 )
 
 // APIServerConfig holds the configuration for creating an API server handler.
@@ -68,19 +67,16 @@ func (a *APIServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // RootHandlerConfig holds the components needed by the top-level request router.
 type RootHandlerConfig struct {
-	APIHandler   *APIServerHandler
-	OIDCProvider *oidc.Provider
-	OpenAPISpec  []byte
-	FrontendFS   fs.FS
+	APIHandler  *APIServerHandler
+	OIDCMux     http.Handler
+	OpenAPISpec []byte
+	FrontendFS  fs.FS
 }
 
 // NewRootHandler creates the top-level request handler that routes between
 // OIDC public endpoints, OpenAPI spec, API handler, and frontend static files.
 func NewRootHandler(cfg RootHandlerConfig) func(http.ResponseWriter, *http.Request) bool {
-	var oidcMux http.Handler
-	if cfg.OIDCProvider != nil {
-		oidcMux = iam.NewOIDCMux(cfg.OIDCProvider)
-	}
+	oidcMux := cfg.OIDCMux
 
 	var staticHandler http.Handler
 	if cfg.FrontendFS != nil {
