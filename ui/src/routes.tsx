@@ -1,26 +1,11 @@
 import { Navigate, type RouteObject } from "react-router"
 import RootLayout from "@/layouts/root-layout"
-import WorkspaceLayout from "@/layouts/workspace-layout"
 import LoginPage from "@/pages/login"
 import ApiDocsPage from "@/pages/api-docs"
 import AuthCallbackPage from "@/pages/auth-callback"
 import ErrorPage from "@/pages/error"
-import { PlatformOverviewPage, WorkspaceOverviewPage, NamespaceOverviewPage } from "@/pages/overview"
-import WorkspaceListPage from "@/pages/workspaces/list"
-import WorkspaceDetailPage from "@/pages/workspaces/detail"
-import WorkspaceUsersPage from "@/pages/workspaces/users"
-import WorkspaceNamespacesPage from "@/pages/workspaces/namespaces-tab"
-import NamespaceListPage from "@/pages/namespaces/list"
-import NamespaceDetailPage from "@/pages/namespaces/detail"
-import NamespaceUsersPage from "@/pages/namespaces/users"
-import UserListPage from "@/pages/users/list"
-import UserDetailPage from "@/pages/users/detail"
-import RoleListPage from "@/pages/roles/list"
-import RoleDetailPage from "@/pages/roles/detail"
-import WorkspaceRolesTab from "@/pages/workspaces/roles-tab"
-import NamespaceRolesTab from "@/pages/namespaces/roles-tab"
-import ScopedRoleDetailPage from "@/pages/roles/scoped-detail"
-import ScopedUserDetailPage from "@/pages/users/scoped-detail"
+import { dashboardRoutes } from "@/pages/dashboard/routes"
+import { iamRoutes } from "@/pages/iam/routes"
 
 export const routes: RouteObject[] = [
   {
@@ -43,44 +28,22 @@ export const routes: RouteObject[] = [
     path: "/",
     element: <RootLayout />,
     children: [
-      { index: true, element: <Navigate to="/iam/overview" replace /> },
+      { index: true, element: <Navigate to="/dashboard/overview" replace /> },
+      {
+        path: "dashboard",
+        children: [
+          { index: true, element: <Navigate to="/dashboard/overview" replace /> },
+          ...dashboardRoutes,
+        ],
+      },
       {
         path: "iam",
-        children: [
-          { index: true, element: <Navigate to="/iam/overview" replace /> },
-          { path: "overview", element: <PlatformOverviewPage /> },
-          { path: "workspaces", element: <WorkspaceListPage /> },
-          {
-            path: "workspaces/:workspaceId",
-            element: <WorkspaceLayout />,
-            children: [
-              { index: true, element: <WorkspaceDetailPage /> },
-              { path: "overview", element: <WorkspaceOverviewPage /> },
-              { path: "users", element: <WorkspaceUsersPage /> },
-              { path: "users/:userId", element: <ScopedUserDetailPage /> },
-              { path: "namespaces", element: <WorkspaceNamespacesPage /> },
-              { path: "roles", element: <WorkspaceRolesTab /> },
-              { path: "roles/:roleId", element: <ScopedRoleDetailPage /> },
-              { path: "namespaces/:namespaceId", element: <NamespaceDetailPage /> },
-              { path: "namespaces/:namespaceId/overview", element: <NamespaceOverviewPage /> },
-              { path: "namespaces/:namespaceId/users", element: <NamespaceUsersPage /> },
-              { path: "namespaces/:namespaceId/users/:userId", element: <ScopedUserDetailPage /> },
-              { path: "namespaces/:namespaceId/roles", element: <NamespaceRolesTab /> },
-              { path: "namespaces/:namespaceId/roles/:roleId", element: <ScopedRoleDetailPage /> },
-            ],
-          },
-          { path: "namespaces", element: <NamespaceListPage /> },
-          { path: "namespaces/:namespaceId", element: <NamespaceDetailPage /> },
-          { path: "users", element: <UserListPage /> },
-          { path: "users/:userId", element: <UserDetailPage /> },
-          { path: "roles", element: <RoleListPage /> },
-          { path: "roles/:roleId", element: <RoleDetailPage /> },
-        ],
+        children: iamRoutes,
       },
     ],
   },
   {
     path: "*",
-    element: <Navigate to="/iam/overview" replace />,
+    element: <Navigate to="/dashboard/overview" replace />,
   },
 ]

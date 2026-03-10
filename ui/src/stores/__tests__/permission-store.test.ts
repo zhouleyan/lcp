@@ -1,12 +1,12 @@
 import { vi, describe, it, expect, beforeEach } from "vitest"
 import type { UserPermissions } from "@/api/types"
 
-vi.mock("@/api/rbac", () => ({
+vi.mock("@/api/iam/rbac", () => ({
   getUserPermissions: vi.fn(),
 }))
 
 import { usePermissionStore } from "../permission-store"
-import { getUserPermissions } from "@/api/rbac"
+import { getUserPermissions } from "@/api/iam/rbac"
 
 const mockedGetUserPermissions = vi.mocked(getUserPermissions)
 

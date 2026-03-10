@@ -47,7 +47,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { listUsers, listWorkspaceUsers, listNamespaceUsers, createUser, updateUser, deleteUser, deleteUsers } from "@/api/users"
+import { listUsers, listWorkspaceUsers, listNamespaceUsers, createUser, updateUser, deleteUser, deleteUsers } from "@/api/iam/users"
 import { useScopeStore } from "@/stores/scope-store"
 import { ApiError, translateDetailMessage, translateApiError } from "@/api/client"
 import type { User, ListParams } from "@/api/types"

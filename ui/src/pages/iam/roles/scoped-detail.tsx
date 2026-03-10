@@ -13,7 +13,7 @@ import {
   getWorkspaceRole, deleteWorkspaceRole,
   getNamespaceRole, deleteNamespaceRole,
   listPermissions,
-} from "@/api/rbac"
+} from "@/api/iam/rbac"
 import { ApiError, translateApiError } from "@/api/client"
 import type { Role, Permission } from "@/api/types"
 import { useTranslation } from "@/i18n"

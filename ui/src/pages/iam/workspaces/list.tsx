@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/form"
 import {
   listWorkspaces, createWorkspace, updateWorkspace, deleteWorkspace, deleteWorkspaces,
-} from "@/api/workspaces"
+} from "@/api/iam/workspaces"
 import { ApiError, translateApiError } from "@/api/client"
 import type { Workspace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"

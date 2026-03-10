@@ -21,7 +21,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
-import { getNamespace, updateNamespace, deleteNamespace } from "@/api/namespaces"
+import { getNamespace, updateNamespace, deleteNamespace } from "@/api/iam/namespaces"
 import { ApiError, translateApiError } from "@/api/client"
 import type { Namespace } from "@/api/types"
 import { useTranslation } from "@/i18n"

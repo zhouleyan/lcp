@@ -25,7 +25,7 @@ import {
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
-import { getUser, updateUser, deleteUser, listUsers, listUserWorkspaces, listUserNamespaces } from "@/api/users"
+import { getUser, updateUser, deleteUser, listUsers, listUserWorkspaces, listUserNamespaces } from "@/api/iam/users"
 import { ApiError, translateApiError, translateDetailMessage } from "@/api/client"
 import type { User, Workspace, Namespace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"

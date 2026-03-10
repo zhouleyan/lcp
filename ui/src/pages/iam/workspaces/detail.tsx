@@ -21,7 +21,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
-import { getWorkspace, updateWorkspace, deleteWorkspace } from "@/api/workspaces"
+import { getWorkspace, updateWorkspace, deleteWorkspace } from "@/api/iam/workspaces"
 import { ApiError, translateApiError } from "@/api/client"
 import type { Workspace } from "@/api/types"
 import { useTranslation } from "@/i18n"

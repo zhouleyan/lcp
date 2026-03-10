@@ -26,7 +26,7 @@ import {
 import {
   Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
-import { listRoles, createRole, updateRole, deleteRole, getRole, listPermissions } from "@/api/rbac"
+import { listRoles, createRole, updateRole, deleteRole, getRole, listPermissions } from "@/api/iam/rbac"
 import { ApiError, translateDetailMessage, translateApiError } from "@/api/client"
 import type { Role, Permission, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"

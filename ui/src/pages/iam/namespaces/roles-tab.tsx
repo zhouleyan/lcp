@@ -12,7 +12,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   listNamespaceRoles, deleteNamespaceRole, listPermissions,
-} from "@/api/rbac"
+} from "@/api/iam/rbac"
 import type { Role, Permission, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"

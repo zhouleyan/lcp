@@ -31,9 +31,9 @@ import {
 } from "@/components/ui/form"
 import {
   listNamespaces, listWorkspaceNamespaces, createNamespace, updateNamespace, deleteNamespace, deleteNamespaces,
-} from "@/api/namespaces"
+} from "@/api/iam/namespaces"
 import { useScopeStore } from "@/stores/scope-store"
-import { listWorkspaces } from "@/api/workspaces"
+import { listWorkspaces } from "@/api/iam/workspaces"
 import { ApiError, translateApiError } from "@/api/client"
 import type { Namespace, Workspace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"

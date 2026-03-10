@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import type { UserPermissionsSpec } from "@/api/types"
-import { getUserPermissions } from "@/api/rbac"
+import { getUserPermissions } from "@/api/iam/rbac"
 
 interface PermissionState {
   permissions: UserPermissionsSpec | null

@@ -4,7 +4,6 @@ import {
   FolderKanban,
   Users,
   Shield,
-  LayoutDashboard,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { useTranslation } from "@/i18n"

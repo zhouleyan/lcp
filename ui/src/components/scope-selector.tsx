@@ -9,8 +9,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useScopeStore } from "@/stores/scope-store"
-import { listWorkspaces } from "@/api/workspaces"
-import { listWorkspaceNamespaces } from "@/api/namespaces"
+import { listWorkspaces } from "@/api/iam/workspaces"
+import { listWorkspaceNamespaces } from "@/api/iam/namespaces"
 import { useTranslation } from "@/i18n"
 import type { Workspace, Namespace } from "@/api/types"
 
@@ -44,8 +44,9 @@ function buildScopedPath(
     return `${prefix}/overview`
   }
   // 平台范围
+  if (resource === "overview") return "/dashboard/overview"
   if (resource && KNOWN_RESOURCES.includes(resource)) return `/iam/${resource}`
-  return "/iam/overview"
+  return "/dashboard/overview"
 }
 
 export function ScopeSelector() {

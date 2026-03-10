@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getWorkspaceUser, getNamespaceUser } from "@/api/users"
+import { getWorkspaceUser, getNamespaceUser } from "@/api/iam/users"
 import type { User } from "@/api/types"
 import { useTranslation } from "@/i18n"
 

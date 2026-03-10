@@ -16,7 +16,7 @@ import {
   createWorkspaceRole, updateWorkspaceRole, listWorkspaceRoles,
   createNamespaceRole, updateNamespaceRole, listNamespaceRoles,
   getWorkspaceRole, getNamespaceRole,
-} from "@/api/rbac"
+} from "@/api/iam/rbac"
 import { ApiError, translateApiError, translateDetailMessage } from "@/api/client"
 import type { Role, Permission } from "@/api/types"
 import { useTranslation } from "@/i18n"

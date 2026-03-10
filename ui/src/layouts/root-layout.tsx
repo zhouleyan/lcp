@@ -41,7 +41,7 @@ function getOverviewPath(scopeWorkspaceId: string | null, scopeNamespaceId: stri
   if (scopeWorkspaceId) {
     return `/iam/workspaces/${scopeWorkspaceId}/overview`
   }
-  return "/iam/overview"
+  return "/dashboard/overview"
 }
 
 function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: string | null): NavGroup[] {
@@ -73,7 +73,7 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
     ]
   }
   return [
-    { items: [{ to: "/iam/overview", labelKey: "nav.overview", icon: Home }] },
+    { items: [{ to: "/dashboard/overview", labelKey: "nav.overview", icon: Home }] },
     {
       labelKey: "nav.iam",
       items: [
@@ -104,8 +104,8 @@ export default function RootLayout() {
   // /iam/workspaces/:id/namespaces/:nsId/<sub-resource> activates namespace scope.
   useEffect(() => {
     const segs = location.pathname.split("/").filter(Boolean)
-    // Skip module prefix (e.g. "iam")
-    const s = segs[0] === "iam" ? segs.slice(1) : segs
+    // Skip module prefix (e.g. "iam", "dashboard")
+    const s = (segs[0] === "iam" || segs[0] === "dashboard") ? segs.slice(1) : segs
     let urlWsId: string | null = null
     let urlNsId: string | null = null
 

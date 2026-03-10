@@ -29,7 +29,7 @@ import {
 import {
   listWorkspaceNamespaces, createWorkspaceNamespace, updateNamespace,
   deleteNamespace, deleteNamespaces, listNamespaces,
-} from "@/api/namespaces"
+} from "@/api/iam/namespaces"
 import { ApiError, translateApiError } from "@/api/client"
 import type { Namespace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"

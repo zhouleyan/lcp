@@ -18,7 +18,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   listNamespaceUsers, addNamespaceUsers, removeNamespaceUsers, listUsers,
-} from "@/api/users"
+} from "@/api/iam/users"
 import type { User, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"

@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import type { OIDCUserInfo } from "@/api/types"
-import { getUserInfo } from "@/api/users"
+import { getUserInfo } from "@/api/iam/users"
 
 interface AuthState {
   user: OIDCUserInfo | null
