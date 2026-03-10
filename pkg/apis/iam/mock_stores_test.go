@@ -69,12 +69,12 @@ func (m *mockUserStore) SetPasswordHash(ctx context.Context, id int64, hash stri
 // --- Mock RefreshTokenStore ---
 
 type mockRefreshTokenStore struct {
-	CreateFn        func(ctx context.Context, token *DBRefreshToken) (*DBRefreshToken, error)
-	GetByHashFn     func(ctx context.Context, tokenHash string) (*DBRefreshToken, error)
-	ConsumeByHashFn func(ctx context.Context, tokenHash string) (*DBRefreshToken, error)
-	RevokeFn        func(ctx context.Context, tokenHash string) error
+	CreateFn         func(ctx context.Context, token *DBRefreshToken) (*DBRefreshToken, error)
+	GetByHashFn      func(ctx context.Context, tokenHash string) (*DBRefreshToken, error)
+	ConsumeByHashFn  func(ctx context.Context, tokenHash string) (*DBRefreshToken, error)
+	RevokeFn         func(ctx context.Context, tokenHash string) error
 	RevokeByUserIDFn func(ctx context.Context, userID int64) error
-	DeleteExpiredFn func(ctx context.Context) error
+	DeleteExpiredFn  func(ctx context.Context) error
 }
 
 func (m *mockRefreshTokenStore) Create(ctx context.Context, token *DBRefreshToken) (*DBRefreshToken, error) {
@@ -353,7 +353,7 @@ func testWorkspaceWithOwner(id int64, name string, ownerID int64, ownerUsername 
 			CreatedAt:   testTime,
 			UpdatedAt:   testTime,
 		},
-		OwnerUsername:   ownerUsername,
+		OwnerUsername:  ownerUsername,
 		NamespaceCount: 0,
 		MemberCount:    0,
 	}
@@ -375,7 +375,7 @@ func testNamespaceWithOwner(id int64, name string, workspaceID, ownerID int64, o
 			CreatedAt:   testTime,
 			UpdatedAt:   testTime,
 		},
-		OwnerUsername:  ownerUsername,
+		OwnerUsername: ownerUsername,
 		WorkspaceName: workspaceName,
 		MemberCount:   0,
 	}

@@ -182,7 +182,7 @@ func ResolveResourceAndVerb(method, path string) (module, resourceChain, verb st
 		return "", "", ""
 	}
 
-	module = segments[0]  // e.g. "iam"
+	module = segments[0] // e.g. "iam"
 	// segments[1] is version, skip
 	resourceSegments := segments[2:] // everything after module/version
 

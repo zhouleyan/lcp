@@ -12,19 +12,19 @@ import (
 
 // TypeInfo holds parsed information about an API type.
 type TypeInfo struct {
-	Name              string
-	Package           string
-	Fields            []FieldInfo
-	Annotations       []Annotation
-	Description       string
-	IsListType        bool
-	SchemaOnly        bool              // +openapi:schema — register in components/schemas but do not generate CRUD paths
-	Paths             []string          // from +openapi:path annotations
-	OperationSummary  map[string]string // from +openapi:summary.METHOD= (e.g. "list", "create", "get", "update", "patch", "delete", "deleteCollection")
-	ActionSummary     map[string]string // from +openapi:action.NAME.summary= (e.g. "change-password")
-	CustomVerbSummary  map[string]string            // from +openapi:customverb= on standalone functions (e.g. "workspaces" → summary)
-	CustomVerbResponse map[string]string            // from +openapi:response= on custom verb functions (e.g. "rolebindings" → "RoleBindingList")
-	PathOperations     map[string]map[string]bool   // path → set of implemented operations (e.g. "list", "create", "delete")
+	Name               string
+	Package            string
+	Fields             []FieldInfo
+	Annotations        []Annotation
+	Description        string
+	IsListType         bool
+	SchemaOnly         bool                       // +openapi:schema — register in components/schemas but do not generate CRUD paths
+	Paths              []string                   // from +openapi:path annotations
+	OperationSummary   map[string]string          // from +openapi:summary.METHOD= (e.g. "list", "create", "get", "update", "patch", "delete", "deleteCollection")
+	ActionSummary      map[string]string          // from +openapi:action.NAME.summary= (e.g. "change-password")
+	CustomVerbSummary  map[string]string          // from +openapi:customverb= on standalone functions (e.g. "workspaces" → summary)
+	CustomVerbResponse map[string]string          // from +openapi:response= on custom verb functions (e.g. "rolebindings" → "RoleBindingList")
+	PathOperations     map[string]map[string]bool // path → set of implemented operations (e.g. "list", "create", "delete")
 }
 
 // FieldInfo holds parsed information about a struct field.
@@ -39,13 +39,13 @@ type FieldInfo struct {
 // EndpointInfo holds parsed information about a standalone HTTP endpoint
 // defined via +openapi:endpoint annotations on functions.
 type EndpointInfo struct {
-	Path        string            // +openapi:path=...
-	Method      string            // +openapi:method=GET|POST|PUT|PATCH|DELETE
-	Summary     string            // +openapi:summary=...
-	Description string            // +openapi:description=...
-	Tag         string            // +openapi:tag=...
-	OperationID string            // +openapi:operationId=...
-	RequestBody *EndpointBody     // +openapi:requestBody.contentType=... and +openapi:requestBody.schema=...
+	Path        string             // +openapi:path=...
+	Method      string             // +openapi:method=GET|POST|PUT|PATCH|DELETE
+	Summary     string             // +openapi:summary=...
+	Description string             // +openapi:description=...
+	Tag         string             // +openapi:tag=...
+	OperationID string             // +openapi:operationId=...
+	RequestBody *EndpointBody      // +openapi:requestBody.contentType=... and +openapi:requestBody.schema=...
 	Responses   []EndpointResponse // +openapi:response.CODE.description=...
 }
 

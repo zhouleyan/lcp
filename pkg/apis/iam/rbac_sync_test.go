@@ -259,9 +259,9 @@ func TestSyncPermissions(t *testing.T) {
 		"iam:users:update", "iam:users:patch", "iam:users:delete", "iam:users:deleteCollection",
 		"iam:workspaces:list", "iam:workspaces:get",
 		"iam:namespaces:list", "iam:namespaces:get",
-		"iam:namespaces:users:list",     // sub-resource: namespace users
-		"iam:workspaces:users:list",     // sub-resource: workspace users
-		"iam:users:change-password",     // action
+		"iam:namespaces:users:list", // sub-resource: namespace users
+		"iam:workspaces:users:list", // sub-resource: workspace users
+		"iam:users:change-password", // action
 	}
 	for _, code := range expectedCodes {
 		if _, ok := store.upserted[code]; !ok {

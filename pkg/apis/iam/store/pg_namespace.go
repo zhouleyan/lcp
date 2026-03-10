@@ -114,7 +114,7 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 			CreatedAt:   nsRow.CreatedAt,
 			UpdatedAt:   nsRow.UpdatedAt,
 		},
-		OwnerUsername:  nsRow.OwnerUsername,
+		OwnerUsername: nsRow.OwnerUsername,
 		WorkspaceName: nsRow.WorkspaceName,
 		MemberCount:   nsRow.MemberCount,
 	}, nil
@@ -144,7 +144,7 @@ func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*iam.DBNamesp
 		},
 		OwnerUsername: row.OwnerUsername,
 		WorkspaceName: row.WorkspaceName,
-		MemberCount:  row.MemberCount,
+		MemberCount:   row.MemberCount,
 	}, nil
 }
 
@@ -262,10 +262,10 @@ func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 		OwnerID:       countParams.OwnerID,
 		WorkspaceID:   countParams.WorkspaceID,
 		Search:        countParams.Search,
-		SortField:   q.SortBy,
-		SortOrder:   sortOrder,
-		PageOffset:  offset,
-		PageSize:    limit,
+		SortField:     q.SortBy,
+		SortOrder:     sortOrder,
+		PageOffset:    offset,
+		PageSize:      limit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list namespaces: %w", err)
@@ -289,7 +289,7 @@ func (s *pgNamespaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 			},
 			OwnerUsername: r.OwnerUsername,
 			WorkspaceName: r.WorkspaceName,
-			MemberCount:  r.MemberCount,
+			MemberCount:   r.MemberCount,
 		})
 	}
 
@@ -303,4 +303,3 @@ func (s *pgNamespaceStore) CountUsers(ctx context.Context, namespaceID int64) (i
 	nsID := &namespaceID
 	return s.queries.CountUsersByNamespaceID(ctx, nsID)
 }
-

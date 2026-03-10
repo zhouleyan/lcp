@@ -514,8 +514,8 @@ func migrateOneGlobalRole(ctx context.Context, tx pgx.Tx, roleName, scope string
 		return fmt.Errorf("list bindings for old role %s: %w", roleName, err)
 	}
 	type bindingInfo struct {
-		id       int64
-		scopeID  *int64
+		id      int64
+		scopeID *int64
 	}
 	var bindings []bindingInfo
 	for rows.Next() {

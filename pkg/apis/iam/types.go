@@ -556,7 +556,7 @@ type RoleBindingSpec struct {
 type RoleBindingList struct {
 	runtime.TypeMeta `json:",inline"`
 	Items            []RoleBinding `json:"items"`
-	TotalCount       int64            `json:"totalCount"`
+	TotalCount       int64         `json:"totalCount"`
 }
 
 func (rb *RoleBindingList) GetTypeMeta() *runtime.TypeMeta { return &rb.TypeMeta }

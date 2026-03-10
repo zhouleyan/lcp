@@ -293,10 +293,10 @@ func (s *pgWorkspaceStore) List(ctx context.Context, q db.ListQuery) (*db.ListRe
 		Name:          countParams.Name,
 		OwnerID:       countParams.OwnerID,
 		Search:        countParams.Search,
-		SortField:  q.SortBy,
-		SortOrder:  sortOrder,
-		PageOffset: offset,
-		PageSize:   limit,
+		SortField:     q.SortBy,
+		SortOrder:     sortOrder,
+		PageOffset:    offset,
+		PageSize:      limit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list workspaces: %w", err)

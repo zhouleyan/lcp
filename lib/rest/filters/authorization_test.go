@@ -49,8 +49,8 @@ func TestResolveResourceAndVerb(t *testing.T) {
 		{"POST", "/api/infra/v1/workspaces/1/namespaces/2/networks", "infra", "workspaces:namespaces:networks", "create"},
 
 		// Edge cases
-		{"GET", "/api/iam/v1", "", "", ""},     // no resource
-		{"GET", "/api/iam", "", "", ""},         // no version
+		{"GET", "/api/iam/v1", "", "", ""},           // no resource
+		{"GET", "/api/iam", "", "", ""},              // no version
 		{"GET", "/not-api/iam/v1/users", "", "", ""}, // no /api/ prefix → empty
 	}
 
@@ -65,18 +65,18 @@ func TestResolveResourceAndVerb(t *testing.T) {
 
 func TestIsSelfUserQuery(t *testing.T) {
 	tests := []struct {
-		path      string
-		permCode  string
-		userID    int64
-		want      bool
+		path     string
+		permCode string
+		userID   int64
+		want     bool
 	}{
 		{"/api/iam/v1/users/1", "iam:users:get", 1, true},
 		{"/api/iam/v1/users/1:workspaces", "iam:users:get", 1, true},
 		{"/api/iam/v1/users/1:namespaces", "iam:users:get", 1, true},
 		{"/api/iam/v1/users/1/change-password", "iam:users:change-password", 1, true},
-		{"/api/iam/v1/users/2", "iam:users:get", 1, false},        // different user
-		{"/api/iam/v1/users/1", "iam:users:update", 1, false},     // not get/change-password
-		{"/api/iam/v1/users/1", "iam:users:delete", 1, false},     // not get/change-password
+		{"/api/iam/v1/users/2", "iam:users:get", 1, false},           // different user
+		{"/api/iam/v1/users/1", "iam:users:update", 1, false},        // not get/change-password
+		{"/api/iam/v1/users/1", "iam:users:delete", 1, false},        // not get/change-password
 		{"/api/iam/v1/workspaces/1", "iam:workspaces:get", 1, false}, // not a user path
 	}
 
