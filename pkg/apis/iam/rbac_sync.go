@@ -35,6 +35,7 @@ type permissionDef struct {
 	code        string
 	method      string
 	path        string
+	scope       string
 	description string
 }
 
@@ -67,7 +68,7 @@ func SyncPermissions(ctx context.Context, permStore PermissionStore, apiGroups [
 		canonical := canonicalize(entries)
 
 		// 3. Generate permission definitions from canonical entries
-		perms := generatePermissions(canonical, module, group)
+		perms := generatePermissions(canonical, module, group, entries)
 
 		// 4. Build lookup table (all entries map to canonical codes)
 		buildLookup(lookup, entries, canonical, module)
@@ -135,6 +136,36 @@ func canonicalize(entries []storageEntry) map[rest.Storage]storageEntry {
 	return canonical
 }
 
+// scopeForStorage determines the permission scope based on the deepest nesting
+// in the resource tree. Top-level resources are "platform", resources nested
+// under "workspaces" are "workspace", and resources nested under
+// "workspaces" > "namespaces" are "namespace".
+func scopeForStorage(storage rest.Storage, entries []storageEntry) string {
+	var deepest []string
+	for _, e := range entries {
+		if e.storage == storage && len(e.pathParts) > len(deepest) {
+			deepest = e.pathParts
+		}
+	}
+	wsIdx := -1
+	nsIdx := -1
+	for i, part := range deepest {
+		if part == "workspaces" && wsIdx == -1 {
+			wsIdx = i
+		}
+		if part == "namespaces" && wsIdx >= 0 {
+			nsIdx = i
+		}
+	}
+	if nsIdx > wsIdx && wsIdx >= 0 {
+		return "namespace"
+	}
+	if wsIdx >= 0 {
+		return "workspace"
+	}
+	return "platform"
+}
+
 // canonicalCode builds a permission code from module + canonical codeParts + verb.
 // e.g. ("iam", ["namespaces", "users"], "list") → "iam:namespaces:users:list"
 func canonicalCode(module string, codeParts []string, verb string) string {
@@ -142,18 +173,17 @@ func canonicalCode(module string, codeParts []string, verb string) string {
 }
 
 // generatePermissions creates permission definitions from canonical entries.
-func generatePermissions(canonical map[rest.Storage]storageEntry, module string, group *rest.APIGroupInfo) []permissionDef {
+func generatePermissions(canonical map[rest.Storage]storageEntry, module string, group *rest.APIGroupInfo, entries []storageEntry) []permissionDef {
 	var perms []permissionDef
 
 	// Also collect actions from the original resource tree
-	actionPerms := collectActions(group.Resources, nil, module, group, canonical)
+	actionPerms := collectActions(group.Resources, nil, module, group, canonical, entries)
 	perms = append(perms, actionPerms...)
 
 	for storage, entry := range canonical {
 		basePath := buildAPIPath(group, entry.pathParts)
-
-		// Detect which verbs this storage supports
 		verbs := detectVerbs(storage)
+		scope := scopeForStorage(storage, entries)
 
 		for _, verb := range verbs {
 			method := verbMethods[verb]
@@ -163,6 +193,7 @@ func generatePermissions(canonical map[rest.Storage]storageEntry, module string,
 				code:   code,
 				method: method,
 				path:   path,
+				scope:  scope,
 			})
 		}
 	}
@@ -171,7 +202,7 @@ func generatePermissions(canonical map[rest.Storage]storageEntry, module string,
 }
 
 // collectActions walks the resource tree to find ActionInfo entries.
-func collectActions(resources []rest.ResourceInfo, parentPathParts []string, module string, group *rest.APIGroupInfo, canonical map[rest.Storage]storageEntry) []permissionDef {
+func collectActions(resources []rest.ResourceInfo, parentPathParts []string, module string, group *rest.APIGroupInfo, canonical map[rest.Storage]storageEntry, entries []storageEntry) []permissionDef {
 	var perms []permissionDef
 
 	for _, res := range resources {
@@ -180,6 +211,7 @@ func collectActions(resources []rest.ResourceInfo, parentPathParts []string, mod
 		for _, action := range res.Actions {
 			// Use canonical codeParts for the resource to derive action code
 			canonEntry := canonical[res.Storage]
+			scope := scopeForStorage(res.Storage, entries)
 			code := module + ":" + strings.Join(canonEntry.codeParts, ":") + ":" + action.Name
 			basePath := buildAPIPath(group, pathParts)
 			path := basePath + "/{" + idParam(res.Name) + "}/" + action.Name
@@ -187,11 +219,12 @@ func collectActions(resources []rest.ResourceInfo, parentPathParts []string, mod
 				code:   code,
 				method: action.Method,
 				path:   path,
+				scope:  scope,
 			})
 		}
 
 		if len(res.SubResources) > 0 {
-			perms = append(perms, collectActions(res.SubResources, pathParts, module, group, canonical)...)
+			perms = append(perms, collectActions(res.SubResources, pathParts, module, group, canonical, entries)...)
 		}
 	}
 
@@ -295,6 +328,7 @@ func syncPermissionsToDB(ctx context.Context, permStore PermissionStore, module 
 			Code:        p.code,
 			Method:      p.method,
 			Path:        p.path,
+			Scope:       p.scope,
 			Description: p.description,
 		}
 	}
