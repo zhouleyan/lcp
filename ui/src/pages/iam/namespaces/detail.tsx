@@ -25,11 +25,13 @@ import { getNamespace, updateNamespace, deleteNamespace } from "@/api/iam/namesp
 import { ApiError, translateApiError } from "@/api/client"
 import type { Namespace } from "@/api/types"
 import { useTranslation } from "@/i18n"
+import { usePermission } from "@/hooks/use-permission"
 
 export default function NamespaceDetailPage() {
   const { namespaceId, workspaceId } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
   const [namespace, setNamespace] = useState<Namespace | null>(null)
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
@@ -92,14 +94,18 @@ export default function NamespaceDetailPage() {
           </Badge>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-            <Pencil className="mr-2 h-4 w-4" />
-            {t("common.edit")}
-          </Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            {t("common.delete")}
-          </Button>
+          {hasPermission("iam:namespaces:update", { workspaceId: workspaceId || namespace.spec.workspaceId, namespaceId: namespace.metadata.id }) && (
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              {t("common.edit")}
+            </Button>
+          )}
+          {hasPermission("iam:namespaces:delete", { workspaceId: workspaceId || namespace.spec.workspaceId, namespaceId: namespace.metadata.id }) && (
+            <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("common.delete")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -129,6 +135,7 @@ export default function NamespaceDetailPage() {
                 <ShieldCheck className="text-primary h-5 w-5" />
               </div>
               <div>
+                <p className="text-2xl font-bold">{namespace.spec.roleBindingCount ?? 0}</p>
                 <p className="text-muted-foreground text-sm">{t("rolebinding.title")}</p>
               </div>
             </CardContent>
@@ -294,7 +301,7 @@ function EditNamespaceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{t("namespace.edit")}</DialogTitle>
         </DialogHeader>

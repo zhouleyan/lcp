@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Link } from "react-router"
+import { Link, Navigate } from "react-router"
 import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -35,6 +35,8 @@ import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { PermissionSelector } from "@/components/permission-selector"
+import { usePermission } from "@/hooks/use-permission"
+import { usePermissionStore } from "@/stores/permission-store"
 
 const SCOPE_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
   platform: "default",
@@ -49,6 +51,8 @@ export default function RoleListPage() {
     searchInput, setSearchInput, search,
     selected, toggleAll, toggleOne, clearSelection,
   } = useListState()
+  const { hasPermission } = usePermission()
+  const permissionsLoaded = usePermissionStore((s) => s.permissions) !== null
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
@@ -72,8 +76,13 @@ export default function RoleListPage() {
       const data = await listRoles(params)
       setRoles(data.items ?? [])
       setTotalCount(data.totalCount)
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setLoading(false)
     }
@@ -84,12 +93,25 @@ export default function RoleListPage() {
   useEffect(() => { setPage(1) }, [search, scopeFilter, builtinFilter, pageSize])
   useEffect(() => { clearSelection() }, [roles])
 
-  // fetch permissions once for form dialogs
-  useEffect(() => {
-    listPermissions({ pageSize: 1000 })
-      .then((data) => setPermissions(data.items ?? []))
-      .catch(() => {})
-  }, [])
+  const loadPermissions = useCallback(async () => {
+    if (permissions.length > 0) return
+    try {
+      const data = await listPermissions({ pageSize: 1000 })
+      setPermissions(data.items ?? [])
+    } catch {
+      // silently ignore — permission selector will show empty
+    }
+  }, [permissions.length])
+
+  const handleCreate = async () => {
+    await loadPermissions()
+    setCreateOpen(true)
+  }
+
+  const handleEdit = async (role: Role) => {
+    await loadPermissions()
+    setEditRole(role)
+  }
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -129,6 +151,10 @@ export default function RoleListPage() {
   const selectableRoles = roles.filter((r) => !r.spec.builtin)
   const selectableIds = selectableRoles.map((r) => r.metadata.id)
 
+  if (permissionsLoaded && !hasPermission("iam:roles:list")) {
+    return <Navigate to="/" replace />
+  }
+
   return (
     <div className="p-6">
       {/* header */}
@@ -139,10 +165,12 @@ export default function RoleListPage() {
             {t("role.manage", { count: totalCount })}
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("role.create")}
-        </Button>
+        {hasPermission("iam:roles:create") && (
+          <Button onClick={handleCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("role.create")}
+          </Button>
+        )}
       </div>
 
       {/* filters */}
@@ -156,7 +184,7 @@ export default function RoleListPage() {
             className="pl-9"
           />
         </div>
-        {selected.size > 0 && (
+        {selected.size > 0 && hasPermission("iam:roles:delete") && (
           <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
             <Trash2 className="mr-2 h-4 w-4" />
             {t("role.batchDelete")} ({selected.size})
@@ -169,12 +197,14 @@ export default function RoleListPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={selectableIds.length > 0 && selected.size === selectableIds.length}
-                  onCheckedChange={() => toggleAll(selectableIds)}
-                />
-              </TableHead>
+              {hasPermission("iam:roles:delete") && (
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={selectableIds.length > 0 && selected.size === selectableIds.length}
+                    onCheckedChange={() => toggleAll(selectableIds)}
+                  />
+                </TableHead>
+              )}
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => handleSort("name")}
@@ -266,13 +296,15 @@ export default function RoleListPage() {
             ) : (
               roles.map((role) => (
                 <TableRow key={role.metadata.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selected.has(role.metadata.id)}
-                      onCheckedChange={() => toggleOne(role.metadata.id)}
-                      disabled={!!role.spec.builtin}
-                    />
-                  </TableCell>
+                  {hasPermission("iam:roles:delete") && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(role.metadata.id)}
+                        onCheckedChange={() => toggleOne(role.metadata.id)}
+                        disabled={!!role.spec.builtin}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Link to={`/iam/roles/${role.metadata.id}`} className="font-medium hover:underline">
                       {role.spec.name}
@@ -300,26 +332,30 @@ export default function RoleListPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setEditRole(role)}
-                        disabled={!!role.spec.builtin}
-                        title={role.spec.builtin ? t("role.builtinCannotEdit") : t("common.edit")}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget(role)}
-                        disabled={!!role.spec.builtin}
-                        title={role.spec.builtin ? t("role.builtinCannotDelete") : t("common.delete")}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {hasPermission("iam:roles:update") && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleEdit(role)}
+                          disabled={!!role.spec.builtin}
+                          title={role.spec.builtin ? t("role.builtinCannotEdit") : t("common.edit")}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {hasPermission("iam:roles:delete") && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteTarget(role)}
+                          disabled={!!role.spec.builtin}
+                          title={role.spec.builtin ? t("role.builtinCannotDelete") : t("common.delete")}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -516,7 +552,7 @@ function RoleFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:!max-w-none !w-auto min-w-[800px] max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent className="sm:!max-w-none !w-auto min-w-[800px] max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t("role.edit") : t("role.create")}</DialogTitle>
         </DialogHeader>

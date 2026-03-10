@@ -19,6 +19,7 @@ const (
 	RolePlatformViewer  = "platform-viewer"
 	RoleWorkspaceAdmin  = "workspace-admin"
 	RoleWorkspaceViewer = "workspace-viewer"
+	RoleWorkspaceMember = "workspace-member"
 	RoleNamespaceAdmin  = "namespace-admin"
 	RoleNamespaceViewer = "namespace-viewer"
 )
@@ -45,6 +46,7 @@ func WorkspaceBuiltinRoles() []BuiltinRoleDef {
 	return []BuiltinRoleDef{
 		{Name: RoleWorkspaceAdmin, DisplayName: "Workspace Admin", Description: "Full access to all resources within the workspace", Scope: ScopeWorkspace, Rules: []string{"*:*"}},
 		{Name: RoleWorkspaceViewer, DisplayName: "Workspace Viewer", Description: "Read-only access to all resources within the workspace", Scope: ScopeWorkspace, Rules: []string{"*:list", "*:get"}},
+		{Name: RoleWorkspaceMember, DisplayName: "Workspace Member", Description: "Basic workspace membership for namespace-level users", Scope: ScopeWorkspace, Rules: []string{}},
 	}
 }
 

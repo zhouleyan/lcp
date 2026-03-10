@@ -152,7 +152,7 @@ function ChangePasswordDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) form.reset() }}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{t("userMenu.changePassword")}</DialogTitle>
         </DialogHeader>

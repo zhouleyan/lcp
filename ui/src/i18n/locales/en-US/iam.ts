@@ -149,6 +149,8 @@ const iam: Messages = {
   "rolebinding.scope.platform": "Platform",
   "rolebinding.scope.workspace": "Workspace",
   "rolebinding.scope.namespace": "Namespace",
+  "rolebinding.role": "Role",
+  "rolebinding.roleDisplayName": "Role Display Name",
   "rolebinding.searchPlaceholder": "Search username, role name...",
 
   // built-in role display names

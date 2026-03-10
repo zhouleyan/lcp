@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useParams, Link } from "react-router"
+import { useParams, Link, Navigate } from "react-router"
 import { Plus, UserMinus, Search, Filter } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,8 @@ import type { User, Role, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
+import { usePermission } from "@/hooks/use-permission"
+import { usePermissionStore } from "@/stores/permission-store"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -33,12 +35,18 @@ export default function NamespaceUsersPage() {
   const workspaceId = useParams().workspaceId!
   const namespaceId = useParams().namespaceId!
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
   const usersBasePath = `/iam/workspaces/${workspaceId}/namespaces/${namespaceId}/users`
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
     searchInput, setSearchInput, search,
     selected, toggleAll, toggleOne, clearSelection,
   } = useListState()
+
+  const permissionsLoaded = usePermissionStore((s) => s.permissions) !== null
+  if (permissionsLoaded && !hasPermission("iam:namespaces:users:list", { workspaceId, namespaceId })) {
+    return <Navigate to="/" replace />
+  }
 
   const [members, setMembers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -120,10 +128,12 @@ export default function NamespaceUsersPage() {
           <h1 className="text-2xl font-bold">{t("namespace.members")}</h1>
           <p className="text-muted-foreground text-sm">{t("namespace.membersManage", { count: totalCount })}</p>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("namespace.addMember")}
-        </Button>
+        {hasPermission("iam:namespaces:users:create", { workspaceId, namespaceId }) && (
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("namespace.addMember")}
+          </Button>
+        )}
       </div>
       <div className="mb-4 flex items-center gap-3">
         <div className="relative max-w-xs flex-1">
@@ -135,7 +145,7 @@ export default function NamespaceUsersPage() {
             className="pl-9"
           />
         </div>
-        {selected.size > 0 && (
+        {selected.size > 0 && hasPermission("iam:namespaces:users:deleteCollection", { workspaceId, namespaceId }) && (
           <Button variant="destructive" size="sm" onClick={() => setBatchRemoveOpen(true)}>
             <UserMinus className="mr-2 h-4 w-4" />
             {t("namespace.removeMember")} ({selected.size})
@@ -148,9 +158,11 @@ export default function NamespaceUsersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10">
-                <Checkbox checked={members.length > 0 && selected.size === members.length} onCheckedChange={() => toggleAll(members.map((m) => m.metadata.id))} />
-              </TableHead>
+              {hasPermission("iam:namespaces:users:deleteCollection", { workspaceId, namespaceId }) && (
+                <TableHead className="w-10">
+                  <Checkbox checked={members.length > 0 && selected.size === members.length} onCheckedChange={() => toggleAll(members.map((m) => m.metadata.id))} />
+                </TableHead>
+              )}
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("username")}>{t("user.username")}<SortIcon field="username" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("email")}>{t("user.email")}<SortIcon field="email" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("display_name")}>{t("common.displayName")}<SortIcon field="display_name" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
@@ -173,7 +185,9 @@ export default function NamespaceUsersPage() {
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>{t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("updated_at")}>{t("common.updated")}<SortIcon field="updated_at" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
-              <TableHead className="w-16">{t("common.actions")}</TableHead>
+              {hasPermission("iam:namespaces:users:deleteCollection", { workspaceId, namespaceId }) && (
+                <TableHead className="w-16">{t("common.actions")}</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -186,7 +200,9 @@ export default function NamespaceUsersPage() {
             ) : (
               members.map((m) => (
                 <TableRow key={m.metadata.id}>
-                  <TableCell><Checkbox checked={selected.has(m.metadata.id)} onCheckedChange={() => toggleOne(m.metadata.id)} /></TableCell>
+                  {hasPermission("iam:namespaces:users:deleteCollection", { workspaceId, namespaceId }) && (
+                    <TableCell><Checkbox checked={selected.has(m.metadata.id)} onCheckedChange={() => toggleOne(m.metadata.id)} /></TableCell>
+                  )}
                   <TableCell className="font-medium">
                     <Link to={`${usersBasePath}/${m.metadata.id}`} className="hover:underline">
                       {m.spec.username}
@@ -203,11 +219,13 @@ export default function NamespaceUsersPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(m.metadata.createdAt).toLocaleString()}</TableCell>
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(m.metadata.updatedAt).toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setRemoveTarget(m)} title={t("namespace.removeMember")}>
-                      <UserMinus className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
+                  {hasPermission("iam:namespaces:users:deleteCollection", { workspaceId, namespaceId }) && (
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setRemoveTarget(m)} title={t("namespace.removeMember")}>
+                        <UserMinus className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
@@ -260,6 +278,7 @@ function AddMemberDialog({
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [selectedRoleId, setSelectedRoleId] = useState("")
+  const [defaultRoleId, setDefaultRoleId] = useState("")
   const [loading, setLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
@@ -269,6 +288,7 @@ function AddMemberDialog({
     if (open) {
       setSelectedIds(new Set())
       setSelectedRoleId("")
+      setDefaultRoleId("")
       setSearchQuery("")
       setLoading(true)
       Promise.all([
@@ -279,7 +299,10 @@ function AddMemberDialog({
         const items = roleData.items ?? []
         setRoles(items)
         const viewer = items.find((r) => r.spec.name.includes("viewer"))
-        if (viewer) setSelectedRoleId(viewer.metadata.id)
+        if (viewer) {
+          setSelectedRoleId(viewer.metadata.id)
+          setDefaultRoleId(viewer.metadata.id)
+        }
       }).finally(() => setLoading(false))
     }
   }, [open, workspaceId, namespaceId])
@@ -312,7 +335,8 @@ function AddMemberDialog({
     try {
       const userIds = Array.from(selectedIds)
       await addNamespaceUsers(workspaceId, namespaceId, userIds)
-      if (selectedRoleId) {
+      // AddNamespaceMember already creates a viewer binding; skip if user selected the same role
+      if (selectedRoleId && selectedRoleId !== defaultRoleId) {
         await Promise.all(userIds.map((uid) =>
           createNamespaceRoleBinding(workspaceId, namespaceId, { spec: { userId: uid, roleId: selectedRoleId, scope: "namespace" } })
         ))
@@ -348,7 +372,7 @@ function AddMemberDialog({
                 <Checkbox checked={selectedRoleId === role.metadata.id} onCheckedChange={() => setSelectedRoleId(role.metadata.id)} />
                 <div className="flex-1">
                   <p className="text-sm font-medium">{t(`role.${role.spec.name}`, { defaultValue: role.spec.displayName || role.spec.name })}</p>
-                  <p className="text-muted-foreground text-xs">{t(`role.desc.${role.spec.name}`, { defaultValue: role.spec.description || "" })}</p>
+                  <p className="text-muted-foreground text-xs">{t(`role.desc.${role.spec.name}`, { defaultValue: role.spec.description || "" }) || "-"}</p>
                 </div>
               </label>
             ))}

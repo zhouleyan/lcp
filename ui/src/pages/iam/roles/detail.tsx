@@ -21,6 +21,7 @@ import { getRole, updateRole, deleteRole, listPermissions } from "@/api/iam/rbac
 import { ApiError, translateApiError, translateDetailMessage } from "@/api/client"
 import type { Role, Permission } from "@/api/types"
 import { useTranslation } from "@/i18n"
+import { usePermission } from "@/hooks/use-permission"
 import { PermissionSelector, patternCovers } from "@/components/permission-selector"
 
 const SCOPE_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
@@ -33,6 +34,7 @@ export default function RoleDetailPage() {
   const { roleId } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
   const [role, setRole] = useState<Role | null>(null)
   const [loading, setLoading] = useState(true)
   const [permissions, setPermissions] = useState<Permission[]>([])
@@ -53,11 +55,20 @@ export default function RoleDetailPage() {
 
   useEffect(() => { fetchRole() }, [fetchRole])
 
-  useEffect(() => {
-    listPermissions({ pageSize: 1000 })
-      .then((data) => setPermissions(data.items ?? []))
-      .catch(() => {})
-  }, [])
+  const loadPermissions = useCallback(async () => {
+    if (permissions.length > 0) return
+    try {
+      const data = await listPermissions({ pageSize: 1000 })
+      setPermissions(data.items ?? [])
+    } catch {
+      // silently ignore — permission selector will show empty
+    }
+  }, [permissions.length])
+
+  const handleEdit = async () => {
+    await loadPermissions()
+    setEditOpen(true)
+  }
 
   const handleDelete = async () => {
     if (!role) return
@@ -65,8 +76,13 @@ export default function RoleDetailPage() {
       await deleteRole(role.metadata.id)
       toast.success(t("action.deleteSuccess"))
       navigate("/iam/roles")
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     }
   }
 
@@ -103,16 +119,20 @@ export default function RoleDetailPage() {
             {role.spec.builtin ? t("role.builtin") : t("role.custom")}
           </Badge>
         </div>
-        {!role.spec.builtin && (
+        {!role.spec.builtin && (hasPermission("iam:roles:update") || hasPermission("iam:roles:delete")) && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              {t("common.edit")}
-            </Button>
-            <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t("common.delete")}
-            </Button>
+            {hasPermission("iam:roles:update") && (
+              <Button variant="outline" size="sm" onClick={handleEdit}>
+                <Pencil className="mr-2 h-4 w-4" />
+                {t("common.edit")}
+              </Button>
+            )}
+            {hasPermission("iam:roles:delete") && (
+              <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t("common.delete")}
+              </Button>
+            )}
           </div>
         )}
       </div>

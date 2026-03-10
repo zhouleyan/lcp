@@ -33,6 +33,7 @@ import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
+import { usePermission } from "@/hooks/use-permission"
 
 export default function UserDetailPage() {
   const { userId } = useParams()
@@ -40,6 +41,7 @@ export default function UserDetailPage() {
   const { t } = useTranslation()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const { hasPermission } = usePermission()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -63,8 +65,13 @@ export default function UserDetailPage() {
       await deleteUser(user.metadata.id)
       toast.success(t("action.deleteSuccess"))
       navigate("/iam/users")
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     }
   }
 
@@ -99,14 +106,18 @@ export default function UserDetailPage() {
           </Badge>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-            <Pencil className="mr-2 h-4 w-4" />
-            {t("common.edit")}
-          </Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            {t("common.delete")}
-          </Button>
+          {hasPermission("iam:users:update") && (
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              {t("common.edit")}
+            </Button>
+          )}
+          {hasPermission("iam:users:delete") && (
+            <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("common.delete")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -211,8 +222,13 @@ function UserWorkspacesCard({ userId }: { userId: string }) {
       const data = await listUserWorkspaces(userId, params)
       setWorkspaces(data.items ?? [])
       setTotalCount(data.totalCount)
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setLoading(false)
     }
@@ -374,8 +390,13 @@ function UserNamespacesCard({ userId }: { userId: string }) {
       const data = await listUserNamespaces(userId, params)
       setNamespaces(data.items ?? [])
       setTotalCount(data.totalCount)
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setLoading(false)
     }
@@ -537,8 +558,13 @@ function UserRoleBindingsCard({ userId }: { userId: string }) {
       const data = await listUserRoleBindings(userId, params)
       setBindings(data.items ?? [])
       setTotalCount(data.totalCount)
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setLoading(false)
     }

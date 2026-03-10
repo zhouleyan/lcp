@@ -149,6 +149,8 @@ const iam: Messages = {
   "rolebinding.scope.platform": "平台",
   "rolebinding.scope.workspace": "工作空间",
   "rolebinding.scope.namespace": "项目",
+  "rolebinding.role": "角色",
+  "rolebinding.roleDisplayName": "角色名称",
   "rolebinding.searchPlaceholder": "搜索用户名、角色名...",
 
   // built-in role display names

@@ -82,7 +82,8 @@ export async function apiRequest<T>(request: Promise<T>): Promise<T> {
     if (err instanceof HTTPError) {
       const apiBody = (err as HTTPErrorWithBody)._apiBody
       if (apiBody) {
-        throw new ApiError(apiBody)
+        // Use HTTP status code (numeric) instead of body's status field ("Failure" string)
+        throw new ApiError({ ...apiBody, status: err.response.status })
       }
       throw new ApiError({
         apiVersion: "",
@@ -126,6 +127,7 @@ const reasonMessageMap: Record<string, string> = {
   Conflict: "api.error.conflict",
   NotFound: "api.error.notFound",
   BadRequest: "api.error.badRequest",
+  Forbidden: "api.error.forbidden",
 }
 
 export function translateDetailMessage(message: string): string {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useParams, Link } from "react-router"
+import { useParams, Link, Navigate } from "react-router"
 import { Plus, UserMinus, Search, Filter } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,8 @@ import { listWorkspaceRoles, createWorkspaceRoleBinding } from "@/api/iam/rbac"
 import type { User, Role, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"
+import { usePermission } from "@/hooks/use-permission"
+import { usePermissionStore } from "@/stores/permission-store"
 import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
@@ -32,11 +34,17 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 export default function WorkspaceUsersPage() {
   const workspaceId = useParams().workspaceId!
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
     searchInput, setSearchInput, search,
     selected, toggleAll, toggleOne, clearSelection,
   } = useListState()
+
+  const permissionsLoaded = usePermissionStore((s) => s.permissions) !== null
+  if (permissionsLoaded && !hasPermission("iam:workspaces:users:list", { workspaceId })) {
+    return <Navigate to="/" replace />
+  }
 
   const [members, setMembers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -118,10 +126,12 @@ export default function WorkspaceUsersPage() {
           <h1 className="text-2xl font-bold">{t("workspace.members")}</h1>
           <p className="text-muted-foreground text-sm">{t("workspace.membersManage", { count: totalCount })}</p>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("workspace.addMember")}
-        </Button>
+        {hasPermission("iam:workspaces:users:create", { workspaceId }) && (
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("workspace.addMember")}
+          </Button>
+        )}
       </div>
       <div className="mb-4 flex items-center gap-3">
         <div className="relative max-w-xs flex-1">
@@ -133,7 +143,7 @@ export default function WorkspaceUsersPage() {
             className="pl-9"
           />
         </div>
-        {selected.size > 0 && (
+        {selected.size > 0 && hasPermission("iam:workspaces:users:deleteCollection", { workspaceId }) && (
           <Button variant="destructive" size="sm" onClick={() => setBatchRemoveOpen(true)}>
             <UserMinus className="mr-2 h-4 w-4" />
             {t("workspace.removeMember")} ({selected.size})
@@ -147,7 +157,9 @@ export default function WorkspaceUsersPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
-                <Checkbox checked={members.length > 0 && selected.size === members.length} onCheckedChange={() => toggleAll(members.map((m) => m.metadata.id))} />
+                {hasPermission("iam:workspaces:users:deleteCollection", { workspaceId }) && (
+                  <Checkbox checked={members.length > 0 && selected.size === members.length} onCheckedChange={() => toggleAll(members.map((m) => m.metadata.id))} />
+                )}
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("username")}>{t("user.username")}<SortIcon field="username" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("email")}>{t("user.email")}<SortIcon field="email" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
@@ -171,7 +183,9 @@ export default function WorkspaceUsersPage() {
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>{t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("updated_at")}>{t("common.updated")}<SortIcon field="updated_at" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
-              <TableHead className="w-16">{t("common.actions")}</TableHead>
+              {hasPermission("iam:workspaces:users:deleteCollection", { workspaceId }) && (
+                <TableHead className="w-16">{t("common.actions")}</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -184,7 +198,11 @@ export default function WorkspaceUsersPage() {
             ) : (
               members.map((m) => (
                 <TableRow key={m.metadata.id}>
-                  <TableCell><Checkbox checked={selected.has(m.metadata.id)} onCheckedChange={() => toggleOne(m.metadata.id)} /></TableCell>
+                  <TableCell>
+                    {hasPermission("iam:workspaces:users:deleteCollection", { workspaceId }) && (
+                      <Checkbox checked={selected.has(m.metadata.id)} onCheckedChange={() => toggleOne(m.metadata.id)} />
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">
                     <Link to={`/iam/workspaces/${workspaceId}/users/${m.metadata.id}`} className="hover:underline">
                       {m.spec.username}
@@ -201,11 +219,13 @@ export default function WorkspaceUsersPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(m.metadata.createdAt).toLocaleString()}</TableCell>
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(m.metadata.updatedAt).toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setRemoveTarget(m)} title={t("workspace.removeMember")}>
-                      <UserMinus className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
+                  {hasPermission("iam:workspaces:users:deleteCollection", { workspaceId }) && (
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setRemoveTarget(m)} title={t("workspace.removeMember")}>
+                        <UserMinus className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
@@ -257,6 +277,7 @@ function AddMemberDialog({
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [selectedRoleId, setSelectedRoleId] = useState("")
+  const [defaultRoleId, setDefaultRoleId] = useState("")
   const [loading, setLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
@@ -266,6 +287,7 @@ function AddMemberDialog({
     if (open) {
       setSelectedIds(new Set())
       setSelectedRoleId("")
+      setDefaultRoleId("")
       setSearchQuery("")
       setLoading(true)
       Promise.all([
@@ -276,7 +298,10 @@ function AddMemberDialog({
         const items = roleData.items ?? []
         setRoles(items)
         const viewer = items.find((r) => r.spec.name.includes("viewer"))
-        if (viewer) setSelectedRoleId(viewer.metadata.id)
+        if (viewer) {
+          setSelectedRoleId(viewer.metadata.id)
+          setDefaultRoleId(viewer.metadata.id)
+        }
       }).finally(() => setLoading(false))
     }
   }, [open, workspaceId])
@@ -309,7 +334,8 @@ function AddMemberDialog({
     try {
       const userIds = Array.from(selectedIds)
       await addWorkspaceUsers(workspaceId, userIds)
-      if (selectedRoleId) {
+      // AddWorkspaceMember already creates a viewer binding; skip if user selected the same role
+      if (selectedRoleId && selectedRoleId !== defaultRoleId) {
         await Promise.all(userIds.map((uid) =>
           createWorkspaceRoleBinding(workspaceId, { spec: { userId: uid, roleId: selectedRoleId, scope: "workspace" } })
         ))
@@ -345,7 +371,7 @@ function AddMemberDialog({
                 <Checkbox checked={selectedRoleId === role.metadata.id} onCheckedChange={() => setSelectedRoleId(role.metadata.id)} />
                 <div className="flex-1">
                   <p className="text-sm font-medium">{t(`role.${role.spec.name}`, { defaultValue: role.spec.displayName || role.spec.name })}</p>
-                  <p className="text-muted-foreground text-xs">{t(`role.desc.${role.spec.name}`, { defaultValue: role.spec.description || "" })}</p>
+                  <p className="text-muted-foreground text-xs">{t(`role.desc.${role.spec.name}`, { defaultValue: role.spec.description || "" }) || "-"}</p>
                 </div>
               </label>
             ))}

@@ -30,6 +30,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { listAuditLogs } from "@/api/audit/logs"
+import { ApiError, translateApiError } from "@/api/client"
 import type { AuditLog, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
@@ -74,8 +75,13 @@ export default function AuditLogListPage() {
       const data = await listAuditLogs(params)
       setLogs(data.items ?? [])
       setTotalCount(data.totalCount)
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setLoading(false)
     }
@@ -288,7 +294,7 @@ export default function AuditLogListPage() {
             ) : (
               logs.map((log) => (
                 <TableRow key={log.spec.id}>
-                  <TableCell className="font-medium">{log.spec.username}</TableCell>
+                  <TableCell className="font-medium">{log.spec.username || "-"}</TableCell>
                   <TableCell>{t(`audit.eventType.${log.spec.eventType}`)}</TableCell>
                   <TableCell>{t(`audit.action.${log.spec.action}`)}</TableCell>
                   <TableCell>
@@ -343,7 +349,7 @@ export default function AuditLogListPage() {
                   <h3 className="text-sm font-semibold">{t("audit.detail")}</h3>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
                     <dt className="text-muted-foreground">{t("audit.username")}</dt>
-                    <dd className="font-medium">{selectedLog.spec.username}</dd>
+                    <dd className="font-medium">{selectedLog.spec.username || "-"}</dd>
                     <dt className="text-muted-foreground">{t("audit.userId")}</dt>
                     <dd>{selectedLog.spec.userId || "-"}</dd>
                     <dt className="text-muted-foreground">{t("audit.eventType")}</dt>

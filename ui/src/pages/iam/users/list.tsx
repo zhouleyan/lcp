@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Link } from "react-router"
+import { Link, Navigate } from "react-router"
 import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -56,6 +56,8 @@ import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { usePermission } from "@/hooks/use-permission"
+import { usePermissionStore } from "@/stores/permission-store"
 
 export default function UserListPage() {
   const { t } = useTranslation()
@@ -70,6 +72,8 @@ export default function UserListPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
   const scopeNamespaceId = useScopeStore((s) => s.namespaceId)
+  const { hasPermission } = usePermission()
+  const permissionsLoaded = usePermissionStore((s) => s.permissions) !== null
 
   // dialogs
   const [createOpen, setCreateOpen] = useState(false)
@@ -93,8 +97,13 @@ export default function UserListPage() {
       }
       setUsers(data.items ?? [])
       setTotalCount(data.totalCount)
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setLoading(false)
     }
@@ -139,6 +148,10 @@ export default function UserListPage() {
     }
   }
 
+  if (permissionsLoaded && !hasPermission("iam:users:list")) {
+    return <Navigate to="/" replace />
+  }
+
   return (
     <div className="p-6">
       {/* header */}
@@ -149,10 +162,12 @@ export default function UserListPage() {
             {t("user.manage", { count: totalCount })}
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("user.create")}
-        </Button>
+        {hasPermission("iam:users:create") && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("user.create")}
+          </Button>
+        )}
       </div>
 
       {/* filters */}
@@ -166,7 +181,7 @@ export default function UserListPage() {
             className="pl-9"
           />
         </div>
-        {selected.size > 0 && (
+        {selected.size > 0 && hasPermission("iam:users:deleteCollection") && (
           <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
             <Trash2 className="mr-2 h-4 w-4" />
             {t("user.batchDelete")} ({selected.size})
@@ -179,12 +194,14 @@ export default function UserListPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={users.length > 0 && selected.size === users.length}
-                  onCheckedChange={() => toggleAll(users.map((u) => u.metadata.id))}
-                />
-              </TableHead>
+              {hasPermission("iam:users:deleteCollection") && (
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={users.length > 0 && selected.size === users.length}
+                    onCheckedChange={() => toggleAll(users.map((u) => u.metadata.id))}
+                  />
+                </TableHead>
+              )}
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => handleSort("username")}
@@ -248,7 +265,9 @@ export default function UserListPage() {
                 {t("common.updated")}
                 <SortIcon field="updated_at" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
-              <TableHead className="w-24">{t("common.actions")}</TableHead>
+              {(hasPermission("iam:users:update") || hasPermission("iam:users:delete")) && (
+                <TableHead className="w-24">{t("common.actions")}</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -271,12 +290,14 @@ export default function UserListPage() {
             ) : (
               users.map((user) => (
                 <TableRow key={user.metadata.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selected.has(user.metadata.id)}
-                      onCheckedChange={() => toggleOne(user.metadata.id)}
-                    />
-                  </TableCell>
+                  {hasPermission("iam:users:deleteCollection") && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(user.metadata.id)}
+                        onCheckedChange={() => toggleOne(user.metadata.id)}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell>
                         <Link to={`/iam/users/${user.metadata.id}`} className="font-medium hover:underline">
                           {user.spec.username}
@@ -296,28 +317,34 @@ export default function UserListPage() {
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                     {new Date(user.metadata.updatedAt).toLocaleString()}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setEditUser(user)}
-                        title={t("common.edit")}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget(user)}
-                        title={t("common.delete")}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {(hasPermission("iam:users:update") || hasPermission("iam:users:delete")) && (
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {hasPermission("iam:users:update") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setEditUser(user)}
+                            title={t("common.edit")}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {hasPermission("iam:users:delete") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteTarget(user)}
+                            title={t("common.delete")}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
@@ -517,7 +544,7 @@ function UserFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t("user.edit") : t("user.create")}</DialogTitle>
         </DialogHeader>

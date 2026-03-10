@@ -1,8 +1,10 @@
-import { useSearchParams } from "react-router"
+import { Navigate, useSearchParams } from "react-router"
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/i18n"
-import { startAuthFlow } from "@/lib/auth"
+import { startAuthFlow, logout } from "@/lib/auth"
+import { usePermissionStore } from "@/stores/permission-store"
+import { getDefaultPath } from "@/hooks/use-permission"
 
 const statusConfig: Record<string, { icon: string; titleKey: string; descKey: string }> = {
   "400": { icon: "⚠️", titleKey: "error.400.title", descKey: "error.400.desc" },
@@ -16,6 +18,7 @@ export default function ErrorPage() {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const status = searchParams.get("status") || "404"
+  const permissions = usePermissionStore((s) => s.permissions)
 
   useEffect(() => {
     if (status === "401") {
@@ -27,6 +30,18 @@ export default function ErrorPage() {
     return null
   }
 
+  // If permissions are already loaded and user has permissions, redirect away from 403
+  if (status === "403" && permissions) {
+    const hasAny =
+      permissions.isPlatformAdmin ||
+      (permissions.platform?.length ?? 0) > 0 ||
+      Object.keys(permissions.workspaces ?? {}).length > 0 ||
+      Object.keys(permissions.namespaces ?? {}).length > 0
+    if (hasAny) {
+      return <Navigate to={getDefaultPath(permissions)} replace />
+    }
+  }
+
   const config = statusConfig[status] || statusConfig["500"]
 
   return (
@@ -34,9 +49,16 @@ export default function ErrorPage() {
       <span className="text-6xl">{config.icon}</span>
       <h1 className="text-2xl font-semibold">{t(config.titleKey)}</h1>
       <p className="text-muted-foreground">{t(config.descKey)}</p>
-      <Button variant="outline" onClick={() => (window.location.href = "/")}>
-        {t("error.backHome")}
-      </Button>
+      <div className="flex gap-2">
+        {status === "403" && (
+          <Button variant="default" onClick={() => logout()}>
+            {t("error.switchAccount")}
+          </Button>
+        )}
+        <Button variant="outline" onClick={() => (window.location.href = "/")}>
+          {t("error.backHome")}
+        </Button>
+      </div>
     </div>
   )
 }

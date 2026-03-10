@@ -18,6 +18,7 @@ const common: Messages = {
   "common.active": "活跃",
   "common.inactive": "停用",
   "common.all": "全部",
+  "common.noPermission": "您没有权限访问此页面",
   "common.phone": "手机号",
   "common.password": "密码",
   "common.previous": "上一页",
@@ -60,10 +61,13 @@ const common: Messages = {
   "overview.workspace.desc": "查看当前租户的资源概况",
   "overview.namespace.title": "项目概览",
   "overview.namespace.desc": "查看当前项目的资源概况",
+  "overview.forbidden": "您没有查看概览统计的权限，请通过侧边栏导航到您有权限的页面。",
 
   // scope selector
   "scope.allWorkspaces": "所有租户",
   "scope.allNamespaces": "所有项目",
+  "scope.selectWorkspace": "选择租户",
+  "scope.selectNamespace": "选择项目",
 
   // permission verb wildcards
   "perm.group.all": "全部权限",
@@ -93,6 +97,7 @@ const common: Messages = {
   "error.500.title": "服务器错误",
   "error.500.desc": "系统出现问题，请稍后再试。",
   "error.backHome": "返回首页",
+  "error.switchAccount": "切换账号",
 
   // login errors
   "login.error.invalidCredentials": "用户名或密码错误",
@@ -108,6 +113,7 @@ const common: Messages = {
   "api.error.cannotDeleteNamespace": "无法删除项目：仍包含成员，请先移除所有成员",
   "api.error.cannotRemoveOwner": "无法移除所有者",
   "api.error.oldPasswordIncorrect": "当前密码不正确",
+  "api.error.forbidden": "您没有权限执行此操作",
   "api.error.internalError": "服务器内部错误，请稍后重试",
 
   // validation errors

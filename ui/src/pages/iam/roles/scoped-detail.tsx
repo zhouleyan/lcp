@@ -54,11 +54,20 @@ export default function ScopedRoleDetailPage() {
 
   useEffect(() => { fetchRole() }, [fetchRole])
 
-  useEffect(() => {
-    listPermissions({ pageSize: 1000 })
-      .then((data) => setPermissions(data.items ?? []))
-      .catch(() => {})
-  }, [])
+  const loadPermissions = useCallback(async () => {
+    if (permissions.length > 0) return
+    try {
+      const data = await listPermissions({ pageSize: 1000 })
+      setPermissions(data.items ?? [])
+    } catch {
+      // silently ignore — permission selector will show empty
+    }
+  }, [permissions.length])
+
+  const handleEdit = async () => {
+    await loadPermissions()
+    setEditOpen(true)
+  }
 
   const handleDelete = async () => {
     if (!role) return
@@ -112,7 +121,7 @@ export default function ScopedRoleDetailPage() {
         </div>
         {!role.spec.builtin && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Button variant="outline" size="sm" onClick={handleEdit}>
               <Pencil className="mr-2 h-4 w-4" />
               {t("common.edit")}
             </Button>

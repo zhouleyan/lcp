@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useParams, Link } from "react-router"
+import { useParams, Link, Navigate } from "react-router"
 import { Plus, Pencil, Trash2, Search } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,8 @@ import type { Role, Permission, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
+import { usePermission } from "@/hooks/use-permission"
+import { usePermissionStore } from "@/stores/permission-store"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -33,6 +35,17 @@ export default function NamespaceRolesTab() {
     searchInput, setSearchInput, search,
     selected, toggleAll, toggleOne, clearSelection,
   } = useListState()
+  const { hasPermission } = usePermission()
+
+  const permissionsLoaded = usePermissionStore((s) => s.permissions) !== null
+  if (permissionsLoaded && !hasPermission("iam:namespaces:roles:list", { workspaceId, namespaceId })) {
+    return <Navigate to="/" replace />
+  }
+
+  const canCreate = hasPermission("iam:namespaces:roles:create", { workspaceId, namespaceId })
+  const canUpdate = hasPermission("iam:namespaces:roles:update", { workspaceId, namespaceId })
+  const canDelete = hasPermission("iam:namespaces:roles:delete", { workspaceId, namespaceId })
+
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
@@ -50,8 +63,13 @@ export default function NamespaceRolesTab() {
       const data = await listNamespaceRoles(workspaceId, namespaceId, params)
       setRoles(data.items ?? [])
       setTotalCount(data.totalCount)
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setLoading(false)
     }
@@ -62,11 +80,25 @@ export default function NamespaceRolesTab() {
   useEffect(() => { setPage(1) }, [search, pageSize])
   useEffect(() => { clearSelection() }, [roles])
 
-  useEffect(() => {
-    listPermissions({ pageSize: 1000 })
-      .then((data) => setPermissions(data.items ?? []))
-      .catch(() => {})
-  }, [])
+  const loadPermissions = useCallback(async () => {
+    if (permissions.length > 0) return
+    try {
+      const data = await listPermissions({ pageSize: 1000 })
+      setPermissions(data.items ?? [])
+    } catch {
+      // silently ignore — permission selector will show empty
+    }
+  }, [permissions.length])
+
+  const handleCreate = async () => {
+    await loadPermissions()
+    setCreateOpen(true)
+  }
+
+  const handleEdit = async (role: Role) => {
+    await loadPermissions()
+    setEditRole(role)
+  }
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -112,10 +144,12 @@ export default function NamespaceRolesTab() {
           <h1 className="text-2xl font-bold">{t("role.title")}</h1>
           <p className="text-muted-foreground text-sm">{t("role.manage", { count: totalCount })}</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("role.create")}
-        </Button>
+        {canCreate && (
+          <Button onClick={handleCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("role.create")}
+          </Button>
+        )}
       </div>
       <div className="mb-4 flex items-center gap-3">
         <div className="relative max-w-xs flex-1">
@@ -127,7 +161,7 @@ export default function NamespaceRolesTab() {
             className="pl-9"
           />
         </div>
-        {selected.size > 0 && (
+        {canDelete && selected.size > 0 && (
           <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
             <Trash2 className="mr-2 h-4 w-4" />
             {t("role.batchDelete")} ({selected.size})
@@ -139,12 +173,14 @@ export default function NamespaceRolesTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={selectableIds.length > 0 && selected.size === selectableIds.length}
-                  onCheckedChange={() => toggleAll(selectableIds)}
-                />
-              </TableHead>
+              {canDelete && (
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={selectableIds.length > 0 && selected.size === selectableIds.length}
+                    onCheckedChange={() => toggleAll(selectableIds)}
+                  />
+                </TableHead>
+              )}
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
                 {t("role.name")}<SortIcon field="name" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
@@ -157,26 +193,28 @@ export default function NamespaceRolesTab() {
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
                 {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
-              <TableHead className="w-24">{t("common.actions")}</TableHead>
+              {(canUpdate || canDelete) && <TableHead className="w-24">{t("common.actions")}</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>{Array.from({ length: 8 }).map((_, j) => (<TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>))}</TableRow>
+                <TableRow key={i}>{Array.from({ length: 6 + (canDelete ? 1 : 0) + (canUpdate || canDelete ? 1 : 0) }).map((_, j) => (<TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>))}</TableRow>
               ))
             ) : roles.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-muted-foreground py-8 text-center">{t("role.noData")}</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6 + (canDelete ? 1 : 0) + (canUpdate || canDelete ? 1 : 0)} className="text-muted-foreground py-8 text-center">{t("role.noData")}</TableCell></TableRow>
             ) : (
               roles.map((role) => (
                 <TableRow key={role.metadata.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selected.has(role.metadata.id)}
-                      onCheckedChange={() => toggleOne(role.metadata.id)}
-                      disabled={!!role.spec.builtin}
-                    />
-                  </TableCell>
+                  {canDelete && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(role.metadata.id)}
+                        onCheckedChange={() => toggleOne(role.metadata.id)}
+                        disabled={!!role.spec.builtin}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-medium">
                     <Link to={`${rolesBasePath}/${role.metadata.id}`} className="hover:underline">
                       {role.spec.name}
@@ -197,16 +235,22 @@ export default function NamespaceRolesTab() {
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                     {new Date(role.metadata.createdAt).toLocaleString()}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditRole(role)} disabled={!!role.spec.builtin} title={role.spec.builtin ? t("role.builtinCannotEdit") : t("common.edit")}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(role)} disabled={!!role.spec.builtin} title={role.spec.builtin ? t("role.builtinCannotDelete") : t("common.delete")}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {(canUpdate || canDelete) && (
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {canUpdate && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(role)} disabled={!!role.spec.builtin} title={role.spec.builtin ? t("role.builtinCannotEdit") : t("common.edit")}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(role)} disabled={!!role.spec.builtin} title={role.spec.builtin ? t("role.builtinCannotDelete") : t("common.delete")}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}

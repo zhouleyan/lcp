@@ -5,11 +5,13 @@ import {
   FolderKanban,
   Users,
   Shield,
+  ShieldOff,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useTranslation } from "@/i18n"
 import type { OverviewSpec } from "@/api/types"
+import { ApiError } from "@/api/client"
 import { getPlatformOverview, getWorkspaceOverview, getNamespaceOverview } from "@/api/dashboard/overview"
 
 interface StatCard {
@@ -26,11 +28,16 @@ export function PlatformOverviewPage() {
   const { t } = useTranslation()
   const [spec, setSpec] = useState<OverviewSpec | null>(null)
   const [loading, setLoading] = useState(true)
+  const [forbidden, setForbidden] = useState(false)
 
   const fetchData = useCallback(async () => {
     try {
       const data = await getPlatformOverview()
       setSpec(data.spec)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setForbidden(true)
+      }
     } finally {
       setLoading(false)
     }
@@ -52,11 +59,15 @@ export function PlatformOverviewPage() {
         <h1 className="text-2xl font-bold">{t("overview.platform.title")}</h1>
         <p className="text-muted-foreground text-sm">{t("overview.platform.desc")}</p>
       </div>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {cards.map((card) => (
-          <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
-        ))}
-      </div>
+      {forbidden ? (
+        <ForbiddenHint t={t} />
+      ) : (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {cards.map((card) => (
+            <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -69,12 +80,17 @@ export function WorkspaceOverviewPage() {
   const { t } = useTranslation()
   const [spec, setSpec] = useState<OverviewSpec | null>(null)
   const [loading, setLoading] = useState(true)
+  const [forbidden, setForbidden] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!workspaceId) return
     try {
       const data = await getWorkspaceOverview(workspaceId)
       setSpec(data.spec)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setForbidden(true)
+      }
     } finally {
       setLoading(false)
     }
@@ -96,11 +112,15 @@ export function WorkspaceOverviewPage() {
         <h1 className="text-2xl font-bold">{t("overview.workspace.title")}</h1>
         <p className="text-muted-foreground text-sm">{t("overview.workspace.desc")}</p>
       </div>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        {cards.map((card) => (
-          <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
-        ))}
-      </div>
+      {forbidden ? (
+        <ForbiddenHint t={t} />
+      ) : (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          {cards.map((card) => (
+            <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -113,12 +133,17 @@ export function NamespaceOverviewPage() {
   const { t } = useTranslation()
   const [spec, setSpec] = useState<OverviewSpec | null>(null)
   const [loading, setLoading] = useState(true)
+  const [forbidden, setForbidden] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!workspaceId || !namespaceId) return
     try {
       const data = await getNamespaceOverview(workspaceId, namespaceId)
       setSpec(data.spec)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setForbidden(true)
+      }
     } finally {
       setLoading(false)
     }
@@ -139,11 +164,26 @@ export function NamespaceOverviewPage() {
         <h1 className="text-2xl font-bold">{t("overview.namespace.title")}</h1>
         <p className="text-muted-foreground text-sm">{t("overview.namespace.desc")}</p>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        {cards.map((card) => (
-          <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
-        ))}
-      </div>
+      {forbidden ? (
+        <ForbiddenHint t={t} />
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          {cards.map((card) => (
+            <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ===== Forbidden Hint =====
+
+function ForbiddenHint({ t }: { t: (key: string) => string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <ShieldOff className="text-muted-foreground mb-4 h-12 w-12" />
+      <p className="text-muted-foreground text-sm">{t("overview.forbidden")}</p>
     </div>
   )
 }

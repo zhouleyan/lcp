@@ -184,9 +184,10 @@ func (s *pgWorkspaceStore) GetByID(ctx context.Context, id int64) (*iam.DBWorksp
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
 		},
-		OwnerUsername:  row.OwnerUsername,
-		NamespaceCount: row.NamespaceCount,
-		MemberCount:    row.MemberCount,
+		OwnerUsername:    row.OwnerUsername,
+		NamespaceCount:   row.NamespaceCount,
+		MemberCount:      row.MemberCount,
+		RoleBindingCount: row.RoleBindingCount,
 	}, nil
 }
 
@@ -238,15 +239,10 @@ func (s *pgWorkspaceStore) Patch(ctx context.Context, id int64, ws *iam.DBWorksp
 }
 
 func (s *pgWorkspaceStore) Delete(ctx context.Context, id int64) error {
-	// Check for child namespaces
-	count, err := s.queries.CountNamespacesByWorkspaceID(ctx, id)
-	if err != nil {
-		return fmt.Errorf("count namespaces: %w", err)
-	}
-	if count > 0 {
-		return apierrors.NewConflictMessage(
-			fmt.Sprintf("cannot delete workspace %d: has %d namespace(s)", id, count),
-		)
+	// Cascade-delete child namespaces first (namespaces FK has no ON DELETE CASCADE).
+	// Each namespace deletion cascades its role_bindings and scoped roles via DB.
+	if _, err := s.db.Exec(ctx, "DELETE FROM namespaces WHERE workspace_id = $1", id); err != nil {
+		return fmt.Errorf("cascade delete namespaces: %w", err)
 	}
 
 	if err := s.queries.DeleteWorkspace(ctx, id); err != nil {
@@ -258,6 +254,10 @@ func (s *pgWorkspaceStore) Delete(ctx context.Context, id int64) error {
 func (s *pgWorkspaceStore) DeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil
+	}
+	// Cascade-delete child namespaces first (namespaces FK has no ON DELETE CASCADE).
+	if _, err := s.db.Exec(ctx, "DELETE FROM namespaces WHERE workspace_id = ANY($1::BIGINT[])", ids); err != nil {
+		return 0, fmt.Errorf("cascade delete namespaces: %w", err)
 	}
 	deletedIDs, err := s.queries.DeleteWorkspacesByIDs(ctx, ids)
 	if err != nil {

@@ -135,24 +135,26 @@ SELECT
     ws.created_at, ws.updated_at,
     u.username AS owner_username,
     (SELECT count(*) FROM namespaces n WHERE n.workspace_id = ws.id) AS namespace_count,
-    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = ws.id) AS member_count
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = ws.id) AS member_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = ws.id) AS role_binding_count
 FROM workspaces ws
 JOIN users u ON ws.owner_id = u.id
 WHERE ws.id = $1
 `
 
 type GetWorkspaceByIDRow struct {
-	ID             int64     `json:"id"`
-	Name           string    `json:"name"`
-	DisplayName    string    `json:"display_name"`
-	Description    string    `json:"description"`
-	OwnerID        int64     `json:"owner_id"`
-	Status         string    `json:"status"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	OwnerUsername  string    `json:"owner_username"`
-	NamespaceCount int64     `json:"namespace_count"`
-	MemberCount    int64     `json:"member_count"`
+	ID               int64     `json:"id"`
+	Name             string    `json:"name"`
+	DisplayName      string    `json:"display_name"`
+	Description      string    `json:"description"`
+	OwnerID          int64     `json:"owner_id"`
+	Status           string    `json:"status"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	OwnerUsername    string    `json:"owner_username"`
+	NamespaceCount   int64     `json:"namespace_count"`
+	MemberCount      int64     `json:"member_count"`
+	RoleBindingCount int64     `json:"role_binding_count"`
 }
 
 func (q *Queries) GetWorkspaceByID(ctx context.Context, id int64) (GetWorkspaceByIDRow, error) {
@@ -170,6 +172,7 @@ func (q *Queries) GetWorkspaceByID(ctx context.Context, id int64) (GetWorkspaceB
 		&i.OwnerUsername,
 		&i.NamespaceCount,
 		&i.MemberCount,
+		&i.RoleBindingCount,
 	)
 	return i, err
 }

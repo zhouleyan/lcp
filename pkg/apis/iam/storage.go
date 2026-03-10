@@ -1607,6 +1607,7 @@ func workspaceWithOwnerToAPI(w *DBWorkspaceWithOwner) *Workspace {
 	ws.Spec.OwnerName = w.OwnerUsername
 	ws.Spec.NamespaceCount = int(w.NamespaceCount)
 	ws.Spec.MemberCount = int(w.MemberCount)
+	ws.Spec.RoleBindingCount = int(w.RoleBindingCount)
 	return ws
 }
 
@@ -1615,6 +1616,7 @@ func namespaceWithOwnerToAPI(n *DBNamespaceWithOwner) *Namespace {
 	ns.Spec.OwnerName = n.OwnerUsername
 	ns.Spec.WorkspaceName = n.WorkspaceName
 	ns.Spec.MemberCount = int(n.MemberCount)
+	ns.Spec.RoleBindingCount = int(n.RoleBindingCount)
 	return ns
 }
 

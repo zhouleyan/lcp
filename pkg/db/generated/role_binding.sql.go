@@ -416,11 +416,21 @@ func (q *Queries) DeleteRoleBinding(ctx context.Context, id int64) error {
 }
 
 const getAccessibleNamespaceIDs = `-- name: GetAccessibleNamespaceIDs :many
-SELECT DISTINCT namespace_id
-FROM role_bindings
-WHERE user_id = $1 AND namespace_id IS NOT NULL
+SELECT DISTINCT rb1.namespace_id
+FROM role_bindings rb1
+WHERE rb1.user_id = $1 AND rb1.namespace_id IS NOT NULL
+UNION
+SELECT DISTINCT n.id
+FROM namespaces n
+INNER JOIN role_bindings rb2 ON rb2.workspace_id = n.workspace_id
+    AND rb2.user_id = $1 AND rb2.namespace_id IS NULL
+INNER JOIN role_permission_rules rpr ON rpr.role_id = rb2.role_id
 `
 
+// Returns namespace IDs accessible to the user:
+//  1. Direct namespace-scoped role bindings
+//  2. All namespaces in workspaces where the user has a workspace role with permission rules
+//     (excludes workspace-member which has no rules)
 func (q *Queries) GetAccessibleNamespaceIDs(ctx context.Context, userID int64) ([]*int64, error) {
 	rows, err := q.db.Query(ctx, getAccessibleNamespaceIDs, userID)
 	if err != nil {
@@ -757,6 +767,8 @@ ORDER BY
     CASE WHEN $5::VARCHAR = 'username' AND $6::VARCHAR = 'desc' THEN u.username END DESC,
     CASE WHEN $5::VARCHAR = 'role_name' AND $6::VARCHAR = 'asc' THEN r.name END ASC,
     CASE WHEN $5::VARCHAR = 'role_name' AND $6::VARCHAR = 'desc' THEN r.name END DESC,
+    CASE WHEN $5::VARCHAR = 'role_display_name' AND $6::VARCHAR = 'asc' THEN r.display_name END ASC,
+    CASE WHEN $5::VARCHAR = 'role_display_name' AND $6::VARCHAR = 'desc' THEN r.display_name END DESC,
     CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'asc' THEN rb.created_at END ASC,
     CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'desc' THEN rb.created_at END DESC,
     rb.created_at DESC
@@ -941,6 +953,8 @@ ORDER BY
     CASE WHEN $5::VARCHAR = 'username' AND $6::VARCHAR = 'desc' THEN u.username END DESC,
     CASE WHEN $5::VARCHAR = 'role_name' AND $6::VARCHAR = 'asc' THEN r.name END ASC,
     CASE WHEN $5::VARCHAR = 'role_name' AND $6::VARCHAR = 'desc' THEN r.name END DESC,
+    CASE WHEN $5::VARCHAR = 'role_display_name' AND $6::VARCHAR = 'asc' THEN r.display_name END ASC,
+    CASE WHEN $5::VARCHAR = 'role_display_name' AND $6::VARCHAR = 'desc' THEN r.display_name END DESC,
     CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'asc' THEN rb.created_at END ASC,
     CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'desc' THEN rb.created_at END DESC,
     rb.created_at DESC
@@ -1037,6 +1051,8 @@ ORDER BY
     CASE WHEN $4::VARCHAR = 'username' AND $5::VARCHAR = 'desc' THEN u.username END DESC,
     CASE WHEN $4::VARCHAR = 'role_name' AND $5::VARCHAR = 'asc' THEN r.name END ASC,
     CASE WHEN $4::VARCHAR = 'role_name' AND $5::VARCHAR = 'desc' THEN r.name END DESC,
+    CASE WHEN $4::VARCHAR = 'role_display_name' AND $5::VARCHAR = 'asc' THEN r.display_name END ASC,
+    CASE WHEN $4::VARCHAR = 'role_display_name' AND $5::VARCHAR = 'desc' THEN r.display_name END DESC,
     CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'asc' THEN rb.created_at END ASC,
     CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'desc' THEN rb.created_at END DESC,
     rb.created_at DESC

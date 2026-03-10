@@ -25,12 +25,14 @@ import { getWorkspace, updateWorkspace, deleteWorkspace } from "@/api/iam/worksp
 import { ApiError, translateApiError } from "@/api/client"
 import type { Workspace } from "@/api/types"
 import { useTranslation } from "@/i18n"
+import { usePermission } from "@/hooks/use-permission"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 
 export default function WorkspaceDetailPage() {
   const { workspaceId } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
   const setCurrentWorkspace = useWorkspaceStore((s) => s.setCurrentWorkspace)
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [loading, setLoading] = useState(true)
@@ -95,14 +97,18 @@ export default function WorkspaceDetailPage() {
           </Badge>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-            <Pencil className="mr-2 h-4 w-4" />
-            {t("common.edit")}
-          </Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            {t("common.delete")}
-          </Button>
+          {hasPermission("iam:workspaces:update", { workspaceId }) && (
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              {t("common.edit")}
+            </Button>
+          )}
+          {hasPermission("iam:workspaces:delete", { workspaceId }) && (
+            <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("common.delete")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -146,6 +152,7 @@ export default function WorkspaceDetailPage() {
                 <ShieldCheck className="text-primary h-5 w-5" />
               </div>
               <div>
+                <p className="text-2xl font-bold">{workspace.spec.roleBindingCount ?? 0}</p>
                 <p className="text-muted-foreground text-sm">{t("rolebinding.title")}</p>
               </div>
             </CardContent>
@@ -278,7 +285,7 @@ function EditWorkspaceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{t("workspace.edit")}</DialogTitle>
         </DialogHeader>

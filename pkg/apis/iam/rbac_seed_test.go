@@ -203,8 +203,8 @@ func TestBuiltinRoleHelpers(t *testing.T) {
 	}
 
 	workspace := WorkspaceBuiltinRoles()
-	if len(workspace) != 2 {
-		t.Errorf("WorkspaceBuiltinRoles() returned %d roles, want 2", len(workspace))
+	if len(workspace) != 3 {
+		t.Errorf("WorkspaceBuiltinRoles() returned %d roles, want 3", len(workspace))
 	}
 	for _, r := range workspace {
 		if r.Scope != ScopeWorkspace {

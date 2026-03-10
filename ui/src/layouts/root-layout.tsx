@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react"
-import { Link, Outlet, useLocation } from "react-router"
+import { useEffect, useMemo, useState } from "react"
+import { Link, Navigate, Outlet, useLocation } from "react-router"
 import {
   LayoutDashboard,
   Users,
@@ -30,6 +30,7 @@ interface NavItem {
   labelKey: string
   icon: React.ComponentType<{ className?: string }>
   permission?: string
+  permissionScope?: { workspaceId?: string; namespaceId?: string }
 }
 
 interface NavGroup {
@@ -51,14 +52,15 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
   if (scopeWorkspaceId && scopeNamespaceId) {
     const iamPrefix = `/iam/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
     const dashPrefix = `/dashboard/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
+    const nsScope = { workspaceId: scopeWorkspaceId, namespaceId: scopeNamespaceId }
     return [
       { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home }] },
       {
         labelKey: "nav.iam",
         items: [
-          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users },
-          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield },
-          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck },
+          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users, permission: "iam:namespaces:users:list", permissionScope: nsScope },
+          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield, permission: "iam:namespaces:roles:list", permissionScope: nsScope },
+          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:namespaces:rolebindings:list", permissionScope: nsScope },
         ],
       },
     ]
@@ -66,15 +68,16 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
   if (scopeWorkspaceId) {
     const iamPrefix = `/iam/workspaces/${scopeWorkspaceId}`
     const dashPrefix = `/dashboard/workspaces/${scopeWorkspaceId}`
+    const wsScope = { workspaceId: scopeWorkspaceId }
     return [
       { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home }] },
       {
         labelKey: "nav.iam",
         items: [
           { to: `${iamPrefix}/namespaces`, labelKey: "nav.namespaces", icon: FolderKanban },
-          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users },
-          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield },
-          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck },
+          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users, permission: "iam:workspaces:users:list", permissionScope: wsScope },
+          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield, permission: "iam:workspaces:roles:list", permissionScope: wsScope },
+          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:workspaces:rolebindings:list", permissionScope: wsScope },
         ],
       },
     ]
@@ -103,10 +106,8 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
 export default function RootLayout() {
   const location = useLocation()
   const { t } = useTranslation()
-  const user = useAuthStore((s) => s.user)
   const fetchUser = useAuthStore((s) => s.fetchUser)
   const fetchPermissions = usePermissionStore((s) => s.fetchPermissions)
-  const permissionsLoaded = usePermissionStore((s) => s.permissions !== null)
   const { hasPermission } = usePermission()
   const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
   const scopeNamespaceId = useScopeStore((s) => s.namespaceId)
@@ -143,22 +144,40 @@ export default function RootLayout() {
     [scopeWorkspaceId, scopeNamespaceId],
   )
 
+  const [ready, setReady] = useState(false)
+
   useEffect(() => {
     if (!isAuthenticated()) {
       startAuthFlow()
-    } else {
-      fetchUser()
+      return
     }
+    ;(async () => {
+      await fetchUser()
+      const u = useAuthStore.getState().user
+      if (u?.sub) {
+        await fetchPermissions(u.sub)
+      }
+      setReady(true)
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    if (user?.sub) {
-      fetchPermissions(user.sub)
-    }
-  }, [user?.sub, fetchPermissions])
-
-  if (!isAuthenticated()) {
+  if (!isAuthenticated() || !ready) {
     return null
+  }
+
+  // Redirect to 403 if user has zero permissions (or fetchPermissions was never called)
+  const perms = usePermissionStore.getState().permissions
+  if (!perms) {
+    return <Navigate to="/error?status=403" replace />
+  }
+  const hasAny =
+    perms.isPlatformAdmin ||
+    (perms.platform?.length ?? 0) > 0 ||
+    Object.keys(perms.workspaces ?? {}).length > 0 ||
+    Object.keys(perms.namespaces ?? {}).length > 0
+  if (!hasAny) {
+    return <Navigate to="/error?status=403" replace />
   }
 
   return (
@@ -175,20 +194,20 @@ export default function RootLayout() {
             <ScopeSelector />
           </div>
           <nav className="flex-1 space-y-3 p-2">
-            {navGroups.map((group, gi) => (
-              <div key={group.labelKey ?? `group-${gi}`}>
-                {group.labelKey && (
-                  <div className="text-muted-foreground px-3 pb-1 pt-2 text-sm font-semibold">
-                    {t(group.labelKey)}
-                  </div>
-                )}
-                <div className="space-y-0.5">
-                  {group.items
-                    .filter(
-                      (item) =>
-                        !item.permission || !permissionsLoaded || hasPermission(item.permission),
-                    )
-                    .map((item) => (
+            {navGroups.map((group, gi) => {
+              const visibleItems = group.items.filter(
+                (item) => !item.permission || hasPermission(item.permission, item.permissionScope),
+              )
+              if (visibleItems.length === 0) return null
+              return (
+                <div key={group.labelKey ?? `group-${gi}`}>
+                  {group.labelKey && (
+                    <div className="text-muted-foreground px-3 pb-1 pt-2 text-sm font-semibold">
+                      {t(group.labelKey)}
+                    </div>
+                  )}
+                  <div className="space-y-0.5">
+                    {visibleItems.map((item) => (
                       <Link
                         key={item.to}
                         to={item.to}
@@ -203,9 +222,10 @@ export default function RootLayout() {
                         {t(item.labelKey)}
                       </Link>
                     ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </nav>
         </aside>
         <div className="flex flex-1 flex-col">

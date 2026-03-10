@@ -151,7 +151,8 @@ SELECT
     ns.visibility, ns.max_members, ns.status, ns.created_at, ns.updated_at,
     u.username AS owner_username,
     w.name AS workspace_name,
-    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = ns.id) AS member_count
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = ns.id) AS member_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = ns.id) AS role_binding_count
 FROM namespaces ns
 JOIN users u ON ns.owner_id = u.id
 JOIN workspaces w ON ns.workspace_id = w.id
@@ -159,20 +160,21 @@ WHERE ns.id = $1
 `
 
 type GetNamespaceByIDRow struct {
-	ID            int64     `json:"id"`
-	Name          string    `json:"name"`
-	DisplayName   string    `json:"display_name"`
-	Description   string    `json:"description"`
-	WorkspaceID   int64     `json:"workspace_id"`
-	OwnerID       int64     `json:"owner_id"`
-	Visibility    string    `json:"visibility"`
-	MaxMembers    int32     `json:"max_members"`
-	Status        string    `json:"status"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	OwnerUsername string    `json:"owner_username"`
-	WorkspaceName string    `json:"workspace_name"`
-	MemberCount   int64     `json:"member_count"`
+	ID               int64     `json:"id"`
+	Name             string    `json:"name"`
+	DisplayName      string    `json:"display_name"`
+	Description      string    `json:"description"`
+	WorkspaceID      int64     `json:"workspace_id"`
+	OwnerID          int64     `json:"owner_id"`
+	Visibility       string    `json:"visibility"`
+	MaxMembers       int32     `json:"max_members"`
+	Status           string    `json:"status"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	OwnerUsername    string    `json:"owner_username"`
+	WorkspaceName    string    `json:"workspace_name"`
+	MemberCount      int64     `json:"member_count"`
+	RoleBindingCount int64     `json:"role_binding_count"`
 }
 
 func (q *Queries) GetNamespaceByID(ctx context.Context, id int64) (GetNamespaceByIDRow, error) {
@@ -193,6 +195,7 @@ func (q *Queries) GetNamespaceByID(ctx context.Context, id int64) (GetNamespaceB
 		&i.OwnerUsername,
 		&i.WorkspaceName,
 		&i.MemberCount,
+		&i.RoleBindingCount,
 	)
 	return i, err
 }

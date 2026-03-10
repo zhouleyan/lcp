@@ -56,7 +56,12 @@ type Authorizer struct {
 
 // WithAuthorization returns middleware that checks RBAC permissions on API requests.
 // Requests not matching /api/ are passed through. Permissions not in the lookup are allowed.
-func WithAuthorization(lookup PermissionLookup, checker PermissionChecker) func(http.Handler) http.Handler {
+// skipPermCodes lists permission codes that bypass RBAC (any authenticated user is allowed).
+func WithAuthorization(lookup PermissionLookup, checker PermissionChecker, skipPermCodes ...string) func(http.Handler) http.Handler {
+	skipSet := make(map[string]bool, len(skipPermCodes))
+	for _, code := range skipPermCodes {
+		skipSet[code] = true
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
@@ -78,6 +83,12 @@ func WithAuthorization(lookup PermissionLookup, checker PermissionChecker) func(
 			permCode := lookup.Get(module, resourceChain, verb)
 			if permCode == "" {
 				// Permission not registered → allow (e.g. discovery endpoints)
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Whitelisted permission: any authenticated user is allowed
+			if skipSet[permCode] {
 				next.ServeHTTP(w, r)
 				return
 			}

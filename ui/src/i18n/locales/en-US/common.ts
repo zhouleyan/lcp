@@ -18,6 +18,7 @@ const common: Messages = {
   "common.active": "Active",
   "common.inactive": "Inactive",
   "common.all": "All",
+  "common.noPermission": "You don't have permission to access this page",
   "common.phone": "Phone",
   "common.password": "Password",
   "common.previous": "Previous",
@@ -60,10 +61,13 @@ const common: Messages = {
   "overview.workspace.desc": "View resource summary for the current workspace",
   "overview.namespace.title": "Namespace Overview",
   "overview.namespace.desc": "View resource summary for the current namespace",
+  "overview.forbidden": "You don't have permission to view overview statistics. Please use the sidebar to navigate to pages you have access to.",
 
   // scope selector
   "scope.allWorkspaces": "All Workspaces",
   "scope.allNamespaces": "All Namespaces",
+  "scope.selectWorkspace": "Select workspace",
+  "scope.selectNamespace": "Select namespace",
 
   // permission verb wildcards
   "perm.group.all": "All Permissions",
@@ -93,6 +97,7 @@ const common: Messages = {
   "error.500.title": "Server Error",
   "error.500.desc": "Something went wrong. Please try again later.",
   "error.backHome": "Back to Home",
+  "error.switchAccount": "Switch Account",
 
   // login errors
   "login.error.invalidCredentials": "Invalid username or password",
@@ -108,6 +113,7 @@ const common: Messages = {
   "api.error.cannotDeleteNamespace": "Cannot delete namespace: it still contains members, please remove all members first",
   "api.error.cannotRemoveOwner": "Cannot remove the owner from this resource",
   "api.error.oldPasswordIncorrect": "Current password is incorrect",
+  "api.error.forbidden": "You do not have permission to perform this action",
   "api.error.internalError": "Internal server error, please try again later",
 
   // validation errors

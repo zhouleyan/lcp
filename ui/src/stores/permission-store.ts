@@ -22,7 +22,7 @@ export const usePermissionStore = create<PermissionState>()((set) => ({
         const data = await getUserPermissions(userId)
         set({ permissions: data.spec, loading: false })
       } catch {
-        set({ permissions: null, loading: false })
+        set({ permissions: { isPlatformAdmin: false, platform: [], workspaces: {}, namespaces: {} }, loading: false })
       } finally {
         fetchPromise = null
       }

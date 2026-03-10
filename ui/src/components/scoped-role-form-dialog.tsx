@@ -171,7 +171,7 @@ export function ScopedRoleFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:!max-w-none !w-auto min-w-[800px] max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent className="sm:!max-w-none !w-auto min-w-[800px] max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t("role.edit") : t("role.create")}</DialogTitle>
         </DialogHeader>

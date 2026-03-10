@@ -38,6 +38,7 @@ import { ApiError, translateApiError } from "@/api/client"
 import type { Namespace, Workspace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { useListState } from "@/hooks/use-list-state"
+import { usePermission } from "@/hooks/use-permission"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -50,6 +51,7 @@ export default function NamespaceListPage() {
     searchInput, setSearchInput, search,
     selected, toggleAll, toggleOne, clearSelection,
   } = useListState()
+  const { hasPermission, hasAnyPermission } = usePermission()
   const [namespaces, setNamespaces] = useState<Namespace[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
@@ -74,8 +76,13 @@ export default function NamespaceListPage() {
         : await listNamespaces(params)
       setNamespaces(data.items ?? [])
       setTotalCount(data.totalCount)
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setLoading(false)
     }
@@ -128,10 +135,12 @@ export default function NamespaceListPage() {
             {t("namespace.manage", { count: totalCount })}
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("namespace.create")}
-        </Button>
+        {hasAnyPermission("iam:namespaces:create") && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("namespace.create")}
+          </Button>
+        )}
       </div>
 
       {/* filters */}
@@ -145,7 +154,7 @@ export default function NamespaceListPage() {
             className="pl-9"
           />
         </div>
-        {selected.size > 0 && (
+        {selected.size > 0 && hasAnyPermission("iam:namespaces:deleteCollection") && (
           <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
             <Trash2 className="mr-2 h-4 w-4" />
             {t("namespace.batchDelete")} ({selected.size})
@@ -158,12 +167,14 @@ export default function NamespaceListPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={namespaces.length > 0 && selected.size === namespaces.length}
-                  onCheckedChange={() => toggleAll(namespaces.map((ns) => ns.metadata.id))}
-                />
-              </TableHead>
+              {hasAnyPermission("iam:namespaces:deleteCollection") && (
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={namespaces.length > 0 && selected.size === namespaces.length}
+                    onCheckedChange={() => toggleAll(namespaces.map((ns) => ns.metadata.id))}
+                  />
+                </TableHead>
+              )}
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
                 {t("common.name")}<SortIcon field="name" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
@@ -229,12 +240,14 @@ export default function NamespaceListPage() {
             ) : (
               namespaces.map((ns) => (
                 <TableRow key={ns.metadata.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selected.has(ns.metadata.id)}
-                      onCheckedChange={() => toggleOne(ns.metadata.id)}
-                    />
-                  </TableCell>
+                  {hasAnyPermission("iam:namespaces:deleteCollection") && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(ns.metadata.id)}
+                        onCheckedChange={() => toggleOne(ns.metadata.id)}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Link to={`/iam/namespaces/${ns.metadata.id}`} className="font-medium hover:underline">
                       {ns.metadata.name}
@@ -263,12 +276,16 @@ export default function NamespaceListPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(ns)} title={t("common.edit")}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(ns)} title={t("common.delete")}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {hasPermission("iam:namespaces:update", { workspaceId: ns.spec.workspaceId, namespaceId: ns.metadata.id }) && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(ns)} title={t("common.edit")}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {hasPermission("iam:namespaces:delete", { workspaceId: ns.spec.workspaceId, namespaceId: ns.metadata.id }) && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(ns)} title={t("common.delete")}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -443,7 +460,7 @@ function NamespaceFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t("namespace.edit") : t("namespace.create")}</DialogTitle>
         </DialogHeader>

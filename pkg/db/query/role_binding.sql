@@ -52,6 +52,8 @@ ORDER BY
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'username' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN u.username END DESC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN r.name END ASC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN r.name END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_display_name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN r.display_name END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_display_name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN r.display_name END DESC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN rb.created_at END ASC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN rb.created_at END DESC,
     rb.created_at DESC
@@ -94,6 +96,8 @@ ORDER BY
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'username' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN u.username END DESC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN r.name END ASC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN r.name END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_display_name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN r.display_name END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_display_name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN r.display_name END DESC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN rb.created_at END ASC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN rb.created_at END DESC,
     rb.created_at DESC
@@ -136,6 +140,8 @@ ORDER BY
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'username' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN u.username END DESC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN r.name END ASC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN r.name END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_display_name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN r.display_name END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_display_name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN r.display_name END DESC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN rb.created_at END ASC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN rb.created_at END DESC,
     rb.created_at DESC
@@ -188,9 +194,19 @@ FROM role_bindings
 WHERE user_id = @user_id AND workspace_id IS NOT NULL;
 
 -- name: GetAccessibleNamespaceIDs :many
-SELECT DISTINCT namespace_id
-FROM role_bindings
-WHERE user_id = @user_id AND namespace_id IS NOT NULL;
+-- Returns namespace IDs accessible to the user:
+-- 1. Direct namespace-scoped role bindings
+-- 2. All namespaces in workspaces where the user has a workspace role with permission rules
+--    (excludes workspace-member which has no rules)
+SELECT DISTINCT rb1.namespace_id
+FROM role_bindings rb1
+WHERE rb1.user_id = @user_id AND rb1.namespace_id IS NOT NULL
+UNION
+SELECT DISTINCT n.id
+FROM namespaces n
+INNER JOIN role_bindings rb2 ON rb2.workspace_id = n.workspace_id
+    AND rb2.user_id = @user_id AND rb2.namespace_id IS NULL
+INNER JOIN role_permission_rules rpr ON rpr.role_id = rb2.role_id;
 
 -- name: GetUserIDsByWorkspaceID :many
 SELECT DISTINCT user_id

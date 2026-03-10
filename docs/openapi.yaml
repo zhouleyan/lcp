@@ -4,6 +4,8 @@ info:
   description: LCP Platform API
   version: v1
 tags:
+  - name: AuditLog
+    description: 审计日志：记录 API 写操作和认证事件
   - name: Overview
     description: 概览统计
   - name: User
@@ -48,6 +50,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OIDCDiscoveryResponse'
+  /api/audit/v1/logs:
+    get:
+      summary: 获取审计日志列表
+      operationId: listAuditLog
+      tags:
+        - AuditLog
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogList'
+  /api/audit/v1/logs/{logId}:
+    get:
+      summary: 获取审计日志详情
+      operationId: getAuditLog
+      tags:
+        - AuditLog
+      parameters:
+        - name: logId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
   /api/dashboard/v1/overview:
     get:
       summary: 获取平台概览统计
@@ -2087,6 +2141,93 @@ paths:
                 $ref: '#/components/schemas/OIDCErrorResponse'
 components:
   schemas:
+    AuditLog:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/AuditLogSpec'
+    AuditLogList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+        totalCount:
+          type: integer
+          format: int64
+    AuditLogSpec:
+      type: object
+      properties:
+        action:
+          type: string
+          description: 操作动作
+        clientIp:
+          type: string
+          description: 客户端 IP
+        createdAt:
+          type: string
+          description: 创建时间
+        detail:
+          $ref: '#/components/schemas/RawMessage'
+          description: 请求体（JSON）
+        durationMs:
+          type: integer
+          format: int
+          description: 请求耗时（毫秒）
+        eventType:
+          type: string
+          description: 事件类型：api_operation 或 authentication
+          enum:
+            - api_operation
+            - authentication
+        httpMethod:
+          type: string
+          description: HTTP 方法
+        httpPath:
+          type: string
+          description: HTTP 路径
+        id:
+          type: string
+          description: 日志 ID
+        module:
+          type: string
+          description: 所属模块
+        namespaceId:
+          type: string
+          description: 项目 ID
+        resourceId:
+          type: string
+          description: 资源 ID
+        resourceType:
+          type: string
+          description: 资源类型
+        scope:
+          type: string
+          description: 作用域
+          enum:
+            - platform
+            - workspace
+            - namespace
+        statusCode:
+          type: integer
+          format: int
+          description: HTTP 状态码
+        success:
+          type: boolean
+          description: 是否成功
+        userAgent:
+          type: string
+          description: User-Agent
+        userId:
+          type: string
+          description: 操作用户 ID
+        username:
+          type: string
+          description: 操作用户名
+        workspaceId:
+          type: string
+          description: 租户 ID
     Namespace:
       type: object
       properties:
@@ -2642,6 +2783,9 @@ components:
       required:
         - ownerId
 x-tagGroups:
+  - name: audit
+    tags:
+      - AuditLog
   - name: dashboard
     tags:
       - Overview

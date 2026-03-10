@@ -32,6 +32,7 @@ import {
 import { ApiError, translateApiError } from "@/api/client"
 import type { Workspace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
+import { usePermission } from "@/hooks/use-permission"
 import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
@@ -44,6 +45,7 @@ export default function WorkspaceListPage() {
     searchInput, setSearchInput, search,
     selected, toggleAll, toggleOne, clearSelection,
   } = useListState()
+  const { hasPermission } = usePermission()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
@@ -63,8 +65,13 @@ export default function WorkspaceListPage() {
       const data = await listWorkspaces(params)
       setWorkspaces(data.items ?? [])
       setTotalCount(data.totalCount)
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setLoading(false)
     }
@@ -117,10 +124,12 @@ export default function WorkspaceListPage() {
             {t("workspace.manage", { count: totalCount })}
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("workspace.create")}
-        </Button>
+        {hasPermission("iam:workspaces:create") && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("workspace.create")}
+          </Button>
+        )}
       </div>
 
       {/* filters */}
@@ -134,7 +143,7 @@ export default function WorkspaceListPage() {
             className="pl-9"
           />
         </div>
-        {selected.size > 0 && (
+        {selected.size > 0 && hasPermission("iam:workspaces:deleteCollection") && (
           <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
             <Trash2 className="mr-2 h-4 w-4" />
             {t("workspace.batchDelete")} ({selected.size})
@@ -148,10 +157,12 @@ export default function WorkspaceListPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
-                <Checkbox
-                  checked={workspaces.length > 0 && selected.size === workspaces.length}
-                  onCheckedChange={() => toggleAll(workspaces.map((w) => w.metadata.id))}
-                />
+                {hasPermission("iam:workspaces:deleteCollection") && (
+                  <Checkbox
+                    checked={workspaces.length > 0 && selected.size === workspaces.length}
+                    onCheckedChange={() => toggleAll(workspaces.map((w) => w.metadata.id))}
+                  />
+                )}
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
                 {t("common.name")}<SortIcon field="name" sortBy={sortBy} sortOrder={sortOrder} />
@@ -210,10 +221,12 @@ export default function WorkspaceListPage() {
               workspaces.map((ws) => (
                 <TableRow key={ws.metadata.id}>
                   <TableCell>
-                    <Checkbox
-                      checked={selected.has(ws.metadata.id)}
-                      onCheckedChange={() => toggleOne(ws.metadata.id)}
-                    />
+                    {hasPermission("iam:workspaces:deleteCollection") && (
+                      <Checkbox
+                        checked={selected.has(ws.metadata.id)}
+                        onCheckedChange={() => toggleOne(ws.metadata.id)}
+                      />
+                    )}
                   </TableCell>
                   <TableCell>
                     <Link to={`/iam/workspaces/${ws.metadata.id}`} className="font-medium hover:underline">
@@ -240,12 +253,16 @@ export default function WorkspaceListPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(ws)} title={t("common.edit")}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(ws)} title={t("common.delete")}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {hasPermission("iam:workspaces:update", { workspaceId: ws.metadata.id }) && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(ws)} title={t("common.edit")}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {hasPermission("iam:workspaces:delete", { workspaceId: ws.metadata.id }) && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(ws)} title={t("common.delete")}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -381,7 +398,7 @@ function WorkspaceFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t("workspace.edit") : t("workspace.create")}</DialogTitle>
         </DialogHeader>

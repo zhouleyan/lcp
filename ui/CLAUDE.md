@@ -278,6 +278,65 @@ Without this, switching scope while on the new resource page will redirect to th
 
 Tree-based checkbox component for selecting permission rules when creating/editing roles. Groups permissions by module and resource, supports wildcard patterns, and filters by scope.
 
+### Page-Level Permission Controls
+
+All RBAC pages enforce permission checks at both page and button level using `usePermission()`.
+
+#### Page Guards
+
+Pages that require specific platform-level permissions redirect to `/` if the user lacks access:
+
+```tsx
+import { Navigate } from "react-router"
+import { usePermission } from "@/hooks/use-permission"
+import { usePermissionStore } from "@/stores/permission-store"
+
+const { hasPermission } = usePermission()
+const permissionsLoaded = usePermissionStore((s) => s.permissions) !== null
+
+// Only redirect AFTER permissions have loaded (null = still loading)
+if (permissionsLoaded && !hasPermission("iam:users:list")) {
+  return <Navigate to="/" replace />
+}
+```
+
+Pages with guards: `users/list` (`iam:users:list`), `roles/list` (`iam:roles:list`).
+Pages without guards: workspaces, namespaces (always visible in sidebar).
+
+#### Button-Level Permission Checks
+
+Conditionally render action buttons based on the user's permissions:
+
+```tsx
+// Platform-scoped (no scope param): users, roles, rolebindings
+{hasPermission("iam:users:create") && <Button>Create</Button>}
+
+// Resource-scoped (per-row): workspaces, namespaces
+{hasPermission("iam:workspaces:update", { workspaceId: ws.metadata.id }) && <Button>Edit</Button>}
+{hasPermission("iam:namespaces:delete", { namespaceId: ns.metadata.id }) && <Button>Delete</Button>}
+
+// Any-scope (for create button when resources can be created in any scope):
+{hasAnyPermission("iam:namespaces:create") && <Button>Create</Button>}
+```
+
+#### Permission Code Mapping
+
+| Page | Create | Edit | Delete | Batch Delete |
+|------|--------|------|--------|-------------|
+| users | `iam:users:create` | `iam:users:update` | `iam:users:delete` | `iam:users:deleteCollection` |
+| workspaces | `iam:workspaces:create` | `iam:workspaces:update` (scoped) | `iam:workspaces:delete` (scoped) | `iam:workspaces:deleteCollection` |
+| namespaces | `iam:namespaces:create` (any) | `iam:namespaces:update` (scoped) | `iam:namespaces:delete` (scoped) | `iam:namespaces:deleteCollection` (any) |
+| workspace members | `iam:workspaces:users:create` (scoped) | - | - | `iam:workspaces:users:deleteCollection` (scoped) |
+| namespace members | `iam:namespaces:users:create` (scoped) | - | - | `iam:namespaces:users:deleteCollection` (scoped) |
+| roles | `iam:roles:create` | `iam:roles:update` | `iam:roles:delete` | `iam:roles:delete` |
+| rolebindings (platform) | `iam:rolebindings:create` | - | `iam:rolebindings:delete` | `iam:rolebindings:delete` |
+| rolebindings (workspace) | `iam:workspaces:rolebindings:create` (scoped) | - | `iam:workspaces:rolebindings:delete` (scoped) | same |
+| rolebindings (namespace) | `iam:namespaces:rolebindings:create` (scoped) | - | `iam:namespaces:rolebindings:delete` (scoped) | same |
+
+#### Checkbox Column Convention
+
+When batch operations (batch delete, batch remove) are permission-gated, the entire checkbox column (header + per-row cells) must also be wrapped in the same permission check. This avoids showing useless checkboxes to users who can't perform the batch action.
+
 ## Testing
 
 - Unit tests via Vitest: `pnpm test`

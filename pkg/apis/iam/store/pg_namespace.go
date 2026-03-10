@@ -142,9 +142,10 @@ func (s *pgNamespaceStore) GetByID(ctx context.Context, id int64) (*iam.DBNamesp
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
 		},
-		OwnerUsername: row.OwnerUsername,
-		WorkspaceName: row.WorkspaceName,
-		MemberCount:   row.MemberCount,
+		OwnerUsername:    row.OwnerUsername,
+		WorkspaceName:    row.WorkspaceName,
+		MemberCount:      row.MemberCount,
+		RoleBindingCount: row.RoleBindingCount,
 	}, nil
 }
 
@@ -202,18 +203,7 @@ func (s *pgNamespaceStore) Patch(ctx context.Context, id int64, ns *iam.DBNamesp
 }
 
 func (s *pgNamespaceStore) Delete(ctx context.Context, id int64) error {
-	// Check for member users
-	nsID := &id
-	count, err := s.queries.CountUsersByNamespaceID(ctx, nsID)
-	if err != nil {
-		return fmt.Errorf("count users: %w", err)
-	}
-	if count > 0 {
-		return apierrors.NewConflictMessage(
-			fmt.Sprintf("cannot delete namespace %d: has %d member(s)", id, count),
-		)
-	}
-
+	// role_bindings and scoped roles are cascade-deleted by the DB (ON DELETE CASCADE).
 	if err := s.queries.DeleteNamespace(ctx, id); err != nil {
 		return fmt.Errorf("delete namespace: %w", err)
 	}

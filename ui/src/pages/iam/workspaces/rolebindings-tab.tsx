@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useParams } from "react-router"
+import { useParams, Navigate } from "react-router"
 import { Plus, Trash2, Search } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,8 @@ import { listUsers } from "@/api/iam/users"
 import type { RoleBinding, Role, User, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"
+import { usePermission } from "@/hooks/use-permission"
+import { usePermissionStore } from "@/stores/permission-store"
 import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
@@ -29,11 +31,18 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 export default function WorkspaceRoleBindingsTab() {
   const workspaceId = useParams().workspaceId!
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
     searchInput, setSearchInput, search,
     selected, toggleAll, toggleOne, clearSelection,
   } = useListState()
+
+  const permissionsLoaded = usePermissionStore((s) => s.permissions) !== null
+  if (permissionsLoaded && !hasPermission("iam:workspaces:rolebindings:list", { workspaceId })) {
+    return <Navigate to="/" replace />
+  }
+
   const [bindings, setBindings] = useState<RoleBinding[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
@@ -49,8 +58,13 @@ export default function WorkspaceRoleBindingsTab() {
       const data = await listWorkspaceRoleBindings(workspaceId, params)
       setBindings(data.items ?? [])
       setTotalCount(data.totalCount)
-    } catch {
-      toast.error(t("api.error.internalError"))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
     } finally {
       setLoading(false)
     }
@@ -105,10 +119,12 @@ export default function WorkspaceRoleBindingsTab() {
           <h1 className="text-2xl font-bold">{t("rolebinding.title")}</h1>
           <p className="text-muted-foreground text-sm">{t("rolebinding.manage", { count: totalCount })}</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("rolebinding.create")}
-        </Button>
+        {hasPermission("iam:workspaces:rolebindings:create", { workspaceId }) && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("rolebinding.create")}
+          </Button>
+        )}
       </div>
       <div className="mb-4 flex items-center gap-3">
         <div className="relative max-w-xs flex-1">
@@ -120,7 +136,7 @@ export default function WorkspaceRoleBindingsTab() {
             className="pl-9"
           />
         </div>
-        {selected.size > 0 && (
+        {selected.size > 0 && hasPermission("iam:workspaces:rolebindings:delete", { workspaceId }) && (
           <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
             <Trash2 className="mr-2 h-4 w-4" />
             {t("rolebinding.batchDelete")} ({selected.size})
@@ -133,10 +149,12 @@ export default function WorkspaceRoleBindingsTab() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
-                <Checkbox
-                  checked={selectableIds.length > 0 && selected.size === selectableIds.length}
-                  onCheckedChange={() => toggleAll(selectableIds)}
-                />
+                {hasPermission("iam:workspaces:rolebindings:delete", { workspaceId }) && (
+                  <Checkbox
+                    checked={selectableIds.length > 0 && selected.size === selectableIds.length}
+                    onCheckedChange={() => toggleAll(selectableIds)}
+                  />
+                )}
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("username")}>
                 {t("user.username")}<SortIcon field="username" sortBy={sortBy} sortOrder={sortOrder} />
@@ -144,8 +162,12 @@ export default function WorkspaceRoleBindingsTab() {
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("user_display_name")}>
                 {t("common.displayName")}<SortIcon field="user_display_name" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
-              <TableHead>{t("role.title")}</TableHead>
-              <TableHead>{t("rolebinding.owner")}</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("role_name")}>
+                {t("rolebinding.role")}<SortIcon field="role_name" sortBy={sortBy} sortOrder={sortOrder} />
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("role_display_name")}>
+                {t("rolebinding.roleDisplayName")}<SortIcon field="role_display_name" sortBy={sortBy} sortOrder={sortOrder} />
+              </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
                 {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
@@ -163,11 +185,13 @@ export default function WorkspaceRoleBindingsTab() {
               bindings.map((binding) => (
                 <TableRow key={binding.metadata.id}>
                   <TableCell>
-                    <Checkbox
-                      checked={selected.has(binding.metadata.id)}
-                      onCheckedChange={() => toggleOne(binding.metadata.id)}
-                      disabled={!!binding.spec.isOwner}
-                    />
+                    {hasPermission("iam:workspaces:rolebindings:delete", { workspaceId }) && (
+                      <Checkbox
+                        checked={selected.has(binding.metadata.id)}
+                        onCheckedChange={() => toggleOne(binding.metadata.id)}
+                        disabled={!!binding.spec.isOwner}
+                      />
+                    )}
                   </TableCell>
                   <TableCell className="font-medium">{binding.spec.username}</TableCell>
                   <TableCell>{binding.spec.userDisplayName || "-"}</TableCell>
@@ -176,25 +200,23 @@ export default function WorkspaceRoleBindingsTab() {
                       {t(`role.${binding.spec.roleName}`, { defaultValue: binding.spec.roleDisplayName || binding.spec.roleName || "" })}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    {binding.spec.isOwner && (
-                      <Badge variant="default">{t("rolebinding.owner")}</Badge>
-                    )}
-                  </TableCell>
+                  <TableCell>{binding.spec.roleDisplayName || "-"}</TableCell>
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                     {new Date(binding.metadata.createdAt).toLocaleString()}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteTarget(binding)}
-                      disabled={!!binding.spec.isOwner}
-                      title={t("common.delete")}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    {hasPermission("iam:workspaces:rolebindings:delete", { workspaceId }) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => setDeleteTarget(binding)}
+                        disabled={!!binding.spec.isOwner}
+                        title={t("common.delete")}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
@@ -333,7 +355,7 @@ function CreateWorkspaceRoleBindingDialog({
                     />
                     <div className="flex-1">
                       <p className="text-sm font-medium">{t(`role.${role.spec.name}`, { defaultValue: role.spec.displayName || role.spec.name })}</p>
-                      <p className="text-muted-foreground text-xs">{t(`role.desc.${role.spec.name}`, { defaultValue: role.spec.description || "" })}</p>
+                      <p className="text-muted-foreground text-xs">{t(`role.desc.${role.spec.name}`, { defaultValue: role.spec.description || "" }) || "-"}</p>
                     </div>
                   </label>
                 ))

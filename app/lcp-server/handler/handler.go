@@ -145,7 +145,7 @@ func buildChain(apiHandler http.Handler, cfg APIServerConfig) http.Handler {
 	handler := apiHandler
 	if authz := cfg.Authorizer; authz != nil {
 		if authz.Lookup != nil && authz.Checker != nil {
-			handler = filters.WithAuthorization(authz.Lookup, authz.Checker)(handler)
+			handler = filters.WithAuthorization(authz.Lookup, authz.Checker, "iam:permissions:list")(handler)
 		}
 	}
 	if cfg.AuditLogger != nil {

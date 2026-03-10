@@ -7,6 +7,14 @@ import ErrorPage from "@/pages/error"
 import { dashboardRoutes } from "@/pages/dashboard/routes"
 import { iamRoutes } from "@/pages/iam/routes"
 import { auditRoutes } from "@/pages/audit/routes"
+import { usePermissionStore } from "@/stores/permission-store"
+import { getDefaultPath } from "@/hooks/use-permission"
+
+function DefaultRedirect() {
+  const permissions = usePermissionStore((s) => s.permissions)
+  const target = permissions ? getDefaultPath(permissions) : "/dashboard/overview"
+  return <Navigate to={target} replace />
+}
 
 export const routes: RouteObject[] = [
   {
@@ -29,11 +37,11 @@ export const routes: RouteObject[] = [
     path: "/",
     element: <RootLayout />,
     children: [
-      { index: true, element: <Navigate to="/dashboard/overview" replace /> },
+      { index: true, element: <DefaultRedirect /> },
       {
         path: "dashboard",
         children: [
-          { index: true, element: <Navigate to="/dashboard/overview" replace /> },
+          { index: true, element: <DefaultRedirect /> },
           ...dashboardRoutes,
         ],
       },
@@ -52,6 +60,6 @@ export const routes: RouteObject[] = [
   },
   {
     path: "*",
-    element: <Navigate to="/dashboard/overview" replace />,
+    element: <DefaultRedirect />,
   },
 ]

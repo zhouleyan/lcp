@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { useNavigate, useLocation } from "react-router"
 import { Building2, FolderKanban } from "lucide-react"
 import {
@@ -9,8 +9,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useScopeStore } from "@/stores/scope-store"
+import { usePermissionStore } from "@/stores/permission-store"
 import { listWorkspaces } from "@/api/iam/workspaces"
-import { listWorkspaceNamespaces } from "@/api/iam/namespaces"
+import { listNamespaces } from "@/api/iam/namespaces"
 import { useTranslation } from "@/i18n"
 import type { Workspace, Namespace } from "@/api/types"
 
@@ -60,6 +61,11 @@ export function ScopeSelector() {
   const setWorkspace = useScopeStore((s) => s.setWorkspace)
   const setNamespace = useScopeStore((s) => s.setNamespace)
 
+  const permissions = usePermissionStore((s) => s.permissions)
+  const hasPlatformScope = permissions?.isPlatformAdmin || (permissions?.platform?.length ?? 0) > 0
+  // Workspace-level users (e.g. workspace-viewer) should see "All namespaces" within their workspace
+  const hasWorkspaceScope = !!(workspaceId && (permissions?.workspaces?.[workspaceId]?.permissions?.length ?? 0) > 0)
+
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [namespaces, setNamespaces] = useState<Namespace[]>([])
 
@@ -77,44 +83,71 @@ export function ScopeSelector() {
     fetchWorkspaces()
   }, [fetchWorkspaces])
 
+  // Non-platform users: auto-select the only workspace
   useEffect(() => {
-    if (!workspaceId) {
+    if (!hasPlatformScope && workspaces.length > 0 && !workspaceId) {
+      const firstWsId = workspaces[0].metadata.id
+      setWorkspace(firstWsId)
+      const resource = detectResource(location.pathname)
+      navigate(buildScopedPath(resource, firstWsId, null))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPlatformScope, workspaces, workspaceId])
+
+  // Use platform-level API (has AccessFilter) — consistent with workspace fetching.
+  // Filter client-side by selected workspaceId.
+  const fetchNamespaces = useCallback(async () => {
+    try {
+      const data = await listNamespaces({ pageSize: 100 })
+      setNamespaces(data.items ?? [])
+    } catch {
       setNamespaces([])
-      return
     }
-    let cancelled = false
-    listWorkspaceNamespaces(workspaceId, { pageSize: 100 })
-      .then((data) => {
-        if (!cancelled) setNamespaces(data.items ?? [])
-      })
-      .catch(() => {
-        if (!cancelled) setNamespaces([])
-      })
-    return () => {
-      cancelled = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    fetchNamespaces()
+  }, [fetchNamespaces])
+
+  // Filter by selected workspace (API returns all accessible namespaces across workspaces)
+  const accessibleNamespaces = useMemo(() => {
+    if (!workspaceId) return []
+    return namespaces.filter((ns) => ns.spec.workspaceId === workspaceId)
+  }, [namespaces, workspaceId])
+
+  // Non-platform users without workspace scope and with single namespace: auto-select
+  useEffect(() => {
+    if (!hasPlatformScope && !hasWorkspaceScope && accessibleNamespaces.length === 1 && !namespaceId) {
+      const nsId = accessibleNamespaces[0].metadata.id
+      setNamespace(nsId)
+      const resource = detectResource(location.pathname)
+      navigate(buildScopedPath(resource, workspaceId, nsId))
     }
-  }, [workspaceId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPlatformScope, hasWorkspaceScope, accessibleNamespaces, namespaceId])
 
   return (
     <div className="space-y-1">
       <Select
-        value={workspaceId ?? ALL}
+        value={workspaceId ?? (hasPlatformScope ? ALL : "")}
         onValueChange={(v) => {
           const wsId = v === ALL ? null : v
           setWorkspace(wsId)
           const resource = detectResource(location.pathname)
           navigate(buildScopedPath(resource, wsId, null))
         }}
+        onOpenChange={(open) => { if (open) fetchWorkspaces() }}
       >
         <SelectTrigger
           size="sm"
           className="h-8 w-full gap-1.5 rounded-none border-0 bg-transparent px-3 text-xs shadow-none"
         >
           <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <SelectValue />
+          <SelectValue placeholder={t("scope.selectWorkspace")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>{t("scope.allWorkspaces")}</SelectItem>
+          {hasPlatformScope && <SelectItem value={ALL}>{t("scope.allWorkspaces")}</SelectItem>}
           {workspaces.map((ws) => (
             <SelectItem key={ws.metadata.id} value={ws.metadata.id}>
               {ws.spec.displayName || ws.metadata.name}
@@ -123,13 +156,14 @@ export function ScopeSelector() {
         </SelectContent>
       </Select>
       <Select
-        value={namespaceId ?? ALL}
+        value={namespaceId ?? ((hasPlatformScope || hasWorkspaceScope) ? ALL : "")}
         onValueChange={(v) => {
           const nsId = v === ALL ? null : v
           setNamespace(nsId)
           const resource = detectResource(location.pathname)
           navigate(buildScopedPath(resource, workspaceId, nsId))
         }}
+        onOpenChange={(open) => { if (open) fetchNamespaces() }}
         disabled={!workspaceId}
       >
         <SelectTrigger
@@ -137,11 +171,11 @@ export function ScopeSelector() {
           className="h-8 w-full gap-1.5 rounded-none border-0 bg-transparent px-3 text-xs shadow-none"
         >
           <FolderKanban className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <SelectValue />
+          <SelectValue placeholder={t("scope.selectNamespace")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>{t("scope.allNamespaces")}</SelectItem>
-          {namespaces.map((ns) => (
+          {(hasPlatformScope || hasWorkspaceScope) && <SelectItem value={ALL}>{t("scope.allNamespaces")}</SelectItem>}
+          {accessibleNamespaces.map((ns) => (
             <SelectItem key={ns.metadata.id} value={ns.metadata.id}>
               {ns.spec.displayName || ns.metadata.name}
             </SelectItem>

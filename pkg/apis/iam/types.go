@@ -89,6 +89,8 @@ type WorkspaceSpec struct {
 	NamespaceCount int `json:"namespaceCount,omitempty"`
 	// +openapi:description=成员数量（只读）
 	MemberCount int `json:"memberCount,omitempty"`
+	// +openapi:description=角色绑定数量（只读）
+	RoleBindingCount int `json:"roleBindingCount,omitempty"`
 	// +openapi:description=租户状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
@@ -144,6 +146,8 @@ type NamespaceSpec struct {
 	OwnerName string `json:"ownerName,omitempty"`
 	// +openapi:description=项目成员数量（只读）
 	MemberCount int `json:"memberCount,omitempty"`
+	// +openapi:description=角色绑定数量（只读）
+	RoleBindingCount int `json:"roleBindingCount,omitempty"`
 	// +openapi:description=所属租户名称（只读）
 	WorkspaceName string `json:"workspaceName,omitempty"`
 	// +openapi:description=项目状态
@@ -331,9 +335,10 @@ type DBUserWithNamespaces struct {
 // DBWorkspaceWithOwner extends Workspace with owner username and statistics.
 type DBWorkspaceWithOwner struct {
 	generated.Workspace
-	OwnerUsername  string `json:"owner_username"`
-	NamespaceCount int64  `json:"namespace_count"`
-	MemberCount    int64  `json:"member_count"`
+	OwnerUsername    string `json:"owner_username"`
+	NamespaceCount   int64  `json:"namespace_count"`
+	MemberCount      int64  `json:"member_count"`
+	RoleBindingCount int64  `json:"role_binding_count"`
 }
 
 // DBWorkspaceWithOwnerAndRole extends DBWorkspaceWithOwner with user's role and join time.
@@ -350,9 +355,10 @@ type DBWorkspaceWithOwnerAndRole struct {
 // DBNamespaceWithOwner extends Namespace with owner username and statistics.
 type DBNamespaceWithOwner struct {
 	generated.Namespace
-	OwnerUsername string `json:"owner_username"`
-	WorkspaceName string `json:"workspace_name"`
-	MemberCount   int64  `json:"member_count"`
+	OwnerUsername    string `json:"owner_username"`
+	WorkspaceName    string `json:"workspace_name"`
+	MemberCount      int64  `json:"member_count"`
+	RoleBindingCount int64  `json:"role_binding_count"`
 }
 
 // DBNamespaceWithOwnerAndRole extends DBNamespaceWithOwner with user's role and join time.
