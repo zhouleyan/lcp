@@ -1,6 +1,5 @@
 import { Navigate, type RouteObject } from "react-router"
 import WorkspaceLayout from "@/layouts/workspace-layout"
-import { WorkspaceOverviewPage, NamespaceOverviewPage } from "@/pages/dashboard/overview"
 import WorkspaceListPage from "./workspaces/list"
 import WorkspaceDetailPage from "./workspaces/detail"
 import WorkspaceUsersPage from "./workspaces/users"
@@ -25,14 +24,12 @@ export const iamRoutes: RouteObject[] = [
     element: <WorkspaceLayout />,
     children: [
       { index: true, element: <WorkspaceDetailPage /> },
-      { path: "overview", element: <WorkspaceOverviewPage /> },
       { path: "users", element: <WorkspaceUsersPage /> },
       { path: "users/:userId", element: <ScopedUserDetailPage /> },
       { path: "namespaces", element: <WorkspaceNamespacesPage /> },
       { path: "roles", element: <WorkspaceRolesTab /> },
       { path: "roles/:roleId", element: <ScopedRoleDetailPage /> },
       { path: "namespaces/:namespaceId", element: <NamespaceDetailPage /> },
-      { path: "namespaces/:namespaceId/overview", element: <NamespaceOverviewPage /> },
       { path: "namespaces/:namespaceId/users", element: <NamespaceUsersPage /> },
       { path: "namespaces/:namespaceId/users/:userId", element: <ScopedUserDetailPage /> },
       { path: "namespaces/:namespaceId/roles", element: <NamespaceRolesTab /> },

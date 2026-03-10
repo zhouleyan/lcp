@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { useTranslation } from "@/i18n"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+import { isModulePrefix } from "@/modules"
 
 interface BreadcrumbEntry {
   label: string
@@ -24,6 +25,12 @@ const routeLabelKeys: Record<string, string> = {
   roles: "nav.roles",
 }
 
+/** Resolve a path segment to its i18n label key. Module prefixes use `nav.{name}` convention. */
+function segmentLabelKey(seg: string): string | undefined {
+  if (isModulePrefix(seg)) return `nav.${seg}`
+  return routeLabelKeys[seg]
+}
+
 export function AppBreadcrumb() {
   const { t } = useTranslation()
   const location = useLocation()
@@ -34,9 +41,10 @@ export function AppBreadcrumb() {
   // Don't render breadcrumb on root / index
   if (allSegments.length === 0) return null
 
-  // Skip module prefix (e.g. "iam")
-  const rawSegments = allSegments[0] === "iam" ? allSegments.slice(1) : allSegments
-  const modulePrefix = allSegments[0] === "iam" ? "/iam" : ""
+  // Skip module prefix (e.g. "iam", "dashboard")
+  const hasModule = isModulePrefix(allSegments[0])
+  const rawSegments = hasModule ? allSegments.slice(1) : allSegments
+  const modulePrefix = hasModule ? `/${allSegments[0]}` : ""
 
   if (rawSegments.length === 0) return null
 
@@ -68,9 +76,10 @@ export function AppBreadcrumb() {
     pathAccum += "/" + seg
     const isLast = i === segments.length - 1
 
-    if (routeLabelKeys[seg]) {
+    const labelKey = segmentLabelKey(seg)
+    if (labelKey) {
       items.push({
-        label: t(routeLabelKeys[seg]),
+        label: t(labelKey),
         href: isLast ? undefined : pathAccum,
       })
     } else {

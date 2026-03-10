@@ -40,6 +40,7 @@ const zhCN: Messages = {
 
   // nav
   "nav.overview": "概览",
+  "nav.dashboard": "仪表盘",
   "nav.iam": "组织",
   "nav.workspaces": "租户",
   "nav.namespaces": "项目",
@@ -211,6 +212,11 @@ const zhCN: Messages = {
   "perm.group.iam.roles": "角色",
   "perm.group.iam.rolebindings": "角色绑定",
   "perm.group.iam.permissions": "权限",
+  "perm.group.dashboard": "仪表盘",
+  "perm.group.dashboard.overview": "平台概览",
+  "perm.group.dashboard.workspaces": "租户仪表盘",
+  "perm.group.dashboard.workspaces.overview": "租户概览",
+  "perm.group.dashboard.workspaces.namespaces:overview": "项目概览",
 
   // permission verb wildcards
   "perm.verb.list": "所有列表 (*:list)",
@@ -313,6 +319,11 @@ const zhCN: Messages = {
   // permission codes - permissions
   "perm.iam:permissions:list": "查看权限列表",
   "perm.iam:permissions:get": "查看权限详情",
+
+  // permission codes - dashboard
+  "perm.dashboard:overview:list": "查看平台概览",
+  "perm.dashboard:workspaces:overview:list": "查看租户概览",
+  "perm.dashboard:workspaces:namespaces:overview:list": "查看项目概览",
 
   // built-in role descriptions
   "role.desc.platform-admin": "对所有平台资源的完全访问权限",

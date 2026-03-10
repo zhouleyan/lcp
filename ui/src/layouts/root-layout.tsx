@@ -21,6 +21,7 @@ import { useAuthStore } from "@/stores/auth-store"
 import { usePermissionStore } from "@/stores/permission-store"
 import { usePermission } from "@/hooks/use-permission"
 import { useScopeStore } from "@/stores/scope-store"
+import { isModulePrefix } from "@/modules"
 
 interface NavItem {
   to: string
@@ -36,38 +37,40 @@ interface NavGroup {
 
 function getOverviewPath(scopeWorkspaceId: string | null, scopeNamespaceId: string | null): string {
   if (scopeWorkspaceId && scopeNamespaceId) {
-    return `/iam/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}/overview`
+    return `/dashboard/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}/overview`
   }
   if (scopeWorkspaceId) {
-    return `/iam/workspaces/${scopeWorkspaceId}/overview`
+    return `/dashboard/workspaces/${scopeWorkspaceId}/overview`
   }
   return "/dashboard/overview"
 }
 
 function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: string | null): NavGroup[] {
   if (scopeWorkspaceId && scopeNamespaceId) {
-    const prefix = `/iam/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
+    const iamPrefix = `/iam/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
+    const dashPrefix = `/dashboard/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
     return [
-      { items: [{ to: `${prefix}/overview`, labelKey: "nav.overview", icon: Home }] },
+      { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home }] },
       {
         labelKey: "nav.iam",
         items: [
-          { to: `${prefix}/users`, labelKey: "nav.users", icon: Users },
-          { to: `${prefix}/roles`, labelKey: "nav.roles", icon: Shield },
+          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users },
+          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield },
         ],
       },
     ]
   }
   if (scopeWorkspaceId) {
-    const prefix = `/iam/workspaces/${scopeWorkspaceId}`
+    const iamPrefix = `/iam/workspaces/${scopeWorkspaceId}`
+    const dashPrefix = `/dashboard/workspaces/${scopeWorkspaceId}`
     return [
-      { items: [{ to: `${prefix}/overview`, labelKey: "nav.overview", icon: Home }] },
+      { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home }] },
       {
         labelKey: "nav.iam",
         items: [
-          { to: `${prefix}/namespaces`, labelKey: "nav.namespaces", icon: FolderKanban },
-          { to: `${prefix}/users`, labelKey: "nav.users", icon: Users },
-          { to: `${prefix}/roles`, labelKey: "nav.roles", icon: Shield },
+          { to: `${iamPrefix}/namespaces`, labelKey: "nav.namespaces", icon: FolderKanban },
+          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users },
+          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield },
         ],
       },
     ]
@@ -105,7 +108,7 @@ export default function RootLayout() {
   useEffect(() => {
     const segs = location.pathname.split("/").filter(Boolean)
     // Skip module prefix (e.g. "iam", "dashboard")
-    const s = (segs[0] === "iam" || segs[0] === "dashboard") ? segs.slice(1) : segs
+    const s = isModulePrefix(segs[0]) ? segs.slice(1) : segs
     let urlWsId: string | null = null
     let urlNsId: string | null = null
 

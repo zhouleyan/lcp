@@ -33,15 +33,17 @@ function buildScopedPath(
   nsId: string | null,
 ): string {
   if (wsId && nsId) {
-    const prefix = `/iam/workspaces/${wsId}/namespaces/${nsId}`
-    if (resource === "overview" || resource === "users" || resource === "roles") return `${prefix}/${resource}`
-    return `${prefix}/overview`
+    const iamPrefix = `/iam/workspaces/${wsId}/namespaces/${nsId}`
+    if (resource === "overview") return `/dashboard/workspaces/${wsId}/namespaces/${nsId}/overview`
+    if (resource === "users" || resource === "roles") return `${iamPrefix}/${resource}`
+    return `/dashboard/workspaces/${wsId}/namespaces/${nsId}/overview`
   }
   if (wsId) {
-    const prefix = `/iam/workspaces/${wsId}`
-    if (resource === "overview" || resource === "users" || resource === "roles" || resource === "namespaces")
-      return `${prefix}/${resource}`
-    return `${prefix}/overview`
+    const iamPrefix = `/iam/workspaces/${wsId}`
+    if (resource === "overview") return `/dashboard/workspaces/${wsId}/overview`
+    if (resource === "users" || resource === "roles" || resource === "namespaces")
+      return `${iamPrefix}/${resource}`
+    return `/dashboard/workspaces/${wsId}/overview`
   }
   // 平台范围
   if (resource === "overview") return "/dashboard/overview"

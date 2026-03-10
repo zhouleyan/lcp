@@ -40,6 +40,7 @@ const enUS: Messages = {
 
   // nav
   "nav.overview": "Overview",
+  "nav.dashboard": "Dashboard",
   "nav.iam": "IAM",
   "nav.workspaces": "Workspaces",
   "nav.namespaces": "Namespaces",
@@ -211,6 +212,11 @@ const enUS: Messages = {
   "perm.group.iam.roles": "Roles",
   "perm.group.iam.rolebindings": "Role Bindings",
   "perm.group.iam.permissions": "Permissions",
+  "perm.group.dashboard": "Dashboard",
+  "perm.group.dashboard.overview": "Platform Overview",
+  "perm.group.dashboard.workspaces": "Workspace Dashboard",
+  "perm.group.dashboard.workspaces.overview": "Workspace Overview",
+  "perm.group.dashboard.workspaces.namespaces:overview": "Namespace Overview",
 
   // permission verb wildcards
   "perm.verb.list": "All list (*:list)",
@@ -313,6 +319,11 @@ const enUS: Messages = {
   // permission codes - permissions
   "perm.iam:permissions:list": "List permissions",
   "perm.iam:permissions:get": "Get permission details",
+
+  // permission codes - dashboard
+  "perm.dashboard:overview:list": "View platform overview",
+  "perm.dashboard:workspaces:overview:list": "View workspace overview",
+  "perm.dashboard:workspaces:namespaces:overview:list": "View namespace overview",
 
   // built-in role descriptions
   "role.desc.platform-admin": "Full access to all platform resources",
