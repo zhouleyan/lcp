@@ -261,6 +261,12 @@ Zustand store that fetches the current user's expanded permissions from `/users/
 
 Dropdown that switches between platform/workspace/namespace scope context. Updates `scope-store` which affects permission checks and data filtering across all pages.
 
+**Adding a new resource page**: When adding a page for a new resource type, you MUST register the resource name in `scope-selector.tsx`:
+1. Add the resource name to the `KNOWN_RESOURCES` array (e.g., `"rolebindings"`)
+2. Add the resource name to the routing conditions in `buildScopedPath` for each applicable scope level (namespace, workspace, platform)
+
+Without this, switching scope while on the new resource page will redirect to the overview page instead of staying on the corresponding resource page at the new scope.
+
 ### Permission Selector (`components/permission-selector.tsx`)
 
 Tree-based checkbox component for selecting permission rules when creating/editing roles. Groups permissions by module and resource, supports wildcard patterns, and filters by scope.
