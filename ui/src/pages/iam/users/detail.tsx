@@ -489,7 +489,7 @@ function UserNamespacesCard({ userId }: { userId: string }) {
                 namespaces.map((ns) => (
                   <TableRow key={ns.metadata.id}>
                     <TableCell className="font-medium">
-                      <Link to={`/namespaces/${ns.metadata.id}`} className="text-primary hover:underline">
+                      <Link to={`/iam/namespaces/${ns.metadata.id}`} className="text-primary hover:underline">
                         {ns.metadata.name}
                       </Link>
                     </TableCell>

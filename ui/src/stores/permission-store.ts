@@ -29,5 +29,8 @@ export const usePermissionStore = create<PermissionState>()((set) => ({
     })()
     return fetchPromise
   },
-  clearPermissions: () => set({ permissions: null }),
+  clearPermissions: () => {
+    fetchPromise = null
+    set({ permissions: null })
+  },
 }))
