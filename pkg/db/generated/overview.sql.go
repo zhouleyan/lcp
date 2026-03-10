@@ -12,18 +12,20 @@ import (
 const getNamespaceStats = `-- name: GetNamespaceStats :one
 SELECT
     (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = $1::BIGINT) AS member_count,
-    (SELECT count(*) FROM roles r WHERE r.scope = 'namespace' AND r.namespace_id = $1::BIGINT) AS role_count
+    (SELECT count(*) FROM roles r WHERE r.scope = 'namespace' AND r.namespace_id = $1::BIGINT) AS role_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = $1::BIGINT) AS role_binding_count
 `
 
 type GetNamespaceStatsRow struct {
-	MemberCount int64 `json:"member_count"`
-	RoleCount   int64 `json:"role_count"`
+	MemberCount      int64 `json:"member_count"`
+	RoleCount        int64 `json:"role_count"`
+	RoleBindingCount int64 `json:"role_binding_count"`
 }
 
 func (q *Queries) GetNamespaceStats(ctx context.Context, namespaceID int64) (GetNamespaceStatsRow, error) {
 	row := q.db.QueryRow(ctx, getNamespaceStats, namespaceID)
 	var i GetNamespaceStatsRow
-	err := row.Scan(&i.MemberCount, &i.RoleCount)
+	err := row.Scan(&i.MemberCount, &i.RoleCount, &i.RoleBindingCount)
 	return i, err
 }
 
@@ -32,14 +34,16 @@ SELECT
     (SELECT count(*) FROM workspaces) AS workspace_count,
     (SELECT count(*) FROM namespaces) AS namespace_count,
     (SELECT count(*) FROM users) AS user_count,
-    (SELECT count(*) FROM roles WHERE scope = 'platform') AS role_count
+    (SELECT count(*) FROM roles WHERE scope = 'platform') AS role_count,
+    (SELECT count(*) FROM role_bindings WHERE scope = 'platform') AS role_binding_count
 `
 
 type GetPlatformStatsRow struct {
-	WorkspaceCount int64 `json:"workspace_count"`
-	NamespaceCount int64 `json:"namespace_count"`
-	UserCount      int64 `json:"user_count"`
-	RoleCount      int64 `json:"role_count"`
+	WorkspaceCount   int64 `json:"workspace_count"`
+	NamespaceCount   int64 `json:"namespace_count"`
+	UserCount        int64 `json:"user_count"`
+	RoleCount        int64 `json:"role_count"`
+	RoleBindingCount int64 `json:"role_binding_count"`
 }
 
 func (q *Queries) GetPlatformStats(ctx context.Context) (GetPlatformStatsRow, error) {
@@ -50,6 +54,7 @@ func (q *Queries) GetPlatformStats(ctx context.Context) (GetPlatformStatsRow, er
 		&i.NamespaceCount,
 		&i.UserCount,
 		&i.RoleCount,
+		&i.RoleBindingCount,
 	)
 	return i, err
 }
@@ -58,18 +63,25 @@ const getWorkspaceStats = `-- name: GetWorkspaceStats :one
 SELECT
     (SELECT count(*) FROM namespaces n WHERE n.workspace_id = $1) AS namespace_count,
     (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = $1) AS member_count,
-    (SELECT count(*) FROM roles r WHERE r.scope = 'workspace' AND r.workspace_id = $1) AS role_count
+    (SELECT count(*) FROM roles r WHERE r.scope = 'workspace' AND r.workspace_id = $1) AS role_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = $1) AS role_binding_count
 `
 
 type GetWorkspaceStatsRow struct {
-	NamespaceCount int64 `json:"namespace_count"`
-	MemberCount    int64 `json:"member_count"`
-	RoleCount      int64 `json:"role_count"`
+	NamespaceCount   int64 `json:"namespace_count"`
+	MemberCount      int64 `json:"member_count"`
+	RoleCount        int64 `json:"role_count"`
+	RoleBindingCount int64 `json:"role_binding_count"`
 }
 
 func (q *Queries) GetWorkspaceStats(ctx context.Context, workspaceID int64) (GetWorkspaceStatsRow, error) {
 	row := q.db.QueryRow(ctx, getWorkspaceStats, workspaceID)
 	var i GetWorkspaceStatsRow
-	err := row.Scan(&i.NamespaceCount, &i.MemberCount, &i.RoleCount)
+	err := row.Scan(
+		&i.NamespaceCount,
+		&i.MemberCount,
+		&i.RoleCount,
+		&i.RoleBindingCount,
+	)
 	return i, err
 }

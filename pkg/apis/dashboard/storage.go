@@ -37,10 +37,11 @@ func (s *platformOverviewStorage) List(ctx context.Context, _ *rest.ListOptions)
 	}
 	return &Overview{
 		Spec: OverviewSpec{
-			WorkspaceCount: stats.WorkspaceCount,
-			NamespaceCount: stats.NamespaceCount,
-			UserCount:      stats.UserCount,
-			RoleCount:      stats.RoleCount,
+			WorkspaceCount:   stats.WorkspaceCount,
+			NamespaceCount:   stats.NamespaceCount,
+			UserCount:        stats.UserCount,
+			RoleCount:        stats.RoleCount,
+			RoleBindingCount: stats.RoleBindingCount,
 		},
 	}, nil
 }
@@ -70,9 +71,10 @@ func (s *workspaceOverviewStorage) List(ctx context.Context, options *rest.ListO
 	}
 	return &Overview{
 		Spec: OverviewSpec{
-			NamespaceCount: stats.NamespaceCount,
-			MemberCount:    stats.MemberCount,
-			RoleCount:      stats.RoleCount,
+			NamespaceCount:   stats.NamespaceCount,
+			MemberCount:      stats.MemberCount,
+			RoleCount:        stats.RoleCount,
+			RoleBindingCount: stats.RoleBindingCount,
 		},
 	}, nil
 }
@@ -102,8 +104,9 @@ func (s *namespaceOverviewStorage) List(ctx context.Context, options *rest.ListO
 	}
 	return &Overview{
 		Spec: OverviewSpec{
-			MemberCount: stats.MemberCount,
-			RoleCount:   stats.RoleCount,
+			MemberCount:      stats.MemberCount,
+			RoleCount:        stats.RoleCount,
+			RoleBindingCount: stats.RoleBindingCount,
 		},
 	}, nil
 }

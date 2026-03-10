@@ -207,6 +207,7 @@ export interface OverviewSpec {
   userCount: number
   memberCount: number
   roleCount: number
+  roleBindingCount: number
 }
 
 export interface Overview extends TypeMeta {

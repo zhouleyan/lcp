@@ -5,6 +5,7 @@ import {
   FolderKanban,
   Users,
   Shield,
+  ShieldCheck,
   ShieldOff,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -51,6 +52,7 @@ export function PlatformOverviewPage() {
     { labelKey: "nav.namespaces", icon: FolderKanban, value: spec?.namespaceCount ?? null, to: "/iam/namespaces" },
     { labelKey: "nav.users", icon: Users, value: spec?.userCount ?? null, to: "/iam/users" },
     { labelKey: "nav.roles", icon: Shield, value: spec?.roleCount ?? null, to: "/iam/roles" },
+    { labelKey: "nav.rolebindings", icon: ShieldCheck, value: spec?.roleBindingCount ?? null, to: "/iam/rolebindings" },
   ]
 
   return (
@@ -62,7 +64,7 @@ export function PlatformOverviewPage() {
       {forbidden ? (
         <ForbiddenHint t={t} />
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           {cards.map((card) => (
             <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
           ))}
@@ -104,6 +106,7 @@ export function WorkspaceOverviewPage() {
     { labelKey: "nav.namespaces", icon: FolderKanban, value: spec?.namespaceCount ?? null, to: `${prefix}/namespaces` },
     { labelKey: "nav.users", icon: Users, value: spec?.memberCount ?? null, to: `${prefix}/users` },
     { labelKey: "nav.roles", icon: Shield, value: spec?.roleCount ?? null, to: `${prefix}/roles` },
+    { labelKey: "nav.rolebindings", icon: ShieldCheck, value: spec?.roleBindingCount ?? null, to: `${prefix}/rolebindings` },
   ]
 
   return (
@@ -115,7 +118,7 @@ export function WorkspaceOverviewPage() {
       {forbidden ? (
         <ForbiddenHint t={t} />
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {cards.map((card) => (
             <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
           ))}
@@ -156,6 +159,7 @@ export function NamespaceOverviewPage() {
   const cards: StatCard[] = [
     { labelKey: "nav.users", icon: Users, value: spec?.memberCount ?? null, to: `${prefix}/users` },
     { labelKey: "nav.roles", icon: Shield, value: spec?.roleCount ?? null, to: `${prefix}/roles` },
+    { labelKey: "nav.rolebindings", icon: ShieldCheck, value: spec?.roleBindingCount ?? null, to: `${prefix}/rolebindings` },
   ]
 
   return (
@@ -167,7 +171,7 @@ export function NamespaceOverviewPage() {
       {forbidden ? (
         <ForbiddenHint t={t} />
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           {cards.map((card) => (
             <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
           ))}

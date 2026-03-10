@@ -33,4 +33,6 @@ type OverviewSpec struct {
 	MemberCount int64 `json:"memberCount"`
 	// +openapi:description=角色数量
 	RoleCount int64 `json:"roleCount"`
+	// +openapi:description=角色绑定数量
+	RoleBindingCount int64 `json:"roleBindingCount"`
 }
