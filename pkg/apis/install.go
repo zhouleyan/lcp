@@ -8,6 +8,7 @@ import (
 	"lcp.io/lcp/lib/oidc"
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/lib/rest/filters"
+	dashboardv1 "lcp.io/lcp/pkg/apis/dashboard/v1"
 	"lcp.io/lcp/pkg/apis/iam"
 	iamstore "lcp.io/lcp/pkg/apis/iam/store"
 	iamv1 "lcp.io/lcp/pkg/apis/iam/v1"
@@ -24,11 +25,11 @@ func NewAPIGroupInfos(ctx context.Context, database *db.DB) Result {
 	// --- IAM module ---
 	iamResult := iamv1.NewIAMModule(ctx, database)
 
-	// --- future modules registered here ---
-	// appResult := appv1.NewAppModule(ctx, database)
+	// --- Dashboard module ---
+	dashboardResult := dashboardv1.NewDashboardModule(database)
 
 	return Result{
-		Groups: []*rest.APIGroupInfo{iamResult.Group},
+		Groups: []*rest.APIGroupInfo{iamResult.Group, dashboardResult.Group},
 	}
 }
 
