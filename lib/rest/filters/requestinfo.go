@@ -20,14 +20,14 @@ type RequestInfo struct {
 
 // NamespaceResolver resolves the parent workspace ID for a given namespace ID.
 type NamespaceResolver interface {
-	GetWorkspaceID(namespaceID int64) (int64, bool)
+	GetWorkspaceID(ctx context.Context, namespaceID int64) (int64, bool)
 }
 
 // WithRequestInfo extracts workspaceID/namespaceID/scope from URL and stores in context.
 func WithRequestInfo(nsResolver NamespaceResolver) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			info := resolveRequestInfo(r.URL.Path, nsResolver)
+			info := resolveRequestInfo(r.Context(), r.URL.Path, nsResolver)
 			ctx := context.WithValue(r.Context(), requestInfoKey, info)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -42,7 +42,7 @@ func RequestInfoFromContext(ctx context.Context) *RequestInfo {
 	return &RequestInfo{Scope: "platform"}
 }
 
-func resolveRequestInfo(path string, nsResolver NamespaceResolver) *RequestInfo {
+func resolveRequestInfo(ctx context.Context, path string, nsResolver NamespaceResolver) *RequestInfo {
 	segments := strings.Split(path, "/")
 	info := &RequestInfo{Scope: "platform"}
 
@@ -69,7 +69,7 @@ func resolveRequestInfo(path string, nsResolver NamespaceResolver) *RequestInfo 
 
 	// If we have a namespaceID but no workspaceID, resolve via NamespaceResolver
 	if info.NamespaceID > 0 && info.WorkspaceID == 0 && nsResolver != nil {
-		if wsID, ok := nsResolver.GetWorkspaceID(info.NamespaceID); ok {
+		if wsID, ok := nsResolver.GetWorkspaceID(ctx, info.NamespaceID); ok {
 			info.WorkspaceID = wsID
 		}
 	}

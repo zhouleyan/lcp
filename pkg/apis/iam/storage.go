@@ -61,22 +61,7 @@ func (s *userStorage) Get(ctx context.Context, options *rest.GetOptions) (runtim
 // List 获取用户列表，支持分页、排序和筛选。
 // +openapi:summary=获取用户列表
 func (s *userStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
-	query := db.ListQuery{
-		Filters: make(map[string]any),
-		Pagination: db.Pagination{
-			Page:     options.Pagination.Page,
-			PageSize: options.Pagination.PageSize,
-		},
-	}
-	for k, v := range options.Filters {
-		query.Filters[k] = v
-	}
-	if options.SortBy != "" {
-		query.SortBy = options.SortBy
-	}
-	if options.SortOrder != "" {
-		query.SortOrder = string(options.SortOrder)
-	}
+	query := restOptionsToListQuery(options)
 
 	result, err := s.dbStore.List(ctx, query)
 	if err != nil {
@@ -302,22 +287,7 @@ func (s *workspaceStorage) Get(ctx context.Context, options *rest.GetOptions) (r
 
 // +openapi:summary=获取租户列表
 func (s *workspaceStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
-	query := db.ListQuery{
-		Filters: make(map[string]any),
-		Pagination: db.Pagination{
-			Page:     options.Pagination.Page,
-			PageSize: options.Pagination.PageSize,
-		},
-	}
-	for k, v := range options.Filters {
-		query.Filters[k] = v
-	}
-	if options.SortBy != "" {
-		query.SortBy = options.SortBy
-	}
-	if options.SortOrder != "" {
-		query.SortOrder = string(options.SortOrder)
-	}
+	query := restOptionsToListQuery(options)
 
 	// Inject access filter for non-admin users
 	if af := filters.AccessFilterFromContext(ctx); af != nil && af.WorkspaceIDs != nil {
@@ -591,22 +561,7 @@ func (s *namespaceStorage) Get(ctx context.Context, options *rest.GetOptions) (r
 // +openapi:summary=获取项目列表
 // +openapi:summary.workspaces.namespaces=获取租户下的项目列表
 func (s *namespaceStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
-	query := db.ListQuery{
-		Filters: make(map[string]any),
-		Pagination: db.Pagination{
-			Page:     options.Pagination.Page,
-			PageSize: options.Pagination.PageSize,
-		},
-	}
-	for k, v := range options.Filters {
-		query.Filters[k] = v
-	}
-	if options.SortBy != "" {
-		query.SortBy = options.SortBy
-	}
-	if options.SortOrder != "" {
-		query.SortOrder = string(options.SortOrder)
-	}
+	query := restOptionsToListQuery(options)
 
 	// If called via /workspaces/{workspaceId}/namespaces, filter by workspace
 	if wsID, ok := options.PathParams["workspaceId"]; ok && wsID != "" {
@@ -1729,9 +1684,7 @@ func batchRemoveUsers(ctx context.Context, ids []string, removeFn func(ctx conte
 	return len(ids), nil
 }
 
-func parseID(s string) (int64, error) {
-	return strconv.ParseInt(s, 10, 64)
-}
+var parseID = rest.ParseID
 
 // --- Role Storage (CRUD) ---
 

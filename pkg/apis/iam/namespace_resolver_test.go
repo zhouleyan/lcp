@@ -63,7 +63,7 @@ func TestNamespaceResolver_GetWorkspaceID(t *testing.T) {
 	resolver := NewNamespaceResolver(store, 1*time.Minute)
 
 	// First call: cache miss, queries DB
-	wsID, ok := resolver.GetWorkspaceID(456)
+	wsID, ok := resolver.GetWorkspaceID(context.Background(),456)
 	if !ok || wsID != 789 {
 		t.Errorf("got wsID=%d ok=%v, want 789/true", wsID, ok)
 	}
@@ -72,7 +72,7 @@ func TestNamespaceResolver_GetWorkspaceID(t *testing.T) {
 	}
 
 	// Second call: cache hit, no additional DB call
-	wsID, ok = resolver.GetWorkspaceID(456)
+	wsID, ok = resolver.GetWorkspaceID(context.Background(),456)
 	if !ok || wsID != 789 {
 		t.Errorf("got wsID=%d ok=%v, want 789/true", wsID, ok)
 	}
@@ -85,7 +85,7 @@ func TestNamespaceResolver_NotFound(t *testing.T) {
 	store := newMockNSStore()
 	resolver := NewNamespaceResolver(store, 1*time.Minute)
 
-	_, ok := resolver.GetWorkspaceID(999)
+	_, ok := resolver.GetWorkspaceID(context.Background(),999)
 	if ok {
 		t.Error("expected not found")
 	}
@@ -95,11 +95,11 @@ func TestNamespaceResolver_TTLExpiry(t *testing.T) {
 	store := newMockNSStore()
 	resolver := NewNamespaceResolver(store, 1*time.Millisecond)
 
-	resolver.GetWorkspaceID(456)
+	resolver.GetWorkspaceID(context.Background(),456)
 	time.Sleep(5 * time.Millisecond)
 
 	// Cache expired, should query DB again
-	resolver.GetWorkspaceID(456)
+	resolver.GetWorkspaceID(context.Background(),456)
 	if store.callCount.Load() != 2 {
 		t.Errorf("expected 2 DB calls after TTL expiry, got %d", store.callCount.Load())
 	}
@@ -109,13 +109,13 @@ func TestNamespaceResolver_Invalidate(t *testing.T) {
 	store := newMockNSStore()
 	r := NewNamespaceResolver(store, 1*time.Minute)
 
-	r.GetWorkspaceID(456)
+	r.GetWorkspaceID(context.Background(),456)
 
 	// Invalidate
 	r.(*namespaceResolver).InvalidateNamespace(456)
 
 	// Next call should query DB again
-	r.GetWorkspaceID(456)
+	r.GetWorkspaceID(context.Background(),456)
 	if store.callCount.Load() != 2 {
 		t.Errorf("expected 2 DB calls after invalidation, got %d", store.callCount.Load())
 	}

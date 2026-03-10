@@ -12,7 +12,7 @@ type mockNamespaceResolver struct {
 	mapping map[int64]int64
 }
 
-func (m *mockNamespaceResolver) GetWorkspaceID(namespaceID int64) (int64, bool) {
+func (m *mockNamespaceResolver) GetWorkspaceID(_ context.Context, namespaceID int64) (int64, bool) {
 	wsID, ok := m.mapping[namespaceID]
 	return wsID, ok
 }
@@ -141,7 +141,7 @@ func TestResolveRequestInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			info := resolveRequestInfo(tt.path, tt.resolver)
+			info := resolveRequestInfo(context.Background(), tt.path, tt.resolver)
 			if info.Scope != tt.wantScope {
 				t.Errorf("scope = %q, want %q", info.Scope, tt.wantScope)
 			}

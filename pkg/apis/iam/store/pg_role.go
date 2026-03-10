@@ -362,39 +362,13 @@ func (s *pgRoleStore) SeedRBAC(ctx context.Context, roles []iam.BuiltinRoleDef, 
 
 	qtx := s.queries.WithTx(tx)
 
-	// 1. Upsert platform built-in roles and their permission rules
-	var platformAdminRoleID int64
-	for _, def := range roles {
-		role, err := qtx.UpsertRole(ctx, generated.UpsertRoleParams{
-			Name:        def.Name,
-			DisplayName: def.DisplayName,
-			Description: def.Description,
-			Scope:       def.Scope,
-			Builtin:     true,
-		})
-		if err != nil {
-			return fmt.Errorf("upsert builtin role %s: %w", def.Name, err)
-		}
-
-		if def.Name == iam.RolePlatformAdmin {
-			platformAdminRoleID = role.ID
-		}
-
-		if err := qtx.DeleteRolePermissionRules(ctx, role.ID); err != nil {
-			return fmt.Errorf("delete rules for role %s: %w", def.Name, err)
-		}
-
-		for _, pattern := range def.Rules {
-			if err := qtx.AddRolePermissionRule(ctx, generated.AddRolePermissionRuleParams{
-				RoleID:  role.ID,
-				Pattern: pattern,
-			}); err != nil {
-				return fmt.Errorf("add rule %q for role %s: %w", pattern, def.Name, err)
-			}
-		}
+	// Step 1: Upsert platform built-in roles and their permission rules
+	platformAdminRoleID, err := seedBuiltinRoles(ctx, qtx, roles)
+	if err != nil {
+		return err
 	}
 
-	// 2. Create initial platform-admin binding for admin user (if exists)
+	// Step 2: Create initial platform-admin binding for admin user (if exists)
 	if adminUsername != "" && platformAdminRoleID != 0 {
 		adminUser, err := qtx.GetUserByUsername(ctx, adminUsername)
 		if err == nil {
@@ -406,7 +380,64 @@ func (s *pgRoleStore) SeedRBAC(ctx context.Context, roles []iam.BuiltinRoleDef, 
 		}
 	}
 
-	// 3. Create built-in workspace roles for all existing workspaces
+	// Step 3: Create built-in workspace roles for all existing workspaces
+	if err := seedScopedRolesForWorkspaces(ctx, qtx); err != nil {
+		return err
+	}
+
+	// Step 4: Create built-in namespace roles for all existing namespaces
+	if err := seedScopedRolesForNamespaces(ctx, qtx); err != nil {
+		return err
+	}
+
+	// Step 5: Migrate old global roles to scoped roles and clean up
+	if err := migrateGlobalRolesToScoped(ctx, tx); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
+
+// seedBuiltinRoles upserts all built-in role definitions and returns the platform-admin role ID.
+func seedBuiltinRoles(ctx context.Context, qtx *generated.Queries, roles []iam.BuiltinRoleDef) (int64, error) {
+	var platformAdminRoleID int64
+	for _, def := range roles {
+		role, err := qtx.UpsertRole(ctx, generated.UpsertRoleParams{
+			Name:        def.Name,
+			DisplayName: def.DisplayName,
+			Description: def.Description,
+			Scope:       def.Scope,
+			Builtin:     true,
+		})
+		if err != nil {
+			return 0, fmt.Errorf("upsert builtin role %s: %w", def.Name, err)
+		}
+
+		if def.Name == iam.RolePlatformAdmin {
+			platformAdminRoleID = role.ID
+		}
+
+		if err := qtx.DeleteRolePermissionRules(ctx, role.ID); err != nil {
+			return 0, fmt.Errorf("delete rules for role %s: %w", def.Name, err)
+		}
+
+		for _, pattern := range def.Rules {
+			if err := qtx.AddRolePermissionRule(ctx, generated.AddRolePermissionRuleParams{
+				RoleID:  role.ID,
+				Pattern: pattern,
+			}); err != nil {
+				return 0, fmt.Errorf("add rule %q for role %s: %w", pattern, def.Name, err)
+			}
+		}
+	}
+	return platformAdminRoleID, nil
+}
+
+// seedScopedRolesForWorkspaces creates built-in workspace roles for all existing workspaces.
+func seedScopedRolesForWorkspaces(ctx context.Context, qtx *generated.Queries) error {
 	workspaceIDs, err := qtx.ListAllWorkspaceIDs(ctx)
 	if err != nil {
 		return fmt.Errorf("list workspace IDs: %w", err)
@@ -416,8 +447,11 @@ func (s *pgRoleStore) SeedRBAC(ctx context.Context, roles []iam.BuiltinRoleDef, 
 			return fmt.Errorf("create workspace roles for workspace %d: %w", wsID, err)
 		}
 	}
+	return nil
+}
 
-	// 4. Create built-in namespace roles for all existing namespaces
+// seedScopedRolesForNamespaces creates built-in namespace roles for all existing namespaces.
+func seedScopedRolesForNamespaces(ctx context.Context, qtx *generated.Queries) error {
 	nsRows, err := qtx.ListAllNamespaceIDsWithWorkspace(ctx)
 	if err != nil {
 		return fmt.Errorf("list namespace IDs: %w", err)
@@ -427,8 +461,12 @@ func (s *pgRoleStore) SeedRBAC(ctx context.Context, roles []iam.BuiltinRoleDef, 
 			return fmt.Errorf("create namespace roles for namespace %d: %w", nsRow.ID, err)
 		}
 	}
+	return nil
+}
 
-	// 5. Migrate existing role_bindings from old global workspace/namespace roles to new scoped roles
+// migrateGlobalRolesToScoped re-points role_bindings from old global roles to new scoped roles,
+// then deletes the old global roles.
+func migrateGlobalRolesToScoped(ctx context.Context, tx pgx.Tx) error {
 	type migrationPair struct {
 		roleName string
 		scope    string
@@ -440,111 +478,79 @@ func (s *pgRoleStore) SeedRBAC(ctx context.Context, roles []iam.BuiltinRoleDef, 
 		{iam.RoleNamespaceViewer, iam.ScopeNamespace},
 	}
 	for _, m := range migrations {
-		// Find old global role (no workspace_id/namespace_id)
-		var oldRoleID int64
-		err := tx.QueryRow(ctx,
-			`SELECT id FROM roles WHERE name = $1 AND scope = $2 AND workspace_id IS NULL AND namespace_id IS NULL`,
-			m.roleName, m.scope,
-		).Scan(&oldRoleID)
-		if err != nil {
-			// No old global role found, nothing to migrate
+		if err := migrateOneGlobalRole(ctx, tx, m.roleName, m.scope); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// migrateOneGlobalRole migrates a single global role to scoped roles.
+func migrateOneGlobalRole(ctx context.Context, tx pgx.Tx, roleName, scope string) error {
+	var oldRoleID int64
+	err := tx.QueryRow(ctx,
+		`SELECT id FROM roles WHERE name = $1 AND scope = $2 AND workspace_id IS NULL AND namespace_id IS NULL`,
+		roleName, scope,
+	).Scan(&oldRoleID)
+	if err != nil {
+		return nil // no old global role found, nothing to migrate
+	}
+
+	// Determine which column to match for scoped lookup
+	var bindingCol, roleCol string
+	if scope == iam.ScopeWorkspace {
+		bindingCol = "workspace_id"
+		roleCol = "workspace_id"
+	} else {
+		bindingCol = "namespace_id"
+		roleCol = "namespace_id"
+	}
+
+	rows, err := tx.Query(ctx,
+		fmt.Sprintf(`SELECT id, %s FROM role_bindings WHERE role_id = $1`, bindingCol),
+		oldRoleID,
+	)
+	if err != nil {
+		return fmt.Errorf("list bindings for old role %s: %w", roleName, err)
+	}
+	type bindingInfo struct {
+		id       int64
+		scopeID  *int64
+	}
+	var bindings []bindingInfo
+	for rows.Next() {
+		var b bindingInfo
+		if err := rows.Scan(&b.id, &b.scopeID); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan binding: %w", err)
+		}
+		bindings = append(bindings, b)
+	}
+	rows.Close()
+
+	for _, b := range bindings {
+		if b.scopeID == nil {
 			continue
 		}
-
-		if m.scope == iam.ScopeWorkspace {
-			// Find bindings referencing the old global role and re-point them
-			rows, err := tx.Query(ctx,
-				`SELECT id, workspace_id FROM role_bindings WHERE role_id = $1`,
-				oldRoleID,
-			)
-			if err != nil {
-				return fmt.Errorf("list bindings for old role %s: %w", m.roleName, err)
-			}
-			type bindingInfo struct {
-				id          int64
-				workspaceID *int64
-			}
-			var bindings []bindingInfo
-			for rows.Next() {
-				var b bindingInfo
-				if err := rows.Scan(&b.id, &b.workspaceID); err != nil {
-					rows.Close()
-					return fmt.Errorf("scan binding: %w", err)
-				}
-				bindings = append(bindings, b)
-			}
-			rows.Close()
-
-			for _, b := range bindings {
-				if b.workspaceID == nil {
-					continue
-				}
-				var newRoleID int64
-				err := tx.QueryRow(ctx,
-					`SELECT id FROM roles WHERE name = $1 AND workspace_id = $2`,
-					m.roleName, *b.workspaceID,
-				).Scan(&newRoleID)
-				if err != nil {
-					logger.Warnf("cannot find scoped role %s for workspace %d, skipping binding %d", m.roleName, *b.workspaceID, b.id)
-					continue
-				}
-				if _, err := tx.Exec(ctx, `UPDATE role_bindings SET role_id = $1 WHERE id = $2`, newRoleID, b.id); err != nil {
-					return fmt.Errorf("re-point binding %d: %w", b.id, err)
-				}
-			}
-		} else {
-			// namespace scope
-			rows, err := tx.Query(ctx,
-				`SELECT id, namespace_id FROM role_bindings WHERE role_id = $1`,
-				oldRoleID,
-			)
-			if err != nil {
-				return fmt.Errorf("list bindings for old role %s: %w", m.roleName, err)
-			}
-			type bindingInfo struct {
-				id          int64
-				namespaceID *int64
-			}
-			var bindings []bindingInfo
-			for rows.Next() {
-				var b bindingInfo
-				if err := rows.Scan(&b.id, &b.namespaceID); err != nil {
-					rows.Close()
-					return fmt.Errorf("scan binding: %w", err)
-				}
-				bindings = append(bindings, b)
-			}
-			rows.Close()
-
-			for _, b := range bindings {
-				if b.namespaceID == nil {
-					continue
-				}
-				var newRoleID int64
-				err := tx.QueryRow(ctx,
-					`SELECT id FROM roles WHERE name = $1 AND namespace_id = $2`,
-					m.roleName, *b.namespaceID,
-				).Scan(&newRoleID)
-				if err != nil {
-					logger.Warnf("cannot find scoped role %s for namespace %d, skipping binding %d", m.roleName, *b.namespaceID, b.id)
-					continue
-				}
-				if _, err := tx.Exec(ctx, `UPDATE role_bindings SET role_id = $1 WHERE id = $2`, newRoleID, b.id); err != nil {
-					return fmt.Errorf("re-point binding %d: %w", b.id, err)
-				}
-			}
+		var newRoleID int64
+		err := tx.QueryRow(ctx,
+			fmt.Sprintf(`SELECT id FROM roles WHERE name = $1 AND %s = $2`, roleCol),
+			roleName, *b.scopeID,
+		).Scan(&newRoleID)
+		if err != nil {
+			logger.Warnf("cannot find scoped role %s for %s %d, skipping binding %d", roleName, scope, *b.scopeID, b.id)
+			continue
 		}
-
-		// 6. Delete the old global role (cascade deletes any remaining bindings/rules)
-		if _, err := tx.Exec(ctx, `DELETE FROM roles WHERE id = $1`, oldRoleID); err != nil {
-			return fmt.Errorf("delete old global role %s: %w", m.roleName, err)
+		if _, err := tx.Exec(ctx, `UPDATE role_bindings SET role_id = $1 WHERE id = $2`, newRoleID, b.id); err != nil {
+			return fmt.Errorf("re-point binding %d: %w", b.id, err)
 		}
-		logger.Infof("migrated role %s from global to scoped", m.roleName)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
+	// Delete the old global role (cascade deletes any remaining bindings/rules)
+	if _, err := tx.Exec(ctx, `DELETE FROM roles WHERE id = $1`, oldRoleID); err != nil {
+		return fmt.Errorf("delete old global role %s: %w", roleName, err)
 	}
+	logger.Infof("migrated role %s from global to scoped", roleName)
 	return nil
 }
 

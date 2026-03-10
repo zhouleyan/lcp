@@ -31,7 +31,7 @@ func NewNamespaceResolver(nsStore NamespaceStore, ttl time.Duration) filters.Nam
 	}
 }
 
-func (r *namespaceResolver) GetWorkspaceID(namespaceID int64) (int64, bool) {
+func (r *namespaceResolver) GetWorkspaceID(ctx context.Context, namespaceID int64) (int64, bool) {
 	r.mu.RLock()
 	if entry, ok := r.cache[namespaceID]; ok && time.Now().Before(entry.expiresAt) {
 		r.mu.RUnlock()
@@ -39,7 +39,7 @@ func (r *namespaceResolver) GetWorkspaceID(namespaceID int64) (int64, bool) {
 	}
 	r.mu.RUnlock()
 
-	ns, err := r.nsStore.GetByID(context.Background(), namespaceID)
+	ns, err := r.nsStore.GetByID(ctx, namespaceID)
 	if err != nil {
 		return 0, false
 	}

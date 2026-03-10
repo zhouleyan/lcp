@@ -121,3 +121,8 @@ func ParseListOptions(query url.Values) *ListOptions {
 
 	return options
 }
+
+// ParseID parses a string ID (from path params) into int64.
+func ParseID(s string) (int64, error) {
+	return strconv.ParseInt(s, 10, 64)
+}

@@ -3,11 +3,10 @@ package dashboard
 import (
 	"context"
 	"fmt"
-	"strconv"
 
+	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/lib/runtime"
-	apierrors "lcp.io/lcp/lib/api/errors"
 )
 
 // OverviewStore abstracts the database queries for dashboard statistics.
@@ -109,6 +108,4 @@ func (s *namespaceOverviewStorage) List(ctx context.Context, options *rest.ListO
 	}, nil
 }
 
-func parseID(s string) (int64, error) {
-	return strconv.ParseInt(s, 10, 64)
-}
+var parseID = rest.ParseID
