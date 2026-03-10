@@ -14,6 +14,12 @@ const VERB_GROUPS = [
   { key: "delete", verbs: ["delete", "deleteCollection"] },
 ] as const
 
+const SCOPE_LEVELS: Record<string, number> = {
+  platform: 0,
+  workspace: 1,
+  namespace: 2,
+}
+
 const STANDARD_VERBS = new Set(VERB_GROUPS.flatMap((g) => g.verbs))
 
 function getVerb(code: string): string {
@@ -160,17 +166,25 @@ export function PermissionSelector({
   value,
   onChange,
   readOnly,
+  scope,
 }: {
   permissions: Permission[]
   value: string[]
   onChange?: (rules: string[]) => void
   readOnly?: boolean
+  scope?: "platform" | "workspace" | "namespace"
 }) {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["root"]))
 
-  const tree = useMemo(() => buildTree(permissions), [permissions])
+  const filteredPermissions = useMemo(() => {
+    if (!scope || scope === "platform") return permissions
+    const minLevel = SCOPE_LEVELS[scope] ?? 0
+    return permissions.filter((p) => (SCOPE_LEVELS[p.spec.scope] ?? 0) >= minLevel)
+  }, [permissions, scope])
+
+  const tree = useMemo(() => buildTree(filteredPermissions), [filteredPermissions])
 
   const allGroupKeys = useMemo(() => {
     const keys = new Set<string>()
@@ -226,7 +240,7 @@ export function PermissionSelector({
     if (!search) return null
     const lower = search.toLowerCase()
     const codes = new Set<string>()
-    for (const p of permissions) {
+    for (const p of filteredPermissions) {
       const desc = t(`perm.${p.spec.code}`, { defaultValue: p.spec.description || p.spec.code })
       if (
         p.spec.code.toLowerCase().includes(lower) ||
@@ -237,7 +251,7 @@ export function PermissionSelector({
     }
     return codes
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, permissions])
+  }, [search, filteredPermissions])
 
   if (readOnly) {
     return (
@@ -312,7 +326,14 @@ function TreeNode({
 }) {
   const { t } = useTranslation()
   const allCodes = useMemo(() => getAllCodes(node), [node])
-  const checked = isSelected(value, node.wildcardPattern) || value.includes(node.wildcardPattern)
+  const wildcardSelected = isSelected(value, node.wildcardPattern) || value.includes(node.wildcardPattern)
+  const checked: boolean | "indeterminate" = useMemo(() => {
+    if (wildcardSelected) return true
+    const someSelected = allCodes.some((c) => isSelected(value, c))
+    if (!someSelected) return false
+    const allSelected = allCodes.every((c) => isSelected(value, c))
+    return allSelected ? true : "indeterminate"
+  }, [wildcardSelected, allCodes, value])
   const locked = isLocked(value, node.wildcardPattern)
 
   const hasMatch = matchingCodes === null || allCodes.some((c) => matchingCodes.has(c))

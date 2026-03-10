@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router"
 import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
@@ -503,6 +503,28 @@ function RoleFormDialog({
   }
 
   const selectedRules = form.watch("rules")
+  const watchedScope = form.watch("scope")
+  const isFirstScopeRender = useRef(true)
+
+  useEffect(() => {
+    if (isFirstScopeRender.current) {
+      isFirstScopeRender.current = false
+      return
+    }
+    if (!watchedScope || watchedScope === "platform") return
+    const currentRules = form.getValues("rules")
+    if (currentRules.length > 0) {
+      form.setValue("rules", [], { shouldValidate: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedScope])
+
+  // Reset the ref when dialog opens/closes so it works correctly on reopening
+  useEffect(() => {
+    if (open) {
+      isFirstScopeRender.current = true
+    }
+  }, [open])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -610,6 +632,7 @@ function RoleFormDialog({
                       permissions={permissions}
                       value={selectedRules}
                       onChange={(rules) => form.setValue("rules", rules, { shouldValidate: true })}
+                      scope={form.watch("scope")}
                     />
                     <FormMessage />
                   </FormItem>

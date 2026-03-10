@@ -405,6 +405,7 @@ function EditRoleDialog({
                       permissions={permissions}
                       value={selectedRules}
                       onChange={(rules) => form.setValue("rules", rules, { shouldValidate: true })}
+                      scope={role.spec.scope as "platform" | "workspace" | "namespace"}
                     />
                     <FormMessage />
                   </FormItem>

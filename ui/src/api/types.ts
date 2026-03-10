@@ -112,6 +112,7 @@ export interface PermissionSpec {
   code: string
   method: string
   path: string
+  scope: "platform" | "workspace" | "namespace"
   description?: string
 }
 
