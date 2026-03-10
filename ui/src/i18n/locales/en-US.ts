@@ -46,6 +46,7 @@ const enUS: Messages = {
   "nav.namespaces": "Namespaces",
   "nav.users": "Users",
   "nav.roles": "Roles",
+  "nav.rolebindings": "Role Bindings",
   "nav.apiDocs": "API Docs",
 
   // overview
@@ -188,6 +189,22 @@ const enUS: Messages = {
   "role.validation.name.taken": "This role name is already taken",
   "role.validation.name.hint": "3-50 lowercase letters, digits, or hyphens, e.g. my-role",
   "role.validation.rules.required": "At least one permission rule is required",
+
+  // role binding management
+  "rolebinding.title": "Role Bindings",
+  "rolebinding.manage": "Manage role bindings. {count} total.",
+  "rolebinding.create": "Create Role Binding",
+  "rolebinding.createDesc": "Select a user and a role to create a role binding.",
+  "rolebinding.selectRole": "Select Role",
+  "rolebinding.selectUser": "Select User",
+  "rolebinding.noRoles": "No roles available.",
+  "rolebinding.noUsers": "No users available.",
+  "rolebinding.noData": "No role bindings found.",
+  "rolebinding.deleteConfirm": "Are you sure you want to delete the role binding for user \"{name}\"?",
+  "rolebinding.batchDelete": "Batch Delete",
+  "rolebinding.batchDeleteConfirm": "Are you sure you want to delete {count} selected role bindings?",
+  "rolebinding.owner": "Owner",
+  "rolebinding.searchPlaceholder": "Search username, role name...",
 
   // built-in role display names
   "role.platform-admin": "Platform Admin",

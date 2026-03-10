@@ -46,6 +46,7 @@ const zhCN: Messages = {
   "nav.namespaces": "项目",
   "nav.users": "用户",
   "nav.roles": "角色管理",
+  "nav.rolebindings": "角色绑定",
   "nav.apiDocs": "API 文档",
 
   // overview
@@ -188,6 +189,22 @@ const zhCN: Messages = {
   "role.validation.name.taken": "该角色名称已被使用",
   "role.validation.name.hint": "3-50位小写字母、数字或连字符，如 my-role",
   "role.validation.rules.required": "至少需要一条权限规则",
+
+  // role binding management
+  "rolebinding.title": "角色绑定",
+  "rolebinding.manage": "管理角色绑定。共 {count} 个。",
+  "rolebinding.create": "创建角色绑定",
+  "rolebinding.createDesc": "选择用户和角色创建角色绑定。",
+  "rolebinding.selectRole": "选择角色",
+  "rolebinding.selectUser": "选择用户",
+  "rolebinding.noRoles": "暂无可用角色。",
+  "rolebinding.noUsers": "暂无可用用户。",
+  "rolebinding.noData": "暂无角色绑定。",
+  "rolebinding.deleteConfirm": "确定要删除用户「{name}」的角色绑定吗？",
+  "rolebinding.batchDelete": "批量删除",
+  "rolebinding.batchDeleteConfirm": "确定要删除选中的 {count} 个角色绑定吗？",
+  "rolebinding.owner": "所有者",
+  "rolebinding.searchPlaceholder": "搜索用户名、角色名...",
 
   // built-in role display names
   "role.platform-admin": "平台管理员",

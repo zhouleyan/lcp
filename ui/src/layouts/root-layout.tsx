@@ -7,6 +7,7 @@ import {
   FolderKanban,
   FileText,
   Shield,
+  ShieldCheck,
   Home,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -56,6 +57,7 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
         items: [
           { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users },
           { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield },
+          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck },
         ],
       },
     ]
@@ -71,6 +73,7 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
           { to: `${iamPrefix}/namespaces`, labelKey: "nav.namespaces", icon: FolderKanban },
           { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users },
           { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield },
+          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck },
         ],
       },
     ]
@@ -84,6 +87,7 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
         { to: "/iam/namespaces", labelKey: "nav.namespaces", icon: FolderKanban },
         { to: "/iam/users", labelKey: "nav.users", icon: Users, permission: "iam:users:list" },
         { to: "/iam/roles", labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list" },
+        { to: "/iam/rolebindings", labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:rolebindings:list" },
       ],
     },
   ]
