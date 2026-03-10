@@ -1,4 +1,5 @@
 import ky, { HTTPError } from "ky"
+import { toast } from "sonner"
 import { getAccessToken, refreshAccessToken } from "@/lib/auth"
 import type { StatusResponse, StatusResponseDetail } from "./types"
 
@@ -140,4 +141,20 @@ export function translateApiError(err: ApiError): string {
     if (err.message.startsWith(prefix)) return key
   }
   return reasonMessageMap[err.reason] ?? err.message
+}
+
+/**
+ * Show a toast error for a caught exception. Handles both ApiError and unknown errors.
+ * @param err - The caught error
+ * @param t - The i18n translation function
+ * @param resourceKey - Optional i18n key for the resource name (e.g. "user.title")
+ */
+export function showApiError(err: unknown, t: (key: string, params?: Record<string, unknown>) => string, resourceKey?: string) {
+  if (err instanceof ApiError) {
+    const i18nKey = translateApiError(err)
+    const params = resourceKey ? { resource: t(resourceKey) } : undefined
+    toast.error(i18nKey !== err.message ? t(i18nKey, params) : err.message)
+  } else {
+    toast.error(t("api.error.internalError"))
+  }
 }

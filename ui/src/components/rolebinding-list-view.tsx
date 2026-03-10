@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { listUsers } from "@/api/iam/users"
 import type { RoleBinding, Role, User, ListParams, RoleBindingList, RoleList } from "@/api/types"
-import { ApiError, translateApiError } from "@/api/client"
+import { showApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
 import { useListState } from "@/hooks/use-list-state"
@@ -63,12 +63,7 @@ export function RoleBindingListView({ config }: { config: RoleBindingListConfig 
       setBindings(data.items ?? [])
       setTotalCount(data.totalCount)
     } catch (err) {
-      if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t)
     } finally {
       setLoading(false)
     }
@@ -90,12 +85,7 @@ export function RoleBindingListView({ config }: { config: RoleBindingListConfig 
       setDeleteTarget(null)
       fetchBindings()
     } catch (err) {
-      if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        toast.error(i18nKey !== err.message ? t(i18nKey, { resource: t("rolebinding.title") }) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "rolebinding.title")
     }
   }
 
@@ -107,12 +97,7 @@ export function RoleBindingListView({ config }: { config: RoleBindingListConfig 
       clearSelection()
       fetchBindings()
     } catch (err) {
-      if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        toast.error(i18nKey !== err.message ? t(i18nKey, { resource: t("rolebinding.title") }) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "rolebinding.title")
     }
   }
 
@@ -318,12 +303,7 @@ function CreateRoleBindingDialog({
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        toast.error(i18nKey !== err.message ? t(i18nKey, { resource: t("rolebinding.title") }) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "rolebinding.title")
     } finally {
       setSubmitting(false)
     }
