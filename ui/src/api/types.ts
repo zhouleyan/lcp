@@ -197,6 +197,20 @@ export interface UserPermissions extends TypeMeta {
   spec: UserPermissionsSpec
 }
 
+// --- Overview ---
+
+export interface OverviewSpec {
+  workspaceCount: number
+  namespaceCount: number
+  userCount: number
+  memberCount: number
+  roleCount: number
+}
+
+export interface Overview extends TypeMeta {
+  spec: OverviewSpec
+}
+
 // --- Transfer Ownership ---
 
 export interface TransferOwnershipRequest {
