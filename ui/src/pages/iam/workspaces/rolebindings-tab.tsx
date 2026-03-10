@@ -39,9 +39,6 @@ export default function WorkspaceRoleBindingsTab() {
   } = useListState()
 
   const permissionsLoaded = usePermissionStore((s) => s.permissions) !== null
-  if (permissionsLoaded && !hasPermission("iam:workspaces:rolebindings:list", { workspaceId })) {
-    return <Navigate to="/" replace />
-  }
 
   const [bindings, setBindings] = useState<RoleBinding[]>([])
   const [loading, setLoading] = useState(true)
@@ -74,6 +71,10 @@ export default function WorkspaceRoleBindingsTab() {
   useEffect(() => { fetchBindings() }, [fetchBindings])
   useEffect(() => { setPage(1) }, [search, pageSize])
   useEffect(() => { clearSelection() }, [bindings])
+
+  if (permissionsLoaded && !hasPermission("iam:workspaces:rolebindings:list", { workspaceId })) {
+    return <Navigate to="/" replace />
+  }
 
   const handleDelete = async () => {
     if (!deleteTarget) return

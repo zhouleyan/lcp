@@ -44,9 +44,6 @@ export default function NamespaceUsersPage() {
   } = useListState()
 
   const permissionsLoaded = usePermissionStore((s) => s.permissions) !== null
-  if (permissionsLoaded && !hasPermission("iam:namespaces:users:list", { workspaceId, namespaceId })) {
-    return <Navigate to="/" replace />
-  }
 
   const [members, setMembers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,6 +78,10 @@ export default function NamespaceUsersPage() {
   useEffect(() => { fetchMembers() }, [fetchMembers])
   useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
   useEffect(() => { clearSelection() }, [members])
+
+  if (permissionsLoaded && !hasPermission("iam:namespaces:users:list", { workspaceId, namespaceId })) {
+    return <Navigate to="/" replace />
+  }
 
   const handleRemove = async () => {
     if (!removeTarget) return

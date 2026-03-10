@@ -38,13 +38,6 @@ export default function NamespaceRolesTab() {
   const { hasPermission } = usePermission()
 
   const permissionsLoaded = usePermissionStore((s) => s.permissions) !== null
-  if (permissionsLoaded && !hasPermission("iam:namespaces:roles:list", { workspaceId, namespaceId })) {
-    return <Navigate to="/" replace />
-  }
-
-  const canCreate = hasPermission("iam:namespaces:roles:create", { workspaceId, namespaceId })
-  const canUpdate = hasPermission("iam:namespaces:roles:update", { workspaceId, namespaceId })
-  const canDelete = hasPermission("iam:namespaces:roles:delete", { workspaceId, namespaceId })
 
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
@@ -79,6 +72,14 @@ export default function NamespaceRolesTab() {
   useEffect(() => { fetchRoles() }, [fetchRoles])
   useEffect(() => { setPage(1) }, [search, pageSize])
   useEffect(() => { clearSelection() }, [roles])
+
+  if (permissionsLoaded && !hasPermission("iam:namespaces:roles:list", { workspaceId, namespaceId })) {
+    return <Navigate to="/" replace />
+  }
+
+  const canCreate = hasPermission("iam:namespaces:roles:create", { workspaceId, namespaceId })
+  const canUpdate = hasPermission("iam:namespaces:roles:update", { workspaceId, namespaceId })
+  const canDelete = hasPermission("iam:namespaces:roles:delete", { workspaceId, namespaceId })
 
   const loadPermissions = useCallback(async () => {
     if (permissions.length > 0) return
