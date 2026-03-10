@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
-  listNamespaceRoles, deleteNamespaceRole, listPermissions,
+  listNamespaceRoles, deleteNamespaceRole, deleteNamespaceRoles, listPermissions,
 } from "@/api/iam/rbac"
 import type { Role, Permission, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
@@ -120,7 +120,7 @@ export default function NamespaceRolesTab() {
 
   const handleBatchDelete = async () => {
     try {
-      await Promise.all(Array.from(selected).map((id) => deleteNamespaceRole(workspaceId, namespaceId, id)))
+      await deleteNamespaceRoles(workspaceId, namespaceId, Array.from(selected))
       toast.success(t("action.deleteSuccess"))
       setBatchDeleteOpen(false)
       clearSelection()

@@ -14,7 +14,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  listNamespaceRoleBindings, createNamespaceRoleBinding, deleteNamespaceRoleBinding, listNamespaceRoles,
+  listNamespaceRoleBindings, createNamespaceRoleBinding, deleteNamespaceRoleBinding, deleteNamespaceRoleBindings, listNamespaceRoles,
 } from "@/api/iam/rbac"
 import { listUsers } from "@/api/iam/users"
 import type { RoleBinding, Role, User, ListParams } from "@/api/types"
@@ -95,7 +95,7 @@ export default function NamespaceRoleBindingsTab() {
 
   const handleBatchDelete = async () => {
     try {
-      await Promise.all(Array.from(selected).map((id) => deleteNamespaceRoleBinding(workspaceId, namespaceId, id)))
+      await deleteNamespaceRoleBindings(workspaceId, namespaceId, Array.from(selected))
       toast.success(t("action.deleteSuccess"))
       setBatchDeleteOpen(false)
       clearSelection()

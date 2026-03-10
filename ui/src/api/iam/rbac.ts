@@ -61,6 +61,9 @@ export async function updateWorkspaceRole(
 export async function deleteWorkspaceRole(workspaceId: string, roleId: string): Promise<void> {
   await apiRequest(iamApi.delete(`workspaces/${workspaceId}/roles/${roleId}`).json())
 }
+export async function deleteWorkspaceRoles(workspaceId: string, ids: string[]): Promise<void> {
+  await apiRequest(iamApi.delete(`workspaces/${workspaceId}/roles`, { json: { ids } }).json())
+}
 export async function listNamespaceRoles(
   workspaceId: string,
   namespaceId: string,
@@ -91,6 +94,9 @@ export async function updateNamespaceRole(
 export async function deleteNamespaceRole(workspaceId: string, namespaceId: string, roleId: string): Promise<void> {
   await apiRequest(iamApi.delete(`workspaces/${workspaceId}/namespaces/${namespaceId}/roles/${roleId}`).json())
 }
+export async function deleteNamespaceRoles(workspaceId: string, namespaceId: string, ids: string[]): Promise<void> {
+  await apiRequest(iamApi.delete(`workspaces/${workspaceId}/namespaces/${namespaceId}/roles`, { json: { ids } }).json())
+}
 
 // --- Platform RoleBindings ---
 export async function listRoleBindings(params?: ListParams): Promise<RoleBindingList> {
@@ -103,6 +109,9 @@ export async function createRoleBinding(data: Pick<RoleBinding, "spec">): Promis
 }
 export async function deleteRoleBinding(id: string): Promise<void> {
   await apiRequest(iamApi.delete(`rolebindings/${id}`).json())
+}
+export async function deleteRoleBindings(ids: string[]): Promise<void> {
+  await apiRequest(iamApi.delete("rolebindings", { json: { ids } }).json())
 }
 
 // --- Workspace RoleBindings ---
@@ -129,6 +138,12 @@ export async function deleteWorkspaceRoleBinding(
   id: string,
 ): Promise<void> {
   await apiRequest(iamApi.delete(`workspaces/${workspaceId}/rolebindings/${id}`).json())
+}
+export async function deleteWorkspaceRoleBindings(
+  workspaceId: string,
+  ids: string[],
+): Promise<void> {
+  await apiRequest(iamApi.delete(`workspaces/${workspaceId}/rolebindings`, { json: { ids } }).json())
 }
 
 // --- Namespace RoleBindings ---
@@ -163,6 +178,15 @@ export async function deleteNamespaceRoleBinding(
 ): Promise<void> {
   await apiRequest(
     iamApi.delete(`workspaces/${workspaceId}/namespaces/${namespaceId}/rolebindings/${id}`).json(),
+  )
+}
+export async function deleteNamespaceRoleBindings(
+  workspaceId: string,
+  namespaceId: string,
+  ids: string[],
+): Promise<void> {
+  await apiRequest(
+    iamApi.delete(`workspaces/${workspaceId}/namespaces/${namespaceId}/rolebindings`, { json: { ids } }).json(),
   )
 }
 
