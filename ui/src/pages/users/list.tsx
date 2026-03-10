@@ -278,7 +278,7 @@ export default function UserListPage() {
                     />
                   </TableCell>
                   <TableCell>
-                        <Link to={`/users/${user.metadata.id}`} className="font-medium hover:underline">
+                        <Link to={`/iam/users/${user.metadata.id}`} className="font-medium hover:underline">
                           {user.spec.username}
                         </Link>
                       </TableCell>

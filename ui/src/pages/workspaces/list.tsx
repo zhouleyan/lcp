@@ -216,7 +216,7 @@ export default function WorkspaceListPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Link to={`/workspaces/${ws.metadata.id}`} className="font-medium hover:underline">
+                    <Link to={`/iam/workspaces/${ws.metadata.id}`} className="font-medium hover:underline">
                       {ws.metadata.name}
                     </Link>
                   </TableCell>

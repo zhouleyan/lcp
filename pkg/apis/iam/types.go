@@ -11,7 +11,7 @@ import (
 // --- User types ---
 
 // User
-// +openapi:description=用户管理：平台用户的增删改查，支持密码设置与修改。用户可被添加为工作空间或项目的成员。
+// +openapi:description=用户管理：平台用户的增删改查，支持密码设置与修改。用户可被添加为租户或项目的成员。
 type User struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -45,9 +45,9 @@ type UserSpec struct {
 	Status string `json:"status,omitempty"`
 	// +openapi:description=用户所属的项目列表（仅在列表查询时返回）
 	Namespaces []string `json:"namespaces,omitempty"`
-	// +openapi:description=用户在工作空间或项目中的角色（仅成员列表查询时返回）
+	// +openapi:description=用户在租户或项目中的角色（仅成员列表查询时返回）
 	Role string `json:"role,omitempty"`
-	// +openapi:description=用户加入工作空间或项目的时间（仅成员列表查询时返回）
+	// +openapi:description=用户加入租户或项目的时间（仅成员列表查询时返回）
 	JoinedAt string `json:"joinedAt,omitempty"`
 }
 
@@ -64,7 +64,7 @@ func (u *UserList) GetTypeMeta() *runtime.TypeMeta { return &u.TypeMeta }
 // --- Workspace types ---
 
 // Workspace
-// +openapi:description=工作空间管理：工作空间是平台的顶层租户/组织单元，包含多个项目（Namespace）和成员。创建工作空间时会自动创建默认项目并将创建者设为所有者。
+// +openapi:description=租户管理：租户是平台的顶层租户/组织单元，包含多个项目（Namespace）和成员。创建租户时会自动创建默认项目并将创建者设为所有者。
 type Workspace struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -74,14 +74,14 @@ type Workspace struct {
 func (w *Workspace) GetTypeMeta() *runtime.TypeMeta { return &w.TypeMeta }
 
 // WorkspaceSpec
-// +openapi:description=工作空间属性：包含显示名称、描述、所有者和状态。
+// +openapi:description=租户属性：包含显示名称、描述、所有者和状态。
 type WorkspaceSpec struct {
-	// +openapi:description=工作空间显示名称
+	// +openapi:description=租户显示名称
 	DisplayName string `json:"displayName,omitempty"`
-	// +openapi:description=工作空间描述
+	// +openapi:description=租户描述
 	Description string `json:"description,omitempty"`
 	// +openapi:required
-	// +openapi:description=工作空间所有者的用户 ID
+	// +openapi:description=租户所有者的用户 ID
 	OwnerID string `json:"ownerId"`
 	// +openapi:description=所有者用户名（只读）
 	OwnerName string `json:"ownerName,omitempty"`
@@ -89,19 +89,19 @@ type WorkspaceSpec struct {
 	NamespaceCount int `json:"namespaceCount,omitempty"`
 	// +openapi:description=成员数量（只读）
 	MemberCount int `json:"memberCount,omitempty"`
-	// +openapi:description=工作空间状态
+	// +openapi:description=租户状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
-	// +openapi:description=当前用户在此工作空间的角色（仅 custom verb 查询时返回）
+	// +openapi:description=当前用户在此租户的角色（仅 custom verb 查询时返回）
 	Role string `json:"role,omitempty"`
-	// +openapi:description=当前用户在此工作空间的角色显示名称（仅 custom verb 查询时返回）
+	// +openapi:description=当前用户在此租户的角色显示名称（仅 custom verb 查询时返回）
 	RoleDisplayName string `json:"roleDisplayName,omitempty"`
-	// +openapi:description=当前用户加入此工作空间的时间（仅 custom verb 查询时返回）
+	// +openapi:description=当前用户加入此租户的时间（仅 custom verb 查询时返回）
 	JoinedAt string `json:"joinedAt,omitempty"`
 }
 
 // WorkspaceList
-// +openapi:description=工作空间列表：分页返回的工作空间集合。
+// +openapi:description=租户列表：分页返回的租户集合。
 type WorkspaceList struct {
 	runtime.TypeMeta `json:",inline"`
 	Items            []Workspace `json:"items"`
@@ -113,7 +113,7 @@ func (w *WorkspaceList) GetTypeMeta() *runtime.TypeMeta { return &w.TypeMeta }
 // --- Namespace types ---
 
 // Namespace
-// +openapi:description=项目管理：项目（Namespace）是工作空间下的子单元，用于组织团队和资源。项目归属于某个工作空间，拥有独立的成员列表。添加项目成员时会自动将其加入父工作空间。
+// +openapi:description=项目管理：项目（Namespace）是租户下的子单元，用于组织团队和资源。项目归属于某个租户，拥有独立的成员列表。添加项目成员时会自动将其加入父租户。
 type Namespace struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -123,14 +123,14 @@ type Namespace struct {
 func (n *Namespace) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
 
 // NamespaceSpec
-// +openapi:description=项目属性：包含显示名称、描述、所属工作空间、所有者、可见性、成员上限和状态。
+// +openapi:description=项目属性：包含显示名称、描述、所属租户、所有者、可见性、成员上限和状态。
 type NamespaceSpec struct {
 	// +openapi:description=项目显示名称
 	DisplayName string `json:"displayName,omitempty"`
 	// +openapi:description=项目描述
 	Description string `json:"description,omitempty"`
 	// +openapi:required
-	// +openapi:description=所属工作空间 ID
+	// +openapi:description=所属租户 ID
 	WorkspaceID string `json:"workspaceId"`
 	// +openapi:required
 	// +openapi:description=项目所有者的用户 ID
@@ -144,7 +144,7 @@ type NamespaceSpec struct {
 	OwnerName string `json:"ownerName,omitempty"`
 	// +openapi:description=项目成员数量（只读）
 	MemberCount int `json:"memberCount,omitempty"`
-	// +openapi:description=所属工作空间名称（只读）
+	// +openapi:description=所属租户名称（只读）
 	WorkspaceName string `json:"workspaceName,omitempty"`
 	// +openapi:description=项目状态
 	// +openapi:enum=active,inactive
@@ -513,7 +513,7 @@ type RoleList struct {
 func (r *RoleList) GetTypeMeta() *runtime.TypeMeta { return &r.TypeMeta }
 
 // RoleBinding
-// +openapi:description=角色绑定：将用户与角色在特定作用域（平台/工作空间/项目）下关联。
+// +openapi:description=角色绑定：将用户与角色在特定作用域（平台/租户/项目）下关联。
 type RoleBinding struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -535,7 +535,7 @@ type RoleBindingSpec struct {
 	// +openapi:description=绑定作用域
 	// +openapi:enum=platform,workspace,namespace
 	Scope string `json:"scope"`
-	// +openapi:description=工作空间 ID（workspace/namespace scope 时必填）
+	// +openapi:description=租户 ID（workspace/namespace scope 时必填）
 	WorkspaceID *string `json:"workspaceId,omitempty"`
 	// +openapi:description=项目 ID（namespace scope 时必填）
 	NamespaceID *string `json:"namespaceId,omitempty"`
@@ -572,13 +572,13 @@ type UserPermissions struct {
 func (up *UserPermissions) GetTypeMeta() *runtime.TypeMeta { return &up.TypeMeta }
 
 // UserPermissionsSpec
-// +openapi:description=用户权限详情：按平台、工作空间、项目维度展示。
+// +openapi:description=用户权限详情：按平台、租户、项目维度展示。
 type UserPermissionsSpec struct {
 	// +openapi:description=是否为平台管理员
 	IsPlatformAdmin bool `json:"isPlatformAdmin"`
 	// +openapi:description=平台级权限码列表
 	Platform []string `json:"platform"`
-	// +openapi:description=工作空间级权限（key 为 workspaceId）
+	// +openapi:description=租户级权限（key 为 workspaceId）
 	Workspaces map[string]WorkspaceScopePerms `json:"workspaces"`
 	// +openapi:description=项目级权限（key 为 namespaceId）
 	Namespaces map[string]NamespaceScopePerms `json:"namespaces"`
@@ -586,7 +586,7 @@ type UserPermissionsSpec struct {
 
 // WorkspaceScopePerms represents permissions within a workspace scope.
 // +openapi:schema
-// +openapi:description=工作空间级权限：包含角色名称列表和展开后的权限码。
+// +openapi:description=租户级权限：包含角色名称列表和展开后的权限码。
 type WorkspaceScopePerms struct {
 	// +openapi:description=角色名称列表
 	RoleNames []string `json:"roleNames"`
@@ -596,11 +596,11 @@ type WorkspaceScopePerms struct {
 
 // NamespaceScopePerms represents permissions within a namespace scope.
 // +openapi:schema
-// +openapi:description=项目级权限：包含角色名称列表、所属工作空间 ID 和展开后的权限码。
+// +openapi:description=项目级权限：包含角色名称列表、所属租户 ID 和展开后的权限码。
 type NamespaceScopePerms struct {
 	// +openapi:description=角色名称列表
 	RoleNames []string `json:"roleNames"`
-	// +openapi:description=所属工作空间 ID
+	// +openapi:description=所属租户 ID
 	WorkspaceID string `json:"workspaceId"`
 	// +openapi:description=展开后的权限码列表
 	Permissions []string `json:"permissions"`

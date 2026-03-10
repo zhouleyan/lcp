@@ -127,7 +127,7 @@ COMMENT ON TABLE roles IS '角色表：内置角色 + 用户自定义角色';
 COMMENT ON COLUMN roles.name IS '角色名称，同 scope 内唯一';
 COMMENT ON COLUMN roles.display_name IS '角色显示名称';
 COMMENT ON COLUMN roles.scope IS '角色作用域：platform / workspace / namespace';
-COMMENT ON COLUMN roles.workspace_id IS '所属工作空间 ID（workspace scope 时必填）';
+COMMENT ON COLUMN roles.workspace_id IS '所属租户 ID（workspace scope 时必填）';
 COMMENT ON COLUMN roles.namespace_id IS '所属项目 ID（namespace scope 时必填）';
 COMMENT ON COLUMN roles.builtin IS '是否为内置角色（内置不可删除）';
 
@@ -165,7 +165,7 @@ COMMENT ON TABLE role_bindings IS '角色绑定：用户与角色的关联，带
 COMMENT ON COLUMN role_bindings.user_id IS '绑定用户 ID';
 COMMENT ON COLUMN role_bindings.role_id IS '绑定角色 ID';
 COMMENT ON COLUMN role_bindings.scope IS '绑定作用域：platform / workspace / namespace';
-COMMENT ON COLUMN role_bindings.workspace_id IS '工作空间 ID（workspace/namespace scope 时必填）';
+COMMENT ON COLUMN role_bindings.workspace_id IS '租户 ID（workspace/namespace scope 时必填）';
 COMMENT ON COLUMN role_bindings.namespace_id IS '项目 ID（namespace scope 时必填）';
 COMMENT ON COLUMN role_bindings.is_owner IS '是否为资源所有者（ownership 转移时更新）';
 

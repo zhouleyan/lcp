@@ -27,7 +27,7 @@ export default function NamespaceRolesTab() {
   const workspaceId = useParams().workspaceId!
   const namespaceId = useParams().namespaceId!
   const { t } = useTranslation()
-  const rolesBasePath = `/workspaces/${workspaceId}/namespaces/${namespaceId}/roles`
+  const rolesBasePath = `/iam/workspaces/${workspaceId}/namespaces/${namespaceId}/roles`
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
     searchInput, setSearchInput, search,

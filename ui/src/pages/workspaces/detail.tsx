@@ -58,7 +58,7 @@ export default function WorkspaceDetailPage() {
     try {
       await deleteWorkspace(workspace.metadata.id)
       toast.success(t("action.deleteSuccess"))
-      navigate("/workspaces")
+      navigate("/iam/workspaces")
     } catch (err) {
       if (err instanceof ApiError) {
         toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("workspace.title") }) : err.message)

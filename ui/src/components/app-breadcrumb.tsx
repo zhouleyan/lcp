@@ -17,6 +17,7 @@ interface BreadcrumbEntry {
 }
 
 const routeLabelKeys: Record<string, string> = {
+  overview: "nav.overview",
   workspaces: "nav.workspaces",
   namespaces: "nav.namespaces",
   users: "nav.users",
@@ -28,27 +29,33 @@ export function AppBreadcrumb() {
   const location = useLocation()
   const workspaceName = useWorkspaceStore((s) => s.currentWorkspaceName)
 
-  const rawSegments = location.pathname.split("/").filter(Boolean)
+  const allSegments = location.pathname.split("/").filter(Boolean)
 
   // Don't render breadcrumb on root / index
+  if (allSegments.length === 0) return null
+
+  // Skip module prefix (e.g. "iam")
+  const rawSegments = allSegments[0] === "iam" ? allSegments.slice(1) : allSegments
+  const modulePrefix = allSegments[0] === "iam" ? "/iam" : ""
+
   if (rawSegments.length === 0) return null
 
   // For scoped routes, strip the scope prefix from breadcrumb display
   // but preserve it in link hrefs so navigation stays within scope.
-  // e.g. /workspaces/4/namespaces/4/roles/35
+  // e.g. /iam/workspaces/4/namespaces/4/roles/35
   //   → display: Roles > 35
-  //   → hrefs:   /workspaces/4/namespaces/4/roles, (current page)
+  //   → hrefs:   /iam/workspaces/4/namespaces/4/roles, (current page)
   let segments = rawSegments
-  let scopePrefix = ""
+  let scopePrefix = modulePrefix
   if (rawSegments[0] === "workspaces" && rawSegments[1]) {
-    // /workspaces/:id/namespaces/:nsId/... → strip first 4, show from sub-resource
+    // /iam/workspaces/:id/namespaces/:nsId/... → strip first 4, show from sub-resource
     if (rawSegments[2] === "namespaces" && rawSegments[3] && rawSegments.length > 4) {
-      scopePrefix = `/${rawSegments.slice(0, 4).join("/")}`
+      scopePrefix = `${modulePrefix}/${rawSegments.slice(0, 4).join("/")}`
       segments = rawSegments.slice(4)
     }
-    // /workspaces/:id/... → strip first 2, show from resource onward
+    // /iam/workspaces/:id/... → strip first 2, show from resource onward
     else if (rawSegments.length > 2) {
-      scopePrefix = `/${rawSegments.slice(0, 2).join("/")}`
+      scopePrefix = `${modulePrefix}/${rawSegments.slice(0, 2).join("/")}`
       segments = rawSegments.slice(2)
     }
   }

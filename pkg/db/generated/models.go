@@ -60,7 +60,7 @@ type Role struct {
 	Description string `json:"description"`
 	// 角色作用域：platform / workspace / namespace
 	Scope string `json:"scope"`
-	// 所属工作空间 ID（workspace scope 时必填）
+	// 所属租户 ID（workspace scope 时必填）
 	WorkspaceID *int64 `json:"workspace_id"`
 	// 所属项目 ID（namespace scope 时必填）
 	NamespaceID *int64 `json:"namespace_id"`
@@ -79,7 +79,7 @@ type RoleBinding struct {
 	RoleID int64 `json:"role_id"`
 	// 绑定作用域：platform / workspace / namespace
 	Scope string `json:"scope"`
-	// 工作空间 ID（workspace/namespace scope 时必填）
+	// 租户 ID（workspace/namespace scope 时必填）
 	WorkspaceID *int64 `json:"workspace_id"`
 	// 项目 ID（namespace scope 时必填）
 	NamespaceID *int64 `json:"namespace_id"`

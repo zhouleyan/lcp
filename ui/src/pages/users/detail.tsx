@@ -61,7 +61,7 @@ export default function UserDetailPage() {
     try {
       await deleteUser(user.metadata.id)
       toast.success(t("action.deleteSuccess"))
-      navigate("/users")
+      navigate("/iam/users")
     } catch {
       toast.error(t("api.error.internalError"))
     }
@@ -89,7 +89,7 @@ export default function UserDetailPage() {
       {/* header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/users")}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/iam/users")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-2xl font-bold">{user.spec.username}</h1>
@@ -303,7 +303,7 @@ function UserWorkspacesCard({ userId }: { userId: string }) {
                 workspaces.map((ws) => (
                   <TableRow key={ws.metadata.id}>
                     <TableCell className="font-medium">
-                      <Link to={`/workspaces/${ws.metadata.id}`} className="text-primary hover:underline">
+                      <Link to={`/iam/workspaces/${ws.metadata.id}`} className="text-primary hover:underline">
                         {ws.metadata.name}
                       </Link>
                     </TableCell>
@@ -471,7 +471,7 @@ function UserNamespacesCard({ userId }: { userId: string }) {
                     <TableCell>{ns.spec.displayName || "-"}</TableCell>
                     <TableCell>
                       {ns.spec.workspaceName ? (
-                        <Link to={`/workspaces/${ns.spec.workspaceId}`} className="text-primary hover:underline">
+                        <Link to={`/iam/workspaces/${ns.spec.workspaceId}`} className="text-primary hover:underline">
                           {ns.spec.workspaceName}
                         </Link>
                       ) : "-"}

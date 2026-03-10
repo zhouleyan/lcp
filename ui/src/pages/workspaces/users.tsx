@@ -185,7 +185,7 @@ export default function WorkspaceUsersPage() {
                 <TableRow key={m.metadata.id}>
                   <TableCell><Checkbox checked={selected.has(m.metadata.id)} onCheckedChange={() => toggleOne(m.metadata.id)} /></TableCell>
                   <TableCell className="font-medium">
-                    <Link to={`/workspaces/${workspaceId}/users/${m.metadata.id}`} className="hover:underline">
+                    <Link to={`/iam/workspaces/${workspaceId}/users/${m.metadata.id}`} className="hover:underline">
                       {m.spec.username}
                     </Link>
                   </TableCell>

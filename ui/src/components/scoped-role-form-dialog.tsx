@@ -15,6 +15,7 @@ import {
 import {
   createWorkspaceRole, updateWorkspaceRole, listWorkspaceRoles,
   createNamespaceRole, updateNamespaceRole, listNamespaceRoles,
+  getWorkspaceRole, getNamespaceRole,
 } from "@/api/rbac"
 import { ApiError, translateApiError, translateDetailMessage } from "@/api/client"
 import type { Role, Permission } from "@/api/types"
@@ -50,6 +51,7 @@ export function ScopedRoleFormDialog({
   const { t } = useTranslation()
   const isEdit = !!role
   const [loading, setLoading] = useState(false)
+  const [fullRole, setFullRole] = useState<Role | null>(null)
 
   const roleFormSchema = z.object({
     name: isEdit
@@ -74,20 +76,30 @@ export function ScopedRoleFormDialog({
     },
   })
 
+  // Fetch full role data (with rules) when editing — list API only returns ruleCount
   useEffect(() => {
-    if (open) {
-      if (role) {
-        form.reset({
-          name: role.spec.name,
-          displayName: role.spec.displayName ?? "",
-          description: role.spec.description ?? "",
-          rules: role.spec.rules ?? [],
-        })
-      } else {
-        form.reset({ name: "", displayName: "", description: "", rules: [] })
+    if (open && role) {
+      const fetchFull = async () => {
+        try {
+          const r = scope === "workspace"
+            ? await getWorkspaceRole(scopeId, role.metadata.id)
+            : await getNamespaceRole(workspaceId!, scopeId, role.metadata.id)
+          setFullRole(r)
+          form.reset({
+            name: r.spec.name,
+            displayName: r.spec.displayName ?? "",
+            description: r.spec.description ?? "",
+            rules: r.spec.rules ?? [],
+          })
+        } catch { /* fall back to list data */ }
       }
+      fetchFull()
+    } else if (open) {
+      setFullRole(null)
+      form.reset({ name: "", displayName: "", description: "", rules: [] })
     }
-  }, [open, role, form])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, role])
 
   const checkUniqueness = async (value: string) => {
     if (!value) return
@@ -107,15 +119,16 @@ export function ScopedRoleFormDialog({
     setLoading(true)
     try {
       if (isEdit) {
+        const editRole = fullRole ?? role
         if (scope === "workspace") {
-          await updateWorkspaceRole(scopeId, role.metadata.id, {
-            metadata: role.metadata,
-            spec: { ...role.spec, displayName: values.displayName || undefined, description: values.description || undefined, rules: values.rules },
+          await updateWorkspaceRole(scopeId, editRole.metadata.id, {
+            metadata: editRole.metadata,
+            spec: { ...editRole.spec, displayName: values.displayName || undefined, description: values.description || undefined, rules: values.rules },
           })
         } else {
-          await updateNamespaceRole(workspaceId!, scopeId, role.metadata.id, {
-            metadata: role.metadata,
-            spec: { ...role.spec, displayName: values.displayName || undefined, description: values.description || undefined, rules: values.rules },
+          await updateNamespaceRole(workspaceId!, scopeId, editRole.metadata.id, {
+            metadata: editRole.metadata,
+            spec: { ...editRole.spec, displayName: values.displayName || undefined, description: values.description || undefined, rules: values.rules },
           })
         }
         toast.success(t("action.updateSuccess"))
@@ -234,6 +247,7 @@ export function ScopedRoleFormDialog({
                       permissions={permissions}
                       value={selectedRules}
                       onChange={(rules) => form.setValue("rules", rules, { shouldValidate: true })}
+                      scope={scope}
                     />
                     <FormMessage />
                   </FormItem>

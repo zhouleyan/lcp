@@ -7,6 +7,7 @@ import {
   FolderKanban,
   FileText,
   Shield,
+  Home,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -29,41 +30,60 @@ interface NavItem {
 }
 
 interface NavGroup {
-  labelKey: string
+  labelKey?: string
   items: NavItem[]
+}
+
+function getOverviewPath(scopeWorkspaceId: string | null, scopeNamespaceId: string | null): string {
+  if (scopeWorkspaceId && scopeNamespaceId) {
+    return `/iam/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}/overview`
+  }
+  if (scopeWorkspaceId) {
+    return `/iam/workspaces/${scopeWorkspaceId}/overview`
+  }
+  return "/iam/overview"
 }
 
 function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: string | null): NavGroup[] {
   if (scopeWorkspaceId && scopeNamespaceId) {
-    const prefix = `/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
-    return [{
-      labelKey: "nav.iam",
-      items: [
-        { to: `${prefix}/users`, labelKey: "nav.users", icon: Users },
-        { to: `${prefix}/roles`, labelKey: "nav.roles", icon: Shield },
-      ],
-    }]
+    const prefix = `/iam/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
+    return [
+      { items: [{ to: `${prefix}/overview`, labelKey: "nav.overview", icon: Home }] },
+      {
+        labelKey: "nav.iam",
+        items: [
+          { to: `${prefix}/users`, labelKey: "nav.users", icon: Users },
+          { to: `${prefix}/roles`, labelKey: "nav.roles", icon: Shield },
+        ],
+      },
+    ]
   }
   if (scopeWorkspaceId) {
-    const prefix = `/workspaces/${scopeWorkspaceId}`
-    return [{
+    const prefix = `/iam/workspaces/${scopeWorkspaceId}`
+    return [
+      { items: [{ to: `${prefix}/overview`, labelKey: "nav.overview", icon: Home }] },
+      {
+        labelKey: "nav.iam",
+        items: [
+          { to: `${prefix}/namespaces`, labelKey: "nav.namespaces", icon: FolderKanban },
+          { to: `${prefix}/users`, labelKey: "nav.users", icon: Users },
+          { to: `${prefix}/roles`, labelKey: "nav.roles", icon: Shield },
+        ],
+      },
+    ]
+  }
+  return [
+    { items: [{ to: "/iam/overview", labelKey: "nav.overview", icon: Home }] },
+    {
       labelKey: "nav.iam",
       items: [
-        { to: `${prefix}/namespaces`, labelKey: "nav.namespaces", icon: FolderKanban },
-        { to: `${prefix}/users`, labelKey: "nav.users", icon: Users },
-        { to: `${prefix}/roles`, labelKey: "nav.roles", icon: Shield },
+        { to: "/iam/workspaces", labelKey: "nav.workspaces", icon: Building2 },
+        { to: "/iam/namespaces", labelKey: "nav.namespaces", icon: FolderKanban },
+        { to: "/iam/users", labelKey: "nav.users", icon: Users, permission: "iam:users:list" },
+        { to: "/iam/roles", labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list" },
       ],
-    }]
-  }
-  return [{
-    labelKey: "nav.iam",
-    items: [
-      { to: "/workspaces", labelKey: "nav.workspaces", icon: Building2 },
-      { to: "/namespaces", labelKey: "nav.namespaces", icon: FolderKanban },
-      { to: "/users", labelKey: "nav.users", icon: Users, permission: "iam:users:list" },
-      { to: "/roles", labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list" },
-    ],
-  }]
+    },
+  ]
 }
 
 export default function RootLayout() {
@@ -79,18 +99,20 @@ export default function RootLayout() {
   const setScope = useScopeStore((s) => s.setScope)
 
   // Sync scope store from URL when navigating via links or browser back/forward.
-  // /workspaces/:id is a platform-level detail page — scope stays null.
-  // /workspaces/:id/<sub-resource> activates workspace scope.
-  // /workspaces/:id/namespaces/:nsId/<sub-resource> activates namespace scope.
+  // /iam/workspaces/:id is a platform-level detail page — scope stays null.
+  // /iam/workspaces/:id/<sub-resource> activates workspace scope.
+  // /iam/workspaces/:id/namespaces/:nsId/<sub-resource> activates namespace scope.
   useEffect(() => {
     const segs = location.pathname.split("/").filter(Boolean)
+    // Skip module prefix (e.g. "iam")
+    const s = segs[0] === "iam" ? segs.slice(1) : segs
     let urlWsId: string | null = null
     let urlNsId: string | null = null
 
-    if (segs[0] === "workspaces" && segs[1] && segs.length > 2) {
-      urlWsId = segs[1]
-      if (segs[2] === "namespaces" && segs[3] && segs.length > 4) {
-        urlNsId = segs[3]
+    if (s[0] === "workspaces" && s[1] && s.length > 2) {
+      urlWsId = s[1]
+      if (s[2] === "namespaces" && s[3] && s.length > 4) {
+        urlNsId = s[3]
       }
     }
 
@@ -100,6 +122,10 @@ export default function RootLayout() {
   }, [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
   const navGroups = useMemo(
     () => buildNavGroups(scopeWorkspaceId, scopeNamespaceId),
+    [scopeWorkspaceId, scopeNamespaceId],
+  )
+  const overviewPath = useMemo(
+    () => getOverviewPath(scopeWorkspaceId, scopeNamespaceId),
     [scopeWorkspaceId, scopeNamespaceId],
   )
 
@@ -126,7 +152,7 @@ export default function RootLayout() {
       <div className="flex h-screen">
         <aside className="bg-sidebar text-sidebar-foreground flex w-60 flex-col border-r">
           <div className="flex h-14 items-center border-b px-4">
-            <Link to="/" className="flex items-center gap-2 font-semibold">
+            <Link to={overviewPath} className="flex items-center gap-2 font-semibold">
               <LayoutDashboard className="h-5 w-5" />
               <span>LCP Console</span>
             </Link>
@@ -135,11 +161,13 @@ export default function RootLayout() {
             <ScopeSelector />
           </div>
           <nav className="flex-1 space-y-3 p-2">
-            {navGroups.map((group) => (
-              <div key={group.labelKey}>
-                <div className="text-muted-foreground px-3 pb-1 pt-2 text-sm font-semibold">
-                  {t(group.labelKey)}
-                </div>
+            {navGroups.map((group, gi) => (
+              <div key={group.labelKey ?? `group-${gi}`}>
+                {group.labelKey && (
+                  <div className="text-muted-foreground px-3 pb-1 pt-2 text-sm font-semibold">
+                    {t(group.labelKey)}
+                  </div>
+                )}
                 <div className="space-y-0.5">
                   {group.items
                     .filter(

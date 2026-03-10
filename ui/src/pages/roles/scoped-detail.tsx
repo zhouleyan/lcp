@@ -35,8 +35,8 @@ export default function ScopedRoleDetailPage() {
 
   // Build base path for back navigation
   const basePath = namespaceId
-    ? `/workspaces/${workspaceId}/namespaces/${namespaceId}/roles`
-    : `/workspaces/${workspaceId}/roles`
+    ? `/iam/workspaces/${workspaceId}/namespaces/${namespaceId}/roles`
+    : `/iam/workspaces/${workspaceId}/roles`
 
   const fetchRole = useCallback(async () => {
     if (!roleId) return

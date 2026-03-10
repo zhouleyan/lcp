@@ -176,7 +176,7 @@ export default function WorkspaceRolesTab() {
                     />
                   </TableCell>
                   <TableCell className="font-medium">
-                    <Link to={`/workspaces/${workspaceId}/roles/${role.metadata.id}`} className="hover:underline">
+                    <Link to={`/iam/workspaces/${workspaceId}/roles/${role.metadata.id}`} className="hover:underline">
                       {role.spec.name}
                     </Link>
                   </TableCell>

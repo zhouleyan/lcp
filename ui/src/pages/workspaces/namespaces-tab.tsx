@@ -239,7 +239,7 @@ export default function WorkspaceNamespacesPage() {
                   <TableCell>
                     <button
                       className="font-medium hover:underline text-left"
-                      onClick={() => navigate(`/workspaces/${workspaceId}/namespaces/${ns.metadata.id}`)}
+                      onClick={() => navigate(`/iam/workspaces/${workspaceId}/namespaces/${ns.metadata.id}`)}
                     >
                       {ns.metadata.name}
                     </button>

@@ -5,6 +5,7 @@ import LoginPage from "@/pages/login"
 import ApiDocsPage from "@/pages/api-docs"
 import AuthCallbackPage from "@/pages/auth-callback"
 import ErrorPage from "@/pages/error"
+import { PlatformOverviewPage, WorkspaceOverviewPage, NamespaceOverviewPage } from "@/pages/overview"
 import WorkspaceListPage from "@/pages/workspaces/list"
 import WorkspaceDetailPage from "@/pages/workspaces/detail"
 import WorkspaceUsersPage from "@/pages/workspaces/users"
@@ -42,35 +43,44 @@ export const routes: RouteObject[] = [
     path: "/",
     element: <RootLayout />,
     children: [
-      { index: true, element: <WorkspaceListPage /> },
-      { path: "workspaces", element: <WorkspaceListPage /> },
+      { index: true, element: <Navigate to="/iam/overview" replace /> },
       {
-        path: "workspaces/:workspaceId",
-        element: <WorkspaceLayout />,
+        path: "iam",
         children: [
-          { index: true, element: <WorkspaceDetailPage /> },
-          { path: "users", element: <WorkspaceUsersPage /> },
-          { path: "users/:userId", element: <ScopedUserDetailPage /> },
-          { path: "namespaces", element: <WorkspaceNamespacesPage /> },
-          { path: "roles", element: <WorkspaceRolesTab /> },
-          { path: "roles/:roleId", element: <ScopedRoleDetailPage /> },
+          { index: true, element: <Navigate to="/iam/overview" replace /> },
+          { path: "overview", element: <PlatformOverviewPage /> },
+          { path: "workspaces", element: <WorkspaceListPage /> },
+          {
+            path: "workspaces/:workspaceId",
+            element: <WorkspaceLayout />,
+            children: [
+              { index: true, element: <WorkspaceDetailPage /> },
+              { path: "overview", element: <WorkspaceOverviewPage /> },
+              { path: "users", element: <WorkspaceUsersPage /> },
+              { path: "users/:userId", element: <ScopedUserDetailPage /> },
+              { path: "namespaces", element: <WorkspaceNamespacesPage /> },
+              { path: "roles", element: <WorkspaceRolesTab /> },
+              { path: "roles/:roleId", element: <ScopedRoleDetailPage /> },
+              { path: "namespaces/:namespaceId", element: <NamespaceDetailPage /> },
+              { path: "namespaces/:namespaceId/overview", element: <NamespaceOverviewPage /> },
+              { path: "namespaces/:namespaceId/users", element: <NamespaceUsersPage /> },
+              { path: "namespaces/:namespaceId/users/:userId", element: <ScopedUserDetailPage /> },
+              { path: "namespaces/:namespaceId/roles", element: <NamespaceRolesTab /> },
+              { path: "namespaces/:namespaceId/roles/:roleId", element: <ScopedRoleDetailPage /> },
+            ],
+          },
+          { path: "namespaces", element: <NamespaceListPage /> },
           { path: "namespaces/:namespaceId", element: <NamespaceDetailPage /> },
-          { path: "namespaces/:namespaceId/users", element: <NamespaceUsersPage /> },
-          { path: "namespaces/:namespaceId/users/:userId", element: <ScopedUserDetailPage /> },
-          { path: "namespaces/:namespaceId/roles", element: <NamespaceRolesTab /> },
-          { path: "namespaces/:namespaceId/roles/:roleId", element: <ScopedRoleDetailPage /> },
+          { path: "users", element: <UserListPage /> },
+          { path: "users/:userId", element: <UserDetailPage /> },
+          { path: "roles", element: <RoleListPage /> },
+          { path: "roles/:roleId", element: <RoleDetailPage /> },
         ],
       },
-      { path: "namespaces", element: <NamespaceListPage /> },
-      { path: "namespaces/:namespaceId", element: <NamespaceDetailPage /> },
-      { path: "users", element: <UserListPage /> },
-      { path: "users/:userId", element: <UserDetailPage /> },
-      { path: "roles", element: <RoleListPage /> },
-      { path: "roles/:roleId", element: <RoleDetailPage /> },
     ],
   },
   {
     path: "*",
-    element: <Navigate to="/" replace />,
+    element: <Navigate to="/iam/overview" replace />,
   },
 ]

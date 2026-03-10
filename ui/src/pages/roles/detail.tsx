@@ -64,7 +64,7 @@ export default function RoleDetailPage() {
     try {
       await deleteRole(role.metadata.id)
       toast.success(t("action.deleteSuccess"))
-      navigate("/roles")
+      navigate("/iam/roles")
     } catch {
       toast.error(t("api.error.internalError"))
     }
@@ -92,7 +92,7 @@ export default function RoleDetailPage() {
       {/* header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/roles")}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/iam/roles")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-2xl font-bold">{role.spec.name}</h1>

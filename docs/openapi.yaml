@@ -5,17 +5,17 @@ info:
   version: v1
 tags:
   - name: User
-    description: 用户管理：平台用户的增删改查，支持密码设置与修改。用户可被添加为工作空间或项目的成员。
+    description: 用户管理：平台用户的增删改查，支持密码设置与修改。用户可被添加为租户或项目的成员。
   - name: Workspace
-    description: 工作空间管理：工作空间是平台的顶层租户/组织单元，包含多个项目（Namespace）和成员。创建工作空间时会自动创建默认项目并将创建者设为所有者。
+    description: 租户管理：租户是平台的顶层租户/组织单元，包含多个项目（Namespace）和成员。创建租户时会自动创建默认项目并将创建者设为所有者。
   - name: Namespace
-    description: 项目管理：项目（Namespace）是工作空间下的子单元，用于组织团队和资源。项目归属于某个工作空间，拥有独立的成员列表。添加项目成员时会自动将其加入父工作空间。
+    description: 项目管理：项目（Namespace）是租户下的子单元，用于组织团队和资源。项目归属于某个租户，拥有独立的成员列表。添加项目成员时会自动将其加入父租户。
   - name: Permission
     description: 权限管理：权限由路由自动注册，表示一个 API 操作（如 iam:users:list）。
   - name: Role
     description: 角色管理：角色定义了一组权限规则，可绑定到用户。支持内置角色和自定义角色。
   - name: RoleBinding
-    description: 角色绑定：将用户与角色在特定作用域（平台/工作空间/项目）下关联。
+    description: 角色绑定：将用户与角色在特定作用域（平台/租户/项目）下关联。
   - name: OIDC
 paths:
   /.well-known/jwks.json:
@@ -675,7 +675,7 @@ paths:
                 $ref: '#/components/schemas/RoleBindingList'
   /api/iam/v1/users/{userId}:workspaces:
     get:
-      summary: 获取用户关联的工作空间列表
+      summary: 获取用户关联的租户列表
       operationId: listWorkspacesUser
       tags:
         - User
@@ -713,7 +713,7 @@ paths:
                 $ref: '#/components/schemas/WorkspaceList'
   /api/iam/v1/workspaces:
     get:
-      summary: 获取工作空间列表
+      summary: 获取租户列表
       operationId: listWorkspace
       tags:
         - Workspace
@@ -745,7 +745,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WorkspaceList'
     post:
-      summary: 创建工作空间
+      summary: 创建租户
       operationId: createWorkspace
       tags:
         - Workspace
@@ -763,7 +763,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Workspace'
     delete:
-      summary: 批量删除工作空间
+      summary: 批量删除租户
       operationId: deleteCollectionWorkspace
       tags:
         - Workspace
@@ -783,7 +783,7 @@ paths:
           description: OK
   /api/iam/v1/workspaces/{workspaceId}:
     get:
-      summary: 获取工作空间详情
+      summary: 获取租户详情
       operationId: getWorkspace
       tags:
         - Workspace
@@ -801,7 +801,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Workspace'
     put:
-      summary: 更新工作空间信息（全量）
+      summary: 更新租户信息（全量）
       operationId: updateWorkspace
       tags:
         - Workspace
@@ -825,7 +825,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Workspace'
     patch:
-      summary: 更新工作空间信息（部分）
+      summary: 更新租户信息（部分）
       operationId: patchWorkspace
       tags:
         - Workspace
@@ -849,7 +849,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Workspace'
     delete:
-      summary: 删除工作空间
+      summary: 删除租户
       operationId: deleteWorkspace
       tags:
         - Workspace
@@ -864,7 +864,7 @@ paths:
           description: No Content
   /api/iam/v1/workspaces/{workspaceId}/namespaces:
     get:
-      summary: 获取工作空间下的项目列表
+      summary: 获取租户下的项目列表
       operationId: listWorkspaceNamespace
       tags:
         - Namespace
@@ -901,7 +901,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NamespaceList'
     post:
-      summary: 在工作空间下创建项目
+      summary: 在租户下创建项目
       operationId: createWorkspaceNamespace
       tags:
         - Namespace
@@ -925,7 +925,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Namespace'
     delete:
-      summary: 批量删除工作空间下的项目
+      summary: 批量删除租户下的项目
       operationId: deleteCollectionWorkspaceNamespace
       tags:
         - Namespace
@@ -951,7 +951,7 @@ paths:
           description: OK
   /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}:
     get:
-      summary: 获取工作空间下的项目详情
+      summary: 获取租户下的项目详情
       operationId: getWorkspaceNamespace
       tags:
         - Namespace
@@ -974,7 +974,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Namespace'
     put:
-      summary: 更新工作空间下的项目信息（全量）
+      summary: 更新租户下的项目信息（全量）
       operationId: updateWorkspaceNamespace
       tags:
         - Namespace
@@ -1003,7 +1003,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Namespace'
     patch:
-      summary: 更新工作空间下的项目信息（部分）
+      summary: 更新租户下的项目信息（部分）
       operationId: patchWorkspaceNamespace
       tags:
         - Namespace
@@ -1032,7 +1032,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Namespace'
     delete:
-      summary: 删除工作空间下的项目
+      summary: 删除租户下的项目
       operationId: deleteWorkspaceNamespace
       tags:
         - Namespace
@@ -1052,7 +1052,7 @@ paths:
           description: No Content
   /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/rolebindings:
     get:
-      summary: 获取工作空间下项目的角色绑定列表
+      summary: 获取租户下项目的角色绑定列表
       operationId: listWorkspaceNamespaceRoleBinding
       tags:
         - RoleBinding
@@ -1094,7 +1094,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RoleBindingList'
     post:
-      summary: 创建工作空间下项目的角色绑定
+      summary: 创建租户下项目的角色绑定
       operationId: createWorkspaceNamespaceRoleBinding
       tags:
         - RoleBinding
@@ -1124,7 +1124,7 @@ paths:
                 $ref: '#/components/schemas/RoleBinding'
   /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/rolebindings/{rolebindingId}:
     delete:
-      summary: 删除工作空间下项目的角色绑定
+      summary: 删除租户下项目的角色绑定
       operationId: deleteWorkspaceNamespaceRoleBinding
       tags:
         - RoleBinding
@@ -1149,7 +1149,7 @@ paths:
           description: No Content
   /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/roles:
     get:
-      summary: 获取工作空间下项目的角色列表
+      summary: 获取租户下项目的角色列表
       operationId: listWorkspaceNamespaceRole
       tags:
         - Role
@@ -1191,7 +1191,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RoleList'
     post:
-      summary: 创建工作空间下项目的自定义角色
+      summary: 创建租户下项目的自定义角色
       operationId: createWorkspaceNamespaceRole
       tags:
         - Role
@@ -1221,7 +1221,7 @@ paths:
                 $ref: '#/components/schemas/Role'
   /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/roles/{roleId}:
     get:
-      summary: 获取工作空间下项目的角色详情
+      summary: 获取租户下项目的角色详情
       operationId: getWorkspaceNamespaceRole
       tags:
         - Role
@@ -1249,7 +1249,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Role'
     put:
-      summary: 更新工作空间下项目的角色
+      summary: 更新租户下项目的角色
       operationId: updateWorkspaceNamespaceRole
       tags:
         - Role
@@ -1283,7 +1283,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Role'
     delete:
-      summary: 删除工作空间下项目的角色
+      summary: 删除租户下项目的角色
       operationId: deleteWorkspaceNamespaceRole
       tags:
         - Role
@@ -1334,7 +1334,7 @@ paths:
           description: OK
   /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users:
     get:
-      summary: 获取工作空间下项目的成员列表
+      summary: 获取租户下项目的成员列表
       operationId: listWorkspaceNamespaceUser
       tags:
         - User
@@ -1376,7 +1376,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserList'
     post:
-      summary: 批量添加工作空间下项目的成员
+      summary: 批量添加租户下项目的成员
       operationId: createWorkspaceNamespaceUser
       tags:
         - User
@@ -1405,7 +1405,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
     delete:
-      summary: 批量移除工作空间下项目的成员
+      summary: 批量移除租户下项目的成员
       operationId: deleteCollectionWorkspaceNamespaceUser
       tags:
         - User
@@ -1436,7 +1436,7 @@ paths:
           description: OK
   /api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users/{userId}:
     get:
-      summary: 获取工作空间下项目的成员详情
+      summary: 获取租户下项目的成员详情
       operationId: getWorkspaceNamespaceUser
       tags:
         - User
@@ -1496,7 +1496,7 @@ paths:
           description: OK
   /api/iam/v1/workspaces/{workspaceId}/rolebindings:
     get:
-      summary: 获取工作空间级角色绑定列表
+      summary: 获取租户级角色绑定列表
       operationId: listWorkspaceRoleBinding
       tags:
         - RoleBinding
@@ -1533,7 +1533,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RoleBindingList'
     post:
-      summary: 创建工作空间级角色绑定
+      summary: 创建租户级角色绑定
       operationId: createWorkspaceRoleBinding
       tags:
         - RoleBinding
@@ -1558,7 +1558,7 @@ paths:
                 $ref: '#/components/schemas/RoleBinding'
   /api/iam/v1/workspaces/{workspaceId}/rolebindings/{rolebindingId}:
     delete:
-      summary: 删除工作空间级角色绑定
+      summary: 删除租户级角色绑定
       operationId: deleteWorkspaceRoleBinding
       tags:
         - RoleBinding
@@ -1578,7 +1578,7 @@ paths:
           description: No Content
   /api/iam/v1/workspaces/{workspaceId}/roles:
     get:
-      summary: 获取工作空间角色列表
+      summary: 获取租户角色列表
       operationId: listWorkspaceRole
       tags:
         - Role
@@ -1615,7 +1615,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RoleList'
     post:
-      summary: 创建工作空间自定义角色
+      summary: 创建租户自定义角色
       operationId: createWorkspaceRole
       tags:
         - Role
@@ -1640,7 +1640,7 @@ paths:
                 $ref: '#/components/schemas/Role'
   /api/iam/v1/workspaces/{workspaceId}/roles/{roleId}:
     get:
-      summary: 获取工作空间角色详情
+      summary: 获取租户角色详情
       operationId: getWorkspaceRole
       tags:
         - Role
@@ -1663,7 +1663,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Role'
     put:
-      summary: 更新工作空间角色
+      summary: 更新租户角色
       operationId: updateWorkspaceRole
       tags:
         - Role
@@ -1692,7 +1692,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Role'
     delete:
-      summary: 删除工作空间角色
+      summary: 删除租户角色
       operationId: deleteWorkspaceRole
       tags:
         - Role
@@ -1712,7 +1712,7 @@ paths:
           description: No Content
   /api/iam/v1/workspaces/{workspaceId}/transfer-ownership:
     post:
-      summary: 转移工作空间所有权
+      summary: 转移租户所有权
       operationId: transferOwnershipWorkspace
       tags:
         - Workspace
@@ -1733,7 +1733,7 @@ paths:
           description: OK
   /api/iam/v1/workspaces/{workspaceId}/users:
     get:
-      summary: 获取工作空间成员列表
+      summary: 获取租户成员列表
       operationId: listWorkspaceUser
       tags:
         - User
@@ -1770,7 +1770,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserList'
     post:
-      summary: 批量添加工作空间成员
+      summary: 批量添加租户成员
       operationId: createWorkspaceUser
       tags:
         - User
@@ -1794,7 +1794,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
     delete:
-      summary: 批量移除工作空间成员
+      summary: 批量移除租户成员
       operationId: deleteCollectionWorkspaceUser
       tags:
         - User
@@ -1820,7 +1820,7 @@ paths:
           description: OK
   /api/iam/v1/workspaces/{workspaceId}/users/{userId}:
     get:
-      summary: 获取工作空间成员详情
+      summary: 获取租户成员详情
       operationId: getWorkspaceUser
       tags:
         - User
@@ -2001,7 +2001,7 @@ components:
             type: string
         workspaceId:
           type: string
-          description: 所属工作空间 ID
+          description: 所属租户 ID
     NamespaceSpec:
       type: object
       properties:
@@ -2048,10 +2048,10 @@ components:
             - private
         workspaceId:
           type: string
-          description: 所属工作空间 ID
+          description: 所属租户 ID
         workspaceName:
           type: string
-          description: 所属工作空间名称（只读）
+          description: 所属租户名称（只读）
       required:
         - workspaceId
         - ownerId
@@ -2254,10 +2254,18 @@ components:
         path:
           type: string
           description: API 路径
+        scope:
+          type: string
+          description: 权限作用域
+          enum:
+            - platform
+            - workspace
+            - namespace
       required:
         - code
         - method
         - path
+        - scope
     Role:
       type: object
       properties:
@@ -2314,7 +2322,7 @@ components:
           description: 用户名（只读）
         workspaceId:
           type: string
-          description: 工作空间 ID（workspace/namespace scope 时必填）
+          description: 租户 ID（workspace/namespace scope 时必填）
       required:
         - userId
         - roleId
@@ -2399,7 +2407,7 @@ components:
             type: string
         workspaces:
           type: object
-          description: 工作空间级权限（key 为 workspaceId）
+          description: 租户级权限（key 为 workspaceId）
     UserSpec:
       type: object
       properties:
@@ -2416,7 +2424,7 @@ components:
           description: 邮箱地址
         joinedAt:
           type: string
-          description: 用户加入工作空间或项目的时间（仅成员列表查询时返回）
+          description: 用户加入租户或项目的时间（仅成员列表查询时返回）
         namespaces:
           type: array
           description: 用户所属的项目列表（仅在列表查询时返回）
@@ -2431,7 +2439,7 @@ components:
           description: 手机号码
         role:
           type: string
-          description: 用户在工作空间或项目中的角色（仅成员列表查询时返回）
+          description: 用户在租户或项目中的角色（仅成员列表查询时返回）
         status:
           type: string
           description: 账户状态
@@ -2477,13 +2485,13 @@ components:
       properties:
         description:
           type: string
-          description: 工作空间描述
+          description: 租户描述
         displayName:
           type: string
-          description: 工作空间显示名称
+          description: 租户显示名称
         joinedAt:
           type: string
-          description: 当前用户加入此工作空间的时间（仅 custom verb 查询时返回）
+          description: 当前用户加入此租户的时间（仅 custom verb 查询时返回）
         memberCount:
           type: integer
           format: int
@@ -2494,19 +2502,19 @@ components:
           description: 项目数量（只读）
         ownerId:
           type: string
-          description: 工作空间所有者的用户 ID
+          description: 租户所有者的用户 ID
         ownerName:
           type: string
           description: 所有者用户名（只读）
         role:
           type: string
-          description: 当前用户在此工作空间的角色（仅 custom verb 查询时返回）
+          description: 当前用户在此租户的角色（仅 custom verb 查询时返回）
         roleDisplayName:
           type: string
-          description: 当前用户在此工作空间的角色显示名称（仅 custom verb 查询时返回）
+          description: 当前用户在此租户的角色显示名称（仅 custom verb 查询时返回）
         status:
           type: string
-          description: 工作空间状态
+          description: 租户状态
           enum:
             - active
             - inactive

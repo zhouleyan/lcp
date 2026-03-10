@@ -216,20 +216,20 @@ const fetchData = useCallback(async () => {
 
 Frontend routes must mirror backend API routes to enable unified RBAC permission control. The same path pattern on both sides allows a single `canAccess(path, action)` function to gate both backend API access and frontend UI visibility.
 
-**Pattern**: If the backend API is `/api/iam/v1/workspaces/{workspaceId}/users`, the frontend route is `/workspaces/:workspaceId/users` (strip the API prefix).
+**Pattern**: If the backend API is `/api/iam/v1/workspaces/{workspaceId}/users`, the frontend route is `/iam/workspaces/:workspaceId/users` (strip the `/api` prefix and version, keep module name).
 
 **Examples**:
 
 | Backend API | Frontend Route |
 |---|---|
-| `/api/iam/v1/workspaces` | `/workspaces` |
-| `/api/iam/v1/workspaces/{workspaceId}` | `/workspaces/:workspaceId` |
-| `/api/iam/v1/workspaces/{workspaceId}/users` | `/workspaces/:workspaceId/users` |
-| `/api/iam/v1/workspaces/{workspaceId}/namespaces` | `/workspaces/:workspaceId/namespaces` |
-| `/api/iam/v1/users` | `/users` |
-| `/api/iam/v1/namespaces` | `/namespaces` |
+| `/api/iam/v1/workspaces` | `/iam/workspaces` |
+| `/api/iam/v1/workspaces/{workspaceId}` | `/iam/workspaces/:workspaceId` |
+| `/api/iam/v1/workspaces/{workspaceId}/users` | `/iam/workspaces/:workspaceId/users` |
+| `/api/iam/v1/workspaces/{workspaceId}/namespaces` | `/iam/workspaces/:workspaceId/namespaces` |
+| `/api/iam/v1/users` | `/iam/users` |
+| `/api/iam/v1/namespaces` | `/iam/namespaces` |
 
-**Key rule**: Use the same resource name on both sides (e.g., `users` not `members`). This ensures the permission middleware can match frontend route segments to backend API paths directly.
+**Key rule**: Use the same resource name on both sides (e.g., `users` not `members`). Frontend routes include the module prefix (`/iam/`) to align with backend API groups. This ensures the permission middleware can match frontend route segments to backend API paths directly.
 
 ## API Client Conventions
 

@@ -15,7 +15,7 @@ import { useTranslation } from "@/i18n"
 import type { Workspace, Namespace } from "@/api/types"
 
 const ALL = "__all__"
-const KNOWN_RESOURCES = ["users", "roles", "namespaces", "workspaces"]
+const KNOWN_RESOURCES = ["overview", "users", "roles", "namespaces", "workspaces"]
 
 /** 从当前路径中提取用户正在查看的资源类型 */
 function detectResource(pathname: string): string | null {
@@ -33,19 +33,19 @@ function buildScopedPath(
   nsId: string | null,
 ): string {
   if (wsId && nsId) {
-    const prefix = `/workspaces/${wsId}/namespaces/${nsId}`
-    if (resource === "users" || resource === "roles") return `${prefix}/${resource}`
-    return prefix
+    const prefix = `/iam/workspaces/${wsId}/namespaces/${nsId}`
+    if (resource === "overview" || resource === "users" || resource === "roles") return `${prefix}/${resource}`
+    return `${prefix}/overview`
   }
   if (wsId) {
-    const prefix = `/workspaces/${wsId}`
-    if (resource === "users" || resource === "roles" || resource === "namespaces")
+    const prefix = `/iam/workspaces/${wsId}`
+    if (resource === "overview" || resource === "users" || resource === "roles" || resource === "namespaces")
       return `${prefix}/${resource}`
-    return prefix
+    return `${prefix}/overview`
   }
   // 平台范围
-  if (resource && KNOWN_RESOURCES.includes(resource)) return `/${resource}`
-  return "/"
+  if (resource && KNOWN_RESOURCES.includes(resource)) return `/iam/${resource}`
+  return "/iam/overview"
 }
 
 export function ScopeSelector() {

@@ -18,8 +18,8 @@ export default function ScopedUserDetailPage() {
 
   // Build base path for back navigation
   const basePath = namespaceId
-    ? `/workspaces/${workspaceId}/namespaces/${namespaceId}/users`
-    : `/workspaces/${workspaceId}/users`
+    ? `/iam/workspaces/${workspaceId}/namespaces/${namespaceId}/users`
+    : `/iam/workspaces/${workspaceId}/users`
 
   const fetchUser = useCallback(async () => {
     if (!userId) return

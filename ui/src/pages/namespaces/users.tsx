@@ -32,7 +32,7 @@ export default function NamespaceUsersPage() {
   const workspaceId = useParams().workspaceId!
   const namespaceId = useParams().namespaceId!
   const { t } = useTranslation()
-  const usersBasePath = `/workspaces/${workspaceId}/namespaces/${namespaceId}/users`
+  const usersBasePath = `/iam/workspaces/${workspaceId}/namespaces/${namespaceId}/users`
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
     searchInput, setSearchInput, search,

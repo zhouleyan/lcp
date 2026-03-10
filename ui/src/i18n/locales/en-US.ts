@@ -39,12 +39,21 @@ const enUS: Messages = {
   "login.signIn": "Sign In",
 
   // nav
+  "nav.overview": "Overview",
   "nav.iam": "IAM",
   "nav.workspaces": "Workspaces",
   "nav.namespaces": "Namespaces",
   "nav.users": "Users",
   "nav.roles": "Roles",
   "nav.apiDocs": "API Docs",
+
+  // overview
+  "overview.platform.title": "Platform Overview",
+  "overview.platform.desc": "View overall platform resource summary",
+  "overview.workspace.title": "Workspace Overview",
+  "overview.workspace.desc": "View resource summary for the current workspace",
+  "overview.namespace.title": "Namespace Overview",
+  "overview.namespace.desc": "View resource summary for the current namespace",
 
   // scope selector
   "scope.allWorkspaces": "All Workspaces",
@@ -244,6 +253,7 @@ const enUS: Messages = {
 
   // permission codes - workspace members
   "perm.iam:workspaces:users:list": "List workspace members",
+  "perm.iam:workspaces:users:get": "Get workspace member details",
   "perm.iam:workspaces:users:create": "Add workspace members",
   "perm.iam:workspaces:users:deleteCollection": "Remove workspace members",
 
@@ -252,9 +262,12 @@ const enUS: Messages = {
   "perm.iam:workspaces:rolebindings:create": "Create workspace role binding",
   "perm.iam:workspaces:rolebindings:delete": "Delete workspace role binding",
 
-  // permission codes - workspace roles (read-only)
+  // permission codes - workspace roles
   "perm.iam:workspaces:roles:list": "List workspace-scoped roles",
   "perm.iam:workspaces:roles:get": "Get workspace-scoped role details",
+  "perm.iam:workspaces:roles:create": "Create workspace-scoped role",
+  "perm.iam:workspaces:roles:update": "Update workspace-scoped role",
+  "perm.iam:workspaces:roles:delete": "Delete workspace-scoped role",
 
   // permission codes - namespaces
   "perm.iam:namespaces:list": "List namespaces",
@@ -268,6 +281,7 @@ const enUS: Messages = {
 
   // permission codes - namespace members
   "perm.iam:namespaces:users:list": "List namespace members",
+  "perm.iam:namespaces:users:get": "Get namespace member details",
   "perm.iam:namespaces:users:create": "Add namespace members",
   "perm.iam:namespaces:users:deleteCollection": "Remove namespace members",
 
@@ -276,9 +290,12 @@ const enUS: Messages = {
   "perm.iam:namespaces:rolebindings:create": "Create namespace role binding",
   "perm.iam:namespaces:rolebindings:delete": "Delete namespace role binding",
 
-  // permission codes - namespace roles (read-only)
+  // permission codes - namespace roles
   "perm.iam:namespaces:roles:list": "List namespace-scoped roles",
   "perm.iam:namespaces:roles:get": "Get namespace-scoped role details",
+  "perm.iam:namespaces:roles:create": "Create namespace-scoped role",
+  "perm.iam:namespaces:roles:update": "Update namespace-scoped role",
+  "perm.iam:namespaces:roles:delete": "Delete namespace-scoped role",
 
   // permission codes - roles
   "perm.iam:roles:list": "List roles",

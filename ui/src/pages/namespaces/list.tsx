@@ -236,13 +236,13 @@ export default function NamespaceListPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Link to={`/namespaces/${ns.metadata.id}`} className="font-medium hover:underline">
+                    <Link to={`/iam/namespaces/${ns.metadata.id}`} className="font-medium hover:underline">
                       {ns.metadata.name}
                     </Link>
                   </TableCell>
                   <TableCell>{ns.spec.displayName || "-"}</TableCell>
                   <TableCell className="text-sm">
-                    <Link to={`/workspaces/${ns.spec.workspaceId}`} className="hover:underline">
+                    <Link to={`/iam/workspaces/${ns.spec.workspaceId}`} className="hover:underline">
                       {ns.spec.workspaceName || ns.spec.workspaceId}
                     </Link>
                   </TableCell>
