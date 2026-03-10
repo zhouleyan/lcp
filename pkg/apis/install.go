@@ -4,12 +4,15 @@ import (
 	"context"
 	"net/http"
 
+	libaudit "lcp.io/lcp/lib/audit"
 	"lcp.io/lcp/lib/config"
 	"lcp.io/lcp/lib/oidc"
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/lib/rest/filters"
-	"lcp.io/lcp/pkg/apis/iam"
+	"lcp.io/lcp/pkg/apis/audit/store"
+	auditv1 "lcp.io/lcp/pkg/apis/audit/v1"
 	dashboardv1 "lcp.io/lcp/pkg/apis/dashboard/v1"
+	"lcp.io/lcp/pkg/apis/iam"
 	iamv1 "lcp.io/lcp/pkg/apis/iam/v1"
 	"lcp.io/lcp/pkg/db"
 )
@@ -28,7 +31,10 @@ func NewAPIGroupInfos(ctx context.Context, database *db.DB) Result {
 	// --- Dashboard module ---
 	dashboardResult := dashboardv1.NewDashboardModule(database)
 
-	groups := []*rest.APIGroupInfo{iamResult.Group, dashboardResult.Group}
+	// --- Audit module ---
+	auditResult := auditv1.NewAuditModule(database)
+
+	groups := []*rest.APIGroupInfo{iamResult.Group, dashboardResult.Group, auditResult.Group}
 
 	// Sync permissions for ALL modules centrally
 	iamv1.SyncAllPermissions(ctx, database, groups)
@@ -49,11 +55,17 @@ func NewOIDCProvider(database *db.DB, cfg *config.OIDCConfig) *oidc.Provider {
 	return iamv1.NewOIDCProvider(database, cfg)
 }
 
+// NewAuditWriter creates a fully-wired audit Writer from the database.
+func NewAuditWriter(database *db.DB) *libaudit.Writer {
+	sink := store.NewPGAuditLogStore(database.Queries)
+	return libaudit.NewWriter(sink, libaudit.WriterConfig{})
+}
+
 // NewOIDCMux creates the OIDC public endpoint HTTP handler.
 // Returns nil if provider is nil.
-func NewOIDCMux(provider *oidc.Provider) http.Handler {
+func NewOIDCMux(provider *oidc.Provider, auditLogger libaudit.Logger) http.Handler {
 	if provider == nil {
 		return nil
 	}
-	return iam.NewOIDCMux(provider)
+	return iam.NewOIDCMux(provider, auditLogger)
 }

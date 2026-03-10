@@ -171,3 +171,34 @@ CREATE TABLE refresh_tokens (
 
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+
+-- audit_logs table (immutable records, no FK constraints)
+CREATE TABLE audit_logs (
+    id            BIGSERIAL    PRIMARY KEY,
+    user_id       BIGINT,
+    username      VARCHAR(255) NOT NULL DEFAULT '',
+    event_type    VARCHAR(50)  NOT NULL,
+    action        VARCHAR(50)  NOT NULL,
+    resource_type VARCHAR(100) NOT NULL DEFAULT '',
+    resource_id   VARCHAR(100) NOT NULL DEFAULT '',
+    module        VARCHAR(50)  NOT NULL DEFAULT '',
+    scope         VARCHAR(20)  NOT NULL DEFAULT 'platform',
+    workspace_id  BIGINT,
+    namespace_id  BIGINT,
+    http_method   VARCHAR(10)  NOT NULL DEFAULT '',
+    http_path     VARCHAR(500) NOT NULL DEFAULT '',
+    status_code   INT          NOT NULL DEFAULT 0,
+    client_ip     VARCHAR(45)  NOT NULL DEFAULT '',
+    user_agent    VARCHAR(500) NOT NULL DEFAULT '',
+    duration_ms   INT          NOT NULL DEFAULT 0,
+    success       BOOLEAN      NOT NULL DEFAULT true,
+    detail        TEXT         NOT NULL DEFAULT '',
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_audit_logs_user_id       ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_created_at    ON audit_logs(created_at);
+CREATE INDEX idx_audit_logs_event_type    ON audit_logs(event_type);
+CREATE INDEX idx_audit_logs_resource_type ON audit_logs(resource_type);
+CREATE INDEX idx_audit_logs_workspace_id  ON audit_logs(workspace_id);
+CREATE INDEX idx_audit_logs_namespace_id  ON audit_logs(namespace_id);

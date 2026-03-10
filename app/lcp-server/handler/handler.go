@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	"lcp.io/lcp/lib/audit"
 	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/oidc"
 	"lcp.io/lcp/lib/rest"
@@ -18,6 +19,7 @@ type APIServerConfig struct {
 	Name         string
 	OIDCProvider *oidc.Provider
 	Authorizer   *filters.Authorizer // nil = no authorization
+	AuditLogger  audit.Logger        // nil = no audit logging
 }
 
 // APIServerHandler holds the different http.Handlers used by the API server.
@@ -138,13 +140,18 @@ func (d director) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // buildChain assembles the middleware chain from APIServerConfig.
-// Order (innermost → outermost): director → WithAuthorization → WithRequestInfo → WithAuthentication → WithRequestLog
+// Order (innermost → outermost): director → WithAuthorization → WithAudit → WithRequestInfo → WithAuthentication → WithRequestLog
 func buildChain(apiHandler http.Handler, cfg APIServerConfig) http.Handler {
 	handler := apiHandler
 	if authz := cfg.Authorizer; authz != nil {
 		if authz.Lookup != nil && authz.Checker != nil {
 			handler = filters.WithAuthorization(authz.Lookup, authz.Checker)(handler)
 		}
+	}
+	if cfg.AuditLogger != nil {
+		handler = filters.WithAudit(cfg.AuditLogger)(handler)
+	}
+	if authz := cfg.Authorizer; authz != nil {
 		if authz.NSResolver != nil {
 			handler = filters.WithRequestInfo(authz.NSResolver)(handler)
 		}

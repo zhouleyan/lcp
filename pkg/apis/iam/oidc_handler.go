@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
+	"lcp.io/lcp/lib/audit"
 	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/oidc"
 )
@@ -19,13 +21,13 @@ import (
 //   - POST /oidc/token                       — 令牌端点，用授权码或刷新令牌换取访问令牌
 //   - GET  /oidc/userinfo                    — 用户信息端点，通过 Bearer Token 获取当前用户信息
 //   - POST /oidc/userinfo                    — 同上（支持 POST 方法）
-func NewOIDCMux(provider *oidc.Provider) http.Handler {
+func NewOIDCMux(provider *oidc.Provider, auditLogger audit.Logger) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /.well-known/openid-configuration", handleDiscovery(provider))
 	mux.HandleFunc("GET /.well-known/jwks.json", handleJWKS(provider))
 	mux.HandleFunc("GET /oidc/authorize", handleAuthorize(provider))
-	mux.HandleFunc("POST /oidc/login", handleLogin(provider))
-	mux.HandleFunc("POST /oidc/token", handleToken(provider))
+	mux.HandleFunc("POST /oidc/login", handleLogin(provider, auditLogger))
+	mux.HandleFunc("POST /oidc/token", handleToken(provider, auditLogger))
 	mux.HandleFunc("GET /oidc/userinfo", handleUserInfo(provider))
 	mux.HandleFunc("POST /oidc/userinfo", handleUserInfo(provider))
 	return mux
@@ -167,7 +169,7 @@ func handleAuthorize(provider *oidc.Provider) http.HandlerFunc {
 // +openapi:response.401.description=认证失败
 // +openapi:response.401.contentType=application/json
 // +openapi:response.401.schema=OIDCErrorResponse
-func handleLogin(provider *oidc.Provider) http.HandlerFunc {
+func handleLogin(provider *oidc.Provider, auditLogger audit.Logger) http.HandlerFunc {
 	type loginRequest struct {
 		Username  string `json:"username"`
 		Password  string `json:"password"`
@@ -196,8 +198,40 @@ func handleLogin(provider *oidc.Provider) http.HandlerFunc {
 			if err.Error() == "account is not active" {
 				description = "account is not active"
 			}
+			if auditLogger != nil {
+				auditLogger.Log(audit.Event{
+					Username:   req.Username,
+					EventType:  "authentication",
+					Action:     "login_failed",
+					HTTPMethod: r.Method,
+					HTTPPath:   r.URL.Path,
+					StatusCode: http.StatusUnauthorized,
+					ClientIP:   audit.ClientIP(r),
+					UserAgent:  r.UserAgent(),
+					Success:    false,
+					Detail:     description,
+					CreatedAt:  time.Now(),
+				})
+			}
 			oidcError(w, "invalid_grant", description, http.StatusUnauthorized)
 			return
+		}
+
+		if auditLogger != nil {
+			userID := session.UserID
+			auditLogger.Log(audit.Event{
+				UserID:     &userID,
+				Username:   req.Username,
+				EventType:  "authentication",
+				Action:     "login",
+				HTTPMethod: r.Method,
+				HTTPPath:   r.URL.Path,
+				StatusCode: http.StatusOK,
+				ClientIP:   audit.ClientIP(r),
+				UserAgent:  r.UserAgent(),
+				Success:    true,
+				CreatedAt:  time.Now(),
+			})
 		}
 
 		// If requestId provided, complete the authorization flow
@@ -246,7 +280,7 @@ func handleLogin(provider *oidc.Provider) http.HandlerFunc {
 // +openapi:response.400.description=请求无效
 // +openapi:response.400.contentType=application/json
 // +openapi:response.400.schema=OIDCErrorResponse
-func handleToken(provider *oidc.Provider) http.HandlerFunc {
+func handleToken(provider *oidc.Provider, auditLogger audit.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			oidcError(w, "invalid_request", "invalid form data", http.StatusBadRequest)
@@ -258,7 +292,7 @@ func handleToken(provider *oidc.Provider) http.HandlerFunc {
 		case "authorization_code":
 			handleCodeExchange(w, r, provider)
 		case "refresh_token":
-			handleRefreshToken(w, r, provider)
+			handleRefreshToken(w, r, provider, auditLogger)
 		default:
 			oidcError(w, "unsupported_grant_type", "only authorization_code and refresh_token are supported", http.StatusBadRequest)
 		}
@@ -308,7 +342,7 @@ func handleCodeExchange(w http.ResponseWriter, r *http.Request, provider *oidc.P
 }
 
 // handleRefreshToken 处理刷新令牌请求。原子消费旧刷新令牌（单次使用），签发新的令牌对。
-func handleRefreshToken(w http.ResponseWriter, r *http.Request, provider *oidc.Provider) {
+func handleRefreshToken(w http.ResponseWriter, r *http.Request, provider *oidc.Provider, auditLogger audit.Logger) {
 	req := &oidc.RefreshRequest{
 		RefreshToken: r.FormValue("refresh_token"),
 		ClientID:     r.FormValue("client_id"),
@@ -337,8 +371,42 @@ func handleRefreshToken(w http.ResponseWriter, r *http.Request, provider *oidc.P
 	tokenPair, err := provider.RefreshTokens(r.Context(), req)
 	if err != nil {
 		logger.Infof("token refresh failed: %v", err)
+		if auditLogger != nil {
+			action := "token_refresh_failed"
+			detail := "refresh token is invalid or expired"
+			if strings.Contains(err.Error(), "not active") {
+				action = "token_refresh_blocked"
+				detail = "account is not active"
+			}
+			auditLogger.Log(audit.Event{
+				EventType:  "authentication",
+				Action:     action,
+				HTTPMethod: r.Method,
+				HTTPPath:   r.URL.Path,
+				StatusCode: http.StatusBadRequest,
+				ClientIP:   audit.ClientIP(r),
+				UserAgent:  r.UserAgent(),
+				Success:    false,
+				Detail:     detail,
+				CreatedAt:  time.Now(),
+			})
+		}
 		oidcError(w, "invalid_grant", "refresh token is invalid or expired", http.StatusBadRequest)
 		return
+	}
+
+	if auditLogger != nil {
+		auditLogger.Log(audit.Event{
+			EventType:  "authentication",
+			Action:     "token_refresh",
+			HTTPMethod: r.Method,
+			HTTPPath:   r.URL.Path,
+			StatusCode: http.StatusOK,
+			ClientIP:   audit.ClientIP(r),
+			UserAgent:  r.UserAgent(),
+			Success:    true,
+			CreatedAt:  time.Now(),
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
