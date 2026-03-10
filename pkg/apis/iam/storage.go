@@ -2251,6 +2251,9 @@ func (s *permissionStorage) List(ctx context.Context, options *rest.ListOptions)
 	if search := options.Filters["search"]; search != "" {
 		query.Filters["search"] = search
 	}
+	if scope := options.Filters["scope"]; scope != "" {
+		query.Filters["scope"] = scope
+	}
 	if options.SortBy != "" {
 		query.SortBy = options.SortBy
 	}
@@ -2677,6 +2680,7 @@ func permissionToAPI(p *DBPermission) *Permission {
 			Code:        p.Code,
 			Method:      p.Method,
 			Path:        p.Path,
+			Scope:       p.Scope,
 			Description: p.Description,
 		},
 	}

@@ -452,6 +452,10 @@ type PermissionSpec struct {
 	// +openapi:required
 	// +openapi:description=API 路径
 	Path string `json:"path"`
+	// +openapi:required
+	// +openapi:description=权限作用域
+	// +openapi:enum=platform,workspace,namespace
+	Scope string `json:"scope"`
 	// +openapi:description=权限描述
 	Description string `json:"description,omitempty"`
 }

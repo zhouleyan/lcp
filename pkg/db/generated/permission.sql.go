@@ -18,15 +18,17 @@ WHERE ($1::VARCHAR IS NULL
        code ILIKE '%' || $2 || '%'
        OR description ILIKE '%' || $2 || '%'
   ))
+  AND ($3::VARCHAR IS NULL OR scope = $3)
 `
 
 type CountPermissionsParams struct {
 	ModulePrefix *string `json:"module_prefix"`
 	Search       *string `json:"search"`
+	Scope        *string `json:"scope"`
 }
 
 func (q *Queries) CountPermissions(ctx context.Context, arg CountPermissionsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countPermissions, arg.ModulePrefix, arg.Search)
+	row := q.db.QueryRow(ctx, countPermissions, arg.ModulePrefix, arg.Search, arg.Scope)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -49,7 +51,7 @@ func (q *Queries) DeletePermissionsByModulePrefix(ctx context.Context, arg Delet
 }
 
 const getPermissionByCode = `-- name: GetPermissionByCode :one
-SELECT id, code, method, path, description, created_at, updated_at
+SELECT id, code, method, path, scope, description, created_at, updated_at
 FROM permissions
 WHERE code = $1
 `
@@ -62,6 +64,7 @@ func (q *Queries) GetPermissionByCode(ctx context.Context, code string) (Permiss
 		&i.Code,
 		&i.Method,
 		&i.Path,
+		&i.Scope,
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -93,8 +96,37 @@ func (q *Queries) ListAllPermissionCodes(ctx context.Context) ([]string, error) 
 	return items, nil
 }
 
+const listAllPermissionCodesWithScope = `-- name: ListAllPermissionCodesWithScope :many
+SELECT code, scope FROM permissions ORDER BY code
+`
+
+type ListAllPermissionCodesWithScopeRow struct {
+	Code  string `json:"code"`
+	Scope string `json:"scope"`
+}
+
+func (q *Queries) ListAllPermissionCodesWithScope(ctx context.Context) ([]ListAllPermissionCodesWithScopeRow, error) {
+	rows, err := q.db.Query(ctx, listAllPermissionCodesWithScope)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllPermissionCodesWithScopeRow{}
+	for rows.Next() {
+		var i ListAllPermissionCodesWithScopeRow
+		if err := rows.Scan(&i.Code, &i.Scope); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPermissions = `-- name: ListPermissions :many
-SELECT id, code, method, path, description, created_at, updated_at
+SELECT id, code, method, path, scope, description, created_at, updated_at
 FROM permissions
 WHERE ($1::VARCHAR IS NULL
        OR code LIKE $1 || '%')
@@ -102,21 +134,23 @@ WHERE ($1::VARCHAR IS NULL
        code ILIKE '%' || $2 || '%'
        OR description ILIKE '%' || $2 || '%'
   ))
+  AND ($3::VARCHAR IS NULL OR scope = $3)
 ORDER BY
-    CASE WHEN $3::VARCHAR = 'code' AND $4::VARCHAR = 'asc' THEN code END ASC,
-    CASE WHEN $3::VARCHAR = 'code' AND $4::VARCHAR = 'desc' THEN code END DESC,
-    CASE WHEN $3::VARCHAR = 'method' AND $4::VARCHAR = 'asc' THEN method END ASC,
-    CASE WHEN $3::VARCHAR = 'method' AND $4::VARCHAR = 'desc' THEN method END DESC,
-    CASE WHEN $3::VARCHAR = 'created_at' AND $4::VARCHAR = 'asc' THEN created_at END ASC,
-    CASE WHEN $3::VARCHAR = 'created_at' AND $4::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN $4::VARCHAR = 'code' AND $5::VARCHAR = 'asc' THEN code END ASC,
+    CASE WHEN $4::VARCHAR = 'code' AND $5::VARCHAR = 'desc' THEN code END DESC,
+    CASE WHEN $4::VARCHAR = 'method' AND $5::VARCHAR = 'asc' THEN method END ASC,
+    CASE WHEN $4::VARCHAR = 'method' AND $5::VARCHAR = 'desc' THEN method END DESC,
+    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'desc' THEN created_at END DESC,
     code ASC
-LIMIT $6::INT
-OFFSET $5::INT
+LIMIT $7::INT
+OFFSET $6::INT
 `
 
 type ListPermissionsParams struct {
 	ModulePrefix *string `json:"module_prefix"`
 	Search       *string `json:"search"`
+	Scope        *string `json:"scope"`
 	SortField    string  `json:"sort_field"`
 	SortOrder    string  `json:"sort_order"`
 	PageOffset   int32   `json:"page_offset"`
@@ -127,6 +161,7 @@ func (q *Queries) ListPermissions(ctx context.Context, arg ListPermissionsParams
 	rows, err := q.db.Query(ctx, listPermissions,
 		arg.ModulePrefix,
 		arg.Search,
+		arg.Scope,
 		arg.SortField,
 		arg.SortOrder,
 		arg.PageOffset,
@@ -144,6 +179,7 @@ func (q *Queries) ListPermissions(ctx context.Context, arg ListPermissionsParams
 			&i.Code,
 			&i.Method,
 			&i.Path,
+			&i.Scope,
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -159,19 +195,21 @@ func (q *Queries) ListPermissions(ctx context.Context, arg ListPermissionsParams
 }
 
 const upsertPermission = `-- name: UpsertPermission :one
-INSERT INTO permissions (code, method, path, description)
-VALUES ($1, $2, $3, $4)
+INSERT INTO permissions (code, method, path, scope, description)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (code) DO UPDATE
 SET method = EXCLUDED.method,
     path = EXCLUDED.path,
+    scope = EXCLUDED.scope,
     updated_at = now()
-RETURNING id, code, method, path, description, created_at, updated_at
+RETURNING id, code, method, path, scope, description, created_at, updated_at
 `
 
 type UpsertPermissionParams struct {
 	Code        string `json:"code"`
 	Method      string `json:"method"`
 	Path        string `json:"path"`
+	Scope       string `json:"scope"`
 	Description string `json:"description"`
 }
 
@@ -180,6 +218,7 @@ func (q *Queries) UpsertPermission(ctx context.Context, arg UpsertPermissionPara
 		arg.Code,
 		arg.Method,
 		arg.Path,
+		arg.Scope,
 		arg.Description,
 	)
 	var i Permission
@@ -188,6 +227,7 @@ func (q *Queries) UpsertPermission(ctx context.Context, arg UpsertPermissionPara
 		&i.Code,
 		&i.Method,
 		&i.Path,
+		&i.Scope,
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,

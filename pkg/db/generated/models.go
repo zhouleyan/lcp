@@ -31,6 +31,8 @@ type Permission struct {
 	Method string `json:"method"`
 	// 规范 API 路径
 	Path string `json:"path"`
+	// 权限作用域：platform, workspace, namespace
+	Scope string `json:"scope"`
 	// 权限描述
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`

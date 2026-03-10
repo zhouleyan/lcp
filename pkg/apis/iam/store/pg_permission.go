@@ -28,6 +28,7 @@ func (s *pgPermissionStore) Upsert(ctx context.Context, perm *iam.DBPermission) 
 		Code:        perm.Code,
 		Method:      perm.Method,
 		Path:        perm.Path,
+		Scope:       perm.Scope,
 		Description: perm.Description,
 	})
 	if err != nil {
@@ -63,6 +64,7 @@ func (s *pgPermissionStore) List(ctx context.Context, q db.ListQuery) (*db.ListR
 	countParams := generated.CountPermissionsParams{
 		ModulePrefix: filterStr(q.Filters, "module_prefix"),
 		Search:       filterStr(q.Filters, "search"),
+		Scope:        filterStr(q.Filters, "scope"),
 	}
 
 	count, err := s.queries.CountPermissions(ctx, countParams)
@@ -78,6 +80,7 @@ func (s *pgPermissionStore) List(ctx context.Context, q db.ListQuery) (*db.ListR
 	rows, err := s.queries.ListPermissions(ctx, generated.ListPermissionsParams{
 		ModulePrefix: countParams.ModulePrefix,
 		Search:       countParams.Search,
+		Scope:        countParams.Scope,
 		SortField:    q.SortBy,
 		SortOrder:    sortOrder,
 		PageOffset:   offset,
@@ -121,6 +124,7 @@ func (s *pgPermissionStore) SyncModule(ctx context.Context, modulePrefix string,
 			Code:        p.Code,
 			Method:      p.Method,
 			Path:        p.Path,
+			Scope:       p.Scope,
 			Description: p.Description,
 		}); err != nil {
 			return fmt.Errorf("upsert permission %s: %w", p.Code, err)
