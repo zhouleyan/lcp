@@ -10,6 +10,9 @@ import (
 	"lcp.io/lcp/lib/oidc"
 )
 
+// PermListCode is the permission code for listing permissions (public to any authenticated user).
+const PermListCode = "iam:permissions:list"
+
 // PermissionLookup resolves a (module, resourceChain, verb) triple to a permission code.
 // module → resourceChain → verb → permCode
 type PermissionLookup interface {
