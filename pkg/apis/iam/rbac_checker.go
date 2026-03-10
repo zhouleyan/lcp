@@ -3,6 +3,9 @@ package iam
 import (
 	"context"
 	"fmt"
+	"strconv"
+
+	"golang.org/x/sync/singleflight"
 )
 
 // PermissionChecker defines the interface for RBAC permission checking.
@@ -26,6 +29,7 @@ type PermissionChecker interface {
 // RBACChecker implements PermissionChecker using the shared permission cache backed by RoleBindingStore.
 type RBACChecker struct {
 	rbStore RoleBindingStore
+	sfGroup singleflight.Group
 }
 
 // NewRBACChecker creates a new checker with the given store.
@@ -66,16 +70,28 @@ func (c *RBACChecker) InvalidateCacheAll() {
 }
 
 // getOrLoad returns the cached entry for a user, loading from DB on cache miss.
+// Uses singleflight to deduplicate concurrent loads for the same user.
 func (c *RBACChecker) getOrLoad(ctx context.Context, userID int64) (*UserPermissionEntry, error) {
 	if entry := sharedPermCache.Get(userID); entry != nil {
 		return entry, nil
 	}
-	entry, err := c.loadUserEntry(ctx, userID)
+	key := strconv.FormatInt(userID, 10)
+	v, err, _ := c.sfGroup.Do(key, func() (any, error) {
+		// Double-check cache after acquiring the singleflight slot
+		if entry := sharedPermCache.Get(userID); entry != nil {
+			return entry, nil
+		}
+		entry, err := c.loadUserEntry(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		sharedPermCache.Set(userID, entry)
+		return entry, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	sharedPermCache.Set(userID, entry)
-	return entry, nil
+	return v.(*UserPermissionEntry), nil
 }
 
 // loadUserEntry loads all permission rules for a user from the database

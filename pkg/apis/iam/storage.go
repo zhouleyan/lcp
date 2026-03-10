@@ -524,9 +524,25 @@ func (s *workspaceStorage) DeleteCollection(ctx context.Context, ids []string, o
 		int64IDs = append(int64IDs, wid)
 	}
 
+	// Collect affected user IDs before deletion (CASCADE will remove role_bindings)
+	var affectedUserIDs []int64
+	if s.rbStore != nil {
+		for _, wid := range int64IDs {
+			uids, _ := s.rbStore.GetUserIDsByWorkspaceID(ctx, wid)
+			affectedUserIDs = append(affectedUserIDs, uids...)
+		}
+	}
+
 	count, err := s.wsStore.DeleteByIDs(ctx, int64IDs)
 	if err != nil {
 		return nil, err
+	}
+
+	// Invalidate permission cache for affected users
+	if s.checker != nil {
+		for _, uid := range affectedUserIDs {
+			s.checker.InvalidateCache(uid)
+		}
 	}
 
 	return &rest.DeletionResult{
@@ -847,9 +863,25 @@ func (s *namespaceStorage) DeleteCollection(ctx context.Context, ids []string, o
 		int64IDs = append(int64IDs, nid)
 	}
 
+	// Collect affected user IDs before deletion (CASCADE will remove role_bindings)
+	var affectedUserIDs []int64
+	if s.rbStore != nil {
+		for _, nid := range int64IDs {
+			uids, _ := s.rbStore.GetUserIDsByNamespaceID(ctx, nid)
+			affectedUserIDs = append(affectedUserIDs, uids...)
+		}
+	}
+
 	count, err := s.nsStore.DeleteByIDs(ctx, int64IDs)
 	if err != nil {
 		return nil, err
+	}
+
+	// Invalidate permission cache for affected users
+	if s.checker != nil {
+		for _, uid := range affectedUserIDs {
+			s.checker.InvalidateCache(uid)
+		}
 	}
 
 	return &rest.DeletionResult{
