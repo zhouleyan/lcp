@@ -2694,7 +2694,10 @@ func roleBindingToAPI(rb *DBRoleBinding, username, userDisplayName, roleName, ro
 }
 
 func roleBindingWithDetailsToAPI(rb *DBRoleBindingWithDetails) *RoleBinding {
-	return roleBindingToAPI(&rb.RoleBinding, rb.Username, rb.UserDisplayName, rb.RoleName, rb.RoleDisplayName)
+	result := roleBindingToAPI(&rb.RoleBinding, rb.Username, rb.UserDisplayName, rb.RoleName, rb.RoleDisplayName)
+	result.Spec.WorkspaceName = rb.WorkspaceName
+	result.Spec.NamespaceName = rb.NamespaceName
+	return result
 }
 
 func roleBindingListToAPI(result *db.ListResult[DBRoleBindingWithDetails]) *RoleBindingList {

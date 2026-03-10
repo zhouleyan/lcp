@@ -162,9 +162,12 @@ WHERE rb.user_id = @user_id
 
 -- name: ListRoleBindingsByUserID :many
 SELECT rb.id, rb.user_id, rb.role_id, rb.scope, rb.workspace_id, rb.namespace_id, rb.is_owner, rb.created_at,
-       r.name AS role_name, r.display_name AS role_display_name
+       r.name AS role_name, r.display_name AS role_display_name,
+       w.name AS workspace_name, n.name AS namespace_name
 FROM role_bindings rb
 JOIN roles r ON r.id = rb.role_id
+LEFT JOIN workspaces w ON w.id = rb.workspace_id
+LEFT JOIN namespaces n ON n.id = rb.namespace_id
 WHERE rb.user_id = @user_id
   AND (sqlc.narg('scope')::VARCHAR IS NULL OR rb.scope = sqlc.narg('scope'))
   AND (sqlc.narg('role_id')::BIGINT IS NULL OR rb.role_id = sqlc.narg('role_id'))
@@ -177,6 +180,10 @@ ORDER BY
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'scope' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN rb.scope END DESC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN r.name END ASC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'role_name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN r.name END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'scope_target' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN COALESCE(w.name, '') END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'scope_target' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN COALESCE(n.name, '') END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'scope_target' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN COALESCE(w.name, '') END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'scope_target' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN COALESCE(n.name, '') END DESC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN rb.created_at END ASC,
     CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN rb.created_at END DESC,
     rb.created_at DESC

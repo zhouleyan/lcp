@@ -241,7 +241,7 @@ func (s *pgRoleBindingStore) ListByUserID(ctx context.Context, userID int64, q d
 
 	items := make([]iam.DBRoleBindingWithDetails, 0, len(rows))
 	for _, r := range rows {
-		items = append(items, iam.DBRoleBindingWithDetails{
+		item := iam.DBRoleBindingWithDetails{
 			RoleBinding: generated.RoleBinding{
 				ID:          r.ID,
 				UserID:      r.UserID,
@@ -254,7 +254,14 @@ func (s *pgRoleBindingStore) ListByUserID(ctx context.Context, userID int64, q d
 			},
 			RoleName:        r.RoleName,
 			RoleDisplayName: r.RoleDisplayName,
-		})
+		}
+		if r.WorkspaceName != nil {
+			item.WorkspaceName = *r.WorkspaceName
+		}
+		if r.NamespaceName != nil {
+			item.NamespaceName = *r.NamespaceName
+		}
+		items = append(items, item)
 	}
 
 	return &db.ListResult[iam.DBRoleBindingWithDetails]{

@@ -846,9 +846,12 @@ func (q *Queries) ListRoleBindingsByNamespaceID(ctx context.Context, arg ListRol
 
 const listRoleBindingsByUserID = `-- name: ListRoleBindingsByUserID :many
 SELECT rb.id, rb.user_id, rb.role_id, rb.scope, rb.workspace_id, rb.namespace_id, rb.is_owner, rb.created_at,
-       r.name AS role_name, r.display_name AS role_display_name
+       r.name AS role_name, r.display_name AS role_display_name,
+       w.name AS workspace_name, n.name AS namespace_name
 FROM role_bindings rb
 JOIN roles r ON r.id = rb.role_id
+LEFT JOIN workspaces w ON w.id = rb.workspace_id
+LEFT JOIN namespaces n ON n.id = rb.namespace_id
 WHERE rb.user_id = $1
   AND ($2::VARCHAR IS NULL OR rb.scope = $2)
   AND ($3::BIGINT IS NULL OR rb.role_id = $3)
@@ -861,6 +864,10 @@ ORDER BY
     CASE WHEN $5::VARCHAR = 'scope' AND $6::VARCHAR = 'desc' THEN rb.scope END DESC,
     CASE WHEN $5::VARCHAR = 'role_name' AND $6::VARCHAR = 'asc' THEN r.name END ASC,
     CASE WHEN $5::VARCHAR = 'role_name' AND $6::VARCHAR = 'desc' THEN r.name END DESC,
+    CASE WHEN $5::VARCHAR = 'scope_target' AND $6::VARCHAR = 'asc' THEN COALESCE(w.name, '') END ASC,
+    CASE WHEN $5::VARCHAR = 'scope_target' AND $6::VARCHAR = 'asc' THEN COALESCE(n.name, '') END ASC,
+    CASE WHEN $5::VARCHAR = 'scope_target' AND $6::VARCHAR = 'desc' THEN COALESCE(w.name, '') END DESC,
+    CASE WHEN $5::VARCHAR = 'scope_target' AND $6::VARCHAR = 'desc' THEN COALESCE(n.name, '') END DESC,
     CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'asc' THEN rb.created_at END ASC,
     CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'desc' THEN rb.created_at END DESC,
     rb.created_at DESC
@@ -890,6 +897,8 @@ type ListRoleBindingsByUserIDRow struct {
 	CreatedAt       time.Time `json:"created_at"`
 	RoleName        string    `json:"role_name"`
 	RoleDisplayName string    `json:"role_display_name"`
+	WorkspaceName   *string   `json:"workspace_name"`
+	NamespaceName   *string   `json:"namespace_name"`
 }
 
 func (q *Queries) ListRoleBindingsByUserID(ctx context.Context, arg ListRoleBindingsByUserIDParams) ([]ListRoleBindingsByUserIDRow, error) {
@@ -921,6 +930,8 @@ func (q *Queries) ListRoleBindingsByUserID(ctx context.Context, arg ListRoleBind
 			&i.CreatedAt,
 			&i.RoleName,
 			&i.RoleDisplayName,
+			&i.WorkspaceName,
+			&i.NamespaceName,
 		); err != nil {
 			return nil, err
 		}

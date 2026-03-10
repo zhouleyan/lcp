@@ -2561,6 +2561,9 @@ components:
         namespaceId:
           type: string
           description: 项目 ID（namespace scope 时必填）
+        namespaceName:
+          type: string
+          description: 项目名称（只读）
         roleDisplayName:
           type: string
           description: 角色显示名称（只读）
@@ -2589,6 +2592,9 @@ components:
         workspaceId:
           type: string
           description: 租户 ID（workspace/namespace scope 时必填）
+        workspaceName:
+          type: string
+          description: 租户名称（只读）
       required:
         - userId
         - roleId

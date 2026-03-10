@@ -610,7 +610,9 @@ function UserRoleBindingsCard({ userId }: { userId: string }) {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableHead>
-                <TableHead>{t("rolebinding.owner")}</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("scope_target")}>
+                  {t("rolebinding.scopeTarget")}<SortIcon field="scope_target" sortBy={sortBy} sortOrder={sortOrder} />
+                </TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
                   {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
                 </TableHead>
@@ -634,8 +636,24 @@ function UserRoleBindingsCard({ userId }: { userId: string }) {
                     <TableCell>
                       <Badge variant={scopeVariant(b.spec.scope)}>{scopeLabel(b.spec.scope)}</Badge>
                     </TableCell>
-                    <TableCell>
-                      {b.spec.isOwner && <Badge variant="default">{t("rolebinding.owner")}</Badge>}
+                    <TableCell className="text-sm">
+                      {b.spec.scope === "platform" ? (
+                        t("rolebinding.scope.platform")
+                      ) : b.spec.scope === "namespace" ? (
+                        <span>
+                          {b.spec.workspaceName && (
+                            <Link to={`/iam/workspaces/${b.spec.workspaceId}`} className="text-primary hover:underline">{b.spec.workspaceName}</Link>
+                          )}
+                          {b.spec.workspaceName && b.spec.namespaceName && " / "}
+                          {b.spec.namespaceName && (
+                            <Link to={`/iam/workspaces/${b.spec.workspaceId}/namespaces/${b.spec.namespaceId}`} className="text-primary hover:underline">{b.spec.namespaceName}</Link>
+                          )}
+                        </span>
+                      ) : (
+                        b.spec.workspaceName ? (
+                          <Link to={`/iam/workspaces/${b.spec.workspaceId}`} className="text-primary hover:underline">{b.spec.workspaceName}</Link>
+                        ) : "-"
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                       {new Date(b.metadata.createdAt).toLocaleString()}

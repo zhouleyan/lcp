@@ -415,6 +415,8 @@ type DBRoleBindingWithDetails struct {
 	UserDisplayName string
 	RoleName        string
 	RoleDisplayName string
+	WorkspaceName   string
+	NamespaceName   string
 }
 
 // UserPermissionRuleRow represents a single (scope, resource, pattern) row for cache loading.
@@ -555,6 +557,10 @@ type RoleBindingSpec struct {
 	Username string `json:"username,omitempty"`
 	// +openapi:description=用户显示名称（只读）
 	UserDisplayName string `json:"userDisplayName,omitempty"`
+	// +openapi:description=租户名称（只读）
+	WorkspaceName string `json:"workspaceName,omitempty"`
+	// +openapi:description=项目名称（只读）
+	NamespaceName string `json:"namespaceName,omitempty"`
 }
 
 // RoleBindingList

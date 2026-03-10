@@ -163,6 +163,8 @@ export interface RoleBindingSpec {
   roleDisplayName?: string
   username?: string
   userDisplayName?: string
+  workspaceName?: string
+  namespaceName?: string
 }
 
 export interface RoleBinding extends TypeMeta {
