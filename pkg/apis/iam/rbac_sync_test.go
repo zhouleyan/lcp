@@ -203,6 +203,10 @@ func (m *mockPermissionStoreForSync) ListAllCodes(_ context.Context) ([]string, 
 	return nil, nil
 }
 
+func (m *mockPermissionStoreForSync) ListScopeMap(_ context.Context) (map[string]string, error) {
+	return nil, nil
+}
+
 func TestSyncPermissions(t *testing.T) {
 	nsStorage := &mockStandardStorage{id: 1}
 	nsUserStorage := &mockListerStorage{id: 1}

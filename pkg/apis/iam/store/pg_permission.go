@@ -109,6 +109,18 @@ func (s *pgPermissionStore) ListAllCodes(ctx context.Context) ([]string, error) 
 	return codes, nil
 }
 
+func (s *pgPermissionStore) ListScopeMap(ctx context.Context) (map[string]string, error) {
+	rows, err := s.queries.ListAllPermissionCodesWithScope(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list permission scopes: %w", err)
+	}
+	m := make(map[string]string, len(rows))
+	for _, r := range rows {
+		m[r.Code] = r.Scope
+	}
+	return m, nil
+}
+
 func (s *pgPermissionStore) SyncModule(ctx context.Context, modulePrefix string, perms []iam.DBPermission) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {

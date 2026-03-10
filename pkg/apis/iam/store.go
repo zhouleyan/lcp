@@ -66,6 +66,7 @@ type PermissionStore interface {
 	GetByCode(ctx context.Context, code string) (*DBPermission, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBPermission], error)
 	ListAllCodes(ctx context.Context) ([]string, error)
+	ListScopeMap(ctx context.Context) (map[string]string, error)
 	// SyncModule batch-upserts all permissions for a module and removes stale ones in a single transaction.
 	SyncModule(ctx context.Context, modulePrefix string, perms []DBPermission) error
 }

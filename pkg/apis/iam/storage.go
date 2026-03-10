@@ -267,9 +267,9 @@ func (s *userStorage) DeleteCollection(ctx context.Context, ids []string, option
 	}, nil
 }
 
-// ===== workspaceStorage 工作空间存储 =====
+// ===== workspaceStorage 租户存储 =====
 
-// workspaceStorage 工作空间资源的 REST 存储实现。创建工作空间时自动创建默认项目并添加所有者为成员。
+// workspaceStorage 租户资源的 REST 存储实现。创建租户时自动创建默认项目并添加所有者为成员。
 type workspaceStorage struct {
 	wsStore   WorkspaceStore
 	userStore UserStore
@@ -277,14 +277,14 @@ type workspaceStorage struct {
 	checker   PermissionChecker
 }
 
-// NewWorkspaceStorage 创建工作空间 REST 存储。
+// NewWorkspaceStorage 创建租户 REST 存储。
 func NewWorkspaceStorage(wsStore WorkspaceStore, userStore UserStore, rbStore RoleBindingStore, checker PermissionChecker) rest.StandardStorage {
 	return &workspaceStorage{wsStore: wsStore, userStore: userStore, rbStore: rbStore, checker: checker}
 }
 
 func (s *workspaceStorage) NewObject() runtime.Object { return &Workspace{} }
 
-// +openapi:summary=获取工作空间详情
+// +openapi:summary=获取租户详情
 func (s *workspaceStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["workspaceId"]
 	wid, err := parseID(id)
@@ -299,7 +299,7 @@ func (s *workspaceStorage) Get(ctx context.Context, options *rest.GetOptions) (r
 	return workspaceWithOwnerToAPI(ws), nil
 }
 
-// +openapi:summary=获取工作空间列表
+// +openapi:summary=获取租户列表
 func (s *workspaceStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	query := db.ListQuery{
 		Filters: make(map[string]any),
@@ -340,7 +340,7 @@ func (s *workspaceStorage) List(ctx context.Context, options *rest.ListOptions) 
 	}, nil
 }
 
-// +openapi:summary=创建工作空间
+// +openapi:summary=创建租户
 func (s *workspaceStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	ws, ok := obj.(*Workspace)
 	if !ok {
@@ -390,7 +390,7 @@ func (s *workspaceStorage) Create(ctx context.Context, obj runtime.Object, optio
 	return workspaceWithOwnerToAPI(created), nil
 }
 
-// +openapi:summary=更新工作空间信息（全量）
+// +openapi:summary=更新租户信息（全量）
 func (s *workspaceStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
 	ws, ok := obj.(*Workspace)
 	if !ok {
@@ -431,7 +431,7 @@ func (s *workspaceStorage) Update(ctx context.Context, obj runtime.Object, optio
 	return workspaceToAPI(updated), nil
 }
 
-// +openapi:summary=更新工作空间信息（部分）
+// +openapi:summary=更新租户信息（部分）
 func (s *workspaceStorage) Patch(ctx context.Context, obj runtime.Object, options *rest.PatchOptions) (runtime.Object, error) {
 	ws, ok := obj.(*Workspace)
 	if !ok {
@@ -475,7 +475,7 @@ func (s *workspaceStorage) Patch(ctx context.Context, obj runtime.Object, option
 	return workspaceToAPI(patched), nil
 }
 
-// +openapi:summary=删除工作空间
+// +openapi:summary=删除租户
 func (s *workspaceStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
 	if options.DryRun {
 		return nil
@@ -506,7 +506,7 @@ func (s *workspaceStorage) Delete(ctx context.Context, options *rest.DeleteOptio
 	return nil
 }
 
-// +openapi:summary=批量删除工作空间
+// +openapi:summary=批量删除租户
 func (s *workspaceStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
 	if options.DryRun {
 		return &rest.DeletionResult{
@@ -537,7 +537,7 @@ func (s *workspaceStorage) DeleteCollection(ctx context.Context, ids []string, o
 
 // ===== namespaceStorage 项目存储 =====
 
-// namespaceStorage 项目资源的 REST 存储实现。支持按工作空间筛选项目列表。
+// namespaceStorage 项目资源的 REST 存储实现。支持按租户筛选项目列表。
 // +openapi:path=/workspaces/{workspaceId}/namespaces
 type namespaceStorage struct {
 	nsStore   NamespaceStore
@@ -555,7 +555,7 @@ func NewNamespaceStorage(nsStore NamespaceStore, wsStore WorkspaceStore, userSto
 func (s *namespaceStorage) NewObject() runtime.Object { return &Namespace{} }
 
 // +openapi:summary=获取项目详情
-// +openapi:summary.workspaces.namespaces=获取工作空间下的项目详情
+// +openapi:summary.workspaces.namespaces=获取租户下的项目详情
 func (s *namespaceStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["namespaceId"]
 	nid, err := parseID(id)
@@ -572,7 +572,7 @@ func (s *namespaceStorage) Get(ctx context.Context, options *rest.GetOptions) (r
 }
 
 // +openapi:summary=获取项目列表
-// +openapi:summary.workspaces.namespaces=获取工作空间下的项目列表
+// +openapi:summary.workspaces.namespaces=获取租户下的项目列表
 func (s *namespaceStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	query := db.ListQuery{
 		Filters: make(map[string]any),
@@ -619,7 +619,7 @@ func (s *namespaceStorage) List(ctx context.Context, options *rest.ListOptions) 
 }
 
 // +openapi:summary=创建项目
-// +openapi:summary.workspaces.namespaces=在工作空间下创建项目
+// +openapi:summary.workspaces.namespaces=在租户下创建项目
 func (s *namespaceStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	ns, ok := obj.(*Namespace)
 	if !ok {
@@ -682,7 +682,7 @@ func (s *namespaceStorage) Create(ctx context.Context, obj runtime.Object, optio
 }
 
 // +openapi:summary=更新项目信息（全量）
-// +openapi:summary.workspaces.namespaces=更新工作空间下的项目信息（全量）
+// +openapi:summary.workspaces.namespaces=更新租户下的项目信息（全量）
 func (s *namespaceStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
 	ns, ok := obj.(*Namespace)
 	if !ok {
@@ -741,7 +741,7 @@ func (s *namespaceStorage) Update(ctx context.Context, obj runtime.Object, optio
 }
 
 // +openapi:summary=更新项目信息（部分）
-// +openapi:summary.workspaces.namespaces=更新工作空间下的项目信息（部分）
+// +openapi:summary.workspaces.namespaces=更新租户下的项目信息（部分）
 func (s *namespaceStorage) Patch(ctx context.Context, obj runtime.Object, options *rest.PatchOptions) (runtime.Object, error) {
 	ns, ok := obj.(*Namespace)
 	if !ok {
@@ -797,7 +797,7 @@ func (s *namespaceStorage) Patch(ctx context.Context, obj runtime.Object, option
 }
 
 // +openapi:summary=删除项目
-// +openapi:summary.workspaces.namespaces=删除工作空间下的项目
+// +openapi:summary.workspaces.namespaces=删除租户下的项目
 func (s *namespaceStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
 	if options.DryRun {
 		return nil
@@ -829,7 +829,7 @@ func (s *namespaceStorage) Delete(ctx context.Context, options *rest.DeleteOptio
 }
 
 // +openapi:summary=批量删除项目
-// +openapi:summary.workspaces.namespaces=批量删除工作空间下的项目
+// +openapi:summary.workspaces.namespaces=批量删除租户下的项目
 func (s *namespaceStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
 	if options.DryRun {
 		return &rest.DeletionResult{
@@ -858,22 +858,22 @@ func (s *namespaceStorage) DeleteCollection(ctx context.Context, ids []string, o
 	}, nil
 }
 
-// ===== workspaceUserStorage 工作空间成员存储 =====
+// ===== workspaceUserStorage 租户成员存储 =====
 
-// workspaceUserStorage 管理工作空间的成员关系，支持查询成员列表、批量添加和批量移除成员。
+// workspaceUserStorage 管理租户的成员关系，支持查询成员列表、批量添加和批量移除成员。
 type workspaceUserStorage struct {
 	rbStore   RoleBindingStore
 	userStore UserStore
 }
 
-// NewWorkspaceUserStorage 创建工作空间成员管理 REST 存储。
+// NewWorkspaceUserStorage 创建租户成员管理 REST 存储。
 func NewWorkspaceUserStorage(rbStore RoleBindingStore, userStore UserStore) rest.Storage {
 	return &workspaceUserStorage{rbStore: rbStore, userStore: userStore}
 }
 
 func (s *workspaceUserStorage) NewObject() runtime.Object { return &BatchRequest{} }
 
-// +openapi:summary=获取工作空间成员详情
+// +openapi:summary=获取租户成员详情
 func (s *workspaceUserStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["userId"]
 	uid, err := parseID(id)
@@ -889,7 +889,7 @@ func (s *workspaceUserStorage) Get(ctx context.Context, options *rest.GetOptions
 	return userToAPI(user), nil
 }
 
-// +openapi:summary=获取工作空间成员列表
+// +openapi:summary=获取租户成员列表
 func (s *workspaceUserStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	wsID, err := parseID(options.PathParams["workspaceId"])
 	if err != nil {
@@ -918,7 +918,7 @@ func (s *workspaceUserStorage) List(ctx context.Context, options *rest.ListOptio
 	}, nil
 }
 
-// +openapi:summary=批量添加工作空间成员
+// +openapi:summary=批量添加租户成员
 func (s *workspaceUserStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	wsID, err := parseID(options.PathParams["workspaceId"])
 	if err != nil {
@@ -946,7 +946,7 @@ func (s *workspaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 	}, nil
 }
 
-// +openapi:summary=批量移除工作空间成员
+// +openapi:summary=批量移除租户成员
 func (s *workspaceUserStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
 	wsID, err := parseID(options.PathParams["workspaceId"])
 	if err != nil {
@@ -968,7 +968,7 @@ func (s *workspaceUserStorage) DeleteCollection(ctx context.Context, ids []strin
 // ===== namespaceUserStorage 项目成员存储 =====
 
 // namespaceUserStorage 管理项目的成员关系，支持查询成员列表、批量添加和批量移除成员。
-// 添加项目成员时会自动将其加入父工作空间。
+// 添加项目成员时会自动将其加入父租户。
 // +openapi:path=/workspaces/{workspaceId}/namespaces/{namespaceId}/users
 type namespaceUserStorage struct {
 	rbStore   RoleBindingStore
@@ -984,7 +984,7 @@ func NewNamespaceUserStorage(rbStore RoleBindingStore, nsStore NamespaceStore, u
 func (s *namespaceUserStorage) NewObject() runtime.Object { return &BatchRequest{} }
 
 // +openapi:summary=获取项目成员详情
-// +openapi:summary.workspaces.namespaces.users=获取工作空间下项目的成员详情
+// +openapi:summary.workspaces.namespaces.users=获取租户下项目的成员详情
 func (s *namespaceUserStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["userId"]
 	uid, err := parseID(id)
@@ -1001,7 +1001,7 @@ func (s *namespaceUserStorage) Get(ctx context.Context, options *rest.GetOptions
 }
 
 // +openapi:summary=获取项目成员列表
-// +openapi:summary.workspaces.namespaces.users=获取工作空间下项目的成员列表
+// +openapi:summary.workspaces.namespaces.users=获取租户下项目的成员列表
 func (s *namespaceUserStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	nsID, err := parseID(options.PathParams["namespaceId"])
 	if err != nil {
@@ -1031,7 +1031,7 @@ func (s *namespaceUserStorage) List(ctx context.Context, options *rest.ListOptio
 }
 
 // +openapi:summary=批量添加项目成员
-// +openapi:summary.workspaces.namespaces.users=批量添加工作空间下项目的成员
+// +openapi:summary.workspaces.namespaces.users=批量添加租户下项目的成员
 func (s *namespaceUserStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	nsID, err := parseID(options.PathParams["namespaceId"])
 	if err != nil {
@@ -1078,7 +1078,7 @@ func (s *namespaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 }
 
 // +openapi:summary=批量移除项目成员
-// +openapi:summary.workspaces.namespaces.users=批量移除工作空间下项目的成员
+// +openapi:summary.workspaces.namespaces.users=批量移除租户下项目的成员
 func (s *namespaceUserStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
 	nsID, err := parseID(options.PathParams["namespaceId"])
 	if err != nil {
@@ -1097,18 +1097,18 @@ func (s *namespaceUserStorage) DeleteCollection(ctx context.Context, ids []strin
 	}, nil
 }
 
-// ===== userWorkspaceVerbStorage 用户工作空间视图 =====
+// ===== userWorkspaceVerbStorage 用户租户视图 =====
 
-// userWorkspaceVerbStorage 用户关联工作空间的 custom verb 存储，支持分页、筛选和排序。
+// userWorkspaceVerbStorage 用户关联租户的 custom verb 存储，支持分页、筛选和排序。
 // 注册为 GET /users/{userId}:workspaces
 type userWorkspaceVerbStorage struct {
 	rbStore RoleBindingStore
 }
 
-// NewUserWorkspacesVerb 创建用户工作空间视图存储。
+// NewUserWorkspacesVerb 创建用户租户视图存储。
 // +openapi:customverb=workspaces
 // +openapi:resource=User
-// +openapi:summary=获取用户关联的工作空间列表
+// +openapi:summary=获取用户关联的租户列表
 func NewUserWorkspacesVerb(rbStore RoleBindingStore) rest.Lister {
 	return &userWorkspaceVerbStorage{rbStore: rbStore}
 }
@@ -1467,10 +1467,10 @@ type TransferOwnershipRequest struct {
 	NewOwnerUserID string `json:"newOwnerUserId"`
 }
 
-// NewTransferOwnershipHandler 创建工作空间所有权转移处理器。仅当前 owner 或 platform-admin 可操作。
+// NewTransferOwnershipHandler 创建租户所有权转移处理器。仅当前 owner 或 platform-admin 可操作。
 // +openapi:action=transfer-ownership
 // +openapi:resource=Workspace
-// +openapi:summary=转移工作空间所有权
+// +openapi:summary=转移租户所有权
 func NewTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBACChecker) rest.HandlerFunc {
 	return func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
 		resourceID, err := parseID(params["workspaceId"])
@@ -1704,11 +1704,12 @@ func parseID(s string) (int64, error) {
 type roleStorage struct {
 	roleStore RoleStore
 	rbStore   RoleBindingStore
+	permStore PermissionStore
 }
 
 // NewRoleStorage creates a role REST storage with full CRUD.
-func NewRoleStorage(roleStore RoleStore, rbStore RoleBindingStore) rest.Storage {
-	return &roleStorage{roleStore: roleStore, rbStore: rbStore}
+func NewRoleStorage(roleStore RoleStore, rbStore RoleBindingStore, permStore PermissionStore) rest.Storage {
+	return &roleStorage{roleStore: roleStore, rbStore: rbStore, permStore: permStore}
 }
 
 func (s *roleStorage) NewObject() runtime.Object { return &Role{} }
@@ -1785,6 +1786,14 @@ func (s *roleStorage) Create(ctx context.Context, obj runtime.Object, options *r
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
+	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if scopeErrs := ValidateRuleScopes(role.Spec.Scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
+	}
+
 	if options.DryRun {
 		return role, nil
 	}
@@ -1842,6 +1851,14 @@ func (s *roleStorage) Update(ctx context.Context, obj runtime.Object, options *r
 
 	if errs := ValidateRoleUpdate(&role.Spec); errs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if scopeErrs := ValidateRuleScopes(existing.Scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
 	}
 
 	if options.DryRun {
@@ -1962,19 +1979,20 @@ func roleWithRulesToAPI(r *DBRoleWithRules) *Role {
 type scopedRoleStorage struct {
 	roleStore RoleStore
 	rbStore   RoleBindingStore
+	permStore PermissionStore
 	scope     string // ScopeWorkspace or ScopeNamespace
 }
 
 // NewScopedRoleStorage creates a scoped role storage with full CRUD.
-func NewScopedRoleStorage(roleStore RoleStore, rbStore RoleBindingStore, scope string) rest.Storage {
-	return &scopedRoleStorage{roleStore: roleStore, rbStore: rbStore, scope: scope}
+func NewScopedRoleStorage(roleStore RoleStore, rbStore RoleBindingStore, permStore PermissionStore, scope string) rest.Storage {
+	return &scopedRoleStorage{roleStore: roleStore, rbStore: rbStore, permStore: permStore, scope: scope}
 }
 
 func (s *scopedRoleStorage) NewObject() runtime.Object { return &Role{} }
 
-// +openapi:summary=获取工作空间角色列表
+// +openapi:summary=获取租户角色列表
 // +openapi:summary.namespaces.roles=获取项目角色列表
-// +openapi:summary.workspaces.namespaces.roles=获取工作空间下项目的角色列表
+// +openapi:summary.workspaces.namespaces.roles=获取租户下项目的角色列表
 func (s *scopedRoleStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	query := restOptionsToListQuery(options)
 	query.Filters["scope"] = s.scope
@@ -2010,9 +2028,9 @@ func (s *scopedRoleStorage) List(ctx context.Context, options *rest.ListOptions)
 	}, nil
 }
 
-// +openapi:summary=获取工作空间角色详情
+// +openapi:summary=获取租户角色详情
 // +openapi:summary.namespaces.roles=获取项目角色详情
-// +openapi:summary.workspaces.namespaces.roles=获取工作空间下项目的角色详情
+// +openapi:summary.workspaces.namespaces.roles=获取租户下项目的角色详情
 func (s *scopedRoleStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["roleId"]
 	rid, err := parseID(id)
@@ -2043,9 +2061,9 @@ func (s *scopedRoleStorage) Get(ctx context.Context, options *rest.GetOptions) (
 	return roleWithRulesToAPI(role), nil
 }
 
-// +openapi:summary=创建工作空间自定义角色
+// +openapi:summary=创建租户自定义角色
 // +openapi:summary.namespaces.roles=创建项目自定义角色
-// +openapi:summary.workspaces.namespaces.roles=创建工作空间下项目的自定义角色
+// +openapi:summary.workspaces.namespaces.roles=创建租户下项目的自定义角色
 func (s *scopedRoleStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	role, ok := obj.(*Role)
 	if !ok {
@@ -2056,6 +2074,14 @@ func (s *scopedRoleStorage) Create(ctx context.Context, obj runtime.Object, opti
 
 	if errs := ValidateRoleCreate(&role.Spec); errs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if scopeErrs := ValidateRuleScopes(role.Spec.Scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
 	}
 
 	if options.DryRun {
@@ -2102,9 +2128,9 @@ func (s *scopedRoleStorage) Create(ctx context.Context, obj runtime.Object, opti
 	return roleWithRulesToAPI(withRules), nil
 }
 
-// +openapi:summary=更新工作空间角色
+// +openapi:summary=更新租户角色
 // +openapi:summary.namespaces.roles=更新项目角色
-// +openapi:summary.workspaces.namespaces.roles=更新工作空间下项目的角色
+// +openapi:summary.workspaces.namespaces.roles=更新租户下项目的角色
 func (s *scopedRoleStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
 	role, ok := obj.(*Role)
 	if !ok {
@@ -2145,6 +2171,14 @@ func (s *scopedRoleStorage) Update(ctx context.Context, obj runtime.Object, opti
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
+	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if scopeErrs := ValidateRuleScopes(s.scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
+	}
+
 	if options.DryRun {
 		return role, nil
 	}
@@ -2173,9 +2207,9 @@ func (s *scopedRoleStorage) Update(ctx context.Context, obj runtime.Object, opti
 	return roleWithRulesToAPI(withRules), nil
 }
 
-// +openapi:summary=删除工作空间角色
+// +openapi:summary=删除租户角色
 // +openapi:summary.namespaces.roles=删除项目角色
-// +openapi:summary.workspaces.namespaces.roles=删除工作空间下项目的角色
+// +openapi:summary.workspaces.namespaces.roles=删除租户下项目的角色
 func (s *scopedRoleStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
 	id := options.PathParams["roleId"]
 	rid, err := parseID(id)
@@ -2381,7 +2415,7 @@ func (s *roleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOpt
 	return nil
 }
 
-// ===== workspaceRoleBindingStorage 工作空间级角色绑定 =====
+// ===== workspaceRoleBindingStorage 租户级角色绑定 =====
 
 // +openapi:resource=RoleBinding
 // +openapi:path=/workspaces/{workspaceId}/rolebindings
@@ -2397,7 +2431,7 @@ func NewWorkspaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStor
 
 func (s *workspaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
 
-// +openapi:summary=获取工作空间级角色绑定列表
+// +openapi:summary=获取租户级角色绑定列表
 func (s *workspaceRoleBindingStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	wsID, err := parseID(options.PathParams["workspaceId"])
 	if err != nil {
@@ -2411,7 +2445,7 @@ func (s *workspaceRoleBindingStorage) List(ctx context.Context, options *rest.Li
 	return roleBindingListToAPI(result), nil
 }
 
-// +openapi:summary=创建工作空间级角色绑定
+// +openapi:summary=创建租户级角色绑定
 func (s *workspaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	rb, ok := obj.(*RoleBinding)
 	if !ok {
@@ -2466,7 +2500,7 @@ func (s *workspaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 	return roleBindingToAPI(created, "", "", role.Name, role.DisplayName), nil
 }
 
-// +openapi:summary=删除工作空间级角色绑定
+// +openapi:summary=删除租户级角色绑定
 func (s *workspaceRoleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
 	id := options.PathParams["rolebindingId"]
 	rbID, err := parseID(id)
@@ -2513,7 +2547,7 @@ func NewNamespaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStor
 func (s *namespaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
 
 // +openapi:summary=获取项目级角色绑定列表
-// +openapi:summary.workspaces.namespaces.rolebindings=获取工作空间下项目的角色绑定列表
+// +openapi:summary.workspaces.namespaces.rolebindings=获取租户下项目的角色绑定列表
 func (s *namespaceRoleBindingStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	nsID, err := parseID(options.PathParams["namespaceId"])
 	if err != nil {
@@ -2528,7 +2562,7 @@ func (s *namespaceRoleBindingStorage) List(ctx context.Context, options *rest.Li
 }
 
 // +openapi:summary=创建项目级角色绑定
-// +openapi:summary.workspaces.namespaces.rolebindings=创建工作空间下项目的角色绑定
+// +openapi:summary.workspaces.namespaces.rolebindings=创建租户下项目的角色绑定
 func (s *namespaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	rb, ok := obj.(*RoleBinding)
 	if !ok {
@@ -2592,7 +2626,7 @@ func (s *namespaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 }
 
 // +openapi:summary=删除项目级角色绑定
-// +openapi:summary.workspaces.namespaces.rolebindings=删除工作空间下项目的角色绑定
+// +openapi:summary.workspaces.namespaces.rolebindings=删除租户下项目的角色绑定
 func (s *namespaceRoleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
 	id := options.PathParams["rolebindingId"]
 	rbID, err := parseID(id)
