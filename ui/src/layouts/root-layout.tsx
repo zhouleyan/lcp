@@ -9,6 +9,7 @@ import {
   Shield,
   ShieldCheck,
   Home,
+  ScrollText,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -88,6 +89,12 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
         { to: "/iam/users", labelKey: "nav.users", icon: Users, permission: "iam:users:list" },
         { to: "/iam/roles", labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list" },
         { to: "/iam/rolebindings", labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:rolebindings:list" },
+      ],
+    },
+    {
+      labelKey: "nav.audit",
+      items: [
+        { to: "/audit/logs", labelKey: "nav.auditLogs", icon: ScrollText, permission: "audit:logs:list" },
       ],
     },
   ]

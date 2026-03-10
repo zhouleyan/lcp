@@ -60,6 +60,10 @@ func main() {
 	})
 	go watchSIGHUP()
 
+	// Audit writer (async, must start before HTTP server)
+	auditWriter := apis.NewAuditWriter(database)
+	auditWriter.Start(ctx)
+
 	// OIDC provider
 	oidcProvider := apis.NewOIDCProvider(database, &cfg.OIDC)
 
@@ -81,6 +85,7 @@ func main() {
 		Name:         LCPAPIServer,
 		OIDCProvider: oidcProvider,
 		Authorizer:   authorizer,
+		AuditLogger:  auditWriter,
 	}, apisResult.Groups...)
 	if err != nil {
 		logger.Fatalf("cannot create API server handler: %v", err)
@@ -93,7 +98,7 @@ func main() {
 
 	rootHandler := handler.NewRootHandler(handler.RootHandlerConfig{
 		APIHandler:  apiHandler,
-		OIDCMux:     apis.NewOIDCMux(oidcProvider),
+		OIDCMux:     apis.NewOIDCMux(oidcProvider, auditWriter),
 		OpenAPISpec: docs.OpenAPISpec,
 		FrontendFS:  distFS,
 	})
@@ -111,6 +116,7 @@ func main() {
 	if err := httpserver.Stop(listenAddrs); err != nil {
 		logger.Fatalf("cannot stop the lcp-server: %s", err)
 	}
+	auditWriter.Stop()
 	database.Close()
 	logger.Infof("successfully shut down lcp-server in %.3f seconds", time.Since(startTime).Seconds())
 }

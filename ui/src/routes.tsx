@@ -6,6 +6,7 @@ import AuthCallbackPage from "@/pages/auth-callback"
 import ErrorPage from "@/pages/error"
 import { dashboardRoutes } from "@/pages/dashboard/routes"
 import { iamRoutes } from "@/pages/iam/routes"
+import { auditRoutes } from "@/pages/audit/routes"
 
 export const routes: RouteObject[] = [
   {
@@ -39,6 +40,13 @@ export const routes: RouteObject[] = [
       {
         path: "iam",
         children: iamRoutes,
+      },
+      {
+        path: "audit",
+        children: [
+          { index: true, element: <Navigate to="/audit/logs" replace /> },
+          ...auditRoutes,
+        ],
       },
     ],
   },

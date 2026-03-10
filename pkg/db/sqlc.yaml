@@ -20,3 +20,12 @@ sql:
               import: "time"
               type: "Time"
               pointer: true
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+          - db_type: "jsonb"
+            nullable: true
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
