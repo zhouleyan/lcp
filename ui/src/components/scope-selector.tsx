@@ -11,7 +11,7 @@ import {
 import { useScopeStore } from "@/stores/scope-store"
 import { usePermissionStore } from "@/stores/permission-store"
 import { listWorkspaces } from "@/api/iam/workspaces"
-import { listNamespaces } from "@/api/iam/namespaces"
+import { listNamespaces, listWorkspaceNamespaces } from "@/api/iam/namespaces"
 import { useTranslation } from "@/i18n"
 import type { Workspace, Namespace } from "@/api/types"
 
@@ -94,27 +94,25 @@ export function ScopeSelector() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPlatformScope, workspaces, workspaceId])
 
-  // Use platform-level API (has AccessFilter) — consistent with workspace fetching.
-  // Filter client-side by selected workspaceId.
+  // Fetch namespaces scoped to the selected workspace (avoids fetching all namespaces).
+  // Falls back to platform-level list when no workspace is selected (for non-platform users during init).
   const fetchNamespaces = useCallback(async () => {
     try {
-      const data = await listNamespaces({ pageSize: 100 })
+      const data = workspaceId
+        ? await listWorkspaceNamespaces(workspaceId, { pageSize: 100 })
+        : await listNamespaces({ pageSize: 100 })
       setNamespaces(data.items ?? [])
     } catch {
       setNamespaces([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [workspaceId])
 
   useEffect(() => {
     fetchNamespaces()
   }, [fetchNamespaces])
 
-  // Filter by selected workspace (API returns all accessible namespaces across workspaces)
-  const accessibleNamespaces = useMemo(() => {
-    if (!workspaceId) return []
-    return namespaces.filter((ns) => ns.spec.workspaceId === workspaceId)
-  }, [namespaces, workspaceId])
+  const accessibleNamespaces = namespaces
 
   // Non-platform users without workspace scope and with single namespace: auto-select
   useEffect(() => {
