@@ -325,3 +325,47 @@ oidc:
 ```
 
 Generate keys: `openssl ecparam -name prime256v1 -genkey -noout -out oidc-private.pem && openssl ec -in oidc-private.pem -pubout -out oidc-public.pem`
+
+## Git Worktree 开发注意事项
+
+以下文件被 `.gitignore` 忽略，创建 worktree 后不会自动出现，需要手动处理：
+
+| 文件 | 用途 | 处理方式 |
+|------|------|---------|
+| `oidc-private.pem` / `oidc-public.pem` | OIDC 签名密钥 | 从主仓库复制：`cp ../../oidc-*.pem .` |
+| `ui/dist/` | 前端构建产物（Go embed） | 创建占位或构建：`mkdir -p ui/dist && touch ui/dist/.gitkeep`，或 `cd ui && pnpm install && pnpm build` |
+| `ui/node_modules/` | 前端依赖 | `cd ui && pnpm install` |
+
+### Worktree 初始化完整流程
+
+```bash
+# 1. 创建 worktree
+git worktree add .worktrees/<branch-name> -b <branch-name>
+cd .worktrees/<branch-name>
+
+# 2. 复制 gitignored 的配置文件
+cp ../../oidc-*.pem .
+
+# 3. Go 依赖
+go mod download
+
+# 4. 前端依赖 + 构建（服务启动需要 ui/dist）
+cd ui && pnpm install && pnpm build && cd ..
+
+# 5. 验证服务可启动
+go run ./app/lcp-server/ -config ./app/lcp-server/config.yaml
+```
+
+### 数据库 Schema 变更
+
+如果分支修改了 `pkg/db/schema/schema.sql`，本地数据库不会自动迁移。需要手动执行 DDL 变更：
+
+```bash
+# 查看表结构
+docker exec lcp-postgres psql -U lcp -d lcp -c "\d <table_name>"
+
+# 执行迁移（示例：修改约束）
+docker exec lcp-postgres psql -U lcp -d lcp -c "ALTER TABLE ..."
+```
+
+注意：切换回 main 分支后数据库 schema 可能不兼容，需要相应回滚。
