@@ -25,6 +25,8 @@ const routeLabelKeys: Record<string, string> = {
   roles: "nav.roles",
   logs: "nav.auditLogs",
   rolebindings: "nav.rolebindings",
+  hosts: "nav.hosts",
+  environments: "nav.environments",
 }
 
 /** Resolve a path segment to its i18n label key. Module prefixes use `nav.{name}` convention. */
