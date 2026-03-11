@@ -52,7 +52,7 @@ function buildNavGroups(wsId: string | null, nsId: string | null): NavGroup[] {
       // Standalone item (e.g. overview) — its own group
       groups.push({ items: [navItem] })
       currentGroup = null
-    } else if (currentGroup?.labelKey === item.group) {
+    } else if (currentGroup != null && currentGroup.labelKey === item.group) {
       currentGroup.items.push(navItem)
     } else {
       currentGroup = { labelKey: item.group, items: [navItem] }

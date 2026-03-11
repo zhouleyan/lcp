@@ -481,8 +481,8 @@ function HostFormDialog({
   onOpenChange: (open: boolean) => void
   host?: Host
   onSuccess: () => void
-  scopeWorkspaceId: string | null
-  scopeNamespaceId: string | null
+  scopeWorkspaceId: string | undefined
+  scopeNamespaceId: string | undefined
 }) {
   const { t } = useTranslation()
   const isEdit = !!host
@@ -666,7 +666,7 @@ function AssignDialog({
   onOpenChange: (open: boolean) => void
   host: Host | null
   onSuccess: () => void
-  scopeWorkspaceId: string | null
+  scopeWorkspaceId: string | undefined
 }) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
@@ -810,8 +810,8 @@ function BindEnvironmentDialog({
   onOpenChange: (open: boolean) => void
   host: Host | null
   onSuccess: () => void
-  scopeWorkspaceId: string | null
-  scopeNamespaceId: string | null
+  scopeWorkspaceId: string | undefined
+  scopeNamespaceId: string | undefined
 }) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)

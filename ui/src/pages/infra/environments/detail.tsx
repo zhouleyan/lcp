@@ -314,8 +314,8 @@ function EditEnvironmentDialog({
   onOpenChange: (open: boolean) => void
   environment: Environment
   onSuccess: () => void
-  scopeWorkspaceId: string | null
-  scopeNamespaceId: string | null
+  scopeWorkspaceId: string | undefined
+  scopeNamespaceId: string | undefined
 }) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
