@@ -149,7 +149,7 @@ export function translateApiError(err: ApiError): string {
  * @param t - The i18n translation function
  * @param resourceKey - Optional i18n key for the resource name (e.g. "user.title")
  */
-export function showApiError(err: unknown, t: (key: string, params?: Record<string, unknown>) => string, resourceKey?: string) {
+export function showApiError(err: unknown, t: (key: string, params?: Record<string, string | number>) => string, resourceKey?: string) {
   if (err instanceof ApiError) {
     const i18nKey = translateApiError(err)
     const params = resourceKey ? { resource: t(resourceKey) } : undefined

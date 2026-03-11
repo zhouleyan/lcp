@@ -72,6 +72,7 @@ export interface NamespaceSpec {
   visibility?: "public" | "private"
   maxMembers?: number
   memberCount?: number
+  roleBindingCount?: number
   status?: "active" | "inactive"
   role?: string
   roleDisplayName?: string
