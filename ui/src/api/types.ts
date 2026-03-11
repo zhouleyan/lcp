@@ -72,7 +72,6 @@ export interface NamespaceSpec {
   visibility?: "public" | "private"
   maxMembers?: number
   memberCount?: number
-  roleBindingCount?: number
   status?: "active" | "inactive"
   role?: string
   roleDisplayName?: string
@@ -158,13 +157,13 @@ export interface RoleBindingSpec {
   scope: "platform" | "workspace" | "namespace"
   workspaceId?: string
   namespaceId?: string
+  workspaceName?: string
+  namespaceName?: string
   isOwner?: boolean
   roleName?: string
   roleDisplayName?: string
   username?: string
   userDisplayName?: string
-  workspaceName?: string
-  namespaceName?: string
 }
 
 export interface RoleBinding extends TypeMeta {
@@ -209,7 +208,6 @@ export interface OverviewSpec {
   userCount: number
   memberCount: number
   roleCount: number
-  roleBindingCount: number
 }
 
 export interface Overview extends TypeMeta {
