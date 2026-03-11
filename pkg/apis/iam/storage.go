@@ -918,8 +918,16 @@ func (s *workspaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 		return nil, fmt.Errorf("expected *BatchRequest, got %T", obj)
 	}
 
+	var roleID int64
+	if req.RoleID != "" {
+		roleID, err = parseID(req.RoleID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest("invalid role ID", nil)
+		}
+	}
+
 	added, err := batchAddUsers(ctx, req.IDs, s.userStore, func(ctx context.Context, uid int64) (bool, error) {
-		if err := s.rbStore.AddWorkspaceMember(ctx, uid, wsID); err != nil {
+		if err := s.rbStore.AddWorkspaceMember(ctx, uid, wsID, roleID); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -1049,8 +1057,16 @@ func (s *namespaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 		}
 	}
 
+	var roleID int64
+	if req.RoleID != "" {
+		roleID, err = parseID(req.RoleID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest("invalid role ID", nil)
+		}
+	}
+
 	added, err := batchAddUsers(ctx, req.IDs, s.userStore, func(ctx context.Context, uid int64) (bool, error) {
-		if err := s.rbStore.AddNamespaceMember(ctx, uid, nsID); err != nil {
+		if err := s.rbStore.AddNamespaceMember(ctx, uid, nsID, roleID); err != nil {
 			return false, err
 		}
 		return true, nil

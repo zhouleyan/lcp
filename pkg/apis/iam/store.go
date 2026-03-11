@@ -114,8 +114,9 @@ type RoleBindingStore interface {
 	// Returns the old owner's user ID. The new owner must already be a member.
 	TransferOwnership(ctx context.Context, scope string, resourceID int64, callerID int64, callerIsPlatformAdmin bool, newOwnerUserID int64, adminRoleName string) (oldOwnerUserID int64, err error)
 	// Member management (replacing legacy join tables)
-	AddWorkspaceMember(ctx context.Context, userID, workspaceID int64) error
-	AddNamespaceMember(ctx context.Context, userID, namespaceID int64) error
+	// roleID=0 means use the default role (workspace-viewer / namespace-viewer).
+	AddWorkspaceMember(ctx context.Context, userID, workspaceID int64, roleID int64) error
+	AddNamespaceMember(ctx context.Context, userID, namespaceID int64, roleID int64) error
 	RemoveWorkspaceMember(ctx context.Context, userID, workspaceID int64) error
 	RemoveNamespaceMember(ctx context.Context, userID, namespaceID int64) error
 	ListWorkspaceMembers(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)

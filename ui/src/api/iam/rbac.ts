@@ -17,20 +17,17 @@ export async function listPermissions(params?: ListParams): Promise<PermissionLi
   return apiRequest(iamApi.get("permissions", { searchParams: params as Record<string, string> }).json())
 }
 
-/**
- * Fetch all permissions by paginating through the API.
- * Backend caps pageSize at 100, so we loop until all pages are loaded.
- */
 export async function listAllPermissions(): Promise<Permission[]> {
-  const allItems: Permission[] = []
-  let page = 1
   const pageSize = 100
-  while (true) {
-    const data = await listPermissions({ page, pageSize })
+  let page = 1
+  const allItems: Permission[] = []
+  let totalCount = 0
+  do {
+    const data = await listPermissions({ page, pageSize } as ListParams)
     allItems.push(...(data.items ?? []))
-    if (allItems.length >= data.totalCount) break
+    totalCount = data.totalCount
     page++
-  }
+  } while (allItems.length < totalCount)
   return allItems
 }
 

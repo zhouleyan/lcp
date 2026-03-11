@@ -468,27 +468,52 @@ func (s *pgRoleBindingStore) TransferOwnership(ctx context.Context, scope string
 	return oldOwnerUserID, nil
 }
 
-func (s *pgRoleBindingStore) AddWorkspaceMember(ctx context.Context, userID, workspaceID int64) error {
+func (s *pgRoleBindingStore) AddWorkspaceMember(ctx context.Context, userID, workspaceID int64, roleID int64) error {
 	wsIDPtr := &workspaceID
-	viewerRole, err := s.queries.GetRoleByNameAndWorkspace(ctx, generated.GetRoleByNameAndWorkspaceParams{
-		Name:        iam.RoleWorkspaceViewer,
-		WorkspaceID: wsIDPtr,
-	})
-	if err != nil {
-		return fmt.Errorf("get workspace-viewer role: %w", err)
+	bindRoleID := roleID
+	if bindRoleID == 0 {
+		viewerRole, err := s.queries.GetRoleByNameAndWorkspace(ctx, generated.GetRoleByNameAndWorkspaceParams{
+			Name:        iam.RoleWorkspaceViewer,
+			WorkspaceID: wsIDPtr,
+		})
+		if err != nil {
+			return fmt.Errorf("get workspace-viewer role: %w", err)
+		}
+		bindRoleID = viewerRole.ID
 	}
-	if err := s.queries.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	qtx := s.queries.WithTx(tx)
+
+	// Remove existing non-owner bindings so the new role replaces the old one
+	if _, err := qtx.DeleteNonOwnerWorkspaceBindings(ctx, generated.DeleteNonOwnerWorkspaceBindingsParams{
 		UserID:      userID,
-		RoleID:      viewerRole.ID,
+		WorkspaceID: wsIDPtr,
+	}); err != nil {
+		return fmt.Errorf("delete old workspace bindings: %w", err)
+	}
+
+	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
+		UserID:      userID,
+		RoleID:      bindRoleID,
 		Scope:       iam.ScopeWorkspace,
 		WorkspaceID: wsIDPtr,
 	}); err != nil {
 		return fmt.Errorf("add workspace member: %w", err)
 	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
 	return nil
 }
 
-func (s *pgRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, namespaceID int64) error {
+func (s *pgRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, namespaceID int64, roleID int64) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -514,13 +539,18 @@ func (s *pgRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, nam
 	if err != nil {
 		return fmt.Errorf("get workspace-member role: %w", err)
 	}
-	nsIDPtr := &namespaceID
-	nsViewerRole, err := qtx.GetRoleByNameAndNamespace(ctx, generated.GetRoleByNameAndNamespaceParams{
-		Name:        iam.RoleNamespaceViewer,
-		NamespaceID: nsIDPtr,
-	})
-	if err != nil {
-		return fmt.Errorf("get namespace-viewer role: %w", err)
+
+	bindRoleID := roleID
+	if bindRoleID == 0 {
+		nsIDPtr := &namespaceID
+		nsViewerRole, err := qtx.GetRoleByNameAndNamespace(ctx, generated.GetRoleByNameAndNamespaceParams{
+			Name:        iam.RoleNamespaceViewer,
+			NamespaceID: nsIDPtr,
+		})
+		if err != nil {
+			return fmt.Errorf("get namespace-viewer role: %w", err)
+		}
+		bindRoleID = nsViewerRole.ID
 	}
 
 	// Auto-add to workspace with minimal membership role (no workspace-level permissions)
@@ -533,10 +563,20 @@ func (s *pgRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, nam
 		return fmt.Errorf("auto-add workspace member: %w", err)
 	}
 
+	nsIDPtr := &namespaceID
+
+	// Remove existing non-owner namespace bindings so the new role replaces the old one
+	if _, err := qtx.DeleteNonOwnerNamespaceBindings(ctx, generated.DeleteNonOwnerNamespaceBindingsParams{
+		UserID:      userID,
+		NamespaceID: nsIDPtr,
+	}); err != nil {
+		return fmt.Errorf("delete old namespace bindings: %w", err)
+	}
+
 	// Add to namespace
 	if err := qtx.CreateRoleBindingIfNotExists(ctx, generated.CreateRoleBindingIfNotExistsParams{
 		UserID:      userID,
-		RoleID:      nsViewerRole.ID,
+		RoleID:      bindRoleID,
 		Scope:       iam.ScopeNamespace,
 		WorkspaceID: wsIDPtr,
 		NamespaceID: nsIDPtr,

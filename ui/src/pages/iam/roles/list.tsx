@@ -96,7 +96,8 @@ export default function RoleListPage() {
   const loadPermissions = useCallback(async () => {
     if (permissions.length > 0) return
     try {
-      setPermissions(await listAllPermissions())
+      const items = await listAllPermissions()
+      setPermissions(items)
     } catch {
       // silently ignore — permission selector will show empty
     }

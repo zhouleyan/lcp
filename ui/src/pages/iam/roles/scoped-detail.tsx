@@ -12,7 +12,7 @@ import {
 import {
   getWorkspaceRole, deleteWorkspaceRole,
   getNamespaceRole, deleteNamespaceRole,
-  listPermissions,
+  listAllPermissions,
 } from "@/api/iam/rbac"
 import { ApiError, translateApiError } from "@/api/client"
 import type { Role, Permission } from "@/api/types"
@@ -38,13 +38,17 @@ export default function ScopedRoleDetailPage() {
     ? `/iam/workspaces/${workspaceId}/namespaces/${namespaceId}/roles`
     : `/iam/workspaces/${workspaceId}/roles`
 
-  const fetchRole = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!roleId) return
     try {
-      const r = namespaceId
-        ? await getNamespaceRole(workspaceId!, namespaceId, roleId)
-        : await getWorkspaceRole(workspaceId!, roleId)
+      const [r, perms] = await Promise.all([
+        namespaceId
+          ? getNamespaceRole(workspaceId!, namespaceId, roleId)
+          : getWorkspaceRole(workspaceId!, roleId),
+        listAllPermissions(),
+      ])
       setRole(r)
+      setPermissions(perms)
     } catch {
       setRole(null)
     } finally {
@@ -52,20 +56,9 @@ export default function ScopedRoleDetailPage() {
     }
   }, [roleId, workspaceId, namespaceId])
 
-  useEffect(() => { fetchRole() }, [fetchRole])
+  useEffect(() => { fetchData() }, [fetchData])
 
-  const loadPermissions = useCallback(async () => {
-    if (permissions.length > 0) return
-    try {
-      const data = await listPermissions({ pageSize: 1000 })
-      setPermissions(data.items ?? [])
-    } catch {
-      // silently ignore — permission selector will show empty
-    }
-  }, [permissions.length])
-
-  const handleEdit = async () => {
-    await loadPermissions()
+  const handleEdit = () => {
     setEditOpen(true)
   }
 
@@ -223,7 +216,7 @@ export default function ScopedRoleDetailPage() {
           workspaceId={workspaceId}
           role={role}
           permissions={permissions}
-          onSuccess={fetchRole}
+          onSuccess={fetchData}
         />
       )}
 

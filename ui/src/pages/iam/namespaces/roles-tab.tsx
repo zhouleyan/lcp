@@ -73,18 +73,19 @@ export default function NamespaceRolesTab() {
   useEffect(() => { setPage(1) }, [search, pageSize])
   useEffect(() => { clearSelection() }, [roles])
 
-  if (permissionsLoaded && !hasPermission("iam:roles:list", { workspaceId, namespaceId })) {
+  if (permissionsLoaded && !hasPermission("iam:namespaces:roles:list", { workspaceId, namespaceId })) {
     return <Navigate to="/" replace />
   }
 
-  const canCreate = hasPermission("iam:roles:create", { workspaceId, namespaceId })
-  const canUpdate = hasPermission("iam:roles:update", { workspaceId, namespaceId })
-  const canDelete = hasPermission("iam:roles:delete", { workspaceId, namespaceId })
+  const canCreate = hasPermission("iam:namespaces:roles:create", { workspaceId, namespaceId })
+  const canUpdate = hasPermission("iam:namespaces:roles:update", { workspaceId, namespaceId })
+  const canDelete = hasPermission("iam:namespaces:roles:delete", { workspaceId, namespaceId })
 
   const loadPermissions = useCallback(async () => {
     if (permissions.length > 0) return
     try {
-      setPermissions(await listAllPermissions())
+      const items = await listAllPermissions()
+      setPermissions(items)
     } catch {
       // silently ignore — permission selector will show empty
     }

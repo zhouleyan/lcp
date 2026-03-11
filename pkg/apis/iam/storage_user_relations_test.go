@@ -139,7 +139,7 @@ func TestWorkspaceUserStorage_Create(t *testing.T) {
 	}
 
 	rbStore := &mockRoleBindingStore{
-		AddWorkspaceMemberFn: func(ctx context.Context, userID, workspaceID int64) error {
+		AddWorkspaceMemberFn: func(ctx context.Context, userID, workspaceID int64, roleID int64) error {
 			addCalls = append(addCalls, userID)
 			if workspaceID != 1 {
 				t.Errorf("expected workspaceID 1, got %d", workspaceID)
@@ -440,7 +440,7 @@ func TestNamespaceUserStorage_Create(t *testing.T) {
 	}
 
 	rbStore := &mockRoleBindingStore{
-		AddNamespaceMemberFn: func(ctx context.Context, userID, namespaceID int64) error {
+		AddNamespaceMemberFn: func(ctx context.Context, userID, namespaceID int64, roleID int64) error {
 			addCalls = append(addCalls, userID)
 			if namespaceID != 5 {
 				t.Errorf("expected namespaceID 5, got %d", namespaceID)
@@ -542,7 +542,7 @@ func TestNamespaceUserStorage_Create_WithinMaxUsers(t *testing.T) {
 	}
 
 	rbStore := &mockRoleBindingStore{
-		AddNamespaceMemberFn: func(ctx context.Context, userID, namespaceID int64) error {
+		AddNamespaceMemberFn: func(ctx context.Context, userID, namespaceID int64, roleID int64) error {
 			return nil
 		},
 	}

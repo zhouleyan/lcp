@@ -17,7 +17,7 @@ import {
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
-import { getRole, updateRole, deleteRole, listPermissions } from "@/api/iam/rbac"
+import { getRole, updateRole, deleteRole, listAllPermissions } from "@/api/iam/rbac"
 import { ApiError, translateApiError, translateDetailMessage } from "@/api/client"
 import type { Role, Permission } from "@/api/types"
 import { useTranslation } from "@/i18n"
@@ -41,11 +41,15 @@ export default function RoleDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const fetchRole = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!roleId) return
     try {
-      const r = await getRole(roleId)
+      const [r, perms] = await Promise.all([
+        getRole(roleId),
+        listAllPermissions(),
+      ])
       setRole(r)
+      setPermissions(perms)
     } catch {
       setRole(null)
     } finally {
@@ -53,20 +57,9 @@ export default function RoleDetailPage() {
     }
   }, [roleId])
 
-  useEffect(() => { fetchRole() }, [fetchRole])
+  useEffect(() => { fetchData() }, [fetchData])
 
-  const loadPermissions = useCallback(async () => {
-    if (permissions.length > 0) return
-    try {
-      const data = await listPermissions({ pageSize: 1000 })
-      setPermissions(data.items ?? [])
-    } catch {
-      // silently ignore — permission selector will show empty
-    }
-  }, [permissions.length])
-
-  const handleEdit = async () => {
-    await loadPermissions()
+  const handleEdit = () => {
     setEditOpen(true)
   }
 
@@ -224,7 +217,7 @@ export default function RoleDetailPage() {
           onOpenChange={setEditOpen}
           role={role}
           permissions={permissions}
-          onSuccess={fetchRole}
+          onSuccess={fetchData}
         />
       )}
 

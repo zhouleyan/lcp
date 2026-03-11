@@ -19,7 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   listWorkspaceUsers, addWorkspaceUsers, removeWorkspaceUsers, listUsers,
 } from "@/api/iam/users"
-import { listWorkspaceRoles, createWorkspaceRoleBinding } from "@/api/iam/rbac"
+import { listWorkspaceRoles } from "@/api/iam/rbac"
 import type { User, Role, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
 import { useTranslation } from "@/i18n"
@@ -298,7 +298,7 @@ function AddMemberDialog({
         setAllUsers(userData.items ?? [])
         const items = roleData.items ?? []
         setRoles(items)
-        const viewer = items.find((r) => r.spec.name.includes("viewer"))
+        const viewer = items.find((r) => r.spec.name === "workspace-viewer")
         if (viewer) {
           setSelectedRoleId(viewer.metadata.id)
           setDefaultRoleId(viewer.metadata.id)
@@ -334,13 +334,8 @@ function AddMemberDialog({
     setSubmitting(true)
     try {
       const userIds = Array.from(selectedIds)
-      await addWorkspaceUsers(workspaceId, userIds)
-      // AddWorkspaceMember already creates a viewer binding; skip if user selected the same role
-      if (selectedRoleId && selectedRoleId !== defaultRoleId) {
-        await Promise.all(userIds.map((uid) =>
-          createWorkspaceRoleBinding(workspaceId, { spec: { userId: uid, roleId: selectedRoleId, scope: "workspace" } })
-        ))
-      }
+      const roleId = selectedRoleId && selectedRoleId !== defaultRoleId ? selectedRoleId : undefined
+      await addWorkspaceUsers(workspaceId, userIds, roleId)
       toast.success(t("workspace.memberAdded"))
       onOpenChange(false)
       onSuccess()
