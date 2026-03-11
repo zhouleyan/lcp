@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams } from "react-router"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,19 +23,20 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // If no request_id, automatically start the OIDC flow to obtain one
+  useEffect(() => {
+    if (!requestId) {
+      startAuthFlow()
+    }
+  }, [requestId])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
 
-    if (!requestId) {
-      // No request_id means user navigated to /login directly — start OIDC flow
-      await startAuthFlow()
-      return
-    }
-
     setLoading(true)
     try {
-      const redirectUri = await loginWithCredentials(username, password, requestId)
+      const redirectUri = await loginWithCredentials(username, password, requestId!)
       // Navigate using relative path to stay on the same origin,
       // preserving sessionStorage (PKCE code_verifier) across the redirect.
       const url = new URL(redirectUri)
@@ -52,6 +53,11 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // While redirecting to /oidc/authorize, show nothing
+  if (!requestId) {
+    return null
   }
 
   return (
@@ -83,6 +89,7 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
+                autoComplete="off"
                 placeholder={t("login.passwordPlaceholder")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
