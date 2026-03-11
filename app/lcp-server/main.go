@@ -15,7 +15,7 @@ import (
 	"lcp.io/lcp/lib/profile"
 	"lcp.io/lcp/lib/utils/procutil"
 
-	"lcp.io/lcp/docs"
+	localapis "lcp.io/lcp/app/lcp-server/apis"
 	"lcp.io/lcp/pkg/apis"
 	"lcp.io/lcp/pkg/db"
 	"lcp.io/lcp/ui"
@@ -99,7 +99,7 @@ func main() {
 	rootHandler := handler.NewRootHandler(handler.RootHandlerConfig{
 		APIHandler:  apiHandler,
 		OIDCMux:     apis.NewOIDCMux(oidcProvider, auditWriter),
-		OpenAPISpec: docs.OpenAPISpec,
+		OpenAPISpec: localapis.OpenAPISpec,
 		FrontendFS:  distFS,
 	})
 

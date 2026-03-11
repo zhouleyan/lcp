@@ -1,19 +1,19 @@
 # ---- Stage 1: Build frontend ----
-FROM node:22-alpine AS ui-builder
+# Skipped when PREBUILT_UI=true (uses local ui/dist from build context)
+FROM node:20-alpine AS ui-builder
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+ARG PREBUILT_UI=false
 
-WORKDIR /build/ui
+WORKDIR /app/ui
 COPY ui/package.json ui/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-
-COPY ui/ ./
-RUN pnpm build
+RUN if [ "$PREBUILT_UI" = "false" ]; then corepack enable && pnpm install --frozen-lockfile; fi
+COPY ui/ .
+RUN if [ "$PREBUILT_UI" = "false" ]; then pnpm build; fi
 
 # ---- Stage 2: Build Go binary ----
 FROM golang:1.26-alpine AS go-builder
 
-RUN apk add --no-cache git
+RUN apk add --no-cache git tzdata
 
 WORKDIR /build
 
@@ -21,28 +21,25 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+COPY --from=ui-builder /app/ui/dist ui/dist
 
-# Generate OpenAPI spec for go:embed (docs/openapi.json)
-RUN go run lcp.io/lcp/cmd/openapi-gen -apis-dir pkg/apis -output docs/openapi.json -format json
-
-# Copy frontend build output for go:embed (ui/dist)
-COPY --from=ui-builder /build/ui/dist ./ui/dist
+# Generate OpenAPI spec for go:embed
+RUN go run lcp.io/lcp/cmd/openapi-gen -apis-dir pkg/apis -output app/lcp-server/apis/openapi.json -format json
 
 ARG VERSION=""
 RUN CGO_ENABLED=0 go build \
-    -ldflags "-X 'lcp.io/lcp/lib/buildinfo.Version=${VERSION}'" \
+    -trimpath \
+    -ldflags "-s -w -X 'lcp.io/lcp/lib/buildinfo.Version=${VERSION}'" \
     -o /out/lcp-server \
     lcp.io/lcp/app/lcp-server
 
 # ---- Stage 3: Runtime ----
-FROM alpine:3.21
+FROM scratch
 
-RUN apk add --no-cache ca-certificates tzdata
-
-WORKDIR /app
-
-COPY --from=go-builder /out/lcp-server .
+COPY --from=go-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=go-builder /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=go-builder /out/lcp-server /app/lcp-server
 
 EXPOSE 8428
 
-ENTRYPOINT ["./lcp-server"]
+ENTRYPOINT ["/app/lcp-server"]

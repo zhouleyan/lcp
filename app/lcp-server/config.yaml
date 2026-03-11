@@ -31,3 +31,10 @@ oidc:
       redirectUris:
         - "http://localhost:8428/auth/callback"
       scopes: ["openid", "profile", "email", "phone"]
+
+admin:
+  username: "admin"
+  password: "Admin123!"
+  email: "admin@lcp.io"
+  phone: "13800000000"
+  displayName: "Admin"

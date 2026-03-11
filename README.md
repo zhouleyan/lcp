@@ -1,370 +1,205 @@
 # LCP
 
-LCP 是一个 PaaS 管理平台，基于 Go 构建，使用自研 REST API 框架 + PostgreSQL + sqlc。
+LCP 是一个 PaaS 管理平台，后端基于 Go 自研 REST 框架（参考 Kubernetes apiserver 模式），前端使用 React + TypeScript + shadcn/ui。内置 OIDC 认证、三级 RBAC 权限体系（平台/工作空间/项目）。
 
-## 快速开始
+## 快速部署
 
-### 前置依赖
-
-- Go 1.26+
-- Docker（用于运行 PostgreSQL）
-- [sqlc](https://docs.sqlc.dev/en/latest/overview/install.html)（用于生成数据库查询代码）
-
-### 1. 启动数据库
+使用 Docker Compose 一键启动（含 PostgreSQL + lcp-server），无需本地安装 Node.js/Go：
 
 ```bash
-docker run -d \
-  --name lcp-postgres \
-  -e POSTGRES_USER=lcp \
-  -e POSTGRES_PASSWORD=lcp \
-  -e POSTGRES_DB=lcp \
-  -p 5432:5432 \
-  postgres:18
+cd deployment/docker
+docker compose up -d
 ```
 
-### 2. 初始化数据库 Schema
+服务启动后访问 http://localhost:8428 ，默认管理员：
+
+| 字段 | 值 |
+|------|------|
+| 用户名 | `admin` |
+| 密码 | `Admin123!` |
+
+停止服务：
 
 ```bash
-docker cp pkg/db/schema/schema.sql lcp-postgres:/tmp/schema.sql
-docker exec lcp-postgres psql -U lcp -d lcp -f /tmp/schema.sql
+cd deployment/docker
+docker compose down          # 保留数据
+docker compose down -v       # 清除数据
 ```
 
-> 注意：Schema 变更后需要重新执行。如需重建，先 DROP 所有表再重新导入。
+### 单独构建镜像
 
-### 3. 启动服务
-
-```bash
-# 开发模式（带竞态检测）
-make lcp-server
-./bin/lcp-server-race -config ./app/lcp-server/config.yaml
-
-# 或直接 go run
-go run ./app/lcp-server/ -config ./app/lcp-server/config.yaml
-```
-
-服务默认监听 `:8428`，可通过 `-httpListenerAddr` 指定：
+两种模式，自动检测 podman/docker：
 
 ```bash
-lcp-server -httpListenerAddr=:8080 -config ./app/lcp-server/config.yaml
-```
+# 完整构建：前端 + 后端全在容器内构建，无需本地 Node.js
+make docker-build
 
-### 4. 验证
+# 预构建：使用本地已构建的 ui/dist（更快，需要本地 Node.js + pnpm）
+make docker-build-local
 
-```bash
-curl http://localhost:8428/api/v1/users
-# 返回 {"apiVersion":"v1","kind":"UserList","items":[],"totalCount":0}
+# 自定义选项
+make docker-build IMAGE_TAG=v1.0.0
+make docker-build CONTAINER_ENGINE=docker
 ```
 
 ## 配置
 
-配置文件位于 `app/lcp-server/config.yaml`，优先级从高到低：
+配置文件位于 `app/lcp-server/config.yaml`，优先级：命令行参数 > 环境变量 > 配置文件 > 默认值。支持 SIGHUP 热重载。
 
-**CLI 参数 > 环境变量 > 配置文件 > 默认值**
+### 数据库
 
 ```yaml
 database:
-  host: "localhost"       # 环境变量: DB_HOST
-  port: 5432              # 环境变量: DB_PORT
-  user: "lcp"             # 环境变量: DB_USER
-  password: "lcp"         # 环境变量: DB_PASSWORD
-  dbName: "lcp"           # 环境变量: DB_NAME
-  sslMode: "disable"      # 环境变量: DB_SSL_MODE
-  maxConns: 10            # 环境变量: DB_MAX_CONNS
+  host: "localhost"       # env: DB_HOST
+  port: 5432              # env: DB_PORT
+  user: "lcp"             # env: DB_USER
+  password: "lcp"         # env: DB_PASSWORD
+  dbName: "lcp"           # env: DB_NAME
+  sslMode: "disable"      # env: DB_SSL_MODE
+  maxConns: 10            # env: DB_MAX_CONNS
+```
 
+### OIDC 认证
+
+签名密钥在首次启动时自动生成并存储在 PostgreSQL 中，无需手动配置密钥文件。
+
+```yaml
+oidc:
+  issuer: "http://localhost:8428"
+  algorithm: "EdDSA"
+  accessTokenTTL: "1h"
+  refreshTokenTTL: "168h"
+  authCodeTTL: "5m"
+  loginUrl: "/login"
+  clients:
+    - id: "lcp-ui"
+      public: true
+      redirectUris:
+        - "http://localhost:8428/auth/callback"
+      scopes: ["openid", "profile", "email", "phone"]
+```
+
+不配置 OIDC 时认证禁用，所有 API 开放访问。
+
+### 初始管理员
+
+```yaml
+admin:
+  username: "admin"
+  password: "Admin123!"
+  email: "admin@lcp.io"
+  phone: "13800000000"
+  displayName: "Admin"
+```
+
+首次启动自动创建，后续启动跳过。
+
+### 日志
+
+```yaml
 logger:
   level: "INFO"           # INFO, WARN, ERROR, FATAL, PANIC
   format: "default"       # default, json
 ```
 
-运行时发送 `SIGHUP` 信号可热重载配置（不影响 CLI 参数覆盖项）。
+### Docker Compose 环境变量
 
-## 常用命令
+`deployment/docker/.env` 控制容器环境：
+
+```env
+DB_USER=lcp
+DB_PASSWORD=lcp
+DB_NAME=lcp
+TIME_ZONE=Asia/Shanghai
+```
+
+## 开发
+
+### 环境要求
+
+| 工具 | 版本 |
+|------|------|
+| Go | 1.26+ |
+| Node.js | 20+ |
+| pnpm | 10+ |
+| PostgreSQL | 15+ |
+
+### 本地数据库
+
+```bash
+docker run -d --name lcp-postgres \
+  -e POSTGRES_USER=lcp -e POSTGRES_PASSWORD=lcp -e POSTGRES_DB=lcp \
+  -p 5432:5432 postgres:18
+
+docker exec -i lcp-postgres psql -U lcp -d lcp < pkg/db/schema/schema.sql
+```
+
+### 前后端联调
+
+```bash
+make dev
+```
+
+同时启动后端（:8428）和前端 Vite 开发服务器（:5173），前端热更新。后端使用 `config.dev.yaml`（OIDC redirectUri 指向 :5173）。
+
+### 后端
+
+#### 常用命令
 
 | 命令 | 说明 |
 |------|------|
-| `make lcp-server` | 开发构建（带 `-race`） |
-| `make lcp-server-prod` | 生产构建（`CGO_ENABLED=0`） |
-| `make sqlc-generate` | 从 SQL 文件生成 Go 代码 |
-| `make openapi-gen` | 生成 OpenAPI 文档到 `docs/` |
+| `make lcp-server` | 开发构建（含 race detector） |
+| `make lcp-server-prod` | 生产构建（CGO_ENABLED=0） |
 | `make test` | 运行测试 |
-| `make vet` | 代码静态检查 |
-| `make lint` | golangci-lint 检查 |
-| `make fmt` | 格式化代码 |
+| `make vet` | go vet |
+| `make lint` | golangci-lint |
+| `make fmt` | 格式化 |
+| `make sqlc-generate` | 修改 SQL 后重新生成 Go 代码 |
+| `make openapi-gen` | 从注解生成 OpenAPI spec |
+| `make init-admin` | 手动创建管理员 |
 
-## 项目结构
-
-```
-app/lcp-server/           # 应用入口：配置加载、依赖注入、HTTP 服务启动
-pkg/
-├── apis/
-│   ├── install.go         # 全局依赖注入：Store 实例化 → Provider → APIGroupInfo
-│   └── iam/               # IAM 业务模块
-│       ├── types.go       #   API 类型定义 + DB 类型别名
-│       ├── store.go       #   Store 接口定义
-│       ├── storage.go     #   REST Storage 实现（HTTP 层 ↔ Store 层桥接）
-│       ├── validation.go  #   请求验证
-│       ├── provider.go    #   Store 聚合器
-│       ├── store/         #   PostgreSQL Store 实现
-│       │   └── pg_*.go
-│       └── v1/
-│           └── install.go #   路由注册
-└── db/
-    ├── schema/schema.sql  # DDL（表结构定义）
-    ├── query/*.sql        # sqlc 查询文件
-    ├── generated/         # sqlc 自动生成代码（勿手动修改）
-    ├── db.go              # 数据库连接池
-    ├── query.go           # 分页/列表通用类型
-    └── sqlc.yaml          # sqlc 配置
-lib/                       # 框架层（通常不需要修改）
-```
-
-## 添加新业务功能
-
-以新增 `Project` 资源为例，完整流程如下：
-
-### Step 1：定义数据库表
-
-在 `pkg/db/schema/schema.sql` 中添加表定义：
-
-```sql
-CREATE TABLE projects (
-    id           BIGSERIAL    PRIMARY KEY,
-    name         VARCHAR(255) NOT NULL UNIQUE,
-    display_name VARCHAR(255) NOT NULL DEFAULT '',
-    description  TEXT         NOT NULL DEFAULT '',
-    workspace_id BIGINT       NOT NULL REFERENCES workspaces(id),
-    owner_id     BIGINT       NOT NULL REFERENCES users(id),
-    status       VARCHAR(20)  NOT NULL DEFAULT 'active',
-    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
-);
-```
-
-### Step 2：编写 sqlc 查询
-
-新建 `pkg/db/query/project.sql`，每个查询以 `-- name:` 注释声明方法名和返回类型：
-
-```sql
--- name: CreateProject :one
-INSERT INTO projects (name, display_name, description, workspace_id, owner_id, status)
-VALUES (@name, @display_name, @description, @workspace_id, @owner_id, @status)
-RETURNING id, name, display_name, description, workspace_id, owner_id, status,
-          created_at, updated_at;
-
--- name: GetProjectByID :one
-SELECT id, name, display_name, description, workspace_id, owner_id, status,
-       created_at, updated_at
-FROM projects WHERE id = @id;
-
--- name: DeleteProject :exec
-DELETE FROM projects WHERE id = @id;
-
--- name: CountProjects :one
-SELECT count(id) FROM projects
-WHERE (sqlc.narg('status')::VARCHAR IS NULL OR status = sqlc.narg('status'))
-  AND (sqlc.narg('name')::VARCHAR IS NULL OR name ILIKE '%' || sqlc.narg('name') || '%');
-
--- name: ListProjects :many
-SELECT p.*, u.username AS owner_username
-FROM projects p
-JOIN users u ON p.owner_id = u.id
-WHERE (sqlc.narg('status')::VARCHAR IS NULL OR p.status = sqlc.narg('status'))
-  AND (sqlc.narg('name')::VARCHAR IS NULL OR p.name ILIKE '%' || sqlc.narg('name') || '%')
-ORDER BY
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN p.name END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN p.name END DESC,
-    p.created_at DESC
-LIMIT sqlc.arg('page_size')::INT
-OFFSET sqlc.arg('page_offset')::INT;
-```
-
-**查询文件规范：**
-- `:one` 返回单条记录，`:many` 返回列表，`:exec` 无返回
-- 必选参数用 `@param`，可选过滤条件用 `sqlc.narg('param')` 配合 `IS NULL OR` 模式
-- 排序用 `CASE WHEN` 动态切换字段和方向，尾部加默认排序 `created_at DESC`
-- 分页固定用 `sqlc.arg('page_size')` 和 `sqlc.arg('page_offset')`
-
-### Step 3：生成代码
+单独启动后端：
 
 ```bash
-make sqlc-generate
+go run ./app/lcp-server/ -config ./app/lcp-server/config.yaml
 ```
 
-会在 `pkg/db/generated/` 下自动生成 `models.go`（结构体）和 `project.sql.go`（方法），**不要手动修改这些文件**。
+#### 目录结构
 
-### Step 4：定义 API 类型
-
-在 `pkg/apis/iam/types.go` 中添加：
-
-```go
-// --- Project types ---
-
-// Project
-// +openapi:description=Project is the API representation of a project resource.
-type Project struct {
-    runtime.TypeMeta `json:",inline"`
-    types.ObjectMeta `json:"metadata"`
-    Spec             ProjectSpec `json:"spec"`
-}
-
-func (p *Project) GetTypeMeta() *runtime.TypeMeta { return &p.TypeMeta }
-
-// ProjectSpec
-// +openapi:description=项目属性
-type ProjectSpec struct {
-    // +openapi:description=项目显示名称
-    DisplayName string `json:"displayName,omitempty"`
-    // +openapi:description=项目描述
-    Description string `json:"description,omitempty"`
-    // +openapi:required
-    // +openapi:description=所属工作空间 ID
-    WorkspaceID string `json:"workspaceId"`
-    // +openapi:required
-    // +openapi:description=项目所有者的用户 ID
-    OwnerID     string `json:"ownerId"`
-    // +openapi:description=项目状态
-    // +openapi:enum=active,inactive
-    Status      string `json:"status,omitempty"`
-}
-
-type ProjectList struct {
-    runtime.TypeMeta `json:",inline"`
-    Items            []Project `json:"items"`
-    TotalCount       int64     `json:"totalCount"`
-}
-
-func (p *ProjectList) GetTypeMeta() *runtime.TypeMeta { return &p.TypeMeta }
-
-// DB 类型别名
-type DBProject = generated.Project
+```
+app/lcp-server/       # 服务入口（配置、装配、HTTP 监听）
+lib/                  # 框架库（REST 框架、运行时、配置、日志等）
+lib/oidc/             # OIDC 提供者（JWT、授权码、会话、密钥管理）
+lib/rest/filters/     # HTTP 中间件（日志、认证、授权、请求解析）
+pkg/apis/             # 业务逻辑：API 类型、Store 接口、REST 存储、校验
+pkg/apis/iam/         # IAM 模块（用户、工作空间、项目、RBAC）
+pkg/apis/dashboard/   # Dashboard 模块（概览统计）
+pkg/db/               # 数据库连接池、分页、sqlc 配置
+pkg/db/schema/        # DDL（schema.sql）
+pkg/db/query/         # sqlc SQL 查询文件
+pkg/db/generated/     # sqlc 自动生成的 Go 代码（勿手动修改）
+cmd/openapi-gen/      # OpenAPI 规范生成器
+cmd/init-admin/       # 管理员初始化 CLI
+deployment/docker/    # Dockerfile、docker-compose、初始化脚本
 ```
 
-**类型规范：**
-- API 类型统一用 `TypeMeta`（承载 apiVersion/kind） + `ObjectMeta`（承载 id/name/时间戳） + `Spec` 三层结构
-- DB 层 ID 为 `int64`，API 层为 `string`，转换在 Storage 层完成
-- `+openapi:description=` 写在类型上描述资源，字段级注解（`required`/`enum`/`format`）写在字段上
-- **路径和操作摘要不写在类型上**，而是写在 `storage.go` 的方法注释上（见 Step 8）
+#### 添加新资源
 
-### Step 5：定义 Store 接口
+1. `pkg/db/schema/schema.sql` — 建表
+2. `pkg/db/query/<resource>.sql` — 编写 sqlc 查询
+3. `make sqlc-generate` — 生成 Go 代码
+4. `pkg/apis/iam/types.go` — 定义 API 类型（TypeMeta + ObjectMeta + Spec）
+5. `pkg/apis/iam/store.go` — 定义 Store 接口
+6. `pkg/apis/iam/store/pg_<resource>.go` — 实现 PostgreSQL Store
+7. `pkg/apis/iam/validation.go` — 添加校验
+8. `pkg/apis/iam/storage.go` — 实现 REST Storage（HTTP ↔ Store 桥接）
+9. `pkg/apis/iam/provider.go` — 注册 Store 字段
+10. `pkg/apis/iam/v1/install.go` — 注册路由
+11. `pkg/apis/install.go` — 装配具体 Store 实例
 
-在 `pkg/apis/iam/store.go` 中添加：
+#### REST Storage 接口
 
-```go
-type ProjectStore interface {
-    Create(ctx context.Context, p *DBProject) (*DBProject, error)
-    GetByID(ctx context.Context, id int64) (*DBProject, error)
-    Delete(ctx context.Context, id int64) error
-    List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBProject], error)
-}
-```
-
-### Step 6：实现 PostgreSQL Store
-
-新建 `pkg/apis/iam/store/pg_project.go`：
-
-```go
-package store
-
-type pgProjectStore struct {
-    db      *pgxpool.Pool
-    queries *generated.Queries
-}
-
-func NewPGProjectStore(pool *pgxpool.Pool, queries *generated.Queries) iam.ProjectStore {
-    return &pgProjectStore{db: pool, queries: queries}
-}
-
-func (s *pgProjectStore) GetByID(ctx context.Context, id int64) (*iam.DBProject, error) {
-    row, err := s.queries.GetProjectByID(ctx, id)
-    if err != nil {
-        if errors.Is(err, pgx.ErrNoRows) {
-            return nil, apierrors.NewNotFound("project", fmt.Sprintf("%d", id))
-        }
-        return nil, fmt.Errorf("get project: %w", err)
-    }
-    return &row, nil
-}
-
-// Create, Delete, List 同理...
-```
-
-**Store 实现规范：**
-- `pgx.ErrNoRows` 统一转为 `apierrors.NewNotFound()`
-- 需要多步操作时使用事务：`pool.Begin()` → `queries.WithTx(tx)` → 操作 → `tx.Commit()`
-- `List` 方法使用 `db.PaginationToOffsetLimit()` 转换分页参数
-- 可选过滤用 `filterStr()` / `filterInt64()` 辅助函数提取 `map[string]any` 中的值
-
-### Step 7：添加验证
-
-在 `pkg/apis/iam/validation.go` 中添加：
-
-```go
-func ValidateProjectCreate(name string, spec *ProjectSpec) validation.ErrorList {
-    var errs validation.ErrorList
-    if name == "" {
-        errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "is required"})
-    }
-    if spec.OwnerID == "" {
-        errs = append(errs, validation.FieldError{Field: "spec.ownerId", Message: "is required"})
-    }
-    return errs
-}
-```
-
-### Step 8：实现 REST Storage
-
-在 `pkg/apis/iam/storage.go` 中添加。Storage 是 HTTP 层与 Store 层之间的桥梁，负责：
-- 解析路径参数（`options.PathParams["projectId"]`）
-- 调用验证函数
-- DB 类型 ↔ API 类型转换
-- 处理 `DryRun` 选项
-- **承载 OpenAPI 操作级注解**（路径自动推导 + 方法级摘要）
-
-```go
-// 存储类型名 projectStorage 自动推导：
-//   resource = Project, path = /projects
-// 无需 +openapi:path= 注解（主路径自动推导）
-type projectStorage struct {
-    projStore ProjectStore
-    userStore UserStore
-}
-
-func NewProjectStorage(projStore ProjectStore, userStore UserStore) rest.StandardStorage {
-    return &projectStorage{projStore: projStore, userStore: userStore}
-}
-
-func (s *projectStorage) NewObject() runtime.Object { return &Project{} }
-
-// +openapi:summary=获取项目详情
-func (s *projectStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
-    id := options.PathParams["projectId"]
-    pid, err := parseID(id)
-    if err != nil {
-        return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid project ID: %s", id), nil)
-    }
-    p, err := s.projStore.GetByID(ctx, pid)
-    if err != nil {
-        return nil, err
-    }
-    return projectToAPI(p), nil
-}
-
-// +openapi:summary=获取项目列表
-func (s *projectStorage) List(...) { ... }
-// +openapi:summary=创建项目
-func (s *projectStorage) Create(...) { ... }
-// 其他方法同理，每个方法加 +openapi:summary=...
-```
-
-**OpenAPI 注解规则：**
-- **路径自动推导**：存储类型名按 camelCase 拆分 → 最后一段为资源名，前面的段为父资源路径
-  - `projectStorage` → `/projects`
-  - `workspaceProjectStorage` → `/workspaces/{workspaceId}/projects`
-- **额外路径**：同一 Storage 服务多条路径时，仅需在 struct 上声明额外路径：`// +openapi:path=/workspaces/{workspaceId}/projects`
-- **摘要**：`// +openapi:summary=...` 应用于主路径，`// +openapi:summary.workspaces.projects=...` 应用于额外路径
-- **自定义操作**：独立函数用 `// +openapi:action=change-password` + `// +openapi:resource=Project` + `// +openapi:summary=...`
-
-**根据需要实现的接口选择能力：**
+按需实现，框架自动注册已实现的路由：
 
 | 接口 | HTTP 方法 | 说明 |
 |------|----------|------|
@@ -374,124 +209,29 @@ func (s *projectStorage) Create(...) { ... }
 | `rest.Updater` | PUT `/{id}` | 全量更新 |
 | `rest.Patcher` | PATCH `/{id}` | 部分更新 |
 | `rest.Deleter` | DELETE `/{id}` | 删除单个 |
-| `rest.CollectionDeleter` | DELETE `/` | 批量删除（请求体 `{"ids":[...]}`) |
+| `rest.CollectionDeleter` | DELETE `/` | 批量删除 |
 | `rest.StandardStorage` | 以上全部 | 完整 CRUD |
 
-不需要实现全部接口，框架会自动根据类型断言只注册已实现的路由。
-
-### Step 9：注册到 Provider
-
-在 `pkg/apis/iam/provider.go` 中添加 Store 字段和访问器：
-
-```go
-type RESTStorageProvider struct {
-    // ... 已有字段
-    projStore ProjectStore  // 新增
-}
-
-func (p *RESTStorageProvider) ProjectStore() ProjectStore { return p.projStore }
-```
-
-更新 `NewRESTStorageProvider` 参数列表。
-
-### Step 10：注册路由
-
-在 `pkg/apis/iam/v1/install.go` 中添加资源：
-
-```go
-projStorage := iam.NewProjectStorage(p.ProjectStore(), p.UserStore())
-
-// 作为顶层资源
-Resources: []rest.ResourceInfo{
-    {Name: "projects", Storage: projStorage},
-}
-
-// 或作为子资源（如 workspace 下的 project）
-SubResources: []rest.ResourceInfo{
-    {Name: "projects", Storage: projStorage},
-}
-```
-
-路由路径自动从资源名推导：`"projects"` → `/{projectId}`。
-
-**子资源嵌套**时，父级路径参数会通过 `options.PathParams` 传递到 Storage：
-
-```go
-// /api/v1/workspaces/{workspaceId}/projects → PathParams["workspaceId"] 可用
-```
-
-### Step 11：依赖注入
-
-在 `pkg/apis/install.go` 中实例化具体 Store 并传入 Provider：
-
-```go
-iamProvider := iam.NewRESTStorageProvider(
-    // ... 已有
-    iamstore.NewPGProjectStore(database.Pool, database.Queries),  // 新增
-)
-```
-
-### 完成
-
-运行验证：
+#### API 请求/响应格式
 
 ```bash
-make sqlc-generate   # 确保生成代码是最新的
-go build ./...       # 编译通过
-go vet ./pkg/...     # 无代码问题
-make openapi-gen     # 更新 API 文档
-```
-
-## 请求/响应格式
-
-### 创建资源
-
-```bash
-curl -X POST http://localhost:8428/api/v1/workspaces \
+# 创建
+curl -X POST http://localhost:8428/api/iam/v1/workspaces \
   -H 'Content-Type: application/json' \
-  -d '{
-    "metadata": {"name": "my-workspace"},
-    "spec": {
-      "displayName": "My Workspace",
-      "ownerId": "1"
-    }
-  }'
+  -d '{"metadata":{"name":"my-ws"},"spec":{"displayName":"My Workspace","ownerId":"1"}}'
+
+# 列表（分页 + 过滤 + 排序）
+curl 'http://localhost:8428/api/iam/v1/workspaces?page=1&pageSize=10&sortBy=name&sortOrder=asc'
+
+# 批量删除
+curl -X DELETE http://localhost:8428/api/iam/v1/workspaces \
+  -H 'Content-Type: application/json' -d '{"ids":["1","2"]}'
+
+# YAML 格式
+curl -H 'Accept: application/yaml' http://localhost:8428/api/iam/v1/users
 ```
 
-### 列表查询
-
-```bash
-# 分页 + 过滤 + 排序
-curl 'http://localhost:8428/api/v1/workspaces?page=1&pageSize=10&sortBy=name&sortOrder=asc&status=active'
-```
-
-### 批量删除
-
-```bash
-curl -X DELETE http://localhost:8428/api/v1/workspaces \
-  -H 'Content-Type: application/json' \
-  -d '{"ids": ["1", "2", "3"]}'
-```
-
-### 批量添加成员
-
-```bash
-curl -X POST http://localhost:8428/api/v1/workspaces/1/users \
-  -H 'Content-Type: application/json' \
-  -d '{"ids": ["2", "3"]}'
-```
-
-### 内容协商
-
-默认返回 JSON，通过 `Accept` 头请求 YAML：
-
-```bash
-curl -H 'Accept: application/yaml' http://localhost:8428/api/v1/users
-```
-
-### 错误响应
-
-所有错误统一格式：
+错误统一格式：
 
 ```json
 {
@@ -500,23 +240,102 @@ curl -H 'Accept: application/yaml' http://localhost:8428/api/v1/users
   "status": 400,
   "reason": "BadRequest",
   "message": "validation failed",
-  "details": [
-    {"field": "metadata.name", "message": "is required"}
-  ]
+  "details": [{"field": "metadata.name", "message": "is required"}]
 }
 ```
 
-## 当前 API 路由
+### 前端
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| CRUD | `/api/v1/users` | 用户管理 |
-| CRUD | `/api/v1/workspaces` | 组织管理 |
-| CRUD | `/api/v1/workspaces/{workspaceId}/namespaces` | 组织下的命名空间管理 |
-| L/C/D | `/api/v1/workspaces/{workspaceId}/users` | 组织成员管理 |
-| L/C/D | `/api/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users` | 命名空间成员管理 |
-| CRUD | `/api/v1/namespaces` | 全局命名空间管理 |
-| L/C/D | `/api/v1/namespaces/{namespaceId}/users` | 命名空间成员管理 |
+#### 常用命令
 
-> CRUD = POST + GET + GET/{id} + PUT/{id} + PATCH/{id} + DELETE/{id} + DELETE（批量）
-> L/C/D = GET + POST + DELETE（列表/批量添加/批量移除）
+```bash
+cd ui
+pnpm install             # 安装依赖
+pnpm dev                 # 开发服务器（:5173）
+pnpm build               # 生产构建
+pnpm test                # 运行测试
+npx tsc --noEmit         # 类型检查
+```
+
+#### 目录结构
+
+```
+ui/src/
+  api/              # API 客户端、类型定义
+  api/iam/          # IAM 模块 API（用户、工作空间、项目、RBAC）
+  components/       # 共享组件（scope-selector、permission-selector、ui/ shadcn 原语）
+  hooks/            # 自定义 Hooks（use-permission、use-list-state）
+  i18n/             # 国际化（中英文）
+  lib/              # 认证工具（OIDC PKCE 流程、Token 管理）、导航配置
+  layouts/          # 布局组件（root-layout、scope 同步）
+  pages/            # 页面组件（按模块组织：iam、dashboard、infra）
+  stores/           # Zustand 状态管理（auth、permission、scope、workspace）
+  routes.tsx        # 路由定义（三级 scope 路由）
+  modules.ts        # 模块注册
+```
+
+#### 技术栈
+
+- React 18 + TypeScript + Vite
+- Tailwind CSS + shadcn/ui（Radix 原语）
+- react-hook-form + zod/v4
+- ky（HTTP 客户端）
+- zustand（状态管理）
+- react-i18next（国际化）
+
+#### 添加新页面
+
+1. `pages/<module>/<resource>/` — 创建页面组件
+2. `routes.tsx` — 注册三级 scope 路由（platform / workspace / namespace）
+3. `lib/nav-config.ts` — 添加 `NAV_ITEMS` 条目（导航、权限、图标、scope）
+4. `i18n/locales/` — 添加中英文翻译
+5. `api/<module>/` — 添加 API 函数
+
+#### Scope 路由模式
+
+所有支持工作空间/项目 scope 的路由必须在 URL 中嵌入 scope ID：
+
+| Scope | URL 模式 |
+|-------|----------|
+| 平台 | `/{module}/{resource}` |
+| 工作空间 | `/{module}/workspaces/:wsId/{resource}` |
+| 项目 | `/{module}/workspaces/:wsId/namespaces/:nsId/{resource}` |
+
+## API 路由
+
+```
+# OIDC（公开，无需认证）
+GET  /.well-known/openid-configuration
+GET  /.well-known/jwks.json
+GET  /oidc/authorize
+POST /oidc/login
+POST /oidc/token
+GET  /oidc/userinfo
+
+# IAM 模块
+/api/iam/v1/users                                                    # CRUD + 批量删除
+/api/iam/v1/users/{userId}/change-password                           # 修改密码
+/api/iam/v1/users/{userId}:workspaces                                # 用户关联的工作空间
+/api/iam/v1/users/{userId}:namespaces                                # 用户关联的项目
+/api/iam/v1/users/{userId}:rolebindings                              # 用户角色绑定
+/api/iam/v1/users/{userId}:permissions                               # 用户权限视图
+/api/iam/v1/workspaces                                               # CRUD + 批量删除
+/api/iam/v1/workspaces/{workspaceId}/transfer-ownership              # 转移所有权
+/api/iam/v1/workspaces/{workspaceId}/users                           # 成员管理
+/api/iam/v1/workspaces/{workspaceId}/namespaces                      # 项目管理
+/api/iam/v1/workspaces/{workspaceId}/roles                           # 工作空间角色
+/api/iam/v1/workspaces/{workspaceId}/rolebindings                    # 工作空间角色绑定
+/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/users  # 项目成员
+/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/roles  # 项目角色
+/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/rolebindings
+/api/iam/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/transfer-ownership
+/api/iam/v1/namespaces                                               # 全局项目管理
+/api/iam/v1/permissions                                              # 权限列表（只读）
+/api/iam/v1/roles                                                    # 平台角色（只读）
+/api/iam/v1/rolebindings                                             # 平台角色绑定
+
+# Dashboard 模块
+/api/dashboard/v1/overview                                           # 平台概览
+/api/dashboard/v1/workspaces/{workspaceId}/overview                  # 工作空间概览
+/api/dashboard/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/overview
+```

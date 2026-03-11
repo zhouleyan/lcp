@@ -139,6 +139,14 @@ func SetDefaults(cfg *Config) {
 	if cfg.OIDC.Algorithm == "" {
 		cfg.OIDC.Algorithm = "EdDSA"
 	}
+	if len(cfg.OIDC.Clients) == 0 {
+		cfg.OIDC.Clients = []ClientConfig{{
+			ID:           "lcp-ui",
+			Public:       true,
+			RedirectURIs: []string{"/auth/callback"},
+			Scopes:       []string{"openid", "profile", "email", "phone"},
+		}}
+	}
 	if cfg.Admin.Username == "" {
 		cfg.Admin.Username = "admin"
 	}
@@ -202,8 +210,14 @@ func ApplyEnvOverrides(cfg *Config) {
 			cfg.Database.MaxConns = int32(i)
 		}
 	}
+	if v := os.Getenv("OIDC_ISSUER"); v != "" {
+		cfg.OIDC.Issuer = v
+	}
 	if v := os.Getenv("OIDC_ALGORITHM"); v != "" {
 		cfg.OIDC.Algorithm = v
+	}
+	if v := os.Getenv("OIDC_LOGIN_URL"); v != "" {
+		cfg.OIDC.LoginURL = v
 	}
 	if v := os.Getenv("ADMIN_USERNAME"); v != "" {
 		cfg.Admin.Username = v

@@ -1,14 +1,48 @@
+# VCS
 .git
+.gitignore
 .worktrees
-bin/
-vendor
+
+# IDE
+.idea
 .vscode
-.idea/
+.run
 *.iml
-*.test
-*.log
-*.out
+
+# OS
+.DS_Store
+
+# Claude
+.claude
+CLAUDE.md
+ui/CLAUDE.md
+
+# Documentation
+docs
+*.md
+
+# Frontend (dist is needed for go:embed)
 ui/node_modules
-ui/dist
-app/lcp-server/config.dev.yaml
-docs/plans
+ui/src/test
+
+# Go build artifacts & dev binaries
+bin
+lcp-server
+*.test
+*.out
+*.pprof
+coverage.*
+*.coverprofile
+profile.cov
+
+# Keys & secrets
+*.pem
+*.env
+
+# Dev/deploy files
+tmp
+scripts
+deployment
+Makefile
+config.yaml.example
+*.log
