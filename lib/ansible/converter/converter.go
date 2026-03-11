@@ -43,7 +43,8 @@ func BlockToTaskSpec(block ansible.Block, hosts []string, role string, moduleFin
 		DelegateTo:  block.DelegateTo,
 		Async:       block.AsyncVal,
 		Poll:        block.Poll,
-		Notify:      block.Notify,
+		Notify:       block.Notify,
+		IgnoreErrors: block.IgnoreErrors,
 	}
 
 	// Identify module from UnknownField

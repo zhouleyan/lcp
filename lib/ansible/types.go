@@ -607,7 +607,8 @@ type TaskSpec struct {
 	DelegateTo string      `json:"delegate_to,omitempty" yaml:"delegate_to,omitempty"`
 	Async      int         `json:"async,omitempty" yaml:"async,omitempty"`
 	Poll       int         `json:"poll,omitempty" yaml:"poll,omitempty"`
-	Notify     string      `json:"notify,omitempty" yaml:"notify,omitempty"`
+	Notify       string      `json:"notify,omitempty" yaml:"notify,omitempty"`
+	IgnoreErrors *bool       `json:"ignore_errors,omitempty" yaml:"ignore_errors,omitempty"`
 }
 
 // TaskResult holds the result of executing a single task on a single host.
