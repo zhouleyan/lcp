@@ -1,0 +1,945 @@
+import { useCallback, useEffect, useState } from "react"
+import { Link } from "react-router"
+import { Plus, Pencil, Trash2, Search, Filter, ArrowRightLeft, Unlink, Link2 } from "lucide-react"
+import { useForm } from "react-hook-form"
+import { z } from "zod/v4"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
+} from "@/components/ui/form"
+import {
+  listHosts, listWorkspaceHosts, listNamespaceHosts,
+  createHost, createWorkspaceHost, createNamespaceHost,
+  updateHost, updateWorkspaceHost, updateNamespaceHost,
+  deleteHost, deleteHosts,
+  deleteWorkspaceHost, deleteWorkspaceHosts,
+  deleteNamespaceHost, deleteNamespaceHosts,
+  assignHost, unassignHost,
+  assignWorkspaceHost, unassignWorkspaceHost,
+  bindHostEnvironment, unbindHostEnvironment,
+  bindWorkspaceHostEnvironment, unbindWorkspaceHostEnvironment,
+  bindNamespaceHostEnvironment, unbindNamespaceHostEnvironment,
+} from "@/api/infra/hosts"
+import {
+  listEnvironments, listWorkspaceEnvironments, listNamespaceEnvironments,
+} from "@/api/infra/environments"
+import { listWorkspaces } from "@/api/iam/workspaces"
+import { listWorkspaceNamespaces } from "@/api/iam/namespaces"
+import { ApiError, translateApiError } from "@/api/client"
+import type { Host, Environment, Workspace, Namespace, ListParams } from "@/api/types"
+import { useTranslation } from "@/i18n"
+import { usePermission } from "@/hooks/use-permission"
+import { useListState } from "@/hooks/use-list-state"
+import { useScopeStore } from "@/stores/scope-store"
+import { SortIcon } from "@/components/sort-icon"
+import { Pagination } from "@/components/pagination"
+import { ConfirmDialog } from "@/components/confirm-dialog"
+
+export default function HostListPage() {
+  const { t } = useTranslation()
+  const {
+    page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
+    searchInput, setSearchInput, search,
+    selected, toggleAll, toggleOne, clearSelection,
+  } = useListState()
+  const { hasPermission, hasAnyPermission } = usePermission()
+  const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
+  const scopeNamespaceId = useScopeStore((s) => s.namespaceId)
+
+  const [hosts, setHosts] = useState<Host[]>([])
+  const [loading, setLoading] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
+  const [statusFilter, setStatusFilter] = useState("all")
+
+  const [createOpen, setCreateOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<Host | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Host | null>(null)
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
+
+  // Action dialogs
+  const [assignTarget, setAssignTarget] = useState<Host | null>(null)
+  const [bindTarget, setBindTarget] = useState<Host | null>(null)
+  const [unbindTarget, setUnbindTarget] = useState<Host | null>(null)
+  const [unassignTarget, setUnassignTarget] = useState<Host | null>(null)
+
+  const permPrefix = scopeWorkspaceId && scopeNamespaceId
+    ? "infra:workspaces:namespaces:hosts"
+    : scopeWorkspaceId
+      ? "infra:workspaces:hosts"
+      : "infra:hosts"
+
+  const permScope = scopeNamespaceId
+    ? { workspaceId: scopeWorkspaceId!, namespaceId: scopeNamespaceId }
+    : scopeWorkspaceId
+      ? { workspaceId: scopeWorkspaceId }
+      : undefined
+
+  // Whether we're at namespace level (no assign/unassign)
+  const isNamespaceScope = !!(scopeWorkspaceId && scopeNamespaceId)
+  const isPlatformScope = !scopeWorkspaceId
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params: ListParams = { page, pageSize, sortBy, sortOrder }
+      if (search) params.search = search
+      if (statusFilter !== "all") params.status = statusFilter
+
+      let data
+      if (scopeWorkspaceId && scopeNamespaceId) {
+        data = await listNamespaceHosts(scopeWorkspaceId, scopeNamespaceId, params)
+      } else if (scopeWorkspaceId) {
+        data = await listWorkspaceHosts(scopeWorkspaceId, params)
+      } else {
+        data = await listHosts(params)
+      }
+      setHosts(data.items ?? [])
+      setTotalCount(data.totalCount)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
+    } finally {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, sortBy, sortOrder, search, statusFilter, scopeWorkspaceId, scopeNamespaceId])
+
+  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
+  useEffect(() => { clearSelection() }, [hosts])
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      if (scopeWorkspaceId && scopeNamespaceId) {
+        await deleteNamespaceHost(scopeWorkspaceId, scopeNamespaceId, deleteTarget.metadata.id)
+      } else if (scopeWorkspaceId) {
+        await deleteWorkspaceHost(scopeWorkspaceId, deleteTarget.metadata.id)
+      } else {
+        await deleteHost(deleteTarget.metadata.id)
+      }
+      toast.success(t("action.deleteSuccess"))
+      setDeleteTarget(null)
+      fetchData()
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("host.title") }) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    try {
+      const ids = Array.from(selected)
+      if (scopeWorkspaceId && scopeNamespaceId) {
+        await deleteNamespaceHosts(scopeWorkspaceId, scopeNamespaceId, ids)
+      } else if (scopeWorkspaceId) {
+        await deleteWorkspaceHosts(scopeWorkspaceId, ids)
+      } else {
+        await deleteHosts(ids)
+      }
+      toast.success(t("action.deleteSuccess"))
+      setBatchDeleteOpen(false)
+      clearSelection()
+      fetchData()
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("host.title") }) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
+    }
+  }
+
+  const handleUnbind = async () => {
+    if (!unbindTarget) return
+    try {
+      if (scopeWorkspaceId && scopeNamespaceId) {
+        await unbindNamespaceHostEnvironment(scopeWorkspaceId, scopeNamespaceId, unbindTarget.metadata.id)
+      } else if (scopeWorkspaceId) {
+        await unbindWorkspaceHostEnvironment(scopeWorkspaceId, unbindTarget.metadata.id)
+      } else {
+        await unbindHostEnvironment(unbindTarget.metadata.id)
+      }
+      toast.success(t("action.updateSuccess"))
+      setUnbindTarget(null)
+      fetchData()
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err)) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
+    }
+  }
+
+  return (
+    <div className="p-6">
+      {/* header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{t("host.title")}</h1>
+          <p className="text-muted-foreground text-sm">
+            {t("host.manage", { count: totalCount })}
+          </p>
+        </div>
+        {(scopeWorkspaceId ? hasPermission(`${permPrefix}:create`, permScope) : hasAnyPermission("infra:hosts:create")) && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("host.create")}
+          </Button>
+        )}
+      </div>
+
+      {/* filters */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="relative max-w-xs flex-1">
+          <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
+          <Input
+            placeholder={t("host.searchPlaceholder")}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        {selected.size > 0 && hasPermission(`${permPrefix}:deleteCollection`, permScope) && (
+          <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t("host.deleteSelected")} ({selected.size})
+          </Button>
+        )}
+      </div>
+
+      {/* table */}
+      <div className="border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                {hasPermission(`${permPrefix}:deleteCollection`, permScope) && (
+                  <Checkbox
+                    checked={hosts.length > 0 && selected.size === hosts.length}
+                    onCheckedChange={() => toggleAll(hosts.map((h) => h.metadata.id))}
+                  />
+                )}
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
+                {t("common.name")}<SortIcon field="name" sortBy={sortBy} sortOrder={sortOrder} />
+              </TableHead>
+              <TableHead>{t("host.ipAddress")}</TableHead>
+              <TableHead>{t("host.os")}</TableHead>
+              <TableHead>{t("host.environment")}</TableHead>
+              {!isPlatformScope && (
+                <TableHead>{t("host.origin")}</TableHead>
+              )}
+              <TableHead>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="inline-flex items-center gap-1 select-none">
+                      {t("common.status")}
+                      <Filter className={`h-3 w-3 ${statusFilter !== "all" ? "text-primary" : "opacity-40"}`} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => setStatusFilter("all")}>{t("common.all")}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setStatusFilter("active")}>{t("common.active")}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>{t("common.inactive")}</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
+                {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
+              </TableHead>
+              <TableHead className="w-28">{t("common.actions")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  {Array.from({ length: isPlatformScope ? 8 : 9 }).map((_, j) => (
+                    <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : hosts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={isPlatformScope ? 8 : 9} className="text-muted-foreground py-8 text-center">
+                  {t("host.noData")}
+                </TableCell>
+              </TableRow>
+            ) : (
+              hosts.map((host) => (
+                <TableRow key={host.metadata.id}>
+                  <TableCell>
+                    {hasPermission(`${permPrefix}:deleteCollection`, permScope) && (
+                      <Checkbox
+                        checked={selected.has(host.metadata.id)}
+                        onCheckedChange={() => toggleOne(host.metadata.id)}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Link to={`${host.metadata.id}`} className="font-medium hover:underline">
+                      {host.metadata.name}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-sm">{host.spec.ipAddress || "-"}</TableCell>
+                  <TableCell className="text-sm">{host.spec.os || "-"}</TableCell>
+                  <TableCell>
+                    {host.spec.environmentName ? (
+                      <Badge variant="outline">{host.spec.environmentName}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">{t("host.environmentNone")}</span>
+                    )}
+                  </TableCell>
+                  {!isPlatformScope && (
+                    <TableCell>
+                      <Badge variant={host.spec.origin === "assigned" ? "secondary" : "default"}>
+                        {host.spec.origin === "assigned" ? t("host.origin.assigned") : t("host.origin.owned")}
+                      </Badge>
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <Badge variant={host.spec.status === "active" ? "default" : "secondary"}>
+                      {host.spec.status === "active" ? t("common.active") : t("common.inactive")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                    {new Date(host.metadata.createdAt).toLocaleString()}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 px-2">
+                          {t("common.actions")}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {hasPermission(`${permPrefix}:update`, permScope) && (
+                          <DropdownMenuItem onClick={() => setEditTarget(host)}>
+                            <Pencil className="mr-2 h-3.5 w-3.5" />
+                            {t("common.edit")}
+                          </DropdownMenuItem>
+                        )}
+                        {/* Assign/Unassign: only at platform or workspace level, only for owned hosts */}
+                        {!isNamespaceScope && host.spec.origin !== "assigned" && hasPermission(`${permPrefix}:assign`, permScope) && (
+                          <DropdownMenuItem onClick={() => setAssignTarget(host)}>
+                            <ArrowRightLeft className="mr-2 h-3.5 w-3.5" />
+                            {t("host.assign")}
+                          </DropdownMenuItem>
+                        )}
+                        {!isNamespaceScope && host.spec.origin === "assigned" && hasPermission(`${permPrefix}:unassign`, permScope) && (
+                          <DropdownMenuItem onClick={() => setUnassignTarget(host)}>
+                            <ArrowRightLeft className="mr-2 h-3.5 w-3.5" />
+                            {t("host.unassign")}
+                          </DropdownMenuItem>
+                        )}
+                        {/* Bind/Unbind environment */}
+                        {!host.spec.environmentId && hasPermission(`${permPrefix}:bind-environment`, permScope) && (
+                          <DropdownMenuItem onClick={() => setBindTarget(host)}>
+                            <Link2 className="mr-2 h-3.5 w-3.5" />
+                            {t("host.bindEnv")}
+                          </DropdownMenuItem>
+                        )}
+                        {host.spec.environmentId && hasPermission(`${permPrefix}:unbind-environment`, permScope) && (
+                          <DropdownMenuItem onClick={() => setUnbindTarget(host)}>
+                            <Unlink className="mr-2 h-3.5 w-3.5" />
+                            {t("host.unbindEnv")}
+                          </DropdownMenuItem>
+                        )}
+                        {hasPermission(`${permPrefix}:delete`, permScope) && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTarget(host)}>
+                              <Trash2 className="mr-2 h-3.5 w-3.5" />
+                              {t("common.delete")}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Pagination totalCount={totalCount} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+
+      {/* Create dialog */}
+      <HostFormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSuccess={fetchData}
+        scopeWorkspaceId={scopeWorkspaceId}
+        scopeNamespaceId={scopeNamespaceId}
+      />
+
+      {/* Edit dialog */}
+      <HostFormDialog
+        open={!!editTarget}
+        onOpenChange={(v) => { if (!v) setEditTarget(null) }}
+        host={editTarget ?? undefined}
+        onSuccess={fetchData}
+        scopeWorkspaceId={scopeWorkspaceId}
+        scopeNamespaceId={scopeNamespaceId}
+      />
+
+      {/* Assign dialog */}
+      <AssignDialog
+        open={!!assignTarget}
+        onOpenChange={(v) => { if (!v) setAssignTarget(null) }}
+        host={assignTarget}
+        onSuccess={fetchData}
+        scopeWorkspaceId={scopeWorkspaceId}
+      />
+
+      {/* Bind environment dialog */}
+      <BindEnvironmentDialog
+        open={!!bindTarget}
+        onOpenChange={(v) => { if (!v) setBindTarget(null) }}
+        host={bindTarget}
+        onSuccess={fetchData}
+        scopeWorkspaceId={scopeWorkspaceId}
+        scopeNamespaceId={scopeNamespaceId}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null) }}
+        title={t("common.delete")}
+        description={t("host.deleteConfirm", { name: deleteTarget?.metadata.name ?? "" })}
+        onConfirm={handleDelete}
+        confirmText={t("common.delete")}
+      />
+
+      <ConfirmDialog
+        open={batchDeleteOpen}
+        onOpenChange={setBatchDeleteOpen}
+        title={t("host.deleteSelected")}
+        description={t("host.batchDeleteConfirm", { count: selected.size })}
+        onConfirm={handleBatchDelete}
+        confirmText={t("common.delete")}
+      />
+
+      <ConfirmDialog
+        open={!!unbindTarget}
+        onOpenChange={(v) => { if (!v) setUnbindTarget(null) }}
+        title={t("host.unbindEnv")}
+        description={t("host.unbindEnvConfirm", { name: unbindTarget?.metadata.name ?? "" })}
+        onConfirm={handleUnbind}
+        confirmText={t("common.confirm")}
+      />
+
+      <ConfirmDialog
+        open={!!unassignTarget}
+        onOpenChange={(v) => { if (!v) setUnassignTarget(null) }}
+        title={t("host.unassign")}
+        description={t("host.unassignConfirm")}
+        onConfirm={async () => {
+          if (!unassignTarget) return
+          try {
+            const body = scopeWorkspaceId
+              ? { workspaceId: scopeWorkspaceId }
+              : {}
+            if (scopeWorkspaceId) {
+              await unassignWorkspaceHost(scopeWorkspaceId, unassignTarget.metadata.id, body)
+            } else {
+              await unassignHost(unassignTarget.metadata.id, body)
+            }
+            toast.success(t("action.updateSuccess"))
+            setUnassignTarget(null)
+            fetchData()
+          } catch (err) {
+            if (err instanceof ApiError) {
+              toast.error(translateApiError(err) !== err.message ? t(translateApiError(err)) : err.message)
+            } else {
+              toast.error(t("api.error.internalError"))
+            }
+          }
+        }}
+        confirmText={t("common.confirm")}
+      />
+    </div>
+  )
+}
+
+// ===== Host Form Dialog =====
+
+interface HostFormValues {
+  name: string
+  displayName: string
+  description: string
+  hostname: string
+  ipAddress: string
+  os: string
+  arch: string
+  cpuCores: string
+  memoryMb: string
+  diskGb: string
+  status: "active" | "inactive"
+}
+
+function HostFormDialog({
+  open, onOpenChange, host, onSuccess, scopeWorkspaceId, scopeNamespaceId,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  host?: Host
+  onSuccess: () => void
+  scopeWorkspaceId: string | null
+  scopeNamespaceId: string | null
+}) {
+  const { t } = useTranslation()
+  const isEdit = !!host
+  const [loading, setLoading] = useState(false)
+
+  const schema = z.object({
+    name: z.string()
+      .min(3, t("api.validation.name.format"))
+      .max(50, t("api.validation.name.format"))
+      .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, t("api.validation.name.format")),
+    displayName: z.string().optional(),
+    description: z.string().optional(),
+    hostname: z.string().optional(),
+    ipAddress: z.string().optional(),
+    os: z.string().optional(),
+    arch: z.string().optional(),
+    cpuCores: z.string().optional(),
+    memoryMb: z.string().optional(),
+    diskGb: z.string().optional(),
+    status: z.enum(["active", "inactive"]),
+  })
+
+  const form = useForm<HostFormValues>({
+    resolver: zodResolver(schema) as never,
+    mode: "onBlur",
+    defaultValues: { name: "", displayName: "", description: "", hostname: "", ipAddress: "", os: "", arch: "", cpuCores: "", memoryMb: "", diskGb: "", status: "active" },
+  })
+
+  useEffect(() => {
+    if (open) {
+      if (host) {
+        form.reset({
+          name: host.metadata.name,
+          displayName: host.spec.displayName ?? "",
+          description: host.spec.description ?? "",
+          hostname: host.spec.hostname ?? "",
+          ipAddress: host.spec.ipAddress ?? "",
+          os: host.spec.os ?? "",
+          arch: host.spec.arch ?? "",
+          cpuCores: host.spec.cpuCores ? String(host.spec.cpuCores) : "",
+          memoryMb: host.spec.memoryMb ? String(host.spec.memoryMb) : "",
+          diskGb: host.spec.diskGb ? String(host.spec.diskGb) : "",
+          status: (host.spec.status as "active" | "inactive") ?? "active",
+        })
+      } else {
+        form.reset({ name: "", displayName: "", description: "", hostname: "", ipAddress: "", os: "", arch: "", cpuCores: "", memoryMb: "", diskGb: "", status: "active" })
+      }
+    }
+  }, [open, host, form])
+
+  const onSubmit = async (values: HostFormValues) => {
+    setLoading(true)
+    try {
+      const spec: Host["spec"] = {
+        hostname: values.hostname,
+        ipAddress: values.ipAddress,
+        os: values.os,
+        arch: values.arch,
+        cpuCores: values.cpuCores ? Number(values.cpuCores) : undefined,
+        memoryMb: values.memoryMb ? Number(values.memoryMb) : undefined,
+        diskGb: values.diskGb ? Number(values.diskGb) : undefined,
+        displayName: values.displayName,
+        description: values.description,
+        status: values.status,
+      } as Host["spec"]
+
+      const payload = {
+        metadata: isEdit ? host.metadata : { name: values.name } as Host["metadata"],
+        spec,
+      }
+
+      if (isEdit) {
+        if (scopeWorkspaceId && scopeNamespaceId) {
+          await updateNamespaceHost(scopeWorkspaceId, scopeNamespaceId, host.metadata.id, payload)
+        } else if (scopeWorkspaceId) {
+          await updateWorkspaceHost(scopeWorkspaceId, host.metadata.id, payload)
+        } else {
+          await updateHost(host.metadata.id, payload)
+        }
+        toast.success(t("action.updateSuccess"))
+      } else {
+        if (scopeWorkspaceId && scopeNamespaceId) {
+          await createNamespaceHost(scopeWorkspaceId, scopeNamespaceId, payload)
+        } else if (scopeWorkspaceId) {
+          await createWorkspaceHost(scopeWorkspaceId, payload)
+        } else {
+          await createHost(payload)
+        }
+        toast.success(t("action.createSuccess"))
+      }
+      onOpenChange(false)
+      onSuccess()
+    } catch (err) {
+      if (err instanceof ApiError) {
+        form.setError("root", {
+          message: translateApiError(err) !== err.message
+            ? t(translateApiError(err), { resource: t("host.title") })
+            : err.message,
+        })
+      } else {
+        form.setError("root", { message: t("api.error.internalError") })
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>{isEdit ? t("host.edit") : t("host.create")}</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+            {form.formState.errors.root && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {form.formState.errors.root.message}
+              </div>
+            )}
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("host.name")}</FormLabel>
+                <FormControl><Input {...field} disabled={isEdit} placeholder="my-host" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="displayName" render={({ field }) => (
+              <FormItem><FormLabel>{t("host.displayName")}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="description" render={({ field }) => (
+              <FormItem><FormLabel>{t("host.description")}</FormLabel><FormControl><Textarea rows={2} {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="hostname" render={({ field }) => (
+                <FormItem><FormLabel>{t("host.hostname")}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="ipAddress" render={({ field }) => (
+                <FormItem><FormLabel>{t("host.ipAddress")}</FormLabel><FormControl><Input {...field} placeholder="192.168.1.1" /></FormControl><FormMessage /></FormItem>
+              )} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="os" render={({ field }) => (
+                <FormItem><FormLabel>{t("host.os")}</FormLabel><FormControl><Input {...field} placeholder="Linux" /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="arch" render={({ field }) => (
+                <FormItem><FormLabel>{t("host.arch")}</FormLabel><FormControl><Input {...field} placeholder="amd64" /></FormControl><FormMessage /></FormItem>
+              )} />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <FormField control={form.control} name="cpuCores" render={({ field }) => (
+                <FormItem><FormLabel>{t("host.cpuCores")}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="memoryMb" render={({ field }) => (
+                <FormItem><FormLabel>{t("host.memoryMb")}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="diskGb" render={({ field }) => (
+                <FormItem><FormLabel>{t("host.diskGb")}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            </div>
+            <FormField control={form.control} name="status" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("common.status")}</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl><SelectTrigger className="w-full"><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="active">{t("common.active")}</SelectItem>
+                    <SelectItem value="inactive">{t("common.inactive")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <DialogFooter className="mt-6 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
+              <Button type="submit" disabled={loading}>{loading ? "..." : t("common.save")}</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ===== Assign Dialog =====
+
+function AssignDialog({
+  open, onOpenChange, host, onSuccess, scopeWorkspaceId,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  host: Host | null
+  onSuccess: () => void
+  scopeWorkspaceId: string | null
+}) {
+  const { t } = useTranslation()
+  const [loading, setLoading] = useState(false)
+  const [targetType, setTargetType] = useState<"workspace" | "namespace">("workspace")
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [namespaces, setNamespaces] = useState<Namespace[]>([])
+  const [selectedWsId, setSelectedWsId] = useState("")
+  const [selectedNsId, setSelectedNsId] = useState("")
+
+  useEffect(() => {
+    if (open) {
+      setTargetType(scopeWorkspaceId ? "namespace" : "workspace")
+      setSelectedWsId("")
+      setSelectedNsId("")
+      // Fetch target options
+      if (scopeWorkspaceId) {
+        listWorkspaceNamespaces(scopeWorkspaceId, { pageSize: 100 }).then((d) => setNamespaces(d.items ?? [])).catch(() => {})
+      } else {
+        listWorkspaces({ pageSize: 100 }).then((d) => setWorkspaces(d.items ?? [])).catch(() => {})
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, scopeWorkspaceId])
+
+  // When target type changes to namespace at platform level, fetch namespaces for selected workspace
+  useEffect(() => {
+    if (targetType === "namespace" && selectedWsId && !scopeWorkspaceId) {
+      listWorkspaceNamespaces(selectedWsId, { pageSize: 100 }).then((d) => setNamespaces(d.items ?? [])).catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetType, selectedWsId])
+
+  const handleAssign = async () => {
+    if (!host) return
+    setLoading(true)
+    try {
+      const body = targetType === "workspace"
+        ? { workspaceId: selectedWsId }
+        : { namespaceId: selectedNsId }
+
+      if (scopeWorkspaceId) {
+        await assignWorkspaceHost(scopeWorkspaceId, host.metadata.id, body)
+      } else {
+        await assignHost(host.metadata.id, body)
+      }
+      toast.success(t("action.updateSuccess"))
+      onOpenChange(false)
+      onSuccess()
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err)) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const canSubmit = targetType === "workspace" ? !!selectedWsId : !!selectedNsId
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>{t("host.assign")}: {host?.metadata.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          {!scopeWorkspaceId && (
+            <div>
+              <label className="text-sm font-medium">{t("host.assignTo")}</label>
+              <Select value={targetType} onValueChange={(v) => setTargetType(v as "workspace" | "namespace")}>
+                <SelectTrigger className="w-full mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="workspace">{t("host.assignToWorkspace")}</SelectItem>
+                  <SelectItem value="namespace">{t("host.assignToNamespace")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {targetType === "workspace" && !scopeWorkspaceId && (
+            <div>
+              <label className="text-sm font-medium">{t("host.selectWorkspace")}</label>
+              <Select value={selectedWsId} onValueChange={setSelectedWsId}>
+                <SelectTrigger className="w-full mt-1"><SelectValue placeholder={t("host.selectWorkspace")} /></SelectTrigger>
+                <SelectContent>
+                  {workspaces.map((ws) => (
+                    <SelectItem key={ws.metadata.id} value={ws.metadata.id}>
+                      {ws.spec.displayName || ws.metadata.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {targetType === "namespace" && !scopeWorkspaceId && (
+            <div>
+              <label className="text-sm font-medium">{t("host.selectWorkspace")}</label>
+              <Select value={selectedWsId} onValueChange={(v) => { setSelectedWsId(v); setSelectedNsId("") }}>
+                <SelectTrigger className="w-full mt-1"><SelectValue placeholder={t("host.selectWorkspace")} /></SelectTrigger>
+                <SelectContent>
+                  {workspaces.map((ws) => (
+                    <SelectItem key={ws.metadata.id} value={ws.metadata.id}>
+                      {ws.spec.displayName || ws.metadata.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {targetType === "namespace" && (
+            <div>
+              <label className="text-sm font-medium">{t("host.selectNamespace")}</label>
+              <Select value={selectedNsId} onValueChange={setSelectedNsId}>
+                <SelectTrigger className="w-full mt-1"><SelectValue placeholder={t("host.selectNamespace")} /></SelectTrigger>
+                <SelectContent>
+                  {namespaces.map((ns) => (
+                    <SelectItem key={ns.metadata.id} value={ns.metadata.id}>
+                      {ns.spec.displayName || ns.metadata.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+        <DialogFooter className="mt-6 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
+          <Button onClick={handleAssign} disabled={loading || !canSubmit}>
+            {loading ? "..." : t("host.assign")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ===== Bind Environment Dialog =====
+
+function BindEnvironmentDialog({
+  open, onOpenChange, host, onSuccess, scopeWorkspaceId, scopeNamespaceId,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  host: Host | null
+  onSuccess: () => void
+  scopeWorkspaceId: string | null
+  scopeNamespaceId: string | null
+}) {
+  const { t } = useTranslation()
+  const [loading, setLoading] = useState(false)
+  const [environments, setEnvironments] = useState<Environment[]>([])
+  const [selectedEnvId, setSelectedEnvId] = useState("")
+
+  useEffect(() => {
+    if (open) {
+      setSelectedEnvId("")
+      const fetchEnvs = async () => {
+        try {
+          let data
+          if (scopeWorkspaceId && scopeNamespaceId) {
+            data = await listNamespaceEnvironments(scopeWorkspaceId, scopeNamespaceId, { pageSize: 100 })
+          } else if (scopeWorkspaceId) {
+            data = await listWorkspaceEnvironments(scopeWorkspaceId, { pageSize: 100 })
+          } else {
+            data = await listEnvironments({ pageSize: 100 })
+          }
+          setEnvironments(data.items ?? [])
+        } catch {
+          setEnvironments([])
+        }
+      }
+      fetchEnvs()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, scopeWorkspaceId, scopeNamespaceId])
+
+  const handleBind = async () => {
+    if (!host || !selectedEnvId) return
+    setLoading(true)
+    try {
+      const body = { environmentId: selectedEnvId }
+      if (scopeWorkspaceId && scopeNamespaceId) {
+        await bindNamespaceHostEnvironment(scopeWorkspaceId, scopeNamespaceId, host.metadata.id, body)
+      } else if (scopeWorkspaceId) {
+        await bindWorkspaceHostEnvironment(scopeWorkspaceId, host.metadata.id, body)
+      } else {
+        await bindHostEnvironment(host.metadata.id, body)
+      }
+      toast.success(t("action.updateSuccess"))
+      onOpenChange(false)
+      onSuccess()
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err)) : err.message)
+      } else {
+        toast.error(t("api.error.internalError"))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>{t("host.bindEnv")}: {host?.metadata.name}</DialogTitle>
+        </DialogHeader>
+        <div>
+          <label className="text-sm font-medium">{t("host.selectEnvironment")}</label>
+          <Select value={selectedEnvId} onValueChange={setSelectedEnvId}>
+            <SelectTrigger className="w-full mt-1"><SelectValue placeholder={t("host.selectEnvironment")} /></SelectTrigger>
+            <SelectContent>
+              {environments.map((env) => (
+                <SelectItem key={env.metadata.id} value={env.metadata.id}>
+                  {env.spec.displayName || env.metadata.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <DialogFooter className="mt-6 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
+          <Button onClick={handleBind} disabled={loading || !selectedEnvId}>
+            {loading ? "..." : t("host.bindEnv")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
