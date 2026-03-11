@@ -194,10 +194,6 @@ const iam: Messages = {
   "perm.iam:users:delete": "删除用户",
   "perm.iam:users:deleteCollection": "批量删除用户",
   "perm.iam:users:change-password": "修改用户密码",
-  "perm.iam:users:workspaces": "查看用户的租户",
-  "perm.iam:users:namespaces": "查看用户的项目",
-  "perm.iam:users:rolebindings": "查看用户的角色绑定",
-  "perm.iam:users:permissions": "查看用户权限",
 
   // permission codes - workspaces
   "perm.iam:workspaces:list": "查看租户列表",
@@ -260,7 +256,6 @@ const iam: Messages = {
   "perm.iam:roles:get": "查看角色详情",
   "perm.iam:roles:create": "创建角色",
   "perm.iam:roles:update": "更新角色",
-  "perm.iam:roles:patch": "修改角色",
   "perm.iam:roles:delete": "删除角色",
 
   // permission codes - role bindings
@@ -270,7 +265,6 @@ const iam: Messages = {
 
   // permission codes - permissions
   "perm.iam:permissions:list": "查看权限列表",
-  "perm.iam:permissions:get": "查看权限详情",
 }
 
 export default iam

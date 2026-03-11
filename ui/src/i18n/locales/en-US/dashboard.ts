@@ -6,7 +6,7 @@ const dashboard: Messages = {
   "perm.group.dashboard.overview": "Platform Overview",
   "perm.group.dashboard.workspaces": "Workspace Dashboard",
   "perm.group.dashboard.workspaces.overview": "Workspace Overview",
-  "perm.group.dashboard.workspaces.namespaces:overview": "Namespace Overview",
+  "perm.group.dashboard.workspaces.namespaces.overview": "Namespace Overview",
 
   // permission codes - dashboard
   "perm.dashboard:overview:list": "View platform overview",

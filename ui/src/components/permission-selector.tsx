@@ -132,7 +132,7 @@ function buildTree(perms: Permission[]): GroupNode {
           const subNode: GroupNode = {
             key: resourceKey,
             wildcardPattern: `${resourceKey}:*`,
-            i18nKey: `perm.group.${module}.${topResource}.${subResourceName}`,
+            i18nKey: `perm.group.${module}.${topResource}.${subResourceName.replace(/:/g, ".")}`,
             children: [],
             permissions: permsInGroup.map((p) => ({
               code: p.spec.code,

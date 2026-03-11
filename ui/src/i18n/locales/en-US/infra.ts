@@ -84,6 +84,7 @@ const infra: Messages = {
   "perm.group.infra": "Infrastructure",
   "perm.group.infra.hosts": "Hosts",
   "perm.group.infra.environments": "Environments",
+  "perm.group.infra.workspaces": "Workspaces",
   "perm.group.infra.workspaces.hosts": "Workspace Hosts",
   "perm.group.infra.workspaces.environments": "Workspace Environments",
   "perm.group.infra.workspaces.namespaces.hosts": "Namespace Hosts",
@@ -99,7 +100,6 @@ const infra: Messages = {
   "perm.infra:hosts:unassign": "Unassign host",
   "perm.infra:hosts:bind-environment": "Bind host environment",
   "perm.infra:hosts:unbind-environment": "Unbind host environment",
-  "perm.infra:hosts:assignments": "View host assignments",
   "perm.infra:environments:list": "List environments",
   "perm.infra:environments:get": "Get environment details",
   "perm.infra:environments:create": "Create environment",
@@ -107,7 +107,6 @@ const infra: Messages = {
   "perm.infra:environments:patch": "Patch environment",
   "perm.infra:environments:delete": "Delete environment",
   "perm.infra:environments:deleteCollection": "Batch delete environments",
-  "perm.infra:environments:hosts": "List environment hosts",
   "perm.infra:workspaces:hosts:list": "List workspace hosts",
   "perm.infra:workspaces:hosts:get": "Get workspace host details",
   "perm.infra:workspaces:hosts:create": "Create workspace host",
@@ -126,7 +125,6 @@ const infra: Messages = {
   "perm.infra:workspaces:environments:patch": "Patch workspace environment",
   "perm.infra:workspaces:environments:delete": "Delete workspace environment",
   "perm.infra:workspaces:environments:deleteCollection": "Batch delete workspace environments",
-  "perm.infra:workspaces:environments:hosts": "List workspace environment hosts",
   "perm.infra:workspaces:namespaces:hosts:list": "List namespace hosts",
   "perm.infra:workspaces:namespaces:hosts:get": "Get namespace host details",
   "perm.infra:workspaces:namespaces:hosts:create": "Create namespace host",
@@ -143,7 +141,6 @@ const infra: Messages = {
   "perm.infra:workspaces:namespaces:environments:patch": "Patch namespace environment",
   "perm.infra:workspaces:namespaces:environments:delete": "Delete namespace environment",
   "perm.infra:workspaces:namespaces:environments:deleteCollection": "Batch delete namespace environments",
-  "perm.infra:workspaces:namespaces:environments:hosts": "List namespace environment hosts",
 }
 
 export default infra

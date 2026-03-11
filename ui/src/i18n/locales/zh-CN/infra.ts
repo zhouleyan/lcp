@@ -81,6 +81,7 @@ const infra: Messages = {
   "perm.group.infra": "基础设施",
   "perm.group.infra.hosts": "主机",
   "perm.group.infra.environments": "环境",
+  "perm.group.infra.workspaces": "租户",
   "perm.group.infra.workspaces.hosts": "租户主机",
   "perm.group.infra.workspaces.environments": "租户环境",
   "perm.group.infra.workspaces.namespaces.hosts": "项目主机",
@@ -96,7 +97,6 @@ const infra: Messages = {
   "perm.infra:hosts:unassign": "取消分配主机",
   "perm.infra:hosts:bind-environment": "绑定主机环境",
   "perm.infra:hosts:unbind-environment": "解绑主机环境",
-  "perm.infra:hosts:assignments": "查看主机分配记录",
   "perm.infra:environments:list": "查看环境列表",
   "perm.infra:environments:get": "查看环境详情",
   "perm.infra:environments:create": "创建环境",
@@ -104,7 +104,6 @@ const infra: Messages = {
   "perm.infra:environments:patch": "修改环境",
   "perm.infra:environments:delete": "删除环境",
   "perm.infra:environments:deleteCollection": "批量删除环境",
-  "perm.infra:environments:hosts": "查看环境主机列表",
   "perm.infra:workspaces:hosts:list": "查看租户主机列表",
   "perm.infra:workspaces:hosts:get": "查看租户主机详情",
   "perm.infra:workspaces:hosts:create": "创建租户主机",
@@ -123,7 +122,6 @@ const infra: Messages = {
   "perm.infra:workspaces:environments:patch": "修改租户环境",
   "perm.infra:workspaces:environments:delete": "删除租户环境",
   "perm.infra:workspaces:environments:deleteCollection": "批量删除租户环境",
-  "perm.infra:workspaces:environments:hosts": "查看租户环境主机列表",
   "perm.infra:workspaces:namespaces:hosts:list": "查看项目主机列表",
   "perm.infra:workspaces:namespaces:hosts:get": "查看项目主机详情",
   "perm.infra:workspaces:namespaces:hosts:create": "创建项目主机",
@@ -140,7 +138,6 @@ const infra: Messages = {
   "perm.infra:workspaces:namespaces:environments:patch": "修改项目环境",
   "perm.infra:workspaces:namespaces:environments:delete": "删除项目环境",
   "perm.infra:workspaces:namespaces:environments:deleteCollection": "批量删除项目环境",
-  "perm.infra:workspaces:namespaces:environments:hosts": "查看项目环境主机列表",
 }
 
 export default infra

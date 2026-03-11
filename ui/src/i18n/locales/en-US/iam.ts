@@ -194,10 +194,6 @@ const iam: Messages = {
   "perm.iam:users:delete": "Delete user",
   "perm.iam:users:deleteCollection": "Batch delete users",
   "perm.iam:users:change-password": "Change user password",
-  "perm.iam:users:workspaces": "List user's workspaces",
-  "perm.iam:users:namespaces": "List user's namespaces",
-  "perm.iam:users:rolebindings": "List user's role bindings",
-  "perm.iam:users:permissions": "List user's permissions",
 
   // permission codes - workspaces
   "perm.iam:workspaces:list": "List workspaces",
@@ -260,7 +256,6 @@ const iam: Messages = {
   "perm.iam:roles:get": "Get role details",
   "perm.iam:roles:create": "Create role",
   "perm.iam:roles:update": "Update role",
-  "perm.iam:roles:patch": "Patch role",
   "perm.iam:roles:delete": "Delete role",
 
   // permission codes - role bindings
@@ -270,7 +265,6 @@ const iam: Messages = {
 
   // permission codes - permissions
   "perm.iam:permissions:list": "List permissions",
-  "perm.iam:permissions:get": "Get permission details",
 }
 
 export default iam
