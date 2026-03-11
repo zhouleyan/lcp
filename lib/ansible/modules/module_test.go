@@ -8,15 +8,23 @@ import (
 	"lcp.io/lcp/lib/ansible/variable"
 )
 
-// resetRegistry clears the global registry for test isolation.
-func resetRegistry() {
+// saveAndResetRegistry clears the global registry for test isolation
+// and returns a cleanup function that restores it.
+func saveAndResetRegistry(t *testing.T) {
+	t.Helper()
 	registryMu.Lock()
-	defer registryMu.Unlock()
+	saved := registry
 	registry = make(map[string]ModuleExecFunc)
+	registryMu.Unlock()
+	t.Cleanup(func() {
+		registryMu.Lock()
+		registry = saved
+		registryMu.Unlock()
+	})
 }
 
 func TestRegisterAndFindModule(t *testing.T) {
-	resetRegistry()
+	saveAndResetRegistry(t)
 
 	RegisterModule("test_mod", func(ctx context.Context, opts ExecOptions) (string, string, error) {
 		return "ok", "", nil
@@ -40,7 +48,7 @@ func TestRegisterAndFindModule(t *testing.T) {
 }
 
 func TestFindModule_NotFound(t *testing.T) {
-	resetRegistry()
+	saveAndResetRegistry(t)
 
 	fn := FindModule("nonexistent")
 	if fn != nil {
@@ -49,7 +57,7 @@ func TestFindModule_NotFound(t *testing.T) {
 }
 
 func TestIsModule(t *testing.T) {
-	resetRegistry()
+	saveAndResetRegistry(t)
 
 	RegisterModule("exists_mod", func(ctx context.Context, opts ExecOptions) (string, string, error) {
 		return "", "", nil
@@ -64,7 +72,7 @@ func TestIsModule(t *testing.T) {
 }
 
 func TestListModules(t *testing.T) {
-	resetRegistry()
+	saveAndResetRegistry(t)
 
 	RegisterModule("zeta", func(ctx context.Context, opts ExecOptions) (string, string, error) {
 		return "", "", nil
@@ -90,7 +98,7 @@ func TestListModules(t *testing.T) {
 }
 
 func TestListModules_Empty(t *testing.T) {
-	resetRegistry()
+	saveAndResetRegistry(t)
 
 	names := ListModules()
 	if len(names) != 0 {
@@ -99,7 +107,7 @@ func TestListModules_Empty(t *testing.T) {
 }
 
 func TestRegisterModule_Overwrite(t *testing.T) {
-	resetRegistry()
+	saveAndResetRegistry(t)
 
 	RegisterModule("dup", func(ctx context.Context, opts ExecOptions) (string, string, error) {
 		return "first", "", nil
