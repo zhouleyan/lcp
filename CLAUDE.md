@@ -277,7 +277,7 @@ Permission (auto-registered from resource tree, read-only)
 
 ### Permission Auto-Registration
 
-Permissions are auto-generated from the resource tree at startup via `SyncPermissions`. Each resource + verb combination produces a permission code (e.g., `iam:users:list`, `iam:workspaces:namespaces:create`). No manual permission maintenance needed.
+Permissions are auto-generated from the resource tree at startup via `SyncPermissions`. Each resource + verb combination produces a permission code (e.g., `iam:users:list`, `iam:namespaces:create`). Scope hierarchy is encoded in the `scope` field, not in the code. Each permission uses a `(code, scope)` composite unique key. No manual permission maintenance needed.
 
 ### Three-Level Scope Chain
 

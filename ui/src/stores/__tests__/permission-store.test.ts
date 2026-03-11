@@ -15,15 +15,15 @@ const mockPermissionsResponse: UserPermissions = {
   kind: "UserPermissions",
   spec: {
     isPlatformAdmin: false,
-    platform: ["users.list"],
+    platform: ["iam:users:list"],
     workspaces: {
-      "ws-1": { roleNames: ["admin"], permissions: ["workspaces.update"] },
+      "ws-1": { roleNames: ["admin"], permissions: ["iam:workspaces:update"] },
     },
     namespaces: {
       "ns-1": {
         roleNames: ["viewer"],
         workspaceId: "ws-1",
-        permissions: ["namespaces.get"],
+        permissions: ["iam:namespaces:get"],
       },
     },
   },
@@ -52,13 +52,18 @@ describe("usePermissionStore", () => {
     expect(mockedGetUserPermissions).toHaveBeenCalledWith("user-1")
   })
 
-  it("fetchPermissions sets null on failure", async () => {
+  it("fetchPermissions sets empty permissions on failure", async () => {
     mockedGetUserPermissions.mockRejectedValue(new Error("network error"))
 
     await usePermissionStore.getState().fetchPermissions("user-1")
 
     const state = usePermissionStore.getState()
-    expect(state.permissions).toBeNull()
+    expect(state.permissions).toEqual({
+      isPlatformAdmin: false,
+      platform: [],
+      workspaces: {},
+      namespaces: {},
+    })
     expect(state.loading).toBe(false)
   })
 

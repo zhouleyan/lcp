@@ -192,20 +192,6 @@ func ValidateRoleUpdate(spec *RoleSpec) validation.ErrorList {
 	return errs
 }
 
-// scopeLevel returns numeric level for scope comparison.
-func scopeLevel(scope string) int {
-	switch scope {
-	case "platform":
-		return 0
-	case "workspace":
-		return 1
-	case "namespace":
-		return 2
-	default:
-		return -1
-	}
-}
-
 // ValidateRuleScopes checks that each rule pattern matches at least one permission
 // at the role's scope level. This ensures rules are not dead (matching nothing at the scope).
 func ValidateRuleScopes(roleScope string, rules []string, codeScopes []PermissionCodeScope) validation.ErrorList {

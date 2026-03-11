@@ -357,12 +357,12 @@ Conditionally render action buttons based on the user's permissions:
 | users | `iam:users:create` | `iam:users:update` | `iam:users:delete` | `iam:users:deleteCollection` |
 | workspaces | `iam:workspaces:create` | `iam:workspaces:update` (scoped) | `iam:workspaces:delete` (scoped) | `iam:workspaces:deleteCollection` |
 | namespaces | `iam:namespaces:create` (any) | `iam:namespaces:update` (scoped) | `iam:namespaces:delete` (scoped) | `iam:namespaces:deleteCollection` (any) |
-| workspace members | `iam:workspaces:users:create` (scoped) | - | - | `iam:workspaces:users:deleteCollection` (scoped) |
-| namespace members | `iam:namespaces:users:create` (scoped) | - | - | `iam:namespaces:users:deleteCollection` (scoped) |
+| workspace members | `iam:users:create` (scoped) | - | - | `iam:users:deleteCollection` (scoped) |
+| namespace members | `iam:users:create` (scoped) | - | - | `iam:users:deleteCollection` (scoped) |
 | roles | `iam:roles:create` | `iam:roles:update` | `iam:roles:delete` | `iam:roles:delete` |
 | rolebindings (platform) | `iam:rolebindings:create` | - | `iam:rolebindings:delete` | `iam:rolebindings:delete` |
-| rolebindings (workspace) | `iam:workspaces:rolebindings:create` (scoped) | - | `iam:workspaces:rolebindings:delete` (scoped) | same |
-| rolebindings (namespace) | `iam:namespaces:rolebindings:create` (scoped) | - | `iam:namespaces:rolebindings:delete` (scoped) | same |
+| rolebindings (workspace) | `iam:rolebindings:create` (scoped) | - | `iam:rolebindings:delete` (scoped) | same |
+| rolebindings (namespace) | `iam:rolebindings:create` (scoped) | - | `iam:rolebindings:delete` (scoped) | same |
 
 #### Checkbox Column Convention
 
