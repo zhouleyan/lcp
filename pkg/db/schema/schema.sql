@@ -157,6 +157,37 @@ CREATE INDEX idx_role_bindings_user ON role_bindings(user_id);
 CREATE INDEX idx_role_bindings_workspace ON role_bindings(workspace_id) WHERE workspace_id IS NOT NULL;
 CREATE INDEX idx_role_bindings_namespace ON role_bindings(namespace_id) WHERE namespace_id IS NOT NULL;
 
+-- audit_logs table (immutable records, no FK constraints)
+CREATE TABLE audit_logs (
+    id            BIGSERIAL    PRIMARY KEY,
+    user_id       BIGINT,                          -- nullable (failed login for unknown user)
+    username      VARCHAR(255) NOT NULL DEFAULT '', -- denormalized, no FK
+    event_type    VARCHAR(50)  NOT NULL,            -- 'api_operation' | 'authentication'
+    action        VARCHAR(50)  NOT NULL,            -- 'create'|'update'|'patch'|'delete'|'deleteCollection'|'login'|'login_failed'|'token_refresh'|'token_refresh_blocked'
+    resource_type VARCHAR(100) NOT NULL DEFAULT '', -- 'users'|'workspaces:namespaces'|...
+    resource_id   VARCHAR(100) NOT NULL DEFAULT '',
+    module        VARCHAR(50)  NOT NULL DEFAULT '', -- 'iam'|'dashboard'|...
+    scope         VARCHAR(20)  NOT NULL DEFAULT 'platform',
+    workspace_id  BIGINT,
+    namespace_id  BIGINT,
+    http_method   VARCHAR(10)  NOT NULL DEFAULT '',
+    http_path     VARCHAR(500) NOT NULL DEFAULT '',
+    status_code   INT          NOT NULL DEFAULT 0,
+    client_ip     VARCHAR(45)  NOT NULL DEFAULT '',
+    user_agent    VARCHAR(500) NOT NULL DEFAULT '',
+    duration_ms   INT          NOT NULL DEFAULT 0,
+    success       BOOLEAN      NOT NULL DEFAULT true,
+    detail        TEXT         NOT NULL DEFAULT '', -- JSON for extra context
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_audit_logs_user_id       ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_created_at    ON audit_logs(created_at);
+CREATE INDEX idx_audit_logs_event_type    ON audit_logs(event_type);
+CREATE INDEX idx_audit_logs_resource_type ON audit_logs(resource_type);
+CREATE INDEX idx_audit_logs_workspace_id  ON audit_logs(workspace_id);
+CREATE INDEX idx_audit_logs_namespace_id  ON audit_logs(namespace_id);
+
 -- refresh_tokens table
 CREATE TABLE refresh_tokens (
     id         BIGSERIAL    PRIMARY KEY,

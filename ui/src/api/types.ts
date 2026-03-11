@@ -43,7 +43,6 @@ export interface WorkspaceSpec {
   ownerName?: string
   namespaceCount?: number
   memberCount?: number
-  roleBindingCount?: number
   status?: "active" | "inactive"
   role?: string
   roleDisplayName?: string
@@ -72,7 +71,6 @@ export interface NamespaceSpec {
   visibility?: "public" | "private"
   maxMembers?: number
   memberCount?: number
-  roleBindingCount?: number
   status?: "active" | "inactive"
   role?: string
   roleDisplayName?: string
@@ -163,8 +161,6 @@ export interface RoleBindingSpec {
   roleDisplayName?: string
   username?: string
   userDisplayName?: string
-  workspaceName?: string
-  namespaceName?: string
 }
 
 export interface RoleBinding extends TypeMeta {
@@ -209,7 +205,6 @@ export interface OverviewSpec {
   userCount: number
   memberCount: number
   roleCount: number
-  roleBindingCount: number
 }
 
 export interface Overview extends TypeMeta {
@@ -227,40 +222,6 @@ export interface OIDCUserInfo {
   name?: string
   email?: string
   phone_number?: string
-}
-
-// --- AuditLog ---
-
-export interface AuditLogSpec {
-  id: string
-  userId?: string
-  username: string
-  eventType: "api_operation" | "authentication"
-  action: string
-  resourceType?: string
-  resourceId?: string
-  module?: string
-  scope: "platform" | "workspace" | "namespace"
-  workspaceId?: string
-  namespaceId?: string
-  httpMethod?: string
-  httpPath?: string
-  statusCode?: number
-  clientIp?: string
-  userAgent?: string
-  durationMs?: number
-  success: boolean
-  detail?: Record<string, unknown>
-  createdAt: string
-}
-
-export interface AuditLog extends TypeMeta {
-  spec: AuditLogSpec
-}
-
-export interface AuditLogList extends TypeMeta {
-  items: AuditLog[]
-  totalCount: number
 }
 
 export interface StatusResponseDetail {
