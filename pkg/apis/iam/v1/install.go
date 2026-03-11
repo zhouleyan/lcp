@@ -149,10 +149,11 @@ func NewAuthorizer(database *db.DB, groups []*rest.APIGroupInfo) *filters.Author
 }
 
 // NewOIDCProvider creates the OIDC provider with all internal store wiring.
-// Returns nil if OIDC is not configured (no key files).
+// Keys are auto-generated and stored in the database.
+// Returns nil if OIDC issuer is not configured.
 func NewOIDCProvider(database *db.DB, cfg *config.OIDCConfig) *oidc.Provider {
-	if cfg.PrivateKeyFile == "" || cfg.PublicKeyFile == "" {
-		logger.Infof("OIDC not configured (no key files), authentication disabled")
+	if cfg.Issuer == "" {
+		logger.Infof("OIDC not configured (no issuer), authentication disabled")
 		return nil
 	}
 
@@ -161,10 +162,13 @@ func NewOIDCProvider(database *db.DB, cfg *config.OIDCConfig) *oidc.Provider {
 		logger.Fatalf("invalid OIDC config: %v", err)
 	}
 
-	keySet, err := oidc.LoadKeySet(cfg.PrivateKeyFile, cfg.PublicKeyFile)
+	keyStore := oidc.NewDBKeyStore(database.Pool, database.Queries)
+	keySet, err := keyStore.LoadOrGenerate(cfg.Algorithm)
 	if err != nil {
-		logger.Fatalf("cannot load OIDC keys: %v", err)
+		logger.Fatalf("cannot load/generate OIDC keys: %v", err)
 	}
+
+	logger.Infof("OIDC keys ready (algorithm=%s, kid=%s)", keySet.Algorithm, keySet.KeyID)
 
 	userStore := iamstore.NewPGUserStore(database.Queries)
 	refreshStore := iamstore.NewPGRefreshTokenStore(database.Queries)

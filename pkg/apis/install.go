@@ -54,7 +54,8 @@ func NewAuthorizer(database *db.DB, groups []*rest.APIGroupInfo) *filters.Author
 }
 
 // NewOIDCProvider creates the OIDC provider with all internal store wiring.
-// Returns nil if OIDC is not configured (no key files).
+// Keys are auto-generated and stored in the database.
+// Returns nil if OIDC issuer is not configured.
 func NewOIDCProvider(database *db.DB, cfg *config.OIDCConfig) *oidc.Provider {
 	return iamv1.NewOIDCProvider(database, cfg)
 }
