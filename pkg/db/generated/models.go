@@ -101,6 +101,18 @@ type Namespace struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// OIDC 签名密钥：自动生成，存储 PEM 编码的密钥对
+type OidcKey struct {
+	ID int64 `json:"id"`
+	// RFC 7638 thumbprint，用于 JWK kid 字段
+	KeyID      string `json:"key_id"`
+	PrivateKey []byte `json:"private_key"`
+	PublicKey  []byte `json:"public_key"`
+	// 签名算法：EdDSA, ES256, RS256
+	Algorithm string    `json:"algorithm"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // 权限表：从路由自动生成，系统只读
 type Permission struct {
 	ID int64 `json:"id"`
