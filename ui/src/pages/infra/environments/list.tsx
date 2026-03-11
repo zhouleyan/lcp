@@ -34,16 +34,17 @@ import {
   deleteWorkspaceEnvironment, deleteWorkspaceEnvironments,
   deleteNamespaceEnvironment, deleteNamespaceEnvironments,
 } from "@/api/infra/environments"
-import { ApiError, translateApiError } from "@/api/client"
+import { showApiError } from "@/api/client"
 import type { Environment, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
+import { buildPermScope, scopedApiCall } from "@/lib/nav-config"
 import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 
-const ENV_TYPES = ["development", "testing", "staging", "production", "custom"]
+import { ENV_TYPES } from "@/pages/infra/constants"
 
 export default function EnvironmentListPage() {
   const { t } = useTranslation()
@@ -69,11 +70,7 @@ export default function EnvironmentListPage() {
   // Determine permission prefix based on scope
   const permPrefix = "infra:environments"
 
-  const permScope = scopeNamespaceId
-    ? { workspaceId: scopeWorkspaceId!, namespaceId: scopeNamespaceId }
-    : scopeWorkspaceId
-      ? { workspaceId: scopeWorkspaceId }
-      : undefined
+  const permScope = buildPermScope(scopeWorkspaceId, scopeNamespaceId)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -83,23 +80,16 @@ export default function EnvironmentListPage() {
       if (statusFilter !== "all") params.status = statusFilter
       if (envTypeFilter !== "all") params.envType = envTypeFilter
 
-      let data
-      if (scopeWorkspaceId && scopeNamespaceId) {
-        data = await listNamespaceEnvironments(scopeWorkspaceId, scopeNamespaceId, params)
-      } else if (scopeWorkspaceId) {
-        data = await listWorkspaceEnvironments(scopeWorkspaceId, params)
-      } else {
-        data = await listEnvironments(params)
-      }
+      const data = await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => listEnvironments(params),
+        (wsId) => listWorkspaceEnvironments(wsId, params),
+        (wsId, nsId) => listNamespaceEnvironments(wsId, nsId, params),
+      )
       setEnvironments(data.items ?? [])
       setTotalCount(data.totalCount)
     } catch (err) {
-      if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t)
     } finally {
       setLoading(false)
     }
@@ -113,45 +103,35 @@ export default function EnvironmentListPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     try {
-      if (scopeWorkspaceId && scopeNamespaceId) {
-        await deleteNamespaceEnvironment(scopeWorkspaceId, scopeNamespaceId, deleteTarget.metadata.id)
-      } else if (scopeWorkspaceId) {
-        await deleteWorkspaceEnvironment(scopeWorkspaceId, deleteTarget.metadata.id)
-      } else {
-        await deleteEnvironment(deleteTarget.metadata.id)
-      }
+      await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => deleteEnvironment(deleteTarget.metadata.id),
+        (wsId) => deleteWorkspaceEnvironment(wsId, deleteTarget.metadata.id),
+        (wsId, nsId) => deleteNamespaceEnvironment(wsId, nsId, deleteTarget.metadata.id),
+      )
       toast.success(t("action.deleteSuccess"))
       setDeleteTarget(null)
       fetchData()
     } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("env.title") }) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "environment.title")
     }
   }
 
   const handleBatchDelete = async () => {
     try {
       const ids = Array.from(selected)
-      if (scopeWorkspaceId && scopeNamespaceId) {
-        await deleteNamespaceEnvironments(scopeWorkspaceId, scopeNamespaceId, ids)
-      } else if (scopeWorkspaceId) {
-        await deleteWorkspaceEnvironments(scopeWorkspaceId, ids)
-      } else {
-        await deleteEnvironments(ids)
-      }
+      await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => deleteEnvironments(ids),
+        (wsId) => deleteWorkspaceEnvironments(wsId, ids),
+        (wsId, nsId) => deleteNamespaceEnvironments(wsId, nsId, ids),
+      )
       toast.success(t("action.deleteSuccess"))
       setBatchDeleteOpen(false)
       clearSelection()
       fetchData()
     } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("env.title") }) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "environment.title")
     }
   }
 
@@ -384,8 +364,8 @@ function EnvironmentFormDialog({
   onOpenChange: (open: boolean) => void
   environment?: Environment
   onSuccess: () => void
-  scopeWorkspaceId: string | null
-  scopeNamespaceId: string | null
+  scopeWorkspaceId?: string
+  scopeNamespaceId?: string
 }) {
   const { t } = useTranslation()
   const isEdit = !!environment
@@ -439,36 +419,26 @@ function EnvironmentFormDialog({
 
       if (isEdit) {
         payload.metadata = environment.metadata
-        if (scopeWorkspaceId && scopeNamespaceId) {
-          await updateNamespaceEnvironment(scopeWorkspaceId, scopeNamespaceId, environment.metadata.id, payload)
-        } else if (scopeWorkspaceId) {
-          await updateWorkspaceEnvironment(scopeWorkspaceId, environment.metadata.id, payload)
-        } else {
-          await updateEnvironment(environment.metadata.id, payload)
-        }
+        await scopedApiCall(
+          scopeWorkspaceId, scopeNamespaceId,
+          () => updateEnvironment(environment.metadata.id, payload),
+          (wsId) => updateWorkspaceEnvironment(wsId, environment.metadata.id, payload),
+          (wsId, nsId) => updateNamespaceEnvironment(wsId, nsId, environment.metadata.id, payload),
+        )
         toast.success(t("action.updateSuccess"))
       } else {
-        if (scopeWorkspaceId && scopeNamespaceId) {
-          await createNamespaceEnvironment(scopeWorkspaceId, scopeNamespaceId, payload)
-        } else if (scopeWorkspaceId) {
-          await createWorkspaceEnvironment(scopeWorkspaceId, payload)
-        } else {
-          await createEnvironment(payload)
-        }
+        await scopedApiCall(
+          scopeWorkspaceId, scopeNamespaceId,
+          () => createEnvironment(payload),
+          (wsId) => createWorkspaceEnvironment(wsId, payload),
+          (wsId, nsId) => createNamespaceEnvironment(wsId, nsId, payload),
+        )
         toast.success(t("action.createSuccess"))
       }
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      if (err instanceof ApiError) {
-        form.setError("root", {
-          message: translateApiError(err) !== err.message
-            ? t(translateApiError(err), { resource: t("env.title") })
-            : err.message,
-        })
-      } else {
-        form.setError("root", { message: t("api.error.internalError") })
-      }
+      showApiError(err, t, "environment.title")
     } finally {
       setLoading(false)
     }

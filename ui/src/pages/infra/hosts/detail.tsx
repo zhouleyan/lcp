@@ -30,10 +30,11 @@ import {
   deleteHost, deleteWorkspaceHost, deleteNamespaceHost,
   getHostAssignments,
 } from "@/api/infra/hosts"
-import { ApiError, translateApiError } from "@/api/client"
+import { showApiError } from "@/api/client"
 import type { Host, HostAssignment } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
+import { buildPermScope, scopedApiCall } from "@/lib/nav-config"
 
 export default function HostDetailPage() {
   const { hostId, workspaceId: scopeWorkspaceId, namespaceId: scopeNamespaceId } = useParams()
@@ -54,23 +55,17 @@ export default function HostDetailPage() {
 
   const permPrefix = "infra:hosts"
 
-  const permScope = scopeNamespaceId
-    ? { workspaceId: scopeWorkspaceId!, namespaceId: scopeNamespaceId }
-    : scopeWorkspaceId
-      ? { workspaceId: scopeWorkspaceId }
-      : undefined
+  const permScope = buildPermScope(scopeWorkspaceId, scopeNamespaceId)
 
   const fetchHost = useCallback(async () => {
     if (!hostId) return
     try {
-      let h
-      if (scopeWorkspaceId && scopeNamespaceId) {
-        h = await getNamespaceHost(scopeWorkspaceId, scopeNamespaceId, hostId)
-      } else if (scopeWorkspaceId) {
-        h = await getWorkspaceHost(scopeWorkspaceId, hostId)
-      } else {
-        h = await getHost(hostId)
-      }
+      const h = await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => getHost(hostId),
+        (wsId) => getWorkspaceHost(wsId, hostId),
+        (wsId, nsId) => getNamespaceHost(wsId, nsId, hostId),
+      )
       setHost(h)
     } catch {
       setHost(null)
@@ -100,21 +95,16 @@ export default function HostDetailPage() {
   const handleDelete = async () => {
     if (!host) return
     try {
-      if (scopeWorkspaceId && scopeNamespaceId) {
-        await deleteNamespaceHost(scopeWorkspaceId, scopeNamespaceId, host.metadata.id)
-      } else if (scopeWorkspaceId) {
-        await deleteWorkspaceHost(scopeWorkspaceId, host.metadata.id)
-      } else {
-        await deleteHost(host.metadata.id)
-      }
+      await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => deleteHost(host.metadata.id),
+        (wsId) => deleteWorkspaceHost(wsId, host.metadata.id),
+        (wsId, nsId) => deleteNamespaceHost(wsId, nsId, host.metadata.id),
+      )
       toast.success(t("action.deleteSuccess"))
       navigate("..")
     } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("host.title") }) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "host.title")
     }
   }
 
@@ -341,8 +331,8 @@ function EditHostDialog({
   onOpenChange: (open: boolean) => void
   host: Host
   onSuccess: () => void
-  scopeWorkspaceId: string | null
-  scopeNamespaceId: string | null
+  scopeWorkspaceId: string | undefined
+  scopeNamespaceId: string | undefined
 }) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
@@ -415,26 +405,17 @@ function EditHostDialog({
 
       const payload = { metadata: host.metadata, spec }
 
-      if (scopeWorkspaceId && scopeNamespaceId) {
-        await updateNamespaceHost(scopeWorkspaceId, scopeNamespaceId, host.metadata.id, payload)
-      } else if (scopeWorkspaceId) {
-        await updateWorkspaceHost(scopeWorkspaceId, host.metadata.id, payload)
-      } else {
-        await updateHost(host.metadata.id, payload)
-      }
+      await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => updateHost(host.metadata.id, payload),
+        (wsId) => updateWorkspaceHost(wsId, host.metadata.id, payload),
+        (wsId, nsId) => updateNamespaceHost(wsId, nsId, host.metadata.id, payload),
+      )
       toast.success(t("action.updateSuccess"))
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      if (err instanceof ApiError) {
-        form.setError("root", {
-          message: translateApiError(err) !== err.message
-            ? t(translateApiError(err), { resource: t("host.title") })
-            : err.message,
-        })
-      } else {
-        form.setError("root", { message: t("api.error.internalError") })
-      }
+      showApiError(err, t, "host.title")
     } finally {
       setLoading(false)
     }
@@ -448,11 +429,6 @@ function EditHostDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-            {form.formState.errors.root && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {form.formState.errors.root.message}
-              </div>
-            )}
             <div>
               <label className="text-sm font-medium">{t("host.name")}</label>
               <Input value={host.metadata.name} disabled className="mt-1" />

@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/select"
 import { useScopeStore } from "@/stores/scope-store"
 import { usePermissionStore } from "@/stores/permission-store"
-import { checkPermission, getResourcePermission, getFirstPermittedPath, KNOWN_RESOURCES } from "@/hooks/use-permission"
+import { checkPermission, getFirstPermittedPath } from "@/hooks/use-permission"
+import { detectResource, buildScopedPath, getResourcePermission } from "@/lib/nav-config"
 import { listWorkspaces } from "@/api/iam/workspaces"
 import { listNamespaces, listWorkspaceNamespaces } from "@/api/iam/namespaces"
 import { listUserNamespaces } from "@/api/iam/users"
@@ -21,45 +22,6 @@ import type { Workspace, Namespace } from "@/api/types"
 const ALL = "__all__"
 /** Re-fetch scope data every 5 minutes to detect membership changes made by others. */
 const POLL_INTERVAL_MS = 5 * 60 * 1000
-
-/** 从当前路径中提取用户正在查看的资源类型 */
-function detectResource(pathname: string): string | null {
-  const segments = pathname.split("/").filter(Boolean)
-  for (let i = segments.length - 1; i >= 0; i--) {
-    if (KNOWN_RESOURCES.includes(segments[i])) return segments[i]
-  }
-  return null
-}
-
-/** 根据目标 scope 和当前资源类型，构建导航路径 */
-function buildScopedPath(
-  resource: string | null,
-  wsId: string | null,
-  nsId: string | null,
-): string {
-  if (wsId && nsId) {
-    const iamPrefix = `/iam/workspaces/${wsId}/namespaces/${nsId}`
-    const infraPrefix = `/infra/workspaces/${wsId}/namespaces/${nsId}`
-    if (resource === "overview") return `/dashboard/workspaces/${wsId}/namespaces/${nsId}/overview`
-    if (resource === "users" || resource === "roles" || resource === "rolebindings") return `${iamPrefix}/${resource}`
-    if (resource === "hosts" || resource === "environments") return `${infraPrefix}/${resource}`
-    return `/dashboard/workspaces/${wsId}/namespaces/${nsId}/overview`
-  }
-  if (wsId) {
-    const iamPrefix = `/iam/workspaces/${wsId}`
-    const infraPrefix = `/infra/workspaces/${wsId}`
-    if (resource === "overview") return `/dashboard/workspaces/${wsId}/overview`
-    if (resource === "users" || resource === "roles" || resource === "rolebindings" || resource === "namespaces")
-      return `${iamPrefix}/${resource}`
-    if (resource === "hosts" || resource === "environments") return `${infraPrefix}/${resource}`
-    return `/dashboard/workspaces/${wsId}/overview`
-  }
-  // 平台范围
-  if (resource === "overview") return "/dashboard/overview"
-  if (resource === "hosts" || resource === "environments") return `/infra/${resource}`
-  if (resource && KNOWN_RESOURCES.includes(resource)) return `/iam/${resource}`
-  return "/dashboard/overview"
-}
 
 export function ScopeSelector() {
   const { t } = useTranslation()
@@ -166,27 +128,25 @@ export function ScopeSelector() {
     }
   }, [fetchNamespaces, fetchUserJoinedNamespaces, namespaceId, version, canListNamespaces])
 
-  const accessibleNamespaces = namespaces
-
   // Stale namespace detection + auto-select for non-platform users
   useEffect(() => {
-    if (namespaceId && accessibleNamespaces.length > 0 && !accessibleNamespaces.some((ns) => ns.metadata.id === namespaceId)) {
+    if (namespaceId && namespaces.length > 0 && !namespaces.some((ns) => ns.metadata.id === namespaceId)) {
       // Current namespace no longer accessible — redirect
-      const newNsId = accessibleNamespaces[0]?.metadata.id ?? null
+      const newNsId = namespaces[0]?.metadata.id ?? null
       if (permissions) {
         navigate(getFirstPermittedPath(permissions, workspaceId, newNsId))
       } else {
         const resource = detectResource(location.pathname)
         navigate(buildScopedPath(resource, workspaceId, newNsId))
       }
-    } else if (!hasPlatformScope && !hasWorkspaceScope && accessibleNamespaces.length === 1 && !namespaceId) {
+    } else if (!hasPlatformScope && !hasWorkspaceScope && namespaces.length === 1 && !namespaceId) {
       // Non-platform user with single namespace — auto-select
-      const nsId = accessibleNamespaces[0].metadata.id
+      const nsId = namespaces[0].metadata.id
       const resource = detectResource(location.pathname)
       navigate(buildScopedPath(resource, workspaceId, nsId))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasPlatformScope, hasWorkspaceScope, accessibleNamespaces, namespaceId])
+  }, [hasPlatformScope, hasWorkspaceScope, namespaces, namespaceId])
 
   return (
     <div className="space-y-1">
@@ -254,7 +214,7 @@ export function ScopeSelector() {
         </SelectTrigger>
         <SelectContent>
           {(hasPlatformScope || hasWorkspaceScope) && <SelectItem value={ALL}>{t("scope.allNamespaces")}</SelectItem>}
-          {accessibleNamespaces.map((ns) => (
+          {namespaces.map((ns) => (
             <SelectItem key={ns.metadata.id} value={ns.metadata.id}>
               {ns.spec.displayName || ns.metadata.name}
             </SelectItem>
