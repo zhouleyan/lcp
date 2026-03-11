@@ -58,13 +58,14 @@ CREATE INDEX idx_namespaces_created_at ON namespaces(created_at);
 -- permissions table (auto-generated from routes, read-only)
 CREATE TABLE permissions (
     id          BIGSERIAL    PRIMARY KEY,
-    code        VARCHAR(255) NOT NULL UNIQUE,
+    code        VARCHAR(255) NOT NULL,
     method      VARCHAR(10)  NOT NULL,
     path        VARCHAR(512) NOT NULL,
     scope       VARCHAR(20)  NOT NULL DEFAULT 'platform',
     description VARCHAR(512) NOT NULL DEFAULT '',
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    UNIQUE (code, scope)
 );
 
 COMMENT ON TABLE permissions IS '权限表：从路由自动生成，系统只读';

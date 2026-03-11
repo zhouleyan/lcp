@@ -1775,11 +1775,11 @@ func (s *roleStorage) Create(ctx context.Context, obj runtime.Object, options *r
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
-	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	codeScopes, err := s.permStore.ListCodeScopes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if scopeErrs := ValidateRuleScopes(role.Spec.Scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+	if scopeErrs := ValidateRuleScopes(role.Spec.Scope, role.Spec.Rules, codeScopes); scopeErrs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
 	}
 
@@ -1842,11 +1842,11 @@ func (s *roleStorage) Update(ctx context.Context, obj runtime.Object, options *r
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
-	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	codeScopes, err := s.permStore.ListCodeScopes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if scopeErrs := ValidateRuleScopes(existing.Scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+	if scopeErrs := ValidateRuleScopes(existing.Scope, role.Spec.Rules, codeScopes); scopeErrs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
 	}
 
@@ -2075,11 +2075,11 @@ func (s *scopedRoleStorage) Create(ctx context.Context, obj runtime.Object, opti
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
-	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	codeScopes, err := s.permStore.ListCodeScopes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if scopeErrs := ValidateRuleScopes(role.Spec.Scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+	if scopeErrs := ValidateRuleScopes(role.Spec.Scope, role.Spec.Rules, codeScopes); scopeErrs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
 	}
 
@@ -2172,11 +2172,11 @@ func (s *scopedRoleStorage) Update(ctx context.Context, obj runtime.Object, opti
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
-	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	codeScopes, err := s.permStore.ListCodeScopes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if scopeErrs := ValidateRuleScopes(s.scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+	if scopeErrs := ValidateRuleScopes(s.scope, role.Spec.Rules, codeScopes); scopeErrs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
 	}
 

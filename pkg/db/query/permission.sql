@@ -1,22 +1,21 @@
 -- name: UpsertPermission :one
 INSERT INTO permissions (code, method, path, scope, description)
 VALUES (@code, @method, @path, @scope, @description)
-ON CONFLICT (code) DO UPDATE
+ON CONFLICT (code, scope) DO UPDATE
 SET method = EXCLUDED.method,
     path = EXCLUDED.path,
-    scope = EXCLUDED.scope,
     updated_at = now()
 RETURNING id, code, method, path, scope, description, created_at, updated_at;
 
 -- name: DeletePermissionsByModulePrefix :exec
 DELETE FROM permissions
 WHERE code LIKE @module_prefix::VARCHAR || '%'
-  AND code != ALL(@keep_codes::VARCHAR[]);
+  AND NOT (code || ':' || scope) = ANY(@keep_code_scopes::VARCHAR[]);
 
 -- name: GetPermissionByCode :one
 SELECT id, code, method, path, scope, description, created_at, updated_at
 FROM permissions
-WHERE code = @code;
+WHERE code = @code AND scope = @scope;
 
 -- name: ListAllPermissionCodes :many
 SELECT code FROM permissions ORDER BY code;

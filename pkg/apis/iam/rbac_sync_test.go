@@ -177,21 +177,22 @@ func (m *mockPermissionStoreForSync) Upsert(_ context.Context, perm *DBPermissio
 	return perm, nil
 }
 
-func (m *mockPermissionStoreForSync) DeleteByModuleNotInCodes(_ context.Context, modulePrefix string, keepCodes []string) error {
-	m.deleted[modulePrefix] = keepCodes
+func (m *mockPermissionStoreForSync) DeleteByModuleNotInCodeScopes(_ context.Context, modulePrefix string, keepCodeScopes []string) error {
+	m.deleted[modulePrefix] = keepCodeScopes
 	return nil
 }
 
 func (m *mockPermissionStoreForSync) SyncModule(_ context.Context, modulePrefix string, perms []DBPermission) error {
 	m.synced[modulePrefix] = perms
-	// Also populate upserted map so existing test assertions work
+	// Also populate upserted map so existing test assertions work (key = code:scope)
 	for i := range perms {
-		m.upserted[perms[i].Code] = &perms[i]
+		key := perms[i].Code + ":" + perms[i].Scope
+		m.upserted[key] = &perms[i]
 	}
 	return nil
 }
 
-func (m *mockPermissionStoreForSync) GetByCode(_ context.Context, _ string) (*DBPermission, error) {
+func (m *mockPermissionStoreForSync) GetByCode(_ context.Context, _, _ string) (*DBPermission, error) {
 	return nil, nil
 }
 
@@ -203,7 +204,7 @@ func (m *mockPermissionStoreForSync) ListAllCodes(_ context.Context) ([]string, 
 	return nil, nil
 }
 
-func (m *mockPermissionStoreForSync) ListScopeMap(_ context.Context) (map[string]string, error) {
+func (m *mockPermissionStoreForSync) ListCodeScopes(_ context.Context) ([]PermissionCodeScope, error) {
 	return nil, nil
 }
 
@@ -253,23 +254,33 @@ func TestSyncPermissions(t *testing.T) {
 		t.Fatalf("SyncPermissions: %v", err)
 	}
 
-	// Check key permissions were upserted
-	expectedCodes := []string{
-		"iam:users:list", "iam:users:get", "iam:users:create",
-		"iam:users:update", "iam:users:patch", "iam:users:delete", "iam:users:deleteCollection",
-		"iam:workspaces:list", "iam:workspaces:get",
-		"iam:namespaces:list", "iam:namespaces:get",
-		"iam:namespaces:users:list", // sub-resource: namespace users
-		"iam:workspaces:users:list", // sub-resource: workspace users
-		"iam:users:change-password", // action
+	// Check key permissions were upserted (key = code:scope)
+	// Platform-level resources generate only platform scope
+	// Workspace-level resources generate workspace + platform scopes
+	// Namespace-level resources generate namespace + workspace + platform scopes
+	expectedCodeScopes := []string{
+		// Top-level users (platform)
+		"iam:users:list:platform", "iam:users:get:platform", "iam:users:create:platform",
+		"iam:users:update:platform", "iam:users:patch:platform", "iam:users:delete:platform",
+		"iam:users:deleteCollection:platform",
+		// Top-level workspaces (platform)
+		"iam:workspaces:list:platform", "iam:workspaces:get:platform",
+		// Namespaces: natural scope=workspace → workspace + platform
+		"iam:namespaces:list:workspace", "iam:namespaces:list:platform",
+		// Workspace users: natural scope=workspace → workspace + platform
+		"iam:users:list:workspace", "iam:users:list:platform",
+		// Namespace users: natural scope=namespace → namespace + workspace + platform
+		"iam:users:list:namespace",
+		// Action: change-password (platform)
+		"iam:users:change-password:platform",
 	}
-	for _, code := range expectedCodes {
-		if _, ok := store.upserted[code]; !ok {
-			t.Errorf("expected permission %q to be upserted", code)
+	for _, codeScope := range expectedCodeScopes {
+		if _, ok := store.upserted[codeScope]; !ok {
+			t.Errorf("expected permission %q to be upserted", codeScope)
 		}
 	}
 
-	// Shared nsStorage: both paths resolve to same canonical code
+	// Shared nsStorage: both paths resolve to same canonical code (scope stripped)
 	if code := lookup.Get("iam", "workspaces:namespaces", "list"); code != "iam:namespaces:list" {
 		t.Errorf("lookup workspaces:namespaces list = %q, want iam:namespaces:list", code)
 	}
@@ -277,13 +288,13 @@ func TestSyncPermissions(t *testing.T) {
 		t.Errorf("lookup namespaces list = %q, want iam:namespaces:list", code)
 	}
 
-	// Sub-resource users under namespaces
-	if code := lookup.Get("iam", "namespaces:users", "list"); code != "iam:namespaces:users:list" {
-		t.Errorf("lookup namespaces:users list = %q, want iam:namespaces:users:list", code)
+	// Sub-resource users under namespaces → simplified to iam:users:list
+	if code := lookup.Get("iam", "namespaces:users", "list"); code != "iam:users:list" {
+		t.Errorf("lookup namespaces:users list = %q, want iam:users:list", code)
 	}
 	// Aliased path for same nsUserStorage
-	if code := lookup.Get("iam", "workspaces:namespaces:users", "list"); code != "iam:namespaces:users:list" {
-		t.Errorf("lookup workspaces:namespaces:users list = %q, want iam:namespaces:users:list", code)
+	if code := lookup.Get("iam", "workspaces:namespaces:users", "list"); code != "iam:users:list" {
+		t.Errorf("lookup workspaces:namespaces:users list = %q, want iam:users:list", code)
 	}
 
 	// SyncModule should be called for "iam:" prefix

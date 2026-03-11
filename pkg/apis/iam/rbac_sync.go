@@ -166,13 +166,57 @@ func scopeForStorage(storage rest.Storage, entries []storageEntry) string {
 	return "platform"
 }
 
+// scopeSegments are resource names that represent scope hierarchy, not actual resources
+// in the permission code. They are stripped from codeParts to produce simplified codes.
+var scopeSegments = map[string]bool{"workspaces": true, "namespaces": true}
+
+// stripScopeSegments removes "workspaces" and "namespaces" from codeParts when
+// they appear as parent scope markers, but keeps them if they are the leaf resource.
+// e.g. ["workspaces", "namespaces", "users"] → ["users"]
+// e.g. ["workspaces", "users"] → ["users"]
+// e.g. ["workspaces"] → ["workspaces"]  (leaf resource, kept)
+// e.g. ["namespaces"] → ["namespaces"]  (leaf resource, kept)
+func stripScopeSegments(codeParts []string) []string {
+	if len(codeParts) <= 1 {
+		return codeParts
+	}
+	var result []string
+	for i, p := range codeParts {
+		// Only strip scope segments that are NOT the last element
+		if scopeSegments[p] && i < len(codeParts)-1 {
+			continue
+		}
+		result = append(result, p)
+	}
+	return result
+}
+
 // canonicalCode builds a permission code from module + canonical codeParts + verb.
-// e.g. ("iam", ["namespaces", "users"], "list") → "iam:namespaces:users:list"
+// Scope segments (workspaces/namespaces) are stripped from codeParts.
+// e.g. ("iam", ["namespaces", "users"], "list") → "iam:users:list"
 func canonicalCode(module string, codeParts []string, verb string) string {
-	return module + ":" + strings.Join(codeParts, ":") + ":" + verb
+	stripped := stripScopeSegments(codeParts)
+	return module + ":" + strings.Join(stripped, ":") + ":" + verb
+}
+
+// scopesUpTo returns all scopes from the given natural scope up to platform.
+// e.g. "namespace" → ["namespace", "workspace", "platform"]
+//
+//	"workspace" → ["workspace", "platform"]
+//	"platform"  → ["platform"]
+func scopesUpTo(naturalScope string) []string {
+	switch naturalScope {
+	case "namespace":
+		return []string{"namespace", "workspace", "platform"}
+	case "workspace":
+		return []string{"workspace", "platform"}
+	default:
+		return []string{"platform"}
+	}
 }
 
 // generatePermissions creates permission definitions from canonical entries.
+// Each permission code generates records from its natural scope UP to platform.
 func generatePermissions(canonical map[rest.Storage]storageEntry, module string, group *rest.APIGroupInfo, entries []storageEntry) []permissionDef {
 	var perms []permissionDef
 
@@ -183,18 +227,21 @@ func generatePermissions(canonical map[rest.Storage]storageEntry, module string,
 	for storage, entry := range canonical {
 		basePath := buildAPIPath(group, entry.pathParts)
 		verbs := detectVerbs(storage)
-		scope := scopeForStorage(storage, entries)
+		naturalScope := scopeForStorage(storage, entries)
 
 		for _, verb := range verbs {
 			method := verbMethods[verb]
 			code := canonicalCode(module, entry.codeParts, verb)
 			path := verbPath(basePath, verb, entry.pathParts)
-			perms = append(perms, permissionDef{
-				code:   code,
-				method: method,
-				path:   path,
-				scope:  scope,
-			})
+
+			for _, scope := range scopesUpTo(naturalScope) {
+				perms = append(perms, permissionDef{
+					code:   code,
+					method: method,
+					path:   path,
+					scope:  scope,
+				})
+			}
 		}
 	}
 
@@ -211,16 +258,20 @@ func collectActions(resources []rest.ResourceInfo, parentPathParts []string, mod
 		for _, action := range res.Actions {
 			// Use canonical codeParts for the resource to derive action code
 			canonEntry := canonical[res.Storage]
-			scope := scopeForStorage(res.Storage, entries)
-			code := module + ":" + strings.Join(canonEntry.codeParts, ":") + ":" + action.Name
+			naturalScope := scopeForStorage(res.Storage, entries)
+			stripped := stripScopeSegments(canonEntry.codeParts)
+			code := module + ":" + strings.Join(stripped, ":") + ":" + action.Name
 			basePath := buildAPIPath(group, pathParts)
 			path := basePath + "/{" + idParam(res.Name) + "}/" + action.Name
-			perms = append(perms, permissionDef{
-				code:   code,
-				method: action.Method,
-				path:   path,
-				scope:  scope,
-			})
+
+			for _, scope := range scopesUpTo(naturalScope) {
+				perms = append(perms, permissionDef{
+					code:   code,
+					method: action.Method,
+					path:   path,
+					scope:  scope,
+				})
+			}
 		}
 
 		if len(res.SubResources) > 0 {

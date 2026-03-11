@@ -59,14 +59,20 @@ type NamespaceStore interface {
 	CountUsers(ctx context.Context, namespaceID int64) (int64, error)
 }
 
+// PermissionCodeScope holds a permission code and its scope.
+type PermissionCodeScope struct {
+	Code  string
+	Scope string
+}
+
 // PermissionStore defines database operations on permissions.
 type PermissionStore interface {
 	Upsert(ctx context.Context, perm *DBPermission) (*DBPermission, error)
-	DeleteByModuleNotInCodes(ctx context.Context, modulePrefix string, keepCodes []string) error
-	GetByCode(ctx context.Context, code string) (*DBPermission, error)
+	DeleteByModuleNotInCodeScopes(ctx context.Context, modulePrefix string, keepCodeScopes []string) error
+	GetByCode(ctx context.Context, code, scope string) (*DBPermission, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBPermission], error)
 	ListAllCodes(ctx context.Context) ([]string, error)
-	ListScopeMap(ctx context.Context) (map[string]string, error)
+	ListCodeScopes(ctx context.Context) ([]PermissionCodeScope, error)
 	// SyncModule batch-upserts all permissions for a module and removes stale ones in a single transaction.
 	SyncModule(ctx context.Context, modulePrefix string, perms []DBPermission) error
 }

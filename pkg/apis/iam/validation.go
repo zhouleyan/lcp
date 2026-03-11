@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/mail"
 	"regexp"
-	"strings"
 
 	"lcp.io/lcp/lib/api/validation"
 )
@@ -207,44 +206,32 @@ func scopeLevel(scope string) int {
 	}
 }
 
-// ValidateRuleScopes checks that all permission rules are within the allowed scope.
-func ValidateRuleScopes(roleScope string, rules []string, permissionsByCode map[string]string) validation.ErrorList {
+// ValidateRuleScopes checks that each rule pattern matches at least one permission
+// at the role's scope level. This ensures rules are not dead (matching nothing at the scope).
+func ValidateRuleScopes(roleScope string, rules []string, codeScopes []PermissionCodeScope) validation.ErrorList {
 	var errs validation.ErrorList
-	minLevel := scopeLevel(roleScope)
-	if minLevel <= 0 {
-		return errs // platform roles can have any permissions
+
+	// Collect codes at the role's scope
+	scopedCodes := make([]string, 0)
+	for _, cs := range codeScopes {
+		if cs.Scope == roleScope {
+			scopedCodes = append(scopedCodes, cs.Code)
+		}
 	}
 
 	for i, rule := range rules {
-		if rule == "*:*" {
+		matched := false
+		for _, code := range scopedCodes {
+			if MatchPermission(rule, code) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
 			errs = append(errs, validation.FieldError{
 				Field:   fmt.Sprintf("spec.rules[%d]", i),
-				Message: fmt.Sprintf("pattern %s includes platform-level permissions, not allowed for %s role", rule, roleScope),
+				Message: fmt.Sprintf("pattern %q matches no permissions at %s scope", rule, roleScope),
 			})
-			continue
-		}
-
-		if strings.Contains(rule, "*") {
-			for code, permScope := range permissionsByCode {
-				if MatchPermission(rule, code) {
-					if scopeLevel(permScope) < minLevel {
-						errs = append(errs, validation.FieldError{
-							Field:   fmt.Sprintf("spec.rules[%d]", i),
-							Message: fmt.Sprintf("pattern %s matches %s-scoped permission %s, not allowed for %s role", rule, permScope, code, roleScope),
-						})
-						break
-					}
-				}
-			}
-		} else {
-			if permScope, ok := permissionsByCode[rule]; ok {
-				if scopeLevel(permScope) < minLevel {
-					errs = append(errs, validation.FieldError{
-						Field:   fmt.Sprintf("spec.rules[%d]", i),
-						Message: fmt.Sprintf("permission %s is %s-scoped, not allowed for %s role", rule, permScope, roleScope),
-					})
-				}
-			}
 		}
 	}
 	return errs
