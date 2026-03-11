@@ -68,9 +68,17 @@ function isCoarserOrEqual(a: string, b: string): boolean {
 }
 
 function buildTree(perms: Permission[]): GroupNode {
+  // Deduplicate by code — same code may appear at multiple scopes
+  const seen = new Set<string>()
+  const unique = perms.filter((p) => {
+    if (seen.has(p.spec.code)) return false
+    seen.add(p.spec.code)
+    return true
+  })
+
   const moduleMap = new Map<string, Map<string, Permission[]>>()
 
-  for (const p of perms) {
+  for (const p of unique) {
     const parts = p.spec.code.split(":")
     const module = parts[0]
     const resourceKey = parts.slice(0, -1).join(":")
