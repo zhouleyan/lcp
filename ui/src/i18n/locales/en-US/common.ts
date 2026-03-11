@@ -52,6 +52,9 @@ const common: Messages = {
   "nav.audit": "Audit",
   "nav.auditLogs": "Audit Logs",
   "nav.rolebindings": "Role Bindings",
+  "nav.infra": "Infrastructure",
+  "nav.hosts": "Hosts",
+  "nav.environments": "Environments",
   "nav.apiDocs": "API Docs",
 
   // overview

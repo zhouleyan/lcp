@@ -266,6 +266,8 @@ export interface AuditLogList extends TypeMeta {
 // --- Host ---
 
 export interface HostSpec {
+  displayName?: string
+  description?: string
   hostname?: string
   ipAddress?: string
   os?: string
@@ -296,6 +298,8 @@ export interface HostList extends TypeMeta {
 // --- Environment ---
 
 export interface EnvironmentSpec {
+  displayName?: string
+  description?: string
   envType?: string
   scope: "platform" | "workspace" | "namespace"
   workspaceId?: string

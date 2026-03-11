@@ -10,6 +10,8 @@ import {
   ShieldCheck,
   Home,
   ScrollText,
+  Server,
+  Layers,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -63,6 +65,13 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
           { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:namespaces:rolebindings:list", permissionScope: nsScope },
         ],
       },
+      {
+        labelKey: "nav.infra",
+        items: [
+          { to: "/infra/hosts", labelKey: "nav.hosts", icon: Server, permission: "infra:workspaces:namespaces:hosts:list", permissionScope: nsScope },
+          { to: "/infra/environments", labelKey: "nav.environments", icon: Layers, permission: "infra:workspaces:namespaces:environments:list", permissionScope: nsScope },
+        ],
+      },
     ]
   }
   if (scopeWorkspaceId) {
@@ -80,6 +89,13 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
           { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:workspaces:rolebindings:list", permissionScope: wsScope },
         ],
       },
+      {
+        labelKey: "nav.infra",
+        items: [
+          { to: "/infra/hosts", labelKey: "nav.hosts", icon: Server, permission: "infra:workspaces:hosts:list", permissionScope: wsScope },
+          { to: "/infra/environments", labelKey: "nav.environments", icon: Layers, permission: "infra:workspaces:environments:list", permissionScope: wsScope },
+        ],
+      },
     ]
   }
   return [
@@ -92,6 +108,13 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
         { to: "/iam/users", labelKey: "nav.users", icon: Users, permission: "iam:users:list" },
         { to: "/iam/roles", labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list" },
         { to: "/iam/rolebindings", labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:rolebindings:list" },
+      ],
+    },
+    {
+      labelKey: "nav.infra",
+      items: [
+        { to: "/infra/hosts", labelKey: "nav.hosts", icon: Server, permission: "infra:hosts:list" },
+        { to: "/infra/environments", labelKey: "nav.environments", icon: Layers, permission: "infra:environments:list" },
       ],
     },
     {

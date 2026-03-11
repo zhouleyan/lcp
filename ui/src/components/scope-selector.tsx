@@ -16,7 +16,7 @@ import { useTranslation } from "@/i18n"
 import type { Workspace, Namespace } from "@/api/types"
 
 const ALL = "__all__"
-const KNOWN_RESOURCES = ["overview", "users", "roles", "rolebindings", "namespaces", "workspaces"]
+const KNOWN_RESOURCES = ["overview", "users", "roles", "rolebindings", "namespaces", "workspaces", "hosts", "environments"]
 
 /** 从当前路径中提取用户正在查看的资源类型 */
 function detectResource(pathname: string): string | null {
@@ -37,6 +37,7 @@ function buildScopedPath(
     const iamPrefix = `/iam/workspaces/${wsId}/namespaces/${nsId}`
     if (resource === "overview") return `/dashboard/workspaces/${wsId}/namespaces/${nsId}/overview`
     if (resource === "users" || resource === "roles" || resource === "rolebindings") return `${iamPrefix}/${resource}`
+    if (resource === "hosts" || resource === "environments") return `/infra/${resource}`
     return `/dashboard/workspaces/${wsId}/namespaces/${nsId}/overview`
   }
   if (wsId) {
@@ -44,10 +45,12 @@ function buildScopedPath(
     if (resource === "overview") return `/dashboard/workspaces/${wsId}/overview`
     if (resource === "users" || resource === "roles" || resource === "rolebindings" || resource === "namespaces")
       return `${iamPrefix}/${resource}`
+    if (resource === "hosts" || resource === "environments") return `/infra/${resource}`
     return `/dashboard/workspaces/${wsId}/overview`
   }
   // 平台范围
   if (resource === "overview") return "/dashboard/overview"
+  if (resource === "hosts" || resource === "environments") return `/infra/${resource}`
   if (resource && KNOWN_RESOURCES.includes(resource)) return `/iam/${resource}`
   return "/dashboard/overview"
 }
