@@ -248,6 +248,23 @@ func MergeRemoteVariable(host string, vars map[string]any) MergeFunc {
 	}
 }
 
+// MergeHostRuntimeVars returns a MergeFunc that merges a plain map into the
+// RuntimeVars of the specified host. Unlike MergeRuntimeVariable which parses
+// YAML nodes, this accepts a ready-to-use map[string]any directly.
+func MergeHostRuntimeVars(host string, vars map[string]any) MergeFunc {
+	if len(vars) == 0 {
+		return func(v *Value) {}
+	}
+
+	return func(v *Value) {
+		hv, ok := v.Hosts[host]
+		if !ok {
+			return
+		}
+		hv.RuntimeVars = CombineVariables(hv.RuntimeVars, vars)
+	}
+}
+
 // MergeResultVariable returns a MergeFunc that merges data into the global Result map.
 func MergeResultVariable(result map[string]any) MergeFunc {
 	return func(v *Value) {
