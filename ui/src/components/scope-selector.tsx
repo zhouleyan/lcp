@@ -10,13 +10,17 @@ import {
 } from "@/components/ui/select"
 import { useScopeStore } from "@/stores/scope-store"
 import { usePermissionStore } from "@/stores/permission-store"
+import { checkPermission, getResourcePermission, getFirstPermittedPath, KNOWN_RESOURCES } from "@/hooks/use-permission"
 import { listWorkspaces } from "@/api/iam/workspaces"
 import { listNamespaces, listWorkspaceNamespaces } from "@/api/iam/namespaces"
+import { listUserNamespaces } from "@/api/iam/users"
+import { useAuthStore } from "@/stores/auth-store"
 import { useTranslation } from "@/i18n"
 import type { Workspace, Namespace } from "@/api/types"
 
 const ALL = "__all__"
-const KNOWN_RESOURCES = ["overview", "users", "roles", "rolebindings", "namespaces", "workspaces", "hosts", "environments"]
+/** Re-fetch scope data every 5 minutes to detect membership changes made by others. */
+const POLL_INTERVAL_MS = 5 * 60 * 1000
 
 /** 从当前路径中提取用户正在查看的资源类型 */
 function detectResource(pathname: string): string | null {
@@ -63,44 +67,62 @@ export function ScopeSelector() {
   const location = useLocation()
   const workspaceId = useScopeStore((s) => s.workspaceId)
   const namespaceId = useScopeStore((s) => s.namespaceId)
-  const setWorkspace = useScopeStore((s) => s.setWorkspace)
-  const setNamespace = useScopeStore((s) => s.setNamespace)
+  const version = useScopeStore((s) => s.version)
+  const invalidate = useScopeStore((s) => s.invalidate)
 
   const permissions = usePermissionStore((s) => s.permissions)
   const hasPlatformScope = permissions?.isPlatformAdmin || (permissions?.platform?.length ?? 0) > 0
   // Workspace-level users (e.g. workspace-viewer) should see "All namespaces" within their workspace
   const hasWorkspaceScope = !!(workspaceId && (permissions?.workspaces?.[workspaceId]?.permissions?.length ?? 0) > 0)
 
+  const userId = useAuthStore((s) => s.user?.sub)
+
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [namespaces, setNamespaces] = useState<Namespace[]>([])
+
+  // Periodic polling: bump version to re-fetch scope data
+  useEffect(() => {
+    const timer = setInterval(() => invalidate(), POLL_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [invalidate])
 
   const fetchWorkspaces = useCallback(async () => {
     try {
       const data = await listWorkspaces({ pageSize: 100 })
       setWorkspaces(data.items ?? [])
     } catch {
-      setWorkspaces([])
+      // Keep previous data on error to avoid flickering
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     fetchWorkspaces()
-  }, [fetchWorkspaces])
+  }, [fetchWorkspaces, workspaceId, version])
 
-  // Non-platform users: auto-select the only workspace
+  // Stale workspace detection: if current workspace was removed, redirect to first permitted path
+  // Non-platform users with no workspace selected: auto-select
   useEffect(() => {
-    if (!hasPlatformScope && workspaces.length > 0 && !workspaceId) {
+    if (workspaces.length === 0) return
+    if (workspaceId && !workspaces.some((ws) => ws.metadata.id === workspaceId)) {
+      // Current workspace no longer accessible — redirect
+      const newWsId = workspaces[0]?.metadata.id ?? null
+      if (permissions) {
+        navigate(getFirstPermittedPath(permissions, newWsId, null))
+      } else {
+        const resource = detectResource(location.pathname)
+        navigate(buildScopedPath(resource, newWsId, null))
+      }
+    } else if (!hasPlatformScope && !workspaceId) {
+      // Non-platform user with no workspace — auto-select first
       const firstWsId = workspaces[0].metadata.id
-      setWorkspace(firstWsId)
       const resource = detectResource(location.pathname)
       navigate(buildScopedPath(resource, firstWsId, null))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPlatformScope, workspaces, workspaceId])
 
-  // Fetch namespaces scoped to the selected workspace (avoids fetching all namespaces).
-  // Falls back to platform-level list when no workspace is selected (for non-platform users during init).
+  // Fetch all namespaces via standard list API (requires iam:namespaces:list permission).
   const fetchNamespaces = useCallback(async () => {
     try {
       const data = workspaceId
@@ -108,22 +130,58 @@ export function ScopeSelector() {
         : await listNamespaces({ pageSize: 100 })
       setNamespaces(data.items ?? [])
     } catch {
-      setNamespaces([])
+      // Keep previous data on error to avoid flickering
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId])
 
+  // Fallback: fetch user's joined namespaces when user lacks iam:namespaces:list.
+  // Uses /users/{userId}:namespaces which doesn't require namespace list permission.
+  const fetchUserJoinedNamespaces = useCallback(async () => {
+    if (!userId || !workspaceId) {
+      setNamespaces([])
+      return
+    }
+    try {
+      const data = await listUserNamespaces(userId, { pageSize: 100 })
+      const filtered = (data.items ?? []).filter((ns) => ns.spec.workspaceId === workspaceId)
+      setNamespaces(filtered)
+    } catch {
+      // Keep previous data on error to avoid flickering
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, workspaceId])
+
+  // Workspace-role users (with iam:namespaces:list) see all namespaces via standard API.
+  // Namespace-only members fall back to their joined namespaces.
+  const canListNamespaces = permissions
+    ? checkPermission(permissions, "iam:namespaces:list", workspaceId ? { workspaceId } : undefined)
+    : false
+
   useEffect(() => {
-    fetchNamespaces()
-  }, [fetchNamespaces])
+    if (canListNamespaces) {
+      fetchNamespaces()
+    } else {
+      fetchUserJoinedNamespaces()
+    }
+  }, [fetchNamespaces, fetchUserJoinedNamespaces, namespaceId, version, canListNamespaces])
 
   const accessibleNamespaces = namespaces
 
-  // Non-platform users without workspace scope and with single namespace: auto-select
+  // Stale namespace detection + auto-select for non-platform users
   useEffect(() => {
-    if (!hasPlatformScope && !hasWorkspaceScope && accessibleNamespaces.length === 1 && !namespaceId) {
+    if (namespaceId && accessibleNamespaces.length > 0 && !accessibleNamespaces.some((ns) => ns.metadata.id === namespaceId)) {
+      // Current namespace no longer accessible — redirect
+      const newNsId = accessibleNamespaces[0]?.metadata.id ?? null
+      if (permissions) {
+        navigate(getFirstPermittedPath(permissions, workspaceId, newNsId))
+      } else {
+        const resource = detectResource(location.pathname)
+        navigate(buildScopedPath(resource, workspaceId, newNsId))
+      }
+    } else if (!hasPlatformScope && !hasWorkspaceScope && accessibleNamespaces.length === 1 && !namespaceId) {
+      // Non-platform user with single namespace — auto-select
       const nsId = accessibleNamespaces[0].metadata.id
-      setNamespace(nsId)
       const resource = detectResource(location.pathname)
       navigate(buildScopedPath(resource, workspaceId, nsId))
     }
@@ -136,9 +194,18 @@ export function ScopeSelector() {
         value={workspaceId ?? (hasPlatformScope ? ALL : "")}
         onValueChange={(v) => {
           const wsId = v === ALL ? null : v
-          setWorkspace(wsId)
           const resource = detectResource(location.pathname)
-          navigate(buildScopedPath(resource, wsId, null))
+          const permCode = resource ? getResourcePermission(resource) : undefined
+          const scope = wsId ? { workspaceId: wsId } : undefined
+          // Navigate only; root-layout's useLayoutEffect syncs scope store from URL,
+          // avoiding stale requests from the old page seeing the new scope before unmounting.
+          if (permCode && permissions && checkPermission(permissions, permCode, scope)) {
+            navigate(buildScopedPath(resource, wsId, null))
+          } else if (permissions) {
+            navigate(getFirstPermittedPath(permissions, wsId, null))
+          } else {
+            navigate(buildScopedPath(resource, wsId, null))
+          }
         }}
         onOpenChange={(open) => { if (open) fetchWorkspaces() }}
       >
@@ -162,11 +229,20 @@ export function ScopeSelector() {
         value={namespaceId ?? ((hasPlatformScope || hasWorkspaceScope) ? ALL : "")}
         onValueChange={(v) => {
           const nsId = v === ALL ? null : v
-          setNamespace(nsId)
           const resource = detectResource(location.pathname)
-          navigate(buildScopedPath(resource, workspaceId, nsId))
+          const permCode = resource ? getResourcePermission(resource) : undefined
+          const scope = nsId && workspaceId
+            ? { workspaceId, namespaceId: nsId }
+            : workspaceId ? { workspaceId } : undefined
+          if (permCode && permissions && checkPermission(permissions, permCode, scope)) {
+            navigate(buildScopedPath(resource, workspaceId, nsId))
+          } else if (permissions) {
+            navigate(getFirstPermittedPath(permissions, workspaceId, nsId))
+          } else {
+            navigate(buildScopedPath(resource, workspaceId, nsId))
+          }
         }}
-        onOpenChange={(open) => { if (open) fetchNamespaces() }}
+        onOpenChange={(open) => { if (open) { canListNamespaces ? fetchNamespaces() : fetchUserJoinedNamespaces() } }}
         disabled={!workspaceId}
       >
         <SelectTrigger

@@ -34,7 +34,6 @@ import { ApiError, translateApiError } from "@/api/client"
 import type { Environment, Host, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
-import { useScopeStore } from "@/stores/scope-store"
 import { Pagination } from "@/components/pagination"
 
 const ENV_TYPES = ["development", "testing", "staging", "production", "custom"]
@@ -44,8 +43,7 @@ export default function EnvironmentDetailPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
-  const scopeNamespaceId = useScopeStore((s) => s.namespaceId)
+  const { workspaceId: scopeWorkspaceId, namespaceId: scopeNamespaceId } = useParams()
 
   const [environment, setEnvironment] = useState<Environment | null>(null)
   const [loading, setLoading] = useState(true)

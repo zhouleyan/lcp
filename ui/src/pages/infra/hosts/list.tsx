@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Link } from "react-router"
+import { Link, useParams } from "react-router"
 import { Plus, Pencil, Trash2, Search, Filter, ArrowRightLeft, Unlink, Link2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -49,7 +49,6 @@ import type { Host, Environment, Workspace, Namespace, ListParams } from "@/api/
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
 import { useListState } from "@/hooks/use-list-state"
-import { useScopeStore } from "@/stores/scope-store"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -62,8 +61,7 @@ export default function HostListPage() {
     selected, toggleAll, toggleOne, clearSelection,
   } = useListState()
   const { hasPermission, hasAnyPermission } = usePermission()
-  const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
-  const scopeNamespaceId = useScopeStore((s) => s.namespaceId)
+  const { workspaceId: scopeWorkspaceId, namespaceId: scopeNamespaceId } = useParams()
 
   const [hosts, setHosts] = useState<Host[]>([])
   const [loading, setLoading] = useState(true)

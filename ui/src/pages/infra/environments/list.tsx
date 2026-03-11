@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Link } from "react-router"
+import { Link, useParams } from "react-router"
 import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -39,7 +39,6 @@ import type { Environment, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
 import { useListState } from "@/hooks/use-list-state"
-import { useScopeStore } from "@/stores/scope-store"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -54,8 +53,7 @@ export default function EnvironmentListPage() {
     selected, toggleAll, toggleOne, clearSelection,
   } = useListState()
   const { hasPermission, hasAnyPermission } = usePermission()
-  const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
-  const scopeNamespaceId = useScopeStore((s) => s.namespaceId)
+  const { workspaceId: scopeWorkspaceId, namespaceId: scopeNamespaceId } = useParams()
 
   const [environments, setEnvironments] = useState<Environment[]>([])
   const [loading, setLoading] = useState(true)

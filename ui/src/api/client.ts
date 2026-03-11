@@ -1,6 +1,7 @@
 import ky, { HTTPError } from "ky"
 import { toast } from "sonner"
 import { getAccessToken, refreshAccessToken } from "@/lib/auth"
+import { useScopeStore } from "@/stores/scope-store"
 import type { StatusResponse, StatusResponseDetail } from "./types"
 
 export class ApiError extends Error {
@@ -21,6 +22,10 @@ export class ApiError extends Error {
 interface HTTPErrorWithBody extends HTTPError {
   _apiBody?: StatusResponse
 }
+
+/** Throttle scope invalidation to avoid 403 → invalidate → re-fetch → 403 loops. */
+let lastScopeInvalidateAt = 0
+const SCOPE_INVALIDATE_COOLDOWN_MS = 10_000
 
 export const api = ky.create({
   prefixUrl: "/api",
@@ -63,6 +68,13 @@ export const api = ky.create({
           }
           window.location.href = "/error?status=401"
           return response
+        }
+        if (response.status === 403) {
+          const now = Date.now()
+          if (now - lastScopeInvalidateAt > SCOPE_INVALIDATE_COOLDOWN_MS) {
+            lastScopeInvalidateAt = now
+            useScopeStore.getState().invalidate()
+          }
         }
         if (response.status >= 500) {
           window.location.href = `/error?status=${response.status}`

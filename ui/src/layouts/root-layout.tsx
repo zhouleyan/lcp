@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useState } from "react"
 import { Link, Navigate, Outlet, useLocation } from "react-router"
 import {
   LayoutDashboard,
@@ -23,7 +23,7 @@ import { useTranslation } from "@/i18n"
 import { isAuthenticated, startAuthFlow } from "@/lib/auth"
 import { useAuthStore } from "@/stores/auth-store"
 import { usePermissionStore } from "@/stores/permission-store"
-import { usePermission } from "@/hooks/use-permission"
+import { usePermission, getDefaultPath } from "@/hooks/use-permission"
 import { useScopeStore } from "@/stores/scope-store"
 import { isModulePrefix } from "@/modules"
 
@@ -40,16 +40,6 @@ interface NavGroup {
   items: NavItem[]
 }
 
-function getOverviewPath(scopeWorkspaceId: string | null, scopeNamespaceId: string | null): string {
-  if (scopeWorkspaceId && scopeNamespaceId) {
-    return `/dashboard/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}/overview`
-  }
-  if (scopeWorkspaceId) {
-    return `/dashboard/workspaces/${scopeWorkspaceId}/overview`
-  }
-  return "/dashboard/overview"
-}
-
 function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: string | null): NavGroup[] {
   if (scopeWorkspaceId && scopeNamespaceId) {
     const iamPrefix = `/iam/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
@@ -57,7 +47,7 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
     const infraPrefix = `/infra/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
     const nsScope = { workspaceId: scopeWorkspaceId, namespaceId: scopeNamespaceId }
     return [
-      { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home }] },
+      { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home, permission: "dashboard:overview:list", permissionScope: nsScope }] },
       {
         labelKey: "nav.iam",
         items: [
@@ -81,11 +71,11 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
     const infraPrefix = `/infra/workspaces/${scopeWorkspaceId}`
     const wsScope = { workspaceId: scopeWorkspaceId }
     return [
-      { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home }] },
+      { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home, permission: "dashboard:overview:list", permissionScope: wsScope }] },
       {
         labelKey: "nav.iam",
         items: [
-          { to: `${iamPrefix}/namespaces`, labelKey: "nav.namespaces", icon: FolderKanban },
+          { to: `${iamPrefix}/namespaces`, labelKey: "nav.namespaces", icon: FolderKanban, permission: "iam:namespaces:list", permissionScope: wsScope },
           { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users, permission: "iam:users:list", permissionScope: wsScope },
           { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list", permissionScope: wsScope },
           { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:rolebindings:list", permissionScope: wsScope },
@@ -101,12 +91,12 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
     ]
   }
   return [
-    { items: [{ to: "/dashboard/overview", labelKey: "nav.overview", icon: Home }] },
+    { items: [{ to: "/dashboard/overview", labelKey: "nav.overview", icon: Home, permission: "dashboard:overview:list" }] },
     {
       labelKey: "nav.iam",
       items: [
-        { to: "/iam/workspaces", labelKey: "nav.workspaces", icon: Building2 },
-        { to: "/iam/namespaces", labelKey: "nav.namespaces", icon: FolderKanban },
+        { to: "/iam/workspaces", labelKey: "nav.workspaces", icon: Building2, permission: "iam:workspaces:list" },
+        { to: "/iam/namespaces", labelKey: "nav.namespaces", icon: FolderKanban, permission: "iam:namespaces:list" },
         { to: "/iam/users", labelKey: "nav.users", icon: Users, permission: "iam:users:list" },
         { to: "/iam/roles", labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list" },
         { to: "/iam/rolebindings", labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:rolebindings:list" },
@@ -139,10 +129,12 @@ export default function RootLayout() {
   const setScope = useScopeStore((s) => s.setScope)
 
   // Sync scope store from URL when navigating via links or browser back/forward.
+  // Uses useLayoutEffect so the scope is updated BEFORE any child useEffect fires
+  // (e.g., list pages that fetch data based on scopeWorkspaceId).
   // /iam/workspaces/:id is a platform-level detail page — scope stays null.
   // /iam/workspaces/:id/<sub-resource> activates workspace scope.
   // /iam/workspaces/:id/namespaces/:nsId/<sub-resource> activates namespace scope.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const segs = location.pathname.split("/").filter(Boolean)
     // Skip module prefix (e.g. "iam", "dashboard")
     const s = isModulePrefix(segs[0]) ? segs.slice(1) : segs
@@ -164,9 +156,10 @@ export default function RootLayout() {
     () => buildNavGroups(scopeWorkspaceId, scopeNamespaceId),
     [scopeWorkspaceId, scopeNamespaceId],
   )
-  const overviewPath = useMemo(
-    () => getOverviewPath(scopeWorkspaceId, scopeNamespaceId),
-    [scopeWorkspaceId, scopeNamespaceId],
+  const permissions = usePermissionStore((s) => s.permissions)
+  const homePath = useMemo(
+    () => permissions ? getDefaultPath(permissions) : "/dashboard/overview",
+    [permissions],
   )
 
   const [ready, setReady] = useState(false)
@@ -192,15 +185,14 @@ export default function RootLayout() {
   }
 
   // Redirect to 403 if user has zero permissions (or fetchPermissions was never called)
-  const perms = usePermissionStore.getState().permissions
-  if (!perms) {
+  if (!permissions) {
     return <Navigate to="/error?status=403" replace />
   }
   const hasAny =
-    perms.isPlatformAdmin ||
-    (perms.platform?.length ?? 0) > 0 ||
-    Object.keys(perms.workspaces ?? {}).length > 0 ||
-    Object.keys(perms.namespaces ?? {}).length > 0
+    permissions.isPlatformAdmin ||
+    (permissions.platform?.length ?? 0) > 0 ||
+    Object.keys(permissions.workspaces ?? {}).length > 0 ||
+    Object.keys(permissions.namespaces ?? {}).length > 0
   if (!hasAny) {
     return <Navigate to="/error?status=403" replace />
   }
@@ -210,7 +202,7 @@ export default function RootLayout() {
       <div className="flex h-screen">
         <aside className="bg-sidebar text-sidebar-foreground flex w-60 flex-col border-r">
           <div className="flex h-14 items-center border-b px-4">
-            <Link to={overviewPath} className="flex items-center gap-2 font-semibold">
+            <Link to={homePath} className="flex items-center gap-2 font-semibold">
               <LayoutDashboard className="h-5 w-5" />
               <span>LCP Console</span>
             </Link>

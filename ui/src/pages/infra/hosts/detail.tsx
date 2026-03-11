@@ -34,15 +34,12 @@ import { ApiError, translateApiError } from "@/api/client"
 import type { Host, HostAssignment } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
-import { useScopeStore } from "@/stores/scope-store"
 
 export default function HostDetailPage() {
-  const { hostId } = useParams()
+  const { hostId, workspaceId: scopeWorkspaceId, namespaceId: scopeNamespaceId } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
-  const scopeNamespaceId = useScopeStore((s) => s.namespaceId)
 
   const [host, setHost] = useState<Host | null>(null)
   const [loading, setLoading] = useState(true)

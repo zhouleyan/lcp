@@ -22,7 +22,15 @@ export default function AuthCallbackPage() {
 
     exchangeCodeForTokens(code)
       .then(() => navigate("/", { replace: true }))
-      .catch((err) => setError(err.message))
+      .catch(async (err) => {
+        if (err instanceof Error && err.message === "Missing PKCE code verifier") {
+          // PKCE verifier lost (new tab, page refresh, etc.) — restart auth flow
+          const { startAuthFlow } = await import("@/lib/auth")
+          await startAuthFlow()
+          return
+        }
+        setError(err.message)
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, navigate])
 
