@@ -14,8 +14,6 @@ import { checkPermission, getFirstPermittedPath } from "@/hooks/use-permission"
 import { detectResource, buildScopedPath, getResourcePermission } from "@/lib/nav-config"
 import { listWorkspaces } from "@/api/iam/workspaces"
 import { listNamespaces, listWorkspaceNamespaces } from "@/api/iam/namespaces"
-import { listUserNamespaces } from "@/api/iam/users"
-import { useAuthStore } from "@/stores/auth-store"
 import { useTranslation } from "@/i18n"
 import type { Workspace, Namespace } from "@/api/types"
 
@@ -36,8 +34,6 @@ export function ScopeSelector() {
   const hasPlatformScope = permissions?.isPlatformAdmin || (permissions?.platform?.length ?? 0) > 0
   // Workspace-level users (e.g. workspace-viewer) should see "All namespaces" within their workspace
   const hasWorkspaceScope = !!(workspaceId && (permissions?.workspaces?.[workspaceId]?.permissions?.length ?? 0) > 0)
-
-  const userId = useAuthStore((s) => s.user?.sub)
 
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [namespaces, setNamespaces] = useState<Namespace[]>([])
@@ -97,22 +93,25 @@ export function ScopeSelector() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId])
 
-  // Fallback: fetch user's joined namespaces when user lacks iam:namespaces:list.
-  // Uses /users/{userId}:namespaces which doesn't require namespace list permission.
-  const fetchUserJoinedNamespaces = useCallback(async () => {
-    if (!userId || !workspaceId) {
+  // Fallback: fetch accessible namespaces via platform-level list API.
+  // The backend injects AccessFilter for non-admin users which includes:
+  // 1. Namespaces with direct namespace-scoped role bindings
+  // 2. All namespaces in workspaces where the user has a workspace role with permission rules
+  // This covers workspace-role users who don't have iam:namespaces:list specifically.
+  const fetchAccessibleNamespaces = useCallback(async () => {
+    if (!workspaceId) {
       setNamespaces([])
       return
     }
     try {
-      const data = await listUserNamespaces(userId, { pageSize: 100 })
+      const data = await listNamespaces({ pageSize: 100 })
       const filtered = (data.items ?? []).filter((ns) => ns.spec.workspaceId === workspaceId)
       setNamespaces(filtered)
     } catch {
       // Keep previous data on error to avoid flickering
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, workspaceId])
+  }, [workspaceId])
 
   // Workspace-role users (with iam:namespaces:list) see all namespaces via standard API.
   // Namespace-only members fall back to their joined namespaces.
@@ -124,9 +123,9 @@ export function ScopeSelector() {
     if (canListNamespaces) {
       fetchNamespaces()
     } else {
-      fetchUserJoinedNamespaces()
+      fetchAccessibleNamespaces()
     }
-  }, [fetchNamespaces, fetchUserJoinedNamespaces, namespaceId, version, canListNamespaces])
+  }, [fetchNamespaces, fetchAccessibleNamespaces, namespaceId, version, canListNamespaces])
 
   // Stale namespace detection + auto-select for non-platform users
   useEffect(() => {
@@ -202,7 +201,7 @@ export function ScopeSelector() {
             navigate(buildScopedPath(resource, workspaceId, nsId))
           }
         }}
-        onOpenChange={(open) => { if (open) { canListNamespaces ? fetchNamespaces() : fetchUserJoinedNamespaces() } }}
+        onOpenChange={(open) => { if (open) { canListNamespaces ? fetchNamespaces() : fetchAccessibleNamespaces() } }}
         disabled={!workspaceId}
       >
         <SelectTrigger
