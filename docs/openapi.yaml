@@ -25,8 +25,6 @@ tags:
     description: 主机管理：物理机或虚拟机资源，支持三层创建（平台/租户/项目）和向下分配。
   - name: Environment
     description: 环境管理：按生命周期阶段（开发、测试、生产等）分组资源的管理维度。
-  - name: HostAssignment
-    description: 主机分配记录：表示上层主机被授权给下层使用。
 paths:
   /.well-known/jwks.json:
     get:
@@ -56,1669 +54,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OIDCDiscoveryResponse'
-  /api//environments:
-    get:
-      summary: 获取环境列表
-      operationId: listEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvironmentList'
-    post:
-      summary: 创建环境
-      operationId: createEnvironment
-      tags:
-        - Environment
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Environment'
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    delete:
-      summary: 批量删除环境
-      operationId: deleteCollectionEnvironment
-      tags:
-        - Environment
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ids:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        "200":
-          description: OK
-  /api//environments/{environmentId}:
-    get:
-      summary: 获取环境详情
-      operationId: getEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    put:
-      summary: 更新环境信息（全量）
-      operationId: updateEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Environment'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    patch:
-      summary: 更新环境信息（部分）
-      operationId: patchEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Environment'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    delete:
-      summary: 删除环境
-      operationId: deleteEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-  /api//environments/{environmentId}:hosts:
-    get:
-      summary: 获取环境下的主机列表
-      operationId: listHostsEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostList'
-  /api//hostassignments:
-    get:
-      summary: List hostassignments
-      operationId: listHostAssignment
-      tags:
-        - HostAssignment
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostAssignmentList'
-    post:
-      summary: Create a HostAssignment
-      operationId: createHostAssignment
-      tags:
-        - HostAssignment
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HostAssignment'
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostAssignment'
-    delete:
-      summary: Batch delete hostassignments
-      operationId: deleteCollectionHostAssignment
-      tags:
-        - HostAssignment
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ids:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        "200":
-          description: OK
-  /api//hostassignments/{hostassignmentId}:
-    get:
-      summary: Get a HostAssignment
-      operationId: getHostAssignment
-      tags:
-        - HostAssignment
-      parameters:
-        - name: hostassignmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostAssignment'
-    put:
-      summary: Update a HostAssignment
-      operationId: updateHostAssignment
-      tags:
-        - HostAssignment
-      parameters:
-        - name: hostassignmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HostAssignment'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostAssignment'
-    patch:
-      summary: Patch a HostAssignment
-      operationId: patchHostAssignment
-      tags:
-        - HostAssignment
-      parameters:
-        - name: hostassignmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HostAssignment'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostAssignment'
-    delete:
-      summary: Delete a HostAssignment
-      operationId: deleteHostAssignment
-      tags:
-        - HostAssignment
-      parameters:
-        - name: hostassignmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-  /api//hosts:
-    get:
-      summary: 获取主机列表
-      operationId: listHost
-      tags:
-        - Host
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostList'
-    post:
-      summary: 创建主机
-      operationId: createHost
-      tags:
-        - Host
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Host'
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    delete:
-      summary: 批量删除主机
-      operationId: deleteCollectionHost
-      tags:
-        - Host
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ids:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        "200":
-          description: OK
-  /api//hosts/{hostId}:
-    get:
-      summary: 获取主机详情
-      operationId: getHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    put:
-      summary: 更新主机信息（全量）
-      operationId: updateHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Host'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    patch:
-      summary: 更新主机信息（部分）
-      operationId: patchHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Host'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    delete:
-      summary: 删除主机
-      operationId: deleteHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-  /api//hosts/{hostId}/assign:
-    post:
-      summary: 分配主机到租户或项目
-      operationId: assignHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api//hosts/{hostId}/bind-environment:
-    post:
-      summary: 绑定主机到环境
-      operationId: bindEnvironmentHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api//hosts/{hostId}/unassign:
-    post:
-      summary: 取消主机分配
-      operationId: unassignHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api//hosts/{hostId}/unbind-environment:
-    post:
-      summary: 解绑主机环境
-      operationId: unbindEnvironmentHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api//hosts/{hostId}:assignments:
-    get:
-      summary: 获取主机的分配记录列表
-      operationId: listAssignmentsHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostAssignmentList'
-  /api//workspaces/{workspaceId}/environments:
-    get:
-      summary: 获取租户下的环境列表
-      operationId: listWorkspaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvironmentList'
-    post:
-      summary: 在租户下创建环境
-      operationId: createWorkspaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Environment'
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    delete:
-      summary: 批量删除租户下的环境
-      operationId: deleteCollectionWorkspaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ids:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        "200":
-          description: OK
-  /api//workspaces/{workspaceId}/environments/{environmentId}:
-    get:
-      summary: 获取租户下的环境详情
-      operationId: getWorkspaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    put:
-      summary: 更新租户下的环境信息（全量）
-      operationId: updateWorkspaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Environment'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    patch:
-      summary: 更新租户下的环境信息（部分）
-      operationId: patchWorkspaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Environment'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    delete:
-      summary: 删除租户下的环境
-      operationId: deleteWorkspaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-  /api//workspaces/{workspaceId}/hosts:
-    get:
-      summary: 获取租户下的主机列表
-      operationId: listWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostList'
-    post:
-      summary: 在租户下创建主机
-      operationId: createWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Host'
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    delete:
-      summary: 批量删除租户下的主机
-      operationId: deleteCollectionWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ids:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        "200":
-          description: OK
-  /api//workspaces/{workspaceId}/hosts/{hostId}:
-    get:
-      summary: 获取租户下的主机详情
-      operationId: getWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    put:
-      summary: 更新租户下的主机信息（全量）
-      operationId: updateWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Host'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    patch:
-      summary: 更新租户下的主机信息（部分）
-      operationId: patchWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Host'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    delete:
-      summary: 删除租户下的主机
-      operationId: deleteWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-  /api//workspaces/{workspaceId}/hosts/{hostId}/assign:
-    post:
-      summary: 分配主机到租户或项目
-      operationId: assignWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api//workspaces/{workspaceId}/hosts/{hostId}/bind-environment:
-    post:
-      summary: 绑定主机到环境
-      operationId: bindEnvironmentWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api//workspaces/{workspaceId}/hosts/{hostId}/unassign:
-    post:
-      summary: 取消主机分配
-      operationId: unassignWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api//workspaces/{workspaceId}/hosts/{hostId}/unbind-environment:
-    post:
-      summary: 解绑主机环境
-      operationId: unbindEnvironmentWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api//workspaces/{workspaceId}/namespaces/{namespaceId}/environments:
-    get:
-      summary: 获取项目下的环境列表
-      operationId: listWorkspaceNamespaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvironmentList'
-    post:
-      summary: 在项目下创建环境
-      operationId: createWorkspaceNamespaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Environment'
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    delete:
-      summary: 批量删除项目下的环境
-      operationId: deleteCollectionWorkspaceNamespaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ids:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        "200":
-          description: OK
-  /api//workspaces/{workspaceId}/namespaces/{namespaceId}/environments/{environmentId}:
-    get:
-      summary: 获取项目下的环境详情
-      operationId: getWorkspaceNamespaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    put:
-      summary: 更新项目下的环境信息（全量）
-      operationId: updateWorkspaceNamespaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Environment'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    patch:
-      summary: 更新项目下的环境信息（部分）
-      operationId: patchWorkspaceNamespaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Environment'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Environment'
-    delete:
-      summary: 删除项目下的环境
-      operationId: deleteWorkspaceNamespaceEnvironment
-      tags:
-        - Environment
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: environmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-  /api//workspaces/{workspaceId}/namespaces/{namespaceId}/hosts:
-    get:
-      summary: 获取项目下的主机列表
-      operationId: listWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostList'
-    post:
-      summary: 在项目下创建主机
-      operationId: createWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Host'
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    delete:
-      summary: 批量删除项目下的主机
-      operationId: deleteCollectionWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ids:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        "200":
-          description: OK
-  /api//workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}:
-    get:
-      summary: 获取项目下的主机详情
-      operationId: getWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    put:
-      summary: 更新项目下的主机信息（全量）
-      operationId: updateWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Host'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    patch:
-      summary: 更新项目下的主机信息（部分）
-      operationId: patchWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Host'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Host'
-    delete:
-      summary: 删除项目下的主机
-      operationId: deleteWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-  /api//workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}/assign:
-    post:
-      summary: 分配主机到租户或项目
-      operationId: assignWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api//workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}/bind-environment:
-    post:
-      summary: 绑定主机到环境
-      operationId: bindEnvironmentWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api//workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}/unassign:
-    post:
-      summary: 取消主机分配
-      operationId: unassignWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api//workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}/unbind-environment:
-    post:
-      summary: 解绑主机环境
-      operationId: unbindEnvironmentWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
   /api/audit/v1/logs:
     get:
       summary: 获取审计日志列表
@@ -3707,6 +2042,1518 @@ paths:
       responses:
         "200":
           description: OK
+  /api/infra/v1/environments:
+    get:
+      summary: 获取环境列表
+      operationId: listEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentList'
+    post:
+      summary: 创建环境
+      operationId: createEnvironment
+      tags:
+        - Environment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Environment'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    delete:
+      summary: 批量删除环境
+      operationId: deleteCollectionEnvironment
+      tags:
+        - Environment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/environments/{environmentId}:
+    get:
+      summary: 获取环境详情
+      operationId: getEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    put:
+      summary: 更新环境信息（全量）
+      operationId: updateEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Environment'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    patch:
+      summary: 更新环境信息（部分）
+      operationId: patchEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Environment'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    delete:
+      summary: 删除环境
+      operationId: deleteEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/infra/v1/environments/{environmentId}:hosts:
+    get:
+      summary: 获取环境下的主机列表
+      operationId: listHostsEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostList'
+  /api/infra/v1/hosts:
+    get:
+      summary: 获取主机列表
+      operationId: listHost
+      tags:
+        - Host
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostList'
+    post:
+      summary: 创建主机
+      operationId: createHost
+      tags:
+        - Host
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Host'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    delete:
+      summary: 批量删除主机
+      operationId: deleteCollectionHost
+      tags:
+        - Host
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/hosts/{hostId}:
+    get:
+      summary: 获取主机详情
+      operationId: getHost
+      tags:
+        - Host
+      parameters:
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    put:
+      summary: 更新主机信息（全量）
+      operationId: updateHost
+      tags:
+        - Host
+      parameters:
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Host'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    patch:
+      summary: 更新主机信息（部分）
+      operationId: patchHost
+      tags:
+        - Host
+      parameters:
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Host'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    delete:
+      summary: 删除主机
+      operationId: deleteHost
+      tags:
+        - Host
+      parameters:
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/infra/v1/hosts/{hostId}/assign:
+    post:
+      summary: 分配主机到租户或项目
+      operationId: assignHost
+      tags:
+        - Host
+      parameters:
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/hosts/{hostId}/bind-environment:
+    post:
+      summary: 绑定主机到环境
+      operationId: bindEnvironmentHost
+      tags:
+        - Host
+      parameters:
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/hosts/{hostId}/unassign:
+    post:
+      summary: 取消主机分配
+      operationId: unassignHost
+      tags:
+        - Host
+      parameters:
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/hosts/{hostId}/unbind-environment:
+    post:
+      summary: 解绑主机环境
+      operationId: unbindEnvironmentHost
+      tags:
+        - Host
+      parameters:
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/hosts/{hostId}:assignments:
+    get:
+      summary: 获取主机的分配记录列表
+      operationId: listAssignmentsHost
+      tags:
+        - Host
+      parameters:
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostAssignmentList'
+  /api/infra/v1/workspaces/{workspaceId}/environments:
+    get:
+      summary: 获取租户下的环境列表
+      operationId: listWorkspaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentList'
+    post:
+      summary: 在租户下创建环境
+      operationId: createWorkspaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Environment'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    delete:
+      summary: 批量删除租户下的环境
+      operationId: deleteCollectionWorkspaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/workspaces/{workspaceId}/environments/{environmentId}:
+    get:
+      summary: 获取租户下的环境详情
+      operationId: getWorkspaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    put:
+      summary: 更新租户下的环境信息（全量）
+      operationId: updateWorkspaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Environment'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    patch:
+      summary: 更新租户下的环境信息（部分）
+      operationId: patchWorkspaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Environment'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    delete:
+      summary: 删除租户下的环境
+      operationId: deleteWorkspaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/infra/v1/workspaces/{workspaceId}/hosts:
+    get:
+      summary: 获取租户下的主机列表
+      operationId: listWorkspaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostList'
+    post:
+      summary: 在租户下创建主机
+      operationId: createWorkspaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Host'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    delete:
+      summary: 批量删除租户下的主机
+      operationId: deleteCollectionWorkspaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/workspaces/{workspaceId}/hosts/{hostId}:
+    get:
+      summary: 获取租户下的主机详情
+      operationId: getWorkspaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    put:
+      summary: 更新租户下的主机信息（全量）
+      operationId: updateWorkspaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Host'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    patch:
+      summary: 更新租户下的主机信息（部分）
+      operationId: patchWorkspaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Host'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    delete:
+      summary: 删除租户下的主机
+      operationId: deleteWorkspaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/infra/v1/workspaces/{workspaceId}/hosts/{hostId}/assign:
+    post:
+      summary: 分配主机到租户或项目
+      operationId: assignWorkspaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/workspaces/{workspaceId}/hosts/{hostId}/bind-environment:
+    post:
+      summary: 绑定主机到环境
+      operationId: bindEnvironmentWorkspaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/workspaces/{workspaceId}/hosts/{hostId}/unassign:
+    post:
+      summary: 取消主机分配
+      operationId: unassignWorkspaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/workspaces/{workspaceId}/hosts/{hostId}/unbind-environment:
+    post:
+      summary: 解绑主机环境
+      operationId: unbindEnvironmentWorkspaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/environments:
+    get:
+      summary: 获取项目下的环境列表
+      operationId: listWorkspaceNamespaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentList'
+    post:
+      summary: 在项目下创建环境
+      operationId: createWorkspaceNamespaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Environment'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    delete:
+      summary: 批量删除项目下的环境
+      operationId: deleteCollectionWorkspaceNamespaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/environments/{environmentId}:
+    get:
+      summary: 获取项目下的环境详情
+      operationId: getWorkspaceNamespaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    put:
+      summary: 更新项目下的环境信息（全量）
+      operationId: updateWorkspaceNamespaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Environment'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    patch:
+      summary: 更新项目下的环境信息（部分）
+      operationId: patchWorkspaceNamespaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Environment'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+    delete:
+      summary: 删除项目下的环境
+      operationId: deleteWorkspaceNamespaceEnvironment
+      tags:
+        - Environment
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: environmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/infra/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/hosts:
+    get:
+      summary: 获取项目下的主机列表
+      operationId: listWorkspaceNamespaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostList'
+    post:
+      summary: 在项目下创建主机
+      operationId: createWorkspaceNamespaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Host'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    delete:
+      summary: 批量删除项目下的主机
+      operationId: deleteCollectionWorkspaceNamespaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}:
+    get:
+      summary: 获取项目下的主机详情
+      operationId: getWorkspaceNamespaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    put:
+      summary: 更新项目下的主机信息（全量）
+      operationId: updateWorkspaceNamespaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Host'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    patch:
+      summary: 更新项目下的主机信息（部分）
+      operationId: patchWorkspaceNamespaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Host'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+    delete:
+      summary: 删除项目下的主机
+      operationId: deleteWorkspaceNamespaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/infra/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}/assign:
+    post:
+      summary: 分配主机到租户或项目
+      operationId: assignWorkspaceNamespaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}/bind-environment:
+    post:
+      summary: 绑定主机到环境
+      operationId: bindEnvironmentWorkspaceNamespaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}/unassign:
+    post:
+      summary: 取消主机分配
+      operationId: unassignWorkspaceNamespaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}/unbind-environment:
+    post:
+      summary: 解绑主机环境
+      operationId: unbindEnvironmentWorkspaceNamespaceHost
+      tags:
+        - Host
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
   /oidc/authorize:
     get:
       summary: 授权端点
@@ -4656,4 +4503,3 @@ x-tagGroups:
     tags:
       - Host
       - Environment
-      - HostAssignment

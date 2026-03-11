@@ -124,6 +124,7 @@ func (e *EnvironmentList) GetTypeMeta() *runtime.TypeMeta { return &e.TypeMeta }
 // --- HostAssignment types ---
 
 // HostAssignment
+// +openapi:schema
 // +openapi:description=主机分配记录：表示上层主机被授权给下层使用。
 type HostAssignment struct {
 	runtime.TypeMeta `json:",inline"`
