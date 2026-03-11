@@ -102,6 +102,7 @@ const common: Messages = {
   // login errors
   "login.error.invalidCredentials": "Invalid username or password",
   "login.error.accountInactive": "Account has been deactivated",
+  "login.error.sessionExpired": "Session expired, redirecting...",
   "login.error.failed": "Login failed, please try again",
 
   // api errors

@@ -11,6 +11,7 @@ import { loginWithCredentials, startAuthFlow } from "@/lib/auth"
 const loginErrorMap: Record<string, string> = {
   "invalid credentials": "login.error.invalidCredentials",
   "account is not active": "login.error.accountInactive",
+  "invalid or expired request_id": "login.error.sessionExpired",
 }
 
 export default function LoginPage() {
@@ -42,6 +43,11 @@ export default function LoginPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : ""
       const key = loginErrorMap[msg.toLowerCase()]
+      if (msg.toLowerCase() === "invalid or expired request_id") {
+        setError(t("login.error.sessionExpired"))
+        setTimeout(() => startAuthFlow(), 1500)
+        return
+      }
       setError(key ? t(key) : t("login.error.failed"))
     } finally {
       setLoading(false)
@@ -49,7 +55,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div
+      className="flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: "url('/login-bg.svg')" }}
+    >
       <Card className="w-full max-w-sm">
         <CardHeader>
           <div className="flex items-center justify-between">
