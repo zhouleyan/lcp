@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
+import { useScopeStore } from "@/stores/scope-store"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -59,6 +60,7 @@ export default function WorkspaceDetailPage() {
     if (!workspace) return
     try {
       await deleteWorkspace(workspace.metadata.id)
+      useScopeStore.getState().invalidate()
       toast.success(t("action.deleteSuccess"))
       navigate("/iam/workspaces")
     } catch (err) {
@@ -269,6 +271,7 @@ function EditWorkspaceDialog({
         metadata: workspace.metadata,
         spec: { ...workspace.spec, displayName: values.displayName, description: values.description, status: values.status },
       })
+      useScopeStore.getState().invalidate()
       toast.success(t("action.updateSuccess"))
       onOpenChange(false)
       onSuccess()

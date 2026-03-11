@@ -32,6 +32,61 @@ type AuditLog struct {
 	CreatedAt    time.Time       `json:"created_at"`
 }
 
+// 环境表：管理维度，用于按生命周期阶段分组资源
+type Environment struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
+	// 环境类型：development, testing, staging, production, custom
+	EnvType string `json:"env_type"`
+	// 作用域：platform / workspace / namespace
+	Scope       string    `json:"scope"`
+	WorkspaceID *int64    `json:"workspace_id"`
+	NamespaceID *int64    `json:"namespace_id"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// 主机表：物理机或虚拟机资源
+type Host struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
+	Hostname    string `json:"hostname"`
+	IpAddress   string `json:"ip_address"`
+	Os          string `json:"os"`
+	Arch        string `json:"arch"`
+	CpuCores    int32  `json:"cpu_cores"`
+	MemoryMb    int64  `json:"memory_mb"`
+	DiskGb      int64  `json:"disk_gb"`
+	// 标签（JSON 对象，支持 GIN 索引查询）
+	Labels json.RawMessage `json:"labels"`
+	// 创建层级：platform / workspace / namespace
+	Scope       string `json:"scope"`
+	WorkspaceID *int64 `json:"workspace_id"`
+	NamespaceID *int64 `json:"namespace_id"`
+	// 所属环境（一对一，ON DELETE SET NULL）
+	EnvironmentID *int64    `json:"environment_id"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// 主机分配表：引用语义，上层主机授权给下层使用
+type HostAssignment struct {
+	ID int64 `json:"id"`
+	// 被分配的主机 ID
+	HostID int64 `json:"host_id"`
+	// 目标租户（平台主机 → 租户）
+	WorkspaceID *int64 `json:"workspace_id"`
+	// 目标项目（平台/租户主机 → 项目）
+	NamespaceID *int64    `json:"namespace_id"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type Namespace struct {
 	ID          int64     `json:"id"`
 	Name        string    `json:"name"`

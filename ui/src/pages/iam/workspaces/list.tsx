@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
+import { useScopeStore } from "@/stores/scope-store"
 import { Button } from "@/components/ui/button"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -86,6 +87,7 @@ export default function WorkspaceListPage() {
     if (!deleteTarget) return
     try {
       await deleteWorkspace(deleteTarget.metadata.id)
+      useScopeStore.getState().invalidate()
       toast.success(t("action.deleteSuccess"))
       setDeleteTarget(null)
       fetchData()
@@ -101,6 +103,7 @@ export default function WorkspaceListPage() {
   const handleBatchDelete = async () => {
     try {
       await deleteWorkspaces(Array.from(selected))
+      useScopeStore.getState().invalidate()
       toast.success(t("action.deleteSuccess"))
       setBatchDeleteOpen(false)
       clearSelection()
@@ -383,6 +386,7 @@ function WorkspaceFormDialog({
         })
         toast.success(t("action.createSuccess"))
       }
+      useScopeStore.getState().invalidate()
       onOpenChange(false)
       onSuccess()
     } catch (err) {

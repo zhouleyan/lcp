@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Link } from "react-router"
+import { Link, useParams } from "react-router"
 import {
   Plus, Pencil, Trash2,
   Search, Filter,
@@ -57,7 +57,7 @@ export default function NamespaceListPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibilityFilter, setVisibilityFilter] = useState("all")
-  const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
+  const { workspaceId: scopeWorkspaceId } = useParams()
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Namespace | null>(null)
@@ -97,6 +97,7 @@ export default function NamespaceListPage() {
     if (!deleteTarget) return
     try {
       await deleteNamespace(deleteTarget.metadata.id)
+      useScopeStore.getState().invalidate()
       toast.success(t("action.deleteSuccess"))
       setDeleteTarget(null)
       fetchData()
@@ -112,6 +113,7 @@ export default function NamespaceListPage() {
   const handleBatchDelete = async () => {
     try {
       await deleteNamespaces(Array.from(selected))
+      useScopeStore.getState().invalidate()
       toast.success(t("action.deleteSuccess"))
       setBatchDeleteOpen(false)
       clearSelection()
@@ -445,6 +447,7 @@ function NamespaceFormDialog({
         })
         toast.success(t("action.createSuccess"))
       }
+      useScopeStore.getState().invalidate()
       onOpenChange(false)
       onSuccess()
     } catch (err) {

@@ -68,9 +68,17 @@ function isCoarserOrEqual(a: string, b: string): boolean {
 }
 
 function buildTree(perms: Permission[]): GroupNode {
+  // Deduplicate by code — same code may appear at multiple scopes
+  const seen = new Set<string>()
+  const unique = perms.filter((p) => {
+    if (seen.has(p.spec.code)) return false
+    seen.add(p.spec.code)
+    return true
+  })
+
   const moduleMap = new Map<string, Map<string, Permission[]>>()
 
-  for (const p of perms) {
+  for (const p of unique) {
     const parts = p.spec.code.split(":")
     const module = parts[0]
     const resourceKey = parts.slice(0, -1).join(":")
@@ -132,7 +140,7 @@ function buildTree(perms: Permission[]): GroupNode {
           const subNode: GroupNode = {
             key: resourceKey,
             wildcardPattern: `${resourceKey}:*`,
-            i18nKey: `perm.group.${module}.${topResource}.${subResourceName}`,
+            i18nKey: `perm.group.${module}.${topResource}.${subResourceName.replace(/:/g, ".")}`,
             children: [],
             permissions: permsInGroup.map((p) => ({
               code: p.spec.code,
@@ -196,23 +204,6 @@ export function PermissionSelector({
     return keys
   }, [tree])
 
-  // Wildcards that would match permissions outside the allowed scope
-  const unsafeWildcards = useMemo(() => {
-    if (!scope || scope === "platform") return new Set<string>()
-    const minLevel = SCOPE_LEVELS[scope] ?? 0
-    const unsafe = new Set<string>()
-    const walk = (node: GroupNode) => {
-      if (permissions.some(
-        (p) => patternCovers(node.wildcardPattern, p.spec.code) && (SCOPE_LEVELS[p.spec.scope] ?? 0) < minLevel
-      )) {
-        unsafe.add(node.wildcardPattern)
-      }
-      node.children.forEach(walk)
-    }
-    walk(tree)
-    return unsafe
-  }, [permissions, scope, tree])
-
   useState(() => {
     setExpanded(allGroupKeys)
   })
@@ -231,26 +222,14 @@ export function PermissionSelector({
   const toggleWildcard = useCallback(
     (pattern: string, allCodes: string[]) => {
       if (!onChange) return
-      if (unsafeWildcards.has(pattern)) {
-        // Unsafe wildcard: toggle individual codes, never store the wildcard
-        const allSelected = allCodes.every((c) => isSelected(value, c))
-        if (allSelected) {
-          const toRemove = new Set([...allCodes, pattern])
-          onChange(value.filter((r) => !toRemove.has(r)))
-        } else {
-          const toAdd = allCodes.filter((c) => !isSelected(value, c))
-          onChange([...value.filter((r) => r !== pattern), ...toAdd])
-        }
+      if (value.includes(pattern)) {
+        onChange(value.filter((r) => r !== pattern))
       } else {
-        if (value.includes(pattern)) {
-          onChange(value.filter((r) => r !== pattern))
-        } else {
-          const cleaned = value.filter((r) => !allCodes.includes(r) && !(r.includes("*") && isCoarserOrEqual(pattern, r)))
-          onChange([...cleaned, pattern])
-        }
+        const cleaned = value.filter((r) => !allCodes.includes(r) && !(r.includes("*") && isCoarserOrEqual(pattern, r)))
+        onChange([...cleaned, pattern])
       }
     },
-    [value, onChange, unsafeWildcards],
+    [value, onChange],
   )
 
   const togglePermission = useCallback(
@@ -296,8 +275,6 @@ export function PermissionSelector({
           matchingCodes={null}
           depth={0}
           readOnly
-          scope={scope}
-          unsafeWildcards={unsafeWildcards}
         />
       </div>
     )
@@ -326,8 +303,6 @@ export function PermissionSelector({
           matchingCodes={matchingCodes}
           depth={0}
           readOnly={readOnly}
-          scope={scope}
-          unsafeWildcards={unsafeWildcards}
         />
       </div>
     </div>
@@ -345,8 +320,6 @@ function TreeNode({
   matchingCodes,
   depth,
   readOnly,
-  scope,
-  unsafeWildcards,
 }: {
   node: GroupNode
   value: string[]
@@ -358,8 +331,6 @@ function TreeNode({
   matchingCodes: Set<string> | null
   depth: number
   readOnly?: boolean
-  scope?: "platform" | "workspace" | "namespace"
-  unsafeWildcards: Set<string>
 }) {
   const { t } = useTranslation()
   const allCodes = useMemo(() => getAllCodes(node), [node])
@@ -395,11 +366,10 @@ function TreeNode({
   const hasChildren = node.children.length > 0 || verbGroupData.length > 0 || customPerms.length > 0
 
   // Toggle verb group
-  const isScoped = !!scope && scope !== "platform"
   const toggleVerbGroup = useCallback(
     (group: { verbs: readonly string[]; codes: string[] }) => {
-      if (isRoot && !isScoped) {
-        // Platform root: use *:verb patterns
+      if (isRoot) {
+        // Root: use *:verb patterns
         const patterns = group.verbs.map((v) => `*:${v}`)
         const allPatternsSelected = patterns.every((p) => value.includes(p))
         if (allPatternsSelected) {
@@ -410,7 +380,7 @@ function TreeNode({
           onChange([...cleaned, ...newPatterns])
         }
       } else {
-        // Non-root or scoped root: toggle individual codes
+        // Non-root: toggle individual codes
         const allSelected = group.codes.every((c) => isSelected(value, c))
         if (allSelected) {
           onChange(value.filter((r) => !group.codes.includes(r)))
@@ -420,7 +390,7 @@ function TreeNode({
         }
       }
     },
-    [isRoot, isScoped, value, onChange],
+    [isRoot, value, onChange],
   )
 
   return (
@@ -447,7 +417,7 @@ function TreeNode({
           onCheckedChange={readOnly ? undefined : () => toggleWildcard(node.wildcardPattern, allCodes)}
         />
         <span className="text-sm font-medium">{t(node.i18nKey, { defaultValue: node.key })}</span>
-        {!readOnly && !unsafeWildcards.has(node.wildcardPattern) && <span className="text-muted-foreground font-mono text-xs">{node.wildcardPattern}</span>}
+        {!readOnly && <span className="text-muted-foreground font-mono text-xs">{node.wildcardPattern}</span>}
       </div>
 
       {/* Expanded content */}
@@ -463,7 +433,7 @@ function TreeNode({
                 let groupChecked: boolean | "indeterminate" = false
                 let groupLocked = false
 
-                if (isRoot && !isScoped) {
+                if (isRoot) {
                   const patterns = group.verbs.map((v) => `*:${v}`)
                   const allPatternsSelected = patterns.every((p) => value.includes(p))
                   const somePatternsSelected = patterns.some((p) => value.includes(p))
@@ -484,7 +454,7 @@ function TreeNode({
                   <label
                     key={group.key}
                     className={`flex items-center gap-1 rounded bg-muted/50 px-2 py-0.5 text-xs ${readOnly ? "" : "hover:bg-accent cursor-pointer"}`}
-                    title={readOnly ? undefined : ((isRoot && !isScoped) ? group.verbs.map((v) => `*:${v}`).join(", ") : group.codes.join(", "))}
+                    title={readOnly ? undefined : (isRoot ? group.verbs.map((v) => `*:${v}`).join(", ") : group.codes.join(", "))}
                   >
                     <Checkbox
                       className="h-3.5 w-3.5"
@@ -539,8 +509,6 @@ function TreeNode({
               matchingCodes={matchingCodes}
               depth={depth + 1}
               readOnly={readOnly}
-              scope={scope}
-              unsafeWildcards={unsafeWildcards}
             />
           ))}
         </>

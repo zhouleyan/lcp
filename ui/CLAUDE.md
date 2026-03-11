@@ -245,12 +245,43 @@ Frontend routes must mirror backend API routes to enable unified RBAC permission
 
 **Key rule**: Use the same resource name on both sides (e.g., `users` not `members`). Frontend routes include the module prefix (`/iam/`) to align with backend API groups. This ensures the permission middleware can match frontend route segments to backend API paths directly.
 
+### Scope-Aware Route Pattern (CRITICAL)
+
+All module routes that support workspace/namespace scope **MUST** embed scope IDs in the URL path. The root layout syncs the scope store from URL segments — if the URL doesn't contain workspace/namespace IDs, scope resets to platform level.
+
+**URL pattern**: `/{module}/workspaces/{wsId}/namespaces/{nsId}/{resource}`
+
+| Scope | URL Pattern |
+|-------|------------|
+| Platform | `/{module}/{resource}` |
+| Workspace | `/{module}/workspaces/:workspaceId/{resource}` |
+| Namespace | `/{module}/workspaces/:workspaceId/namespaces/:namespaceId/{resource}` |
+
+**Examples across modules**:
+
+| Module | Platform | Workspace | Namespace |
+|--------|----------|-----------|-----------|
+| IAM | `/iam/users` | `/iam/workspaces/:wsId/users` | `/iam/workspaces/:wsId/namespaces/:nsId/users` |
+| Dashboard | `/dashboard/overview` | `/dashboard/workspaces/:wsId/overview` | `/dashboard/workspaces/:wsId/namespaces/:nsId/overview` |
+| Infra | `/infra/hosts` | `/infra/workspaces/:wsId/hosts` | `/infra/workspaces/:wsId/namespaces/:nsId/hosts` |
+
+**When adding a new module with scoped resources, you MUST update 5 places**:
+
+1. **`routes.tsx`** — Register route entries for all three scope levels (platform, workspace, namespace), all pointing to the same page component
+2. **`root-layout.tsx` (`buildNavGroups`)** — Nav links must use scoped paths with `${prefix}/${resource}` (e.g., `` `/infra/workspaces/${wsId}/hosts` ``), NOT bare paths like `"/infra/hosts"`
+3. **`scope-selector.tsx` (`buildScopedPath`)** — Add routing conditions for the new module's resources at each scope level
+4. **`scope-selector.tsx` (`KNOWN_RESOURCES`)** — Add the resource names
+5. **`app-breadcrumb.tsx` (`routeLabelKeys`)** — Add the resource name → i18n key mapping (e.g., `hosts: "nav.hosts"`), otherwise breadcrumb treats the resource segment as a dynamic ID and won't render a clickable link
+
+**Anti-pattern**: Using a fixed path like `"/infra/hosts"` for all scope levels. This causes the scope selector to reset when navigating because the URL lacks workspace/namespace IDs.
+
 ## Module Architecture
 
-The UI is organized into modules (IAM, Dashboard) defined in `src/modules.ts`. Each module has its own route prefix, navigation items, and lazy-loaded pages.
+The UI is organized into modules (IAM, Dashboard, Infra) defined in `src/modules.ts`. Each module has its own route prefix, navigation items, and lazy-loaded pages.
 
 - **IAM module** (`/iam/`): Users, workspaces, namespaces, roles
 - **Dashboard module** (`/dashboard/`): Overview statistics
+- **Infra module** (`/infra/`): Hosts, environments
 
 The root layout (`layouts/root-layout.tsx`) renders navigation items from the active module and integrates the scope selector.
 
@@ -326,12 +357,12 @@ Conditionally render action buttons based on the user's permissions:
 | users | `iam:users:create` | `iam:users:update` | `iam:users:delete` | `iam:users:deleteCollection` |
 | workspaces | `iam:workspaces:create` | `iam:workspaces:update` (scoped) | `iam:workspaces:delete` (scoped) | `iam:workspaces:deleteCollection` |
 | namespaces | `iam:namespaces:create` (any) | `iam:namespaces:update` (scoped) | `iam:namespaces:delete` (scoped) | `iam:namespaces:deleteCollection` (any) |
-| workspace members | `iam:workspaces:users:create` (scoped) | - | - | `iam:workspaces:users:deleteCollection` (scoped) |
-| namespace members | `iam:namespaces:users:create` (scoped) | - | - | `iam:namespaces:users:deleteCollection` (scoped) |
+| workspace members | `iam:users:create` (scoped) | - | - | `iam:users:deleteCollection` (scoped) |
+| namespace members | `iam:users:create` (scoped) | - | - | `iam:users:deleteCollection` (scoped) |
 | roles | `iam:roles:create` | `iam:roles:update` | `iam:roles:delete` | `iam:roles:delete` |
 | rolebindings (platform) | `iam:rolebindings:create` | - | `iam:rolebindings:delete` | `iam:rolebindings:delete` |
-| rolebindings (workspace) | `iam:workspaces:rolebindings:create` (scoped) | - | `iam:workspaces:rolebindings:delete` (scoped) | same |
-| rolebindings (namespace) | `iam:namespaces:rolebindings:create` (scoped) | - | `iam:namespaces:rolebindings:delete` (scoped) | same |
+| rolebindings (workspace) | `iam:rolebindings:create` (scoped) | - | `iam:rolebindings:delete` (scoped) | same |
+| rolebindings (namespace) | `iam:rolebindings:create` (scoped) | - | `iam:rolebindings:delete` (scoped) | same |
 
 #### Checkbox Column Convention
 

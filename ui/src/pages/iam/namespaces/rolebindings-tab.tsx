@@ -19,13 +19,13 @@ export default function NamespaceRoleBindingsTab() {
     deleteBinding: (id) => deleteNamespaceRoleBinding(workspaceId, namespaceId, id),
     deleteBindings: (ids) => deleteNamespaceRoleBindings(workspaceId, namespaceId, ids),
     listRoles: (params) => listNamespaceRoles(workspaceId, namespaceId, params),
-    permCreate: "iam:namespaces:rolebindings:create",
-    permDelete: "iam:namespaces:rolebindings:delete",
+    permCreate: "iam:rolebindings:create",
+    permDelete: "iam:rolebindings:delete",
     scope: "namespace",
     scopeParams: { workspaceId, namespaceId },
   }), [workspaceId, namespaceId])
 
-  if (permissionsLoaded && !hasPermission("iam:namespaces:rolebindings:list", { workspaceId, namespaceId })) {
+  if (permissionsLoaded && !hasPermission("iam:rolebindings:list", { workspaceId, namespaceId })) {
     return <Navigate to="/" replace />
   }
 

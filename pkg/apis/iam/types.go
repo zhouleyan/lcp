@@ -177,6 +177,7 @@ func (n *NamespaceList) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
 type BatchRequest struct {
 	runtime.TypeMeta `json:",inline"`
 	IDs              []string `json:"ids"`
+	RoleID           string   `json:"roleId,omitempty"`
 }
 
 func (b *BatchRequest) GetTypeMeta() *runtime.TypeMeta { return &b.TypeMeta }

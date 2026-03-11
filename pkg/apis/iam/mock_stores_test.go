@@ -186,8 +186,8 @@ type mockRoleBindingStore struct {
 	GetAccessibleWorkspaceIDsFn    func(ctx context.Context, userID int64) ([]int64, error)
 	GetAccessibleNamespaceIDsFn    func(ctx context.Context, userID int64) ([]int64, error)
 	GetUserRoleBindingsWithRulesFn func(ctx context.Context, userID int64) ([]UserRoleBindingWithRules, error)
-	AddWorkspaceMemberFn           func(ctx context.Context, userID, workspaceID int64) error
-	AddNamespaceMemberFn           func(ctx context.Context, userID, namespaceID int64) error
+	AddWorkspaceMemberFn           func(ctx context.Context, userID, workspaceID int64, roleID int64) error
+	AddNamespaceMemberFn           func(ctx context.Context, userID, namespaceID int64, roleID int64) error
 	RemoveWorkspaceMemberFn        func(ctx context.Context, userID, workspaceID int64) error
 	RemoveNamespaceMemberFn        func(ctx context.Context, userID, namespaceID int64) error
 	ListWorkspaceMembersFn         func(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)
@@ -239,15 +239,15 @@ func (m *mockRoleBindingStore) GetUserIDsByNamespaceID(context.Context, int64) (
 func (m *mockRoleBindingStore) TransferOwnership(context.Context, string, int64, int64, bool, int64, string) (int64, error) {
 	panic("not implemented")
 }
-func (m *mockRoleBindingStore) AddWorkspaceMember(ctx context.Context, userID, workspaceID int64) error {
+func (m *mockRoleBindingStore) AddWorkspaceMember(ctx context.Context, userID, workspaceID int64, roleID int64) error {
 	if m.AddWorkspaceMemberFn != nil {
-		return m.AddWorkspaceMemberFn(ctx, userID, workspaceID)
+		return m.AddWorkspaceMemberFn(ctx, userID, workspaceID, roleID)
 	}
 	panic("not implemented")
 }
-func (m *mockRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, namespaceID int64) error {
+func (m *mockRoleBindingStore) AddNamespaceMember(ctx context.Context, userID, namespaceID int64, roleID int64) error {
 	if m.AddNamespaceMemberFn != nil {
-		return m.AddNamespaceMemberFn(ctx, userID, namespaceID)
+		return m.AddNamespaceMemberFn(ctx, userID, namespaceID, roleID)
 	}
 	panic("not implemented")
 }

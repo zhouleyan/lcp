@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Link, Navigate } from "react-router"
+import { Link, Navigate, useParams } from "react-router"
 import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -48,7 +48,6 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { listUsers, listWorkspaceUsers, listNamespaceUsers, createUser, updateUser, deleteUser, deleteUsers } from "@/api/iam/users"
-import { useScopeStore } from "@/stores/scope-store"
 import { ApiError, translateDetailMessage, translateApiError } from "@/api/client"
 import type { User, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
@@ -70,8 +69,7 @@ export default function UserListPage() {
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const scopeWorkspaceId = useScopeStore((s) => s.workspaceId)
-  const scopeNamespaceId = useScopeStore((s) => s.namespaceId)
+  const { workspaceId: scopeWorkspaceId, namespaceId: scopeNamespaceId } = useParams()
   const { hasPermission } = usePermission()
   const permissionsLoaded = usePermissionStore((s) => s.permissions) !== null
 

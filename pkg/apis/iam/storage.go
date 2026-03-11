@@ -918,8 +918,16 @@ func (s *workspaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 		return nil, fmt.Errorf("expected *BatchRequest, got %T", obj)
 	}
 
+	var roleID int64
+	if req.RoleID != "" {
+		roleID, err = parseID(req.RoleID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest("invalid role ID", nil)
+		}
+	}
+
 	added, err := batchAddUsers(ctx, req.IDs, s.userStore, func(ctx context.Context, uid int64) (bool, error) {
-		if err := s.rbStore.AddWorkspaceMember(ctx, uid, wsID); err != nil {
+		if err := s.rbStore.AddWorkspaceMember(ctx, uid, wsID, roleID); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -1049,8 +1057,16 @@ func (s *namespaceUserStorage) Create(ctx context.Context, obj runtime.Object, o
 		}
 	}
 
+	var roleID int64
+	if req.RoleID != "" {
+		roleID, err = parseID(req.RoleID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest("invalid role ID", nil)
+		}
+	}
+
 	added, err := batchAddUsers(ctx, req.IDs, s.userStore, func(ctx context.Context, uid int64) (bool, error) {
-		if err := s.rbStore.AddNamespaceMember(ctx, uid, nsID); err != nil {
+		if err := s.rbStore.AddNamespaceMember(ctx, uid, nsID, roleID); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -1775,11 +1791,11 @@ func (s *roleStorage) Create(ctx context.Context, obj runtime.Object, options *r
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
-	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	codeScopes, err := s.permStore.ListCodeScopes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if scopeErrs := ValidateRuleScopes(role.Spec.Scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+	if scopeErrs := ValidateRuleScopes(role.Spec.Scope, role.Spec.Rules, codeScopes); scopeErrs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
 	}
 
@@ -1842,11 +1858,11 @@ func (s *roleStorage) Update(ctx context.Context, obj runtime.Object, options *r
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
-	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	codeScopes, err := s.permStore.ListCodeScopes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if scopeErrs := ValidateRuleScopes(existing.Scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+	if scopeErrs := ValidateRuleScopes(existing.Scope, role.Spec.Rules, codeScopes); scopeErrs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
 	}
 
@@ -2075,11 +2091,11 @@ func (s *scopedRoleStorage) Create(ctx context.Context, obj runtime.Object, opti
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
-	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	codeScopes, err := s.permStore.ListCodeScopes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if scopeErrs := ValidateRuleScopes(role.Spec.Scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+	if scopeErrs := ValidateRuleScopes(role.Spec.Scope, role.Spec.Rules, codeScopes); scopeErrs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
 	}
 
@@ -2172,11 +2188,11 @@ func (s *scopedRoleStorage) Update(ctx context.Context, obj runtime.Object, opti
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
-	scopeMap, err := s.permStore.ListScopeMap(ctx)
+	codeScopes, err := s.permStore.ListCodeScopes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if scopeErrs := ValidateRuleScopes(s.scope, role.Spec.Rules, scopeMap); scopeErrs.HasErrors() {
+	if scopeErrs := ValidateRuleScopes(s.scope, role.Spec.Rules, codeScopes); scopeErrs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", scopeErrs)
 	}
 

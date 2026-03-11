@@ -1,6 +1,7 @@
 import { iamApi } from "./client"
 import { apiRequest } from "../client"
 import type {
+  Permission,
   PermissionList,
   RoleList,
   Role,
@@ -14,6 +15,20 @@ import type {
 // --- Permissions ---
 export async function listPermissions(params?: ListParams): Promise<PermissionList> {
   return apiRequest(iamApi.get("permissions", { searchParams: params as Record<string, string> }).json())
+}
+
+export async function listAllPermissions(): Promise<Permission[]> {
+  const pageSize = 100
+  let page = 1
+  const allItems: Permission[] = []
+  let totalCount = 0
+  do {
+    const data = await listPermissions({ page, pageSize } as ListParams)
+    allItems.push(...(data.items ?? []))
+    totalCount = data.totalCount
+    page++
+  } while (allItems.length < totalCount)
+  return allItems
 }
 
 // --- Platform Roles ---

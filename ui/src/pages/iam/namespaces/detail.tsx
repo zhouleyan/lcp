@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
+import { useScopeStore } from "@/stores/scope-store"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -56,6 +57,7 @@ export default function NamespaceDetailPage() {
     if (!namespace) return
     try {
       await deleteNamespace(namespace.metadata.id)
+      useScopeStore.getState().invalidate()
       toast.success(t("action.deleteSuccess"))
       navigate(workspaceId ? `/iam/workspaces/${workspaceId}/namespaces` : "/iam/namespaces")
     } catch (err) {
@@ -285,6 +287,7 @@ function EditNamespaceDialog({
           status: values.status,
         },
       })
+      useScopeStore.getState().invalidate()
       toast.success(t("action.updateSuccess"))
       onOpenChange(false)
       onSuccess()

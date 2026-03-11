@@ -59,14 +59,20 @@ type NamespaceStore interface {
 	CountUsers(ctx context.Context, namespaceID int64) (int64, error)
 }
 
+// PermissionCodeScope holds a permission code and its scope.
+type PermissionCodeScope struct {
+	Code  string
+	Scope string
+}
+
 // PermissionStore defines database operations on permissions.
 type PermissionStore interface {
 	Upsert(ctx context.Context, perm *DBPermission) (*DBPermission, error)
-	DeleteByModuleNotInCodes(ctx context.Context, modulePrefix string, keepCodes []string) error
-	GetByCode(ctx context.Context, code string) (*DBPermission, error)
+	DeleteByModuleNotInCodeScopes(ctx context.Context, modulePrefix string, keepCodeScopes []string) error
+	GetByCode(ctx context.Context, code, scope string) (*DBPermission, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBPermission], error)
 	ListAllCodes(ctx context.Context) ([]string, error)
-	ListScopeMap(ctx context.Context) (map[string]string, error)
+	ListCodeScopes(ctx context.Context) ([]PermissionCodeScope, error)
 	// SyncModule batch-upserts all permissions for a module and removes stale ones in a single transaction.
 	SyncModule(ctx context.Context, modulePrefix string, perms []DBPermission) error
 }
@@ -108,8 +114,9 @@ type RoleBindingStore interface {
 	// Returns the old owner's user ID. The new owner must already be a member.
 	TransferOwnership(ctx context.Context, scope string, resourceID int64, callerID int64, callerIsPlatformAdmin bool, newOwnerUserID int64, adminRoleName string) (oldOwnerUserID int64, err error)
 	// Member management (replacing legacy join tables)
-	AddWorkspaceMember(ctx context.Context, userID, workspaceID int64) error
-	AddNamespaceMember(ctx context.Context, userID, namespaceID int64) error
+	// roleID=0 means use the default role (workspace-viewer / namespace-viewer).
+	AddWorkspaceMember(ctx context.Context, userID, workspaceID int64, roleID int64) error
+	AddNamespaceMember(ctx context.Context, userID, namespaceID int64, roleID int64) error
 	RemoveWorkspaceMember(ctx context.Context, userID, workspaceID int64) error
 	RemoveNamespaceMember(ctx context.Context, userID, namespaceID int64) error
 	ListWorkspaceMembers(ctx context.Context, workspaceID int64, query db.ListQuery) (*db.ListResult[DBUserWithRole], error)

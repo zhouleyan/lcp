@@ -37,27 +37,32 @@ func (q *Queries) CountPermissions(ctx context.Context, arg CountPermissionsPara
 const deletePermissionsByModulePrefix = `-- name: DeletePermissionsByModulePrefix :exec
 DELETE FROM permissions
 WHERE code LIKE $1::VARCHAR || '%'
-  AND code != ALL($2::VARCHAR[])
+  AND NOT (code || ':' || scope) = ANY($2::VARCHAR[])
 `
 
 type DeletePermissionsByModulePrefixParams struct {
-	ModulePrefix string   `json:"module_prefix"`
-	KeepCodes    []string `json:"keep_codes"`
+	ModulePrefix   string   `json:"module_prefix"`
+	KeepCodeScopes []string `json:"keep_code_scopes"`
 }
 
 func (q *Queries) DeletePermissionsByModulePrefix(ctx context.Context, arg DeletePermissionsByModulePrefixParams) error {
-	_, err := q.db.Exec(ctx, deletePermissionsByModulePrefix, arg.ModulePrefix, arg.KeepCodes)
+	_, err := q.db.Exec(ctx, deletePermissionsByModulePrefix, arg.ModulePrefix, arg.KeepCodeScopes)
 	return err
 }
 
 const getPermissionByCode = `-- name: GetPermissionByCode :one
 SELECT id, code, method, path, scope, description, created_at, updated_at
 FROM permissions
-WHERE code = $1
+WHERE code = $1 AND scope = $2
 `
 
-func (q *Queries) GetPermissionByCode(ctx context.Context, code string) (Permission, error) {
-	row := q.db.QueryRow(ctx, getPermissionByCode, code)
+type GetPermissionByCodeParams struct {
+	Code  string `json:"code"`
+	Scope string `json:"scope"`
+}
+
+func (q *Queries) GetPermissionByCode(ctx context.Context, arg GetPermissionByCodeParams) (Permission, error) {
+	row := q.db.QueryRow(ctx, getPermissionByCode, arg.Code, arg.Scope)
 	var i Permission
 	err := row.Scan(
 		&i.ID,
@@ -197,10 +202,9 @@ func (q *Queries) ListPermissions(ctx context.Context, arg ListPermissionsParams
 const upsertPermission = `-- name: UpsertPermission :one
 INSERT INTO permissions (code, method, path, scope, description)
 VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (code) DO UPDATE
+ON CONFLICT (code, scope) DO UPDATE
 SET method = EXCLUDED.method,
     path = EXCLUDED.path,
-    scope = EXCLUDED.scope,
     updated_at = now()
 RETURNING id, code, method, path, scope, description, created_at, updated_at
 `

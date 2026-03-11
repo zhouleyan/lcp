@@ -47,8 +47,10 @@ export async function listWorkspaceUsers(
   )
 }
 
-export async function addWorkspaceUsers(workspaceId: string, ids: string[]): Promise<void> {
-  await apiRequest(iamApi.post(`workspaces/${workspaceId}/users`, { json: { ids } }).json())
+export async function addWorkspaceUsers(workspaceId: string, ids: string[], roleId?: string): Promise<void> {
+  const body: { ids: string[]; roleId?: string } = { ids }
+  if (roleId) body.roleId = roleId
+  await apiRequest(iamApi.post(`workspaces/${workspaceId}/users`, { json: body }).json())
 }
 
 export async function removeWorkspaceUsers(workspaceId: string, ids: string[]): Promise<void> {
@@ -65,8 +67,10 @@ export async function listNamespaceUsers(
   )
 }
 
-export async function addNamespaceUsers(workspaceId: string, namespaceId: string, ids: string[]): Promise<void> {
-  await apiRequest(iamApi.post(`workspaces/${workspaceId}/namespaces/${namespaceId}/users`, { json: { ids } }).json())
+export async function addNamespaceUsers(workspaceId: string, namespaceId: string, ids: string[], roleId?: string): Promise<void> {
+  const body: { ids: string[]; roleId?: string } = { ids }
+  if (roleId) body.roleId = roleId
+  await apiRequest(iamApi.post(`workspaces/${workspaceId}/namespaces/${namespaceId}/users`, { json: body }).json())
 }
 
 export async function removeNamespaceUsers(workspaceId: string, namespaceId: string, ids: string[]): Promise<void> {

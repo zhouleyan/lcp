@@ -72,6 +72,7 @@ export interface NamespaceSpec {
   visibility?: "public" | "private"
   maxMembers?: number
   memberCount?: number
+  roleBindingCount?: number
   status?: "active" | "inactive"
   role?: string
   roleDisplayName?: string
@@ -225,6 +226,127 @@ export interface OIDCUserInfo {
   name?: string
   email?: string
   phone_number?: string
+}
+
+// --- AuditLog ---
+
+export interface AuditLogSpec {
+  id: string
+  userId?: string
+  username: string
+  eventType: "api_operation" | "authentication"
+  action: string
+  resourceType?: string
+  resourceId?: string
+  module?: string
+  scope: "platform" | "workspace" | "namespace"
+  workspaceId?: string
+  namespaceId?: string
+  httpMethod?: string
+  httpPath?: string
+  statusCode?: number
+  clientIp?: string
+  userAgent?: string
+  durationMs?: number
+  success: boolean
+  detail?: Record<string, unknown>
+  createdAt: string
+}
+
+export interface AuditLog extends TypeMeta {
+  spec: AuditLogSpec
+}
+
+export interface AuditLogList extends TypeMeta {
+  items: AuditLog[]
+  totalCount: number
+}
+
+// --- Host ---
+
+export interface HostSpec {
+  displayName?: string
+  description?: string
+  hostname?: string
+  ipAddress?: string
+  os?: string
+  arch?: string
+  cpuCores?: number
+  memoryMb?: number
+  diskGb?: number
+  labels?: Record<string, string>
+  scope: "platform" | "workspace" | "namespace"
+  workspaceId?: string
+  namespaceId?: string
+  environmentId?: string
+  environmentName?: string
+  origin?: "owned" | "assigned"
+  status?: string
+}
+
+export interface Host extends TypeMeta {
+  metadata: ObjectMeta
+  spec: HostSpec
+}
+
+export interface HostList extends TypeMeta {
+  items: Host[]
+  totalCount: number
+}
+
+// --- Environment ---
+
+export interface EnvironmentSpec {
+  displayName?: string
+  description?: string
+  envType?: string
+  scope: "platform" | "workspace" | "namespace"
+  workspaceId?: string
+  namespaceId?: string
+  hostCount?: number
+  status?: string
+}
+
+export interface Environment extends TypeMeta {
+  metadata: ObjectMeta
+  spec: EnvironmentSpec
+}
+
+export interface EnvironmentList extends TypeMeta {
+  items: Environment[]
+  totalCount: number
+}
+
+// --- HostAssignment ---
+
+export interface HostAssignmentSpec {
+  hostId: string
+  hostName?: string
+  workspaceId?: string
+  workspaceName?: string
+  namespaceId?: string
+  namespaceName?: string
+}
+
+export interface HostAssignment extends TypeMeta {
+  metadata: ObjectMeta
+  spec: HostAssignmentSpec
+}
+
+export interface HostAssignmentList extends TypeMeta {
+  items: HostAssignment[]
+  totalCount: number
+}
+
+// --- Infra Requests ---
+
+export interface AssignHostRequest {
+  workspaceId?: string
+  namespaceId?: string
+}
+
+export interface BindEnvironmentRequest {
+  environmentId: string
 }
 
 export interface StatusResponseDetail {

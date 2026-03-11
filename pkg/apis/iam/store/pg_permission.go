@@ -37,18 +37,21 @@ func (s *pgPermissionStore) Upsert(ctx context.Context, perm *iam.DBPermission) 
 	return new(row), nil
 }
 
-func (s *pgPermissionStore) DeleteByModuleNotInCodes(ctx context.Context, modulePrefix string, keepCodes []string) error {
+func (s *pgPermissionStore) DeleteByModuleNotInCodeScopes(ctx context.Context, modulePrefix string, keepCodeScopes []string) error {
 	if err := s.queries.DeletePermissionsByModulePrefix(ctx, generated.DeletePermissionsByModulePrefixParams{
-		ModulePrefix: modulePrefix,
-		KeepCodes:    keepCodes,
+		ModulePrefix:   modulePrefix,
+		KeepCodeScopes: keepCodeScopes,
 	}); err != nil {
 		return fmt.Errorf("delete permissions by module prefix: %w", err)
 	}
 	return nil
 }
 
-func (s *pgPermissionStore) GetByCode(ctx context.Context, code string) (*iam.DBPermission, error) {
-	row, err := s.queries.GetPermissionByCode(ctx, code)
+func (s *pgPermissionStore) GetByCode(ctx context.Context, code, scope string) (*iam.DBPermission, error) {
+	row, err := s.queries.GetPermissionByCode(ctx, generated.GetPermissionByCodeParams{
+		Code:  code,
+		Scope: scope,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apierrors.NewNotFound("permission", code)
@@ -109,16 +112,16 @@ func (s *pgPermissionStore) ListAllCodes(ctx context.Context) ([]string, error) 
 	return codes, nil
 }
 
-func (s *pgPermissionStore) ListScopeMap(ctx context.Context) (map[string]string, error) {
+func (s *pgPermissionStore) ListCodeScopes(ctx context.Context) ([]iam.PermissionCodeScope, error) {
 	rows, err := s.queries.ListAllPermissionCodesWithScope(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("list permission scopes: %w", err)
+		return nil, fmt.Errorf("list permission code scopes: %w", err)
 	}
-	m := make(map[string]string, len(rows))
-	for _, r := range rows {
-		m[r.Code] = r.Scope
+	result := make([]iam.PermissionCodeScope, len(rows))
+	for i, r := range rows {
+		result[i] = iam.PermissionCodeScope{Code: r.Code, Scope: r.Scope}
 	}
-	return m, nil
+	return result, nil
 }
 
 func (s *pgPermissionStore) SyncModule(ctx context.Context, modulePrefix string, perms []iam.DBPermission) error {
@@ -130,7 +133,7 @@ func (s *pgPermissionStore) SyncModule(ctx context.Context, modulePrefix string,
 
 	qtx := s.queries.WithTx(tx)
 
-	codes := make([]string, 0, len(perms))
+	codeScopes := make([]string, 0, len(perms))
 	for _, p := range perms {
 		if _, err := qtx.UpsertPermission(ctx, generated.UpsertPermissionParams{
 			Code:        p.Code,
@@ -139,14 +142,14 @@ func (s *pgPermissionStore) SyncModule(ctx context.Context, modulePrefix string,
 			Scope:       p.Scope,
 			Description: p.Description,
 		}); err != nil {
-			return fmt.Errorf("upsert permission %s: %w", p.Code, err)
+			return fmt.Errorf("upsert permission %s (scope=%s): %w", p.Code, p.Scope, err)
 		}
-		codes = append(codes, p.Code)
+		codeScopes = append(codeScopes, p.Code+":"+p.Scope)
 	}
 
 	if err := qtx.DeletePermissionsByModulePrefix(ctx, generated.DeletePermissionsByModulePrefixParams{
-		ModulePrefix: modulePrefix,
-		KeepCodes:    codes,
+		ModulePrefix:   modulePrefix,
+		KeepCodeScopes: codeScopes,
 	}); err != nil {
 		return fmt.Errorf("cleanup stale permissions: %w", err)
 	}
