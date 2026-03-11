@@ -43,6 +43,7 @@ export interface WorkspaceSpec {
   ownerName?: string
   namespaceCount?: number
   memberCount?: number
+  roleBindingCount?: number
   status?: "active" | "inactive"
   role?: string
   roleDisplayName?: string
@@ -156,6 +157,8 @@ export interface RoleBindingSpec {
   scope: "platform" | "workspace" | "namespace"
   workspaceId?: string
   namespaceId?: string
+  workspaceName?: string
+  namespaceName?: string
   isOwner?: boolean
   roleName?: string
   roleDisplayName?: string
