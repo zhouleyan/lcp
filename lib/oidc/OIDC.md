@@ -105,17 +105,12 @@ oidc:
 
 ## Key Management
 
-Generate ECDSA P-256 keys:
-```bash
-openssl ecparam -name prime256v1 -genkey -noout -out oidc-private.pem
-openssl ec -in oidc-private.pem -pubout -out oidc-public.pem
-```
+Signing keys are auto-generated at startup and stored in PostgreSQL (table `oidc_signing_keys`). No manual key file management is needed.
 
-Configure in `config.yaml`:
+Configure the signing algorithm in `config.yaml`:
 ```yaml
 oidc:
-  privateKeyFile: "./oidc-private.pem"
-  publicKeyFile: "./oidc-public.pem"
+  algorithm: "EdDSA"   # Supported: EdDSA (default), ES256, RS256
 ```
 
 ## Security
