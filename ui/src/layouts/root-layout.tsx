@@ -54,6 +54,7 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
   if (scopeWorkspaceId && scopeNamespaceId) {
     const iamPrefix = `/iam/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
     const dashPrefix = `/dashboard/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
+    const infraPrefix = `/infra/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
     const nsScope = { workspaceId: scopeWorkspaceId, namespaceId: scopeNamespaceId }
     return [
       { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home }] },
@@ -68,8 +69,8 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
       {
         labelKey: "nav.infra",
         items: [
-          { to: "/infra/hosts", labelKey: "nav.hosts", icon: Server, permission: "infra:workspaces:namespaces:hosts:list", permissionScope: nsScope },
-          { to: "/infra/environments", labelKey: "nav.environments", icon: Layers, permission: "infra:workspaces:namespaces:environments:list", permissionScope: nsScope },
+          { to: `${infraPrefix}/hosts`, labelKey: "nav.hosts", icon: Server, permission: "infra:workspaces:namespaces:hosts:list", permissionScope: nsScope },
+          { to: `${infraPrefix}/environments`, labelKey: "nav.environments", icon: Layers, permission: "infra:workspaces:namespaces:environments:list", permissionScope: nsScope },
         ],
       },
     ]
@@ -77,6 +78,7 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
   if (scopeWorkspaceId) {
     const iamPrefix = `/iam/workspaces/${scopeWorkspaceId}`
     const dashPrefix = `/dashboard/workspaces/${scopeWorkspaceId}`
+    const infraPrefix = `/infra/workspaces/${scopeWorkspaceId}`
     const wsScope = { workspaceId: scopeWorkspaceId }
     return [
       { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home }] },
@@ -92,8 +94,8 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
       {
         labelKey: "nav.infra",
         items: [
-          { to: "/infra/hosts", labelKey: "nav.hosts", icon: Server, permission: "infra:workspaces:hosts:list", permissionScope: wsScope },
-          { to: "/infra/environments", labelKey: "nav.environments", icon: Layers, permission: "infra:workspaces:environments:list", permissionScope: wsScope },
+          { to: `${infraPrefix}/hosts`, labelKey: "nav.hosts", icon: Server, permission: "infra:workspaces:hosts:list", permissionScope: wsScope },
+          { to: `${infraPrefix}/environments`, labelKey: "nav.environments", icon: Layers, permission: "infra:workspaces:environments:list", permissionScope: wsScope },
         ],
       },
     ]

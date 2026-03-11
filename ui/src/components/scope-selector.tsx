@@ -35,17 +35,19 @@ function buildScopedPath(
 ): string {
   if (wsId && nsId) {
     const iamPrefix = `/iam/workspaces/${wsId}/namespaces/${nsId}`
+    const infraPrefix = `/infra/workspaces/${wsId}/namespaces/${nsId}`
     if (resource === "overview") return `/dashboard/workspaces/${wsId}/namespaces/${nsId}/overview`
     if (resource === "users" || resource === "roles" || resource === "rolebindings") return `${iamPrefix}/${resource}`
-    if (resource === "hosts" || resource === "environments") return `/infra/${resource}`
+    if (resource === "hosts" || resource === "environments") return `${infraPrefix}/${resource}`
     return `/dashboard/workspaces/${wsId}/namespaces/${nsId}/overview`
   }
   if (wsId) {
     const iamPrefix = `/iam/workspaces/${wsId}`
+    const infraPrefix = `/infra/workspaces/${wsId}`
     if (resource === "overview") return `/dashboard/workspaces/${wsId}/overview`
     if (resource === "users" || resource === "roles" || resource === "rolebindings" || resource === "namespaces")
       return `${iamPrefix}/${resource}`
-    if (resource === "hosts" || resource === "environments") return `/infra/${resource}`
+    if (resource === "hosts" || resource === "environments") return `${infraPrefix}/${resource}`
     return `/dashboard/workspaces/${wsId}/overview`
   }
   // 平台范围
