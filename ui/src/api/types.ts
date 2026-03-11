@@ -263,6 +263,89 @@ export interface AuditLogList extends TypeMeta {
   totalCount: number
 }
 
+// --- Host ---
+
+export interface HostSpec {
+  hostname?: string
+  ipAddress?: string
+  os?: string
+  arch?: string
+  cpuCores?: number
+  memoryMb?: number
+  diskGb?: number
+  labels?: Record<string, string>
+  scope: "platform" | "workspace" | "namespace"
+  workspaceId?: string
+  namespaceId?: string
+  environmentId?: string
+  environmentName?: string
+  origin?: "owned" | "assigned"
+  status?: string
+}
+
+export interface Host extends TypeMeta {
+  metadata: ObjectMeta
+  spec: HostSpec
+}
+
+export interface HostList extends TypeMeta {
+  items: Host[]
+  totalCount: number
+}
+
+// --- Environment ---
+
+export interface EnvironmentSpec {
+  envType?: string
+  scope: "platform" | "workspace" | "namespace"
+  workspaceId?: string
+  namespaceId?: string
+  hostCount?: number
+  status?: string
+}
+
+export interface Environment extends TypeMeta {
+  metadata: ObjectMeta
+  spec: EnvironmentSpec
+}
+
+export interface EnvironmentList extends TypeMeta {
+  items: Environment[]
+  totalCount: number
+}
+
+// --- HostAssignment ---
+
+export interface HostAssignmentSpec {
+  hostId: string
+  hostName?: string
+  workspaceId?: string
+  workspaceName?: string
+  namespaceId?: string
+  namespaceName?: string
+}
+
+export interface HostAssignment extends TypeMeta {
+  metadata: ObjectMeta
+  spec: HostAssignmentSpec
+}
+
+export interface HostAssignmentList extends TypeMeta {
+  items: HostAssignment[]
+  totalCount: number
+}
+
+// --- Infra Requests ---
+
+export interface AssignHostRequest {
+  workspaceId?: string
+  namespaceId?: string
+}
+
+export interface BindEnvironmentRequest {
+  environmentId: string
+}
+
 export interface StatusResponseDetail {
   field: string
   message: string
