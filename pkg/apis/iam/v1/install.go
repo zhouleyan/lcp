@@ -23,6 +23,12 @@ type ModuleResult struct {
 func NewIAMModule(ctx context.Context, database *db.DB) ModuleResult {
 	group, p := newAPIGroupInfo(database)
 
+	// Seed initial admin user (no-op if already exists)
+	adminCfg := config.Get().Admin
+	if err := iam.SeedAdmin(ctx, p.User, adminCfg); err != nil {
+		logger.Fatalf("cannot seed admin user: %v", err)
+	}
+
 	// Seed built-in roles, permission rules, and initial bindings
 	if err := iam.SeedRBAC(ctx, p.Role); err != nil {
 		logger.Fatalf("cannot seed RBAC: %v", err)

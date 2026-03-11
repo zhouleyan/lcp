@@ -42,9 +42,7 @@ RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 
 COPY --from=go-builder /out/lcp-server .
-COPY app/lcp-server/config.yaml ./config.yaml
 
 EXPOSE 8428
 
 ENTRYPOINT ["./lcp-server"]
-CMD ["-config", "/app/config.yaml"]

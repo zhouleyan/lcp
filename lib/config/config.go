@@ -15,6 +15,16 @@ type Config struct {
 	Database DatabaseConfig `yaml:"database"`
 	Logger   LoggerConfig   `yaml:"logger"`
 	OIDC     OIDCConfig     `yaml:"oidc"`
+	Admin    AdminConfig    `yaml:"admin"`
+}
+
+// AdminConfig holds the initial admin user configuration.
+type AdminConfig struct {
+	Username    string `yaml:"username"`
+	Password    string `yaml:"password"`
+	Email       string `yaml:"email"`
+	Phone       string `yaml:"phone"`
+	DisplayName string `yaml:"displayName"`
 }
 
 // OIDCConfig holds OIDC provider configuration.
@@ -129,6 +139,21 @@ func SetDefaults(cfg *Config) {
 	if cfg.OIDC.Algorithm == "" {
 		cfg.OIDC.Algorithm = "EdDSA"
 	}
+	if cfg.Admin.Username == "" {
+		cfg.Admin.Username = "admin"
+	}
+	if cfg.Admin.Password == "" {
+		cfg.Admin.Password = "Admin123!"
+	}
+	if cfg.Admin.Email == "" {
+		cfg.Admin.Email = "admin@lcp.io"
+	}
+	if cfg.Admin.Phone == "" {
+		cfg.Admin.Phone = "13800000000"
+	}
+	if cfg.Admin.DisplayName == "" {
+		cfg.Admin.DisplayName = "Admin"
+	}
 }
 
 // LoadFromFile reads and parses a YAML configuration file.
@@ -179,5 +204,20 @@ func ApplyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("OIDC_ALGORITHM"); v != "" {
 		cfg.OIDC.Algorithm = v
+	}
+	if v := os.Getenv("ADMIN_USERNAME"); v != "" {
+		cfg.Admin.Username = v
+	}
+	if v := os.Getenv("ADMIN_PASSWORD"); v != "" {
+		cfg.Admin.Password = v
+	}
+	if v := os.Getenv("ADMIN_EMAIL"); v != "" {
+		cfg.Admin.Email = v
+	}
+	if v := os.Getenv("ADMIN_PHONE"); v != "" {
+		cfg.Admin.Phone = v
+	}
+	if v := os.Getenv("ADMIN_DISPLAY_NAME"); v != "" {
+		cfg.Admin.DisplayName = v
 	}
 }
