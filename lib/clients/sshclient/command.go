@@ -51,7 +51,7 @@ func (c *Client) Exec(ctx context.Context, cmd string) (*ExecResult, error) {
 
 // ExecWithSudo executes a command on the remote host with sudo
 // privileges. If password is non-empty, it is fed to sudo via stdin
-// using `sudo -S -p ''` (silent prompt, read password from stdin).
+// using `sudo -S -p ”` (silent prompt, read password from stdin).
 // If password is empty, plain `sudo` is used (suitable for NOPASSWD
 // sudoers entries).
 func (c *Client) ExecWithSudo(ctx context.Context, cmd string, password string) (*ExecResult, error) {

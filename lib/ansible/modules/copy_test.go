@@ -331,9 +331,9 @@ func TestModuleFetch_CreatesDestDir(t *testing.T) {
 
 func TestStringArg(t *testing.T) {
 	args := map[string]any{
-		"name":   "hello",
-		"count":  42,
-		"empty":  "",
+		"name":  "hello",
+		"count": 42,
+		"empty": "",
 	}
 
 	if got := stringArg(args, "name"); got != "hello" {

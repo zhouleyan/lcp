@@ -954,9 +954,9 @@ func TestPlaybookExecutor_GroupHostResolution(t *testing.T) {
 
 	inv := ansible.Inventory{
 		Hosts: map[string]map[string]any{
-			"web1":  {"connection": "local"},
-			"web2":  {"connection": "local"},
-			"db1":   {"connection": "local"},
+			"web1": {"connection": "local"},
+			"web2": {"connection": "local"},
+			"db1":  {"connection": "local"},
 		},
 		Groups: map[string]ansible.InventoryGroup{
 			"webservers": {Hosts: []string{"web1", "web2"}},

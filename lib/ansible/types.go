@@ -574,12 +574,12 @@ func GetHostsFromGroup(inv *Inventory, groupName string, unavailableHosts, unava
 type TaskStatus string
 
 const (
-	TaskStatusPending   TaskStatus = "pending"
-	TaskStatusRunning   TaskStatus = "running"
-	TaskStatusOK        TaskStatus = "ok"
-	TaskStatusChanged   TaskStatus = "changed"
-	TaskStatusFailed    TaskStatus = "failed"
-	TaskStatusSkipped   TaskStatus = "skipped"
+	TaskStatusPending     TaskStatus = "pending"
+	TaskStatusRunning     TaskStatus = "running"
+	TaskStatusOK          TaskStatus = "ok"
+	TaskStatusChanged     TaskStatus = "changed"
+	TaskStatusFailed      TaskStatus = "failed"
+	TaskStatusSkipped     TaskStatus = "skipped"
 	TaskStatusUnreachable TaskStatus = "unreachable"
 )
 
@@ -591,22 +591,22 @@ type ModuleRef struct {
 
 // TaskSpec is the internal specification of a task to be executed.
 type TaskSpec struct {
-	Name       string      `json:"name,omitempty" yaml:"name,omitempty"`
-	Module     ModuleRef   `json:"module" yaml:"module"`
-	Hosts      []string    `json:"hosts,omitempty" yaml:"hosts,omitempty"`
-	When       []string    `json:"when,omitempty" yaml:"when,omitempty"`
-	FailedWhen []string    `json:"failed_when,omitempty" yaml:"failed_when,omitempty"`
-	Loop       any         `json:"loop,omitempty" yaml:"loop,omitempty"`
-	LoopControl LoopControl `json:"loop_control,omitempty" yaml:"loop_control,omitempty"`
-	Register   string      `json:"register,omitempty" yaml:"register,omitempty"`
-	Retries    int         `json:"retries,omitempty" yaml:"retries,omitempty"`
-	Delay      int         `json:"delay,omitempty" yaml:"delay,omitempty"`
-	Until      []string    `json:"until,omitempty" yaml:"until,omitempty"`
-	Become     bool        `json:"become,omitempty" yaml:"become,omitempty"`
-	BecomeUser string      `json:"become_user,omitempty" yaml:"become_user,omitempty"`
-	DelegateTo string      `json:"delegate_to,omitempty" yaml:"delegate_to,omitempty"`
-	Async      int         `json:"async,omitempty" yaml:"async,omitempty"`
-	Poll       int         `json:"poll,omitempty" yaml:"poll,omitempty"`
+	Name         string      `json:"name,omitempty" yaml:"name,omitempty"`
+	Module       ModuleRef   `json:"module" yaml:"module"`
+	Hosts        []string    `json:"hosts,omitempty" yaml:"hosts,omitempty"`
+	When         []string    `json:"when,omitempty" yaml:"when,omitempty"`
+	FailedWhen   []string    `json:"failed_when,omitempty" yaml:"failed_when,omitempty"`
+	Loop         any         `json:"loop,omitempty" yaml:"loop,omitempty"`
+	LoopControl  LoopControl `json:"loop_control,omitempty" yaml:"loop_control,omitempty"`
+	Register     string      `json:"register,omitempty" yaml:"register,omitempty"`
+	Retries      int         `json:"retries,omitempty" yaml:"retries,omitempty"`
+	Delay        int         `json:"delay,omitempty" yaml:"delay,omitempty"`
+	Until        []string    `json:"until,omitempty" yaml:"until,omitempty"`
+	Become       bool        `json:"become,omitempty" yaml:"become,omitempty"`
+	BecomeUser   string      `json:"become_user,omitempty" yaml:"become_user,omitempty"`
+	DelegateTo   string      `json:"delegate_to,omitempty" yaml:"delegate_to,omitempty"`
+	Async        int         `json:"async,omitempty" yaml:"async,omitempty"`
+	Poll         int         `json:"poll,omitempty" yaml:"poll,omitempty"`
 	Notify       string      `json:"notify,omitempty" yaml:"notify,omitempty"`
 	IgnoreErrors *bool       `json:"ignore_errors,omitempty" yaml:"ignore_errors,omitempty"`
 }

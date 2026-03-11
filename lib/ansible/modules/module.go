@@ -21,7 +21,7 @@ type ExecOptions struct {
 	Host      string              // Target host
 	Variable  variable.Variable   // Variable system
 	Connector connector.Connector // Host connector
-	Source    Source               // Playbook file source
+	Source    Source              // Playbook file source
 	LogOutput io.Writer           // Log output writer
 	WorkDir   string              // Working directory
 }

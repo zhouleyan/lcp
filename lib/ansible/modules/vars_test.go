@@ -475,4 +475,3 @@ func TestModuleAddHostvars_HostKeyExcluded(t *testing.T) {
 		t.Errorf("expected myvar=myval, got %v", vars["myvar"])
 	}
 }
-
