@@ -43,13 +43,16 @@ func (q *Queries) CountEnvironmentsByNamespaceID(ctx context.Context, arg CountE
 
 const countEnvironmentsByWorkspaceID = `-- name: CountEnvironmentsByWorkspaceID :one
 SELECT count(*)
-FROM environments
-WHERE scope = 'workspace' AND workspace_id = $1
-    AND ($2::VARCHAR IS NULL OR status = $2)
-    AND ($3::VARCHAR IS NULL OR env_type = $3)
+FROM environments e
+WHERE (
+        (e.scope = 'workspace' AND e.workspace_id = $1)
+        OR (e.scope = 'namespace' AND e.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = $1))
+    )
+    AND ($2::VARCHAR IS NULL OR e.status = $2)
+    AND ($3::VARCHAR IS NULL OR e.env_type = $3)
     AND ($4::VARCHAR IS NULL
-         OR name ILIKE '%' || $4 || '%'
-         OR display_name ILIKE '%' || $4 || '%')
+         OR e.name ILIKE '%' || $4 || '%'
+         OR e.display_name ILIKE '%' || $4 || '%')
 `
 
 type CountEnvironmentsByWorkspaceIDParams struct {
@@ -74,8 +77,7 @@ func (q *Queries) CountEnvironmentsByWorkspaceID(ctx context.Context, arg CountE
 const countEnvironmentsPlatform = `-- name: CountEnvironmentsPlatform :one
 SELECT count(*)
 FROM environments
-WHERE scope = 'platform'
-    AND ($1::VARCHAR IS NULL OR status = $1)
+WHERE ($1::VARCHAR IS NULL OR status = $1)
     AND ($2::VARCHAR IS NULL OR env_type = $2)
     AND ($3::VARCHAR IS NULL
          OR name ILIKE '%' || $3 || '%'
@@ -342,7 +344,10 @@ WITH env_data AS (
         e.id, e.name, e.display_name, e.description, e.env_type, e.scope, e.workspace_id, e.namespace_id, e.status, e.created_at, e.updated_at,
         (SELECT count(*) FROM hosts h WHERE h.environment_id = e.id) AS host_count
     FROM environments e
-    WHERE e.scope = 'workspace' AND e.workspace_id = $5
+    WHERE (
+            (e.scope = 'workspace' AND e.workspace_id = $5)
+            OR (e.scope = 'namespace' AND e.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = $5))
+        )
         AND ($6::VARCHAR IS NULL OR e.status = $6)
         AND ($7::VARCHAR IS NULL OR e.env_type = $7)
         AND ($8::VARCHAR IS NULL
@@ -438,8 +443,7 @@ WITH env_data AS (
         e.id, e.name, e.display_name, e.description, e.env_type, e.scope, e.workspace_id, e.namespace_id, e.status, e.created_at, e.updated_at,
         (SELECT count(*) FROM hosts h WHERE h.environment_id = e.id) AS host_count
     FROM environments e
-    WHERE e.scope = 'platform'
-        AND ($5::VARCHAR IS NULL OR e.status = $5)
+    WHERE ($5::VARCHAR IS NULL OR e.status = $5)
         AND ($6::VARCHAR IS NULL OR e.env_type = $6)
         AND ($7::VARCHAR IS NULL
              OR e.name ILIKE '%' || $7 || '%'

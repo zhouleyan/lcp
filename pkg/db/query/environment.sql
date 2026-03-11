@@ -42,8 +42,7 @@ RETURNING id;
 -- name: CountEnvironmentsPlatform :one
 SELECT count(*)
 FROM environments
-WHERE scope = 'platform'
-    AND (sqlc.narg('status')::VARCHAR IS NULL OR status = sqlc.narg('status'))
+WHERE (sqlc.narg('status')::VARCHAR IS NULL OR status = sqlc.narg('status'))
     AND (sqlc.narg('env_type')::VARCHAR IS NULL OR env_type = sqlc.narg('env_type'))
     AND (sqlc.narg('search')::VARCHAR IS NULL
          OR name ILIKE '%' || sqlc.narg('search') || '%'
@@ -55,8 +54,7 @@ WITH env_data AS (
         e.*,
         (SELECT count(*) FROM hosts h WHERE h.environment_id = e.id) AS host_count
     FROM environments e
-    WHERE e.scope = 'platform'
-        AND (sqlc.narg('status')::VARCHAR IS NULL OR e.status = sqlc.narg('status'))
+    WHERE (sqlc.narg('status')::VARCHAR IS NULL OR e.status = sqlc.narg('status'))
         AND (sqlc.narg('env_type')::VARCHAR IS NULL OR e.env_type = sqlc.narg('env_type'))
         AND (sqlc.narg('search')::VARCHAR IS NULL
              OR e.name ILIKE '%' || sqlc.narg('search') || '%'
@@ -78,13 +76,16 @@ OFFSET sqlc.arg('page_offset')::INT;
 
 -- name: CountEnvironmentsByWorkspaceID :one
 SELECT count(*)
-FROM environments
-WHERE scope = 'workspace' AND workspace_id = @workspace_id
-    AND (sqlc.narg('status')::VARCHAR IS NULL OR status = sqlc.narg('status'))
-    AND (sqlc.narg('env_type')::VARCHAR IS NULL OR env_type = sqlc.narg('env_type'))
+FROM environments e
+WHERE (
+        (e.scope = 'workspace' AND e.workspace_id = @workspace_id)
+        OR (e.scope = 'namespace' AND e.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = @workspace_id))
+    )
+    AND (sqlc.narg('status')::VARCHAR IS NULL OR e.status = sqlc.narg('status'))
+    AND (sqlc.narg('env_type')::VARCHAR IS NULL OR e.env_type = sqlc.narg('env_type'))
     AND (sqlc.narg('search')::VARCHAR IS NULL
-         OR name ILIKE '%' || sqlc.narg('search') || '%'
-         OR display_name ILIKE '%' || sqlc.narg('search') || '%');
+         OR e.name ILIKE '%' || sqlc.narg('search') || '%'
+         OR e.display_name ILIKE '%' || sqlc.narg('search') || '%');
 
 -- name: ListEnvironmentsByWorkspaceID :many
 WITH env_data AS (
@@ -92,7 +93,10 @@ WITH env_data AS (
         e.*,
         (SELECT count(*) FROM hosts h WHERE h.environment_id = e.id) AS host_count
     FROM environments e
-    WHERE e.scope = 'workspace' AND e.workspace_id = @workspace_id
+    WHERE (
+            (e.scope = 'workspace' AND e.workspace_id = @workspace_id)
+            OR (e.scope = 'namespace' AND e.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = @workspace_id))
+        )
         AND (sqlc.narg('status')::VARCHAR IS NULL OR e.status = sqlc.narg('status'))
         AND (sqlc.narg('env_type')::VARCHAR IS NULL OR e.env_type = sqlc.narg('env_type'))
         AND (sqlc.narg('search')::VARCHAR IS NULL
