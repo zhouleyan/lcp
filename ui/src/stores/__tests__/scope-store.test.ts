@@ -12,35 +12,29 @@ describe("useScopeStore", () => {
     expect(state.namespaceId).toBeNull()
   })
 
-  it("setWorkspace updates workspaceId", () => {
-    useScopeStore.getState().setWorkspace("ws-1")
+  it("setScope updates both workspaceId and namespaceId", () => {
+    useScopeStore.getState().setScope("ws-1", "ns-1")
     expect(useScopeStore.getState().workspaceId).toBe("ws-1")
+    expect(useScopeStore.getState().namespaceId).toBe("ns-1")
   })
 
-  it("setWorkspace resets namespaceId to null", () => {
+  it("setScope with null namespaceId clears namespace only", () => {
     useScopeStore.setState({ workspaceId: "ws-1", namespaceId: "ns-1" })
-    useScopeStore.getState().setWorkspace("ws-2")
+    useScopeStore.getState().setScope("ws-2", null)
     expect(useScopeStore.getState().workspaceId).toBe("ws-2")
     expect(useScopeStore.getState().namespaceId).toBeNull()
   })
 
-  it("setWorkspace to null resets both", () => {
+  it("setScope with null for both clears everything", () => {
     useScopeStore.setState({ workspaceId: "ws-1", namespaceId: "ns-1" })
-    useScopeStore.getState().setWorkspace(null)
+    useScopeStore.getState().setScope(null, null)
     expect(useScopeStore.getState().workspaceId).toBeNull()
     expect(useScopeStore.getState().namespaceId).toBeNull()
   })
 
-  it("setNamespace updates namespaceId", () => {
-    useScopeStore.setState({ workspaceId: "ws-1" })
-    useScopeStore.getState().setNamespace("ns-1")
-    expect(useScopeStore.getState().namespaceId).toBe("ns-1")
-  })
-
-  it("setNamespace to null clears namespaceId", () => {
-    useScopeStore.setState({ workspaceId: "ws-1", namespaceId: "ns-1" })
-    useScopeStore.getState().setNamespace(null)
-    expect(useScopeStore.getState().namespaceId).toBeNull()
-    expect(useScopeStore.getState().workspaceId).toBe("ws-1")
+  it("invalidate increments version", () => {
+    const v0 = useScopeStore.getState().version
+    useScopeStore.getState().invalidate()
+    expect(useScopeStore.getState().version).toBe(v0 + 1)
   })
 })

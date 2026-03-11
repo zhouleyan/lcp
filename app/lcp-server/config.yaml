@@ -20,8 +20,7 @@ logger:
 
 oidc:
   issuer: "http://localhost:8428"
-  privateKeyFile: "./oidc-private.pem"
-  publicKeyFile: "./oidc-public.pem"
+  algorithm: "EdDSA"
   accessTokenTTL: "1h"
   refreshTokenTTL: "168h"
   authCodeTTL: "5m"

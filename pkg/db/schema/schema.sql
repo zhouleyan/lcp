@@ -310,3 +310,17 @@ COMMENT ON TABLE host_assignments IS '主机分配表：引用语义，上层主
 COMMENT ON COLUMN host_assignments.host_id IS '被分配的主机 ID';
 COMMENT ON COLUMN host_assignments.workspace_id IS '目标租户（平台主机 → 租户）';
 COMMENT ON COLUMN host_assignments.namespace_id IS '目标项目（平台/租户主机 → 项目）';
+
+-- oidc_keys table (auto-generated signing keys)
+CREATE TABLE oidc_keys (
+    id          BIGSERIAL    PRIMARY KEY,
+    key_id      VARCHAR(64)  NOT NULL UNIQUE,
+    private_key BYTEA        NOT NULL,
+    public_key  BYTEA        NOT NULL,
+    algorithm   VARCHAR(16)  NOT NULL DEFAULT 'EdDSA',
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE oidc_keys IS 'OIDC 签名密钥：自动生成，存储 PEM 编码的密钥对';
+COMMENT ON COLUMN oidc_keys.key_id IS 'RFC 7638 thumbprint，用于 JWK kid 字段';
+COMMENT ON COLUMN oidc_keys.algorithm IS '签名算法：EdDSA, ES256, RS256';

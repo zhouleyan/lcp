@@ -11,28 +11,17 @@ import {
 import { useTranslation } from "@/i18n"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { isModulePrefix } from "@/modules"
+import { RESOURCE_LABEL_KEYS } from "@/lib/nav-config"
 
 interface BreadcrumbEntry {
   label: string
   href?: string
 }
 
-const routeLabelKeys: Record<string, string> = {
-  overview: "nav.overview",
-  workspaces: "nav.workspaces",
-  namespaces: "nav.namespaces",
-  users: "nav.users",
-  roles: "nav.roles",
-  logs: "nav.auditLogs",
-  rolebindings: "nav.rolebindings",
-  hosts: "nav.hosts",
-  environments: "nav.environments",
-}
-
 /** Resolve a path segment to its i18n label key. Module prefixes use `nav.{name}` convention. */
 function segmentLabelKey(seg: string): string | undefined {
   if (isModulePrefix(seg)) return `nav.${seg}`
-  return routeLabelKeys[seg]
+  return RESOURCE_LABEL_KEYS[seg]
 }
 
 export function AppBreadcrumb() {

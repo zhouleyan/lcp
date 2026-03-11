@@ -1,18 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react"
 import { Link, Navigate, Outlet, useLocation } from "react-router"
-import {
-  LayoutDashboard,
-  Users,
-  Building2,
-  FolderKanban,
-  FileText,
-  Shield,
-  ShieldCheck,
-  Home,
-  ScrollText,
-  Server,
-  Layers,
-} from "lucide-react"
+import { LayoutDashboard, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { LanguageSwitcher } from "@/components/language-switcher"
@@ -26,6 +14,8 @@ import { usePermissionStore } from "@/stores/permission-store"
 import { usePermission, getDefaultPath } from "@/hooks/use-permission"
 import { useScopeStore } from "@/stores/scope-store"
 import { isModulePrefix } from "@/modules"
+import { NAV_ITEMS, buildScopedPath, buildPermScope } from "@/lib/nav-config"
+import type { ScopeLevel } from "@/lib/nav-config"
 
 interface NavItem {
   to: string
@@ -40,82 +30,37 @@ interface NavGroup {
   items: NavItem[]
 }
 
-function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: string | null): NavGroup[] {
-  if (scopeWorkspaceId && scopeNamespaceId) {
-    const iamPrefix = `/iam/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
-    const dashPrefix = `/dashboard/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
-    const infraPrefix = `/infra/workspaces/${scopeWorkspaceId}/namespaces/${scopeNamespaceId}`
-    const nsScope = { workspaceId: scopeWorkspaceId, namespaceId: scopeNamespaceId }
-    return [
-      { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home, permission: "dashboard:overview:list", permissionScope: nsScope }] },
-      {
-        labelKey: "nav.iam",
-        items: [
-          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users, permission: "iam:users:list", permissionScope: nsScope },
-          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list", permissionScope: nsScope },
-          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:rolebindings:list", permissionScope: nsScope },
-        ],
-      },
-      {
-        labelKey: "nav.infra",
-        items: [
-          { to: `${infraPrefix}/hosts`, labelKey: "nav.hosts", icon: Server, permission: "infra:hosts:list", permissionScope: nsScope },
-          { to: `${infraPrefix}/environments`, labelKey: "nav.environments", icon: Layers, permission: "infra:environments:list", permissionScope: nsScope },
-        ],
-      },
-    ]
+function buildNavGroups(wsId: string | null, nsId: string | null): NavGroup[] {
+  const scopeLevel: ScopeLevel = (wsId && nsId) ? "namespace" : wsId ? "workspace" : "platform"
+  const scope = buildPermScope(wsId ?? undefined, nsId ?? undefined)
+
+  const groups: NavGroup[] = []
+  let currentGroup: NavGroup | null = null
+
+  for (const item of NAV_ITEMS) {
+    if (!item.scopes.includes(scopeLevel)) continue
+
+    const navItem: NavItem = {
+      to: buildScopedPath(item.resource, wsId, nsId),
+      labelKey: item.labelKey,
+      icon: item.icon,
+      permission: item.permission,
+      permissionScope: scope,
+    }
+
+    if (!item.group) {
+      // Standalone item (e.g. overview) — its own group
+      groups.push({ items: [navItem] })
+      currentGroup = null
+    } else if (currentGroup?.labelKey === item.group) {
+      currentGroup.items.push(navItem)
+    } else {
+      currentGroup = { labelKey: item.group, items: [navItem] }
+      groups.push(currentGroup)
+    }
   }
-  if (scopeWorkspaceId) {
-    const iamPrefix = `/iam/workspaces/${scopeWorkspaceId}`
-    const dashPrefix = `/dashboard/workspaces/${scopeWorkspaceId}`
-    const infraPrefix = `/infra/workspaces/${scopeWorkspaceId}`
-    const wsScope = { workspaceId: scopeWorkspaceId }
-    return [
-      { items: [{ to: `${dashPrefix}/overview`, labelKey: "nav.overview", icon: Home, permission: "dashboard:overview:list", permissionScope: wsScope }] },
-      {
-        labelKey: "nav.iam",
-        items: [
-          { to: `${iamPrefix}/namespaces`, labelKey: "nav.namespaces", icon: FolderKanban, permission: "iam:namespaces:list", permissionScope: wsScope },
-          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users, permission: "iam:users:list", permissionScope: wsScope },
-          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list", permissionScope: wsScope },
-          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:rolebindings:list", permissionScope: wsScope },
-        ],
-      },
-      {
-        labelKey: "nav.infra",
-        items: [
-          { to: `${infraPrefix}/hosts`, labelKey: "nav.hosts", icon: Server, permission: "infra:hosts:list", permissionScope: wsScope },
-          { to: `${infraPrefix}/environments`, labelKey: "nav.environments", icon: Layers, permission: "infra:environments:list", permissionScope: wsScope },
-        ],
-      },
-    ]
-  }
-  return [
-    { items: [{ to: "/dashboard/overview", labelKey: "nav.overview", icon: Home, permission: "dashboard:overview:list" }] },
-    {
-      labelKey: "nav.iam",
-      items: [
-        { to: "/iam/workspaces", labelKey: "nav.workspaces", icon: Building2, permission: "iam:workspaces:list" },
-        { to: "/iam/namespaces", labelKey: "nav.namespaces", icon: FolderKanban, permission: "iam:namespaces:list" },
-        { to: "/iam/users", labelKey: "nav.users", icon: Users, permission: "iam:users:list" },
-        { to: "/iam/roles", labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list" },
-        { to: "/iam/rolebindings", labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:rolebindings:list" },
-      ],
-    },
-    {
-      labelKey: "nav.infra",
-      items: [
-        { to: "/infra/hosts", labelKey: "nav.hosts", icon: Server, permission: "infra:hosts:list" },
-        { to: "/infra/environments", labelKey: "nav.environments", icon: Layers, permission: "infra:environments:list" },
-      ],
-    },
-    {
-      labelKey: "nav.audit",
-      items: [
-        { to: "/audit/logs", labelKey: "nav.auditLogs", icon: ScrollText, permission: "audit:logs:list" },
-      ],
-    },
-  ]
+
+  return groups
 }
 
 export default function RootLayout() {

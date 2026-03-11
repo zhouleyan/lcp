@@ -20,8 +20,7 @@ type Config struct {
 // OIDCConfig holds OIDC provider configuration.
 type OIDCConfig struct {
 	Issuer          string         `yaml:"issuer"`
-	PrivateKeyFile  string         `yaml:"privateKeyFile"`
-	PublicKeyFile   string         `yaml:"publicKeyFile"`
+	Algorithm       string         `yaml:"algorithm"`
 	AccessTokenTTL  string         `yaml:"accessTokenTTL"`
 	RefreshTokenTTL string         `yaml:"refreshTokenTTL"`
 	AuthCodeTTL     string         `yaml:"authCodeTTL"`
@@ -127,6 +126,9 @@ func SetDefaults(cfg *Config) {
 	if cfg.OIDC.LoginURL == "" {
 		cfg.OIDC.LoginURL = "/login"
 	}
+	if cfg.OIDC.Algorithm == "" {
+		cfg.OIDC.Algorithm = "EdDSA"
+	}
 }
 
 // LoadFromFile reads and parses a YAML configuration file.
@@ -174,5 +176,8 @@ func ApplyEnvOverrides(cfg *Config) {
 		if i, err := strconv.Atoi(v); err == nil {
 			cfg.Database.MaxConns = int32(i)
 		}
+	}
+	if v := os.Getenv("OIDC_ALGORITHM"); v != "" {
+		cfg.OIDC.Algorithm = v
 	}
 }

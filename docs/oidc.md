@@ -171,8 +171,7 @@ grant_type=refresh_token
 ```yaml
 oidc:
   issuer: "http://localhost:8428"
-  privateKeyFile: "./oidc-private.pem"
-  publicKeyFile: "./oidc-public.pem"
+  algorithm: "EdDSA"
   accessTokenTTL: "1h"
   refreshTokenTTL: "168h"
   authCodeTTL: "5m"
@@ -186,16 +185,10 @@ oidc:
 ```
 
 关键配置说明：
+- `algorithm`：签名算法，支持 `EdDSA`（默认）、`ES256`、`RS256`。密钥自动生成并存储在 PostgreSQL（`oidc_signing_keys` 表）
 - `loginUrl`：授权请求重定向的登录页地址，需指向前端应用
 - `issuer`：OIDC 签发者标识，用于 token 签发和发现文档
 - `clients`：注册的 OAuth2 客户端，`public: true` 表示公开客户端（无 client_secret）
-
-## 生成密钥
-
-```bash
-openssl ecparam -name prime256v1 -genkey -noout -out oidc-private.pem
-openssl ec -in oidc-private.pem -pubout -out oidc-public.pem
-```
 
 ## 相关端点
 

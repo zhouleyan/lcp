@@ -57,7 +57,7 @@ func (ts *TokenService) IssueAccessToken(userID int64, clientID string, scopes [
 		Scope: strings.Join(scopes, " "),
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	token := jwt.NewWithClaims(ts.keySet.SigningMethod(), claims)
 	token.Header["kid"] = ts.keySet.KeyID
 	return token.SignedString(ts.keySet.PrivateKey)
 }
@@ -94,7 +94,7 @@ func (ts *TokenService) IssueIDToken(userID int64, clientID string, nonce string
 		}
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	token := jwt.NewWithClaims(ts.keySet.SigningMethod(), claims)
 	token.Header["kid"] = ts.keySet.KeyID
 	return token.SignedString(ts.keySet.PrivateKey)
 }
@@ -103,7 +103,7 @@ func (ts *TokenService) IssueIDToken(userID int64, clientID string, nonce string
 func (ts *TokenService) VerifyAccessToken(tokenStr string) (*StandardClaims, error) {
 	claims := &StandardClaims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodECDSA); !ok {
+		if t.Method.Alg() != ts.keySet.SigningMethod().Alg() {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return ts.keySet.PublicKey, nil

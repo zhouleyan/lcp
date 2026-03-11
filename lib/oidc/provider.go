@@ -280,7 +280,7 @@ func (p *Provider) DiscoveryDocument() *DiscoveryDocument {
 		JwksURI:                          p.config.Issuer + "/.well-known/jwks.json",
 		ResponseTypesSupported:           []string{"code"},
 		SubjectTypesSupported:            []string{"public"},
-		IDTokenSigningAlgValuesSupported: []string{"ES256"},
+		IDTokenSigningAlgValuesSupported: []string{p.keySet.SigningMethod().Alg()},
 		ScopesSupported:                  []string{"openid", "profile", "email", "phone"},
 		TokenEndpointAuthMethodsSupp:     []string{"client_secret_post", "none"},
 		ClaimsSupported:                  []string{"sub", "iss", "aud", "exp", "iat", "nonce", "auth_time", "at_hash", "name", "email", "phone_number"},
