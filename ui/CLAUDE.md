@@ -265,12 +265,13 @@ All module routes that support workspace/namespace scope **MUST** embed scope ID
 | Dashboard | `/dashboard/overview` | `/dashboard/workspaces/:wsId/overview` | `/dashboard/workspaces/:wsId/namespaces/:nsId/overview` |
 | Infra | `/infra/hosts` | `/infra/workspaces/:wsId/hosts` | `/infra/workspaces/:wsId/namespaces/:nsId/hosts` |
 
-**When adding a new module with scoped resources, you MUST update 4 places**:
+**When adding a new module with scoped resources, you MUST update 5 places**:
 
 1. **`routes.tsx`** — Register route entries for all three scope levels (platform, workspace, namespace), all pointing to the same page component
 2. **`root-layout.tsx` (`buildNavGroups`)** — Nav links must use scoped paths with `${prefix}/${resource}` (e.g., `` `/infra/workspaces/${wsId}/hosts` ``), NOT bare paths like `"/infra/hosts"`
 3. **`scope-selector.tsx` (`buildScopedPath`)** — Add routing conditions for the new module's resources at each scope level
 4. **`scope-selector.tsx` (`KNOWN_RESOURCES`)** — Add the resource names
+5. **`app-breadcrumb.tsx` (`routeLabelKeys`)** — Add the resource name → i18n key mapping (e.g., `hosts: "nav.hosts"`), otherwise breadcrumb treats the resource segment as a dynamic ID and won't render a clickable link
 
 **Anti-pattern**: Using a fixed path like `"/infra/hosts"` for all scope levels. This causes the scope selector to reset when navigating because the URL lacks workspace/namespace IDs.
 
