@@ -174,13 +174,7 @@ const iam: Messages = {
   "perm.group.iam": "IAM 管理",
   "perm.group.iam.users": "用户",
   "perm.group.iam.workspaces": "租户",
-  "perm.group.iam.workspaces.users": "租户成员",
-  "perm.group.iam.workspaces.rolebindings": "租户角色绑定",
   "perm.group.iam.namespaces": "项目",
-  "perm.group.iam.workspaces.roles": "租户角色",
-  "perm.group.iam.namespaces.users": "项目成员",
-  "perm.group.iam.namespaces.rolebindings": "项目角色绑定",
-  "perm.group.iam.namespaces.roles": "项目角色",
   "perm.group.iam.roles": "角色",
   "perm.group.iam.rolebindings": "角色绑定",
   "perm.group.iam.permissions": "权限",
@@ -205,24 +199,6 @@ const iam: Messages = {
   "perm.iam:workspaces:deleteCollection": "批量删除租户",
   "perm.iam:workspaces:transfer-ownership": "转让租户所有权",
 
-  // permission codes - workspace members
-  "perm.iam:workspaces:users:list": "查看租户成员",
-  "perm.iam:workspaces:users:get": "查看租户成员详情",
-  "perm.iam:workspaces:users:create": "添加租户成员",
-  "perm.iam:workspaces:users:deleteCollection": "移除租户成员",
-
-  // permission codes - workspace role bindings
-  "perm.iam:workspaces:rolebindings:list": "查看租户角色绑定",
-  "perm.iam:workspaces:rolebindings:create": "创建租户角色绑定",
-  "perm.iam:workspaces:rolebindings:delete": "删除租户角色绑定",
-
-  // permission codes - workspace roles
-  "perm.iam:workspaces:roles:list": "查看租户作用域角色",
-  "perm.iam:workspaces:roles:get": "查看租户作用域角色详情",
-  "perm.iam:workspaces:roles:create": "创建租户作用域角色",
-  "perm.iam:workspaces:roles:update": "更新租户作用域角色",
-  "perm.iam:workspaces:roles:delete": "删除租户作用域角色",
-
   // permission codes - namespaces
   "perm.iam:namespaces:list": "查看项目列表",
   "perm.iam:namespaces:get": "查看项目详情",
@@ -232,24 +208,6 @@ const iam: Messages = {
   "perm.iam:namespaces:delete": "删除项目",
   "perm.iam:namespaces:deleteCollection": "批量删除项目",
   "perm.iam:namespaces:transfer-ownership": "转让项目所有权",
-
-  // permission codes - namespace members
-  "perm.iam:namespaces:users:list": "查看项目成员",
-  "perm.iam:namespaces:users:get": "查看项目成员详情",
-  "perm.iam:namespaces:users:create": "添加项目成员",
-  "perm.iam:namespaces:users:deleteCollection": "移除项目成员",
-
-  // permission codes - namespace role bindings
-  "perm.iam:namespaces:rolebindings:list": "查看项目角色绑定",
-  "perm.iam:namespaces:rolebindings:create": "创建项目角色绑定",
-  "perm.iam:namespaces:rolebindings:delete": "删除项目角色绑定",
-
-  // permission codes - namespace roles
-  "perm.iam:namespaces:roles:list": "查看项目作用域角色",
-  "perm.iam:namespaces:roles:get": "查看项目作用域角色详情",
-  "perm.iam:namespaces:roles:create": "创建项目作用域角色",
-  "perm.iam:namespaces:roles:update": "更新项目作用域角色",
-  "perm.iam:namespaces:roles:delete": "删除项目作用域角色",
 
   // permission codes - roles
   "perm.iam:roles:list": "查看角色列表",

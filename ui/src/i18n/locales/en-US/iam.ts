@@ -174,13 +174,7 @@ const iam: Messages = {
   "perm.group.iam": "IAM Management",
   "perm.group.iam.users": "Users",
   "perm.group.iam.workspaces": "Workspaces",
-  "perm.group.iam.workspaces.users": "Workspace Members",
-  "perm.group.iam.workspaces.rolebindings": "Workspace Role Bindings",
   "perm.group.iam.namespaces": "Namespaces",
-  "perm.group.iam.workspaces.roles": "Workspace Roles",
-  "perm.group.iam.namespaces.users": "Namespace Members",
-  "perm.group.iam.namespaces.rolebindings": "Namespace Role Bindings",
-  "perm.group.iam.namespaces.roles": "Namespace Roles",
   "perm.group.iam.roles": "Roles",
   "perm.group.iam.rolebindings": "Role Bindings",
   "perm.group.iam.permissions": "Permissions",
@@ -205,24 +199,6 @@ const iam: Messages = {
   "perm.iam:workspaces:deleteCollection": "Batch delete workspaces",
   "perm.iam:workspaces:transfer-ownership": "Transfer workspace ownership",
 
-  // permission codes - workspace members
-  "perm.iam:workspaces:users:list": "List workspace members",
-  "perm.iam:workspaces:users:get": "Get workspace member details",
-  "perm.iam:workspaces:users:create": "Add workspace members",
-  "perm.iam:workspaces:users:deleteCollection": "Remove workspace members",
-
-  // permission codes - workspace role bindings
-  "perm.iam:workspaces:rolebindings:list": "List workspace role bindings",
-  "perm.iam:workspaces:rolebindings:create": "Create workspace role binding",
-  "perm.iam:workspaces:rolebindings:delete": "Delete workspace role binding",
-
-  // permission codes - workspace roles
-  "perm.iam:workspaces:roles:list": "List workspace-scoped roles",
-  "perm.iam:workspaces:roles:get": "Get workspace-scoped role details",
-  "perm.iam:workspaces:roles:create": "Create workspace-scoped role",
-  "perm.iam:workspaces:roles:update": "Update workspace-scoped role",
-  "perm.iam:workspaces:roles:delete": "Delete workspace-scoped role",
-
   // permission codes - namespaces
   "perm.iam:namespaces:list": "List namespaces",
   "perm.iam:namespaces:get": "Get namespace details",
@@ -232,24 +208,6 @@ const iam: Messages = {
   "perm.iam:namespaces:delete": "Delete namespace",
   "perm.iam:namespaces:deleteCollection": "Batch delete namespaces",
   "perm.iam:namespaces:transfer-ownership": "Transfer namespace ownership",
-
-  // permission codes - namespace members
-  "perm.iam:namespaces:users:list": "List namespace members",
-  "perm.iam:namespaces:users:get": "Get namespace member details",
-  "perm.iam:namespaces:users:create": "Add namespace members",
-  "perm.iam:namespaces:users:deleteCollection": "Remove namespace members",
-
-  // permission codes - namespace role bindings
-  "perm.iam:namespaces:rolebindings:list": "List namespace role bindings",
-  "perm.iam:namespaces:rolebindings:create": "Create namespace role binding",
-  "perm.iam:namespaces:rolebindings:delete": "Delete namespace role binding",
-
-  // permission codes - namespace roles
-  "perm.iam:namespaces:roles:list": "List namespace-scoped roles",
-  "perm.iam:namespaces:roles:get": "Get namespace-scoped role details",
-  "perm.iam:namespaces:roles:create": "Create namespace-scoped role",
-  "perm.iam:namespaces:roles:update": "Update namespace-scoped role",
-  "perm.iam:namespaces:roles:delete": "Delete namespace-scoped role",
 
   // permission codes - roles
   "perm.iam:roles:list": "List roles",
