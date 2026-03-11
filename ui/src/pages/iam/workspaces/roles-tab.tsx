@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
-  listWorkspaceRoles, deleteWorkspaceRole, deleteWorkspaceRoles, listPermissions,
+  listWorkspaceRoles, deleteWorkspaceRole, deleteWorkspaceRoles, listAllPermissions,
 } from "@/api/iam/rbac"
 import type { Role, Permission, ListParams } from "@/api/types"
 import { ApiError, translateApiError } from "@/api/client"
@@ -82,8 +82,7 @@ export default function WorkspaceRolesTab() {
   const loadPermissions = useCallback(async () => {
     if (permissions.length > 0) return
     try {
-      const data = await listPermissions({ pageSize: 1000 })
-      setPermissions(data.items ?? [])
+      setPermissions(await listAllPermissions())
     } catch {
       // silently ignore — permission selector will show empty
     }

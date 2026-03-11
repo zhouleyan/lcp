@@ -1,6 +1,7 @@
 import { iamApi } from "./client"
 import { apiRequest } from "../client"
 import type {
+  Permission,
   PermissionList,
   RoleList,
   Role,
@@ -14,6 +15,23 @@ import type {
 // --- Permissions ---
 export async function listPermissions(params?: ListParams): Promise<PermissionList> {
   return apiRequest(iamApi.get("permissions", { searchParams: params as Record<string, string> }).json())
+}
+
+/**
+ * Fetch all permissions by paginating through the API.
+ * Backend caps pageSize at 100, so we loop until all pages are loaded.
+ */
+export async function listAllPermissions(): Promise<Permission[]> {
+  const allItems: Permission[] = []
+  let page = 1
+  const pageSize = 100
+  while (true) {
+    const data = await listPermissions({ page, pageSize })
+    allItems.push(...(data.items ?? []))
+    if (allItems.length >= data.totalCount) break
+    page++
+  }
+  return allItems
 }
 
 // --- Platform Roles ---
