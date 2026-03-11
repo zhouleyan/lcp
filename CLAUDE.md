@@ -333,6 +333,7 @@ Generate keys: `openssl ecparam -name prime256v1 -genkey -noout -out oidc-privat
 | 文件 | 用途 | 处理方式 |
 |------|------|---------|
 | `oidc-private.pem` / `oidc-public.pem` | OIDC 签名密钥 | 从主仓库复制：`cp ../../oidc-*.pem .` |
+| `app/lcp-server/config.dev.yaml` | `make dev` 开发配置（redirectUri 指向 5173） | 从主仓库复制：`cp ../../app/lcp-server/config.dev.yaml app/lcp-server/` |
 | `ui/dist/` | 前端构建产物（Go embed） | 创建占位或构建：`mkdir -p ui/dist && touch ui/dist/.gitkeep`，或 `cd ui && pnpm install && pnpm build` |
 | `ui/node_modules/` | 前端依赖 | `cd ui && pnpm install` |
 
@@ -345,6 +346,7 @@ cd .worktrees/<branch-name>
 
 # 2. 复制 gitignored 的配置文件
 cp ../../oidc-*.pem .
+cp ../../app/lcp-server/config.dev.yaml app/lcp-server/
 
 # 3. Go 依赖
 go mod download
