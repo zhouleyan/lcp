@@ -69,11 +69,7 @@ export default function EnvironmentListPage() {
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
 
   // Determine permission prefix based on scope
-  const permPrefix = scopeWorkspaceId && scopeNamespaceId
-    ? "infra:workspaces:namespaces:environments"
-    : scopeWorkspaceId
-      ? "infra:workspaces:environments"
-      : "infra:environments"
+  const permPrefix = "infra:environments"
 
   const permScope = scopeNamespaceId
     ? { workspaceId: scopeWorkspaceId!, namespaceId: scopeNamespaceId }

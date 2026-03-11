@@ -81,11 +81,7 @@ export default function HostListPage() {
   const [unbindTarget, setUnbindTarget] = useState<Host | null>(null)
   const [unassignTarget, setUnassignTarget] = useState<Host | null>(null)
 
-  const permPrefix = scopeWorkspaceId && scopeNamespaceId
-    ? "infra:workspaces:namespaces:hosts"
-    : scopeWorkspaceId
-      ? "infra:workspaces:hosts"
-      : "infra:hosts"
+  const permPrefix = "infra:hosts"
 
   const permScope = scopeNamespaceId
     ? { workspaceId: scopeWorkspaceId!, namespaceId: scopeNamespaceId }

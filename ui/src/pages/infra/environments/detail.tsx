@@ -59,11 +59,7 @@ export default function EnvironmentDetailPage() {
   const [hostsPage, setHostsPage] = useState(1)
   const [hostsPageSize, setHostsPageSize] = useState(10)
 
-  const permPrefix = scopeWorkspaceId && scopeNamespaceId
-    ? "infra:workspaces:namespaces:environments"
-    : scopeWorkspaceId
-      ? "infra:workspaces:environments"
-      : "infra:environments"
+  const permPrefix = "infra:environments"
 
   const permScope = scopeNamespaceId
     ? { workspaceId: scopeWorkspaceId!, namespaceId: scopeNamespaceId }

@@ -55,11 +55,7 @@ export default function HostDetailPage() {
 
   const isPlatformScope = !scopeWorkspaceId
 
-  const permPrefix = scopeWorkspaceId && scopeNamespaceId
-    ? "infra:workspaces:namespaces:hosts"
-    : scopeWorkspaceId
-      ? "infra:workspaces:hosts"
-      : "infra:hosts"
+  const permPrefix = "infra:hosts"
 
   const permScope = scopeNamespaceId
     ? { workspaceId: scopeWorkspaceId!, namespaceId: scopeNamespaceId }

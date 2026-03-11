@@ -61,16 +61,16 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
       {
         labelKey: "nav.iam",
         items: [
-          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users, permission: "iam:namespaces:users:list", permissionScope: nsScope },
-          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield, permission: "iam:namespaces:roles:list", permissionScope: nsScope },
-          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:namespaces:rolebindings:list", permissionScope: nsScope },
+          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users, permission: "iam:users:list", permissionScope: nsScope },
+          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list", permissionScope: nsScope },
+          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:rolebindings:list", permissionScope: nsScope },
         ],
       },
       {
         labelKey: "nav.infra",
         items: [
-          { to: `${infraPrefix}/hosts`, labelKey: "nav.hosts", icon: Server, permission: "infra:workspaces:namespaces:hosts:list", permissionScope: nsScope },
-          { to: `${infraPrefix}/environments`, labelKey: "nav.environments", icon: Layers, permission: "infra:workspaces:namespaces:environments:list", permissionScope: nsScope },
+          { to: `${infraPrefix}/hosts`, labelKey: "nav.hosts", icon: Server, permission: "infra:hosts:list", permissionScope: nsScope },
+          { to: `${infraPrefix}/environments`, labelKey: "nav.environments", icon: Layers, permission: "infra:environments:list", permissionScope: nsScope },
         ],
       },
     ]
@@ -86,16 +86,16 @@ function buildNavGroups(scopeWorkspaceId: string | null, scopeNamespaceId: strin
         labelKey: "nav.iam",
         items: [
           { to: `${iamPrefix}/namespaces`, labelKey: "nav.namespaces", icon: FolderKanban },
-          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users, permission: "iam:workspaces:users:list", permissionScope: wsScope },
-          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield, permission: "iam:workspaces:roles:list", permissionScope: wsScope },
-          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:workspaces:rolebindings:list", permissionScope: wsScope },
+          { to: `${iamPrefix}/users`, labelKey: "nav.users", icon: Users, permission: "iam:users:list", permissionScope: wsScope },
+          { to: `${iamPrefix}/roles`, labelKey: "nav.roles", icon: Shield, permission: "iam:roles:list", permissionScope: wsScope },
+          { to: `${iamPrefix}/rolebindings`, labelKey: "nav.rolebindings", icon: ShieldCheck, permission: "iam:rolebindings:list", permissionScope: wsScope },
         ],
       },
       {
         labelKey: "nav.infra",
         items: [
-          { to: `${infraPrefix}/hosts`, labelKey: "nav.hosts", icon: Server, permission: "infra:workspaces:hosts:list", permissionScope: wsScope },
-          { to: `${infraPrefix}/environments`, labelKey: "nav.environments", icon: Layers, permission: "infra:workspaces:environments:list", permissionScope: wsScope },
+          { to: `${infraPrefix}/hosts`, labelKey: "nav.hosts", icon: Server, permission: "infra:hosts:list", permissionScope: wsScope },
+          { to: `${infraPrefix}/environments`, labelKey: "nav.environments", icon: Layers, permission: "infra:environments:list", permissionScope: wsScope },
         ],
       },
     ]

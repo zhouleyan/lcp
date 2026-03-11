@@ -79,7 +79,7 @@ export default function NamespaceUsersPage() {
   useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
   useEffect(() => { clearSelection() }, [members])
 
-  if (permissionsLoaded && !hasPermission("iam:namespaces:users:list", { workspaceId, namespaceId })) {
+  if (permissionsLoaded && !hasPermission("iam:users:list", { workspaceId, namespaceId })) {
     return <Navigate to="/" replace />
   }
 
@@ -129,7 +129,7 @@ export default function NamespaceUsersPage() {
           <h1 className="text-2xl font-bold">{t("namespace.members")}</h1>
           <p className="text-muted-foreground text-sm">{t("namespace.membersManage", { count: totalCount })}</p>
         </div>
-        {hasPermission("iam:namespaces:users:create", { workspaceId, namespaceId }) && (
+        {hasPermission("iam:users:create", { workspaceId, namespaceId }) && (
           <Button onClick={() => setAddOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             {t("namespace.addMember")}
@@ -146,7 +146,7 @@ export default function NamespaceUsersPage() {
             className="pl-9"
           />
         </div>
-        {selected.size > 0 && hasPermission("iam:namespaces:users:deleteCollection", { workspaceId, namespaceId }) && (
+        {selected.size > 0 && hasPermission("iam:users:deleteCollection", { workspaceId, namespaceId }) && (
           <Button variant="destructive" size="sm" onClick={() => setBatchRemoveOpen(true)}>
             <UserMinus className="mr-2 h-4 w-4" />
             {t("namespace.removeMember")} ({selected.size})
@@ -159,7 +159,7 @@ export default function NamespaceUsersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              {hasPermission("iam:namespaces:users:deleteCollection", { workspaceId, namespaceId }) && (
+              {hasPermission("iam:users:deleteCollection", { workspaceId, namespaceId }) && (
                 <TableHead className="w-10">
                   <Checkbox checked={members.length > 0 && selected.size === members.length} onCheckedChange={() => toggleAll(members.map((m) => m.metadata.id))} />
                 </TableHead>
@@ -186,7 +186,7 @@ export default function NamespaceUsersPage() {
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>{t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("updated_at")}>{t("common.updated")}<SortIcon field="updated_at" sortBy={sortBy} sortOrder={sortOrder} /></TableHead>
-              {hasPermission("iam:namespaces:users:deleteCollection", { workspaceId, namespaceId }) && (
+              {hasPermission("iam:users:deleteCollection", { workspaceId, namespaceId }) && (
                 <TableHead className="w-16">{t("common.actions")}</TableHead>
               )}
             </TableRow>
@@ -201,7 +201,7 @@ export default function NamespaceUsersPage() {
             ) : (
               members.map((m) => (
                 <TableRow key={m.metadata.id}>
-                  {hasPermission("iam:namespaces:users:deleteCollection", { workspaceId, namespaceId }) && (
+                  {hasPermission("iam:users:deleteCollection", { workspaceId, namespaceId }) && (
                     <TableCell><Checkbox checked={selected.has(m.metadata.id)} onCheckedChange={() => toggleOne(m.metadata.id)} /></TableCell>
                   )}
                   <TableCell className="font-medium">
@@ -220,7 +220,7 @@ export default function NamespaceUsersPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(m.metadata.createdAt).toLocaleString()}</TableCell>
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{new Date(m.metadata.updatedAt).toLocaleString()}</TableCell>
-                  {hasPermission("iam:namespaces:users:deleteCollection", { workspaceId, namespaceId }) && (
+                  {hasPermission("iam:users:deleteCollection", { workspaceId, namespaceId }) && (
                     <TableCell>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setRemoveTarget(m)} title={t("namespace.removeMember")}>
                         <UserMinus className="h-3.5 w-3.5" />
