@@ -1,22 +1,54 @@
 package oidc
 
 import (
+	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"math/big"
-	"os"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
-// KeySet holds the ECDSA key pair and derived key ID.
+// Algorithm constants for supported signing algorithms.
+const (
+	AlgEdDSA = "EdDSA"
+	AlgES256 = "ES256"
+	AlgRS256 = "RS256"
+)
+
+// KeyStore is the interface for loading or generating key sets.
+type KeyStore interface {
+	LoadOrGenerate(algorithm string) (*KeySet, error)
+}
+
+// KeySet holds a signing key pair, its derived key ID, and the algorithm name.
 type KeySet struct {
-	PrivateKey *ecdsa.PrivateKey
-	PublicKey  *ecdsa.PublicKey
+	PrivateKey crypto.Signer
+	PublicKey  crypto.PublicKey
 	KeyID      string
+	Algorithm  string
+}
+
+// SigningMethod returns the jwt.SigningMethod for this key set's algorithm.
+func (ks *KeySet) SigningMethod() jwt.SigningMethod {
+	switch ks.Algorithm {
+	case AlgEdDSA:
+		return jwt.SigningMethodEdDSA
+	case AlgES256:
+		return jwt.SigningMethodES256
+	case AlgRS256:
+		return jwt.SigningMethodRS256
+	default:
+		return nil
+	}
 }
 
 // JWKSet is a JSON Web Key Set.
@@ -24,124 +56,197 @@ type JWKSet struct {
 	Keys []JWK `json:"keys"`
 }
 
-// JWK is a single JSON Web Key.
+// JWK is a single JSON Web Key. Fields are conditional based on key type.
 type JWK struct {
 	Kty string `json:"kty"`
-	Crv string `json:"crv"`
-	X   string `json:"x"`
-	Y   string `json:"y"`
 	Kid string `json:"kid"`
 	Use string `json:"use"`
 	Alg string `json:"alg"`
-}
 
-// LoadKeySet loads an ECDSA P-256 key pair from PEM files.
-func LoadKeySet(privatePEMPath, publicPEMPath string) (*KeySet, error) {
-	privData, err := os.ReadFile(privatePEMPath)
-	if err != nil {
-		return nil, fmt.Errorf("read private key %q: %w", privatePEMPath, err)
-	}
-	pubData, err := os.ReadFile(publicPEMPath)
-	if err != nil {
-		return nil, fmt.Errorf("read public key %q: %w", publicPEMPath, err)
-	}
+	// EC fields (P-256)
+	Crv string `json:"crv,omitempty"`
+	X   string `json:"x,omitempty"`
+	Y   string `json:"y,omitempty"`
 
-	privKey, err := parseECPrivateKey(privData)
-	if err != nil {
-		return nil, fmt.Errorf("parse private key: %w", err)
-	}
-	pubKey, err := parseECPublicKey(pubData)
-	if err != nil {
-		return nil, fmt.Errorf("parse public key: %w", err)
-	}
-
-	if privKey.Curve != elliptic.P256() {
-		return nil, fmt.Errorf("private key must be ECDSA P-256, got %s", privKey.Curve.Params().Name)
-	}
-
-	kid := computeKeyID(pubKey)
-
-	return &KeySet{
-		PrivateKey: privKey,
-		PublicKey:  pubKey,
-		KeyID:      kid,
-	}, nil
+	// RSA fields
+	N string `json:"n,omitempty"`
+	E string `json:"e,omitempty"`
 }
 
 // JWKSet returns the JWK Set representation of the public key.
 func (ks *KeySet) JWKSet() *JWKSet {
-	return &JWKSet{
-		Keys: []JWK{
-			{
-				Kty: "EC",
-				Crv: "P-256",
-				X:   base64URLEncodeBigInt(ks.PublicKey.X),
-				Y:   base64URLEncodeBigInt(ks.PublicKey.Y),
-				Kid: ks.KeyID,
-				Use: "sig",
-				Alg: "ES256",
-			},
-		},
+	jwk := JWK{
+		Kid: ks.KeyID,
+		Use: "sig",
+		Alg: ks.Algorithm,
 	}
+
+	switch pub := ks.PublicKey.(type) {
+	case ed25519.PublicKey:
+		jwk.Kty = "OKP"
+		jwk.Crv = "Ed25519"
+		jwk.X = base64URLEncode(pub)
+	case *ecdsa.PublicKey:
+		jwk.Kty = "EC"
+		jwk.Crv = "P-256"
+		byteLen := (pub.Curve.Params().BitSize + 7) / 8
+		jwk.X = base64URLEncodeBigInt(pub.X, byteLen)
+		jwk.Y = base64URLEncodeBigInt(pub.Y, byteLen)
+	case *rsa.PublicKey:
+		jwk.Kty = "RSA"
+		jwk.N = base64URLEncodeBigInt(pub.N, 0)
+		jwk.E = base64URLEncodeBigInt(big.NewInt(int64(pub.E)), 0)
+	}
+
+	return &JWKSet{Keys: []JWK{jwk}}
 }
 
-func parseECPrivateKey(data []byte) (*ecdsa.PrivateKey, error) {
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return nil, fmt.Errorf("no PEM block found")
-	}
-
-	// Try PKCS8 first, then EC private key
-	if key, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
-		if ecKey, ok := key.(*ecdsa.PrivateKey); ok {
-			return ecKey, nil
+// GenerateKeySet generates a new key pair for the specified algorithm.
+func GenerateKeySet(algorithm string) (*KeySet, error) {
+	switch algorithm {
+	case AlgEdDSA:
+		pub, priv, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return nil, fmt.Errorf("generate Ed25519 key: %w", err)
 		}
-		return nil, fmt.Errorf("PKCS8 key is not ECDSA")
+		kid := ComputeKeyID(pub)
+		return &KeySet{
+			PrivateKey: priv,
+			PublicKey:  pub,
+			KeyID:      kid,
+			Algorithm:  AlgEdDSA,
+		}, nil
+
+	case AlgES256:
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return nil, fmt.Errorf("generate ECDSA P-256 key: %w", err)
+		}
+		kid := ComputeKeyID(&priv.PublicKey)
+		return &KeySet{
+			PrivateKey: priv,
+			PublicKey:  &priv.PublicKey,
+			KeyID:      kid,
+			Algorithm:  AlgES256,
+		}, nil
+
+	case AlgRS256:
+		priv, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			return nil, fmt.Errorf("generate RSA 2048 key: %w", err)
+		}
+		kid := ComputeKeyID(&priv.PublicKey)
+		return &KeySet{
+			PrivateKey: priv,
+			PublicKey:  &priv.PublicKey,
+			KeyID:      kid,
+			Algorithm:  AlgRS256,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported algorithm: %s", algorithm)
 	}
-	return x509.ParseECPrivateKey(block.Bytes)
 }
 
-func parseECPublicKey(data []byte) (*ecdsa.PublicKey, error) {
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return nil, fmt.Errorf("no PEM block found")
-	}
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+// MarshalKeySetPEM encodes a KeySet to PEM-encoded private (PKCS8) and public (PKIX) key bytes.
+func MarshalKeySetPEM(ks *KeySet) (privPEM, pubPEM []byte, err error) {
+	privDER, err := x509.MarshalPKCS8PrivateKey(ks.PrivateKey)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("marshal private key: %w", err)
 	}
-	ecPub, ok := pub.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("not an ECDSA public key")
+	privBlock := &pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: privDER,
 	}
-	return ecPub, nil
+
+	pubDER, err := x509.MarshalPKIXPublicKey(ks.PublicKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("marshal public key: %w", err)
+	}
+	pubBlock := &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: pubDER,
+	}
+
+	return pem.EncodeToMemory(privBlock), pem.EncodeToMemory(pubBlock), nil
 }
 
-// computeKeyID derives a key ID from the public key using RFC 7638 thumbprint.
-func computeKeyID(pub *ecdsa.PublicKey) string {
-	// Pad X and Y coordinates to 32 bytes for P-256
-	x := padTo32(pub.X.Bytes())
-	y := padTo32(pub.Y.Bytes())
+// ParseKeySetPEM decodes PEM-encoded private and public keys back into a KeySet.
+func ParseKeySetPEM(privPEM, pubPEM []byte, algorithm string) (*KeySet, error) {
+	privBlock, _ := pem.Decode(privPEM)
+	if privBlock == nil {
+		return nil, fmt.Errorf("no PEM block found in private key data")
+	}
+	privKey, err := x509.ParsePKCS8PrivateKey(privBlock.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse private key: %w", err)
+	}
+
+	pubBlock, _ := pem.Decode(pubPEM)
+	if pubBlock == nil {
+		return nil, fmt.Errorf("no PEM block found in public key data")
+	}
+	pubKey, err := x509.ParsePKIXPublicKey(pubBlock.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse public key: %w", err)
+	}
+
+	signer, ok := privKey.(crypto.Signer)
+	if !ok {
+		return nil, fmt.Errorf("private key does not implement crypto.Signer")
+	}
+
+	kid := ComputeKeyID(pubKey)
+
+	return &KeySet{
+		PrivateKey: signer,
+		PublicKey:  pubKey,
+		KeyID:      kid,
+		Algorithm:  algorithm,
+	}, nil
+}
+
+// ComputeKeyID derives a key ID from the public key using a SHA-256 hash,
+// base64url encoded, truncated to 16 bytes.
+func ComputeKeyID(pub crypto.PublicKey) string {
 	h := sha256.New()
-	h.Write(x)
-	h.Write(y)
+
+	switch k := pub.(type) {
+	case ed25519.PublicKey:
+		h.Write(k)
+	case *ecdsa.PublicKey:
+		byteLen := (k.Curve.Params().BitSize + 7) / 8
+		h.Write(padTo(k.X.Bytes(), byteLen))
+		h.Write(padTo(k.Y.Bytes(), byteLen))
+	case *rsa.PublicKey:
+		h.Write(k.N.Bytes())
+		h.Write(big.NewInt(int64(k.E)).Bytes())
+	}
+
 	return base64URLEncode(h.Sum(nil)[:16])
 }
 
-func padTo32(b []byte) []byte {
-	if len(b) >= 32 {
+// padTo pads b with leading zeros to the given size.
+func padTo(b []byte, size int) []byte {
+	if len(b) >= size {
 		return b
 	}
-	padded := make([]byte, 32)
-	copy(padded[32-len(b):], b)
+	padded := make([]byte, size)
+	copy(padded[size-len(b):], b)
 	return padded
 }
 
+// base64URLEncode encodes data as base64url without padding.
 func base64URLEncode(data []byte) string {
 	return base64.RawURLEncoding.EncodeToString(data)
 }
 
-// base64URLEncodeBigInt encodes a big.Int as base64url with padding to byte length.
-func base64URLEncodeBigInt(n *big.Int) string {
-	return base64URLEncode(padTo32(n.Bytes()))
+// base64URLEncodeBigInt encodes a big.Int as base64url.
+// If byteLen > 0, the value is left-padded with zeros to that length.
+func base64URLEncodeBigInt(n *big.Int, byteLen int) string {
+	b := n.Bytes()
+	if byteLen > 0 {
+		b = padTo(b, byteLen)
+	}
+	return base64URLEncode(b)
 }
