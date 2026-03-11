@@ -44,9 +44,10 @@ import {
 } from "@/api/infra/environments"
 import { listWorkspaces } from "@/api/iam/workspaces"
 import { listWorkspaceNamespaces } from "@/api/iam/namespaces"
-import { ApiError, translateApiError } from "@/api/client"
+import { showApiError } from "@/api/client"
 import type { Host, Environment, Workspace, Namespace, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
+import { buildPermScope, scopedApiCall } from "@/lib/nav-config"
 import { usePermission } from "@/hooks/use-permission"
 import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
@@ -81,11 +82,7 @@ export default function HostListPage() {
 
   const permPrefix = "infra:hosts"
 
-  const permScope = scopeNamespaceId
-    ? { workspaceId: scopeWorkspaceId!, namespaceId: scopeNamespaceId }
-    : scopeWorkspaceId
-      ? { workspaceId: scopeWorkspaceId }
-      : undefined
+  const permScope = buildPermScope(scopeWorkspaceId, scopeNamespaceId)
 
   // Whether we're at namespace level (no assign/unassign)
   const isNamespaceScope = !!(scopeWorkspaceId && scopeNamespaceId)
@@ -98,23 +95,16 @@ export default function HostListPage() {
       if (search) params.search = search
       if (statusFilter !== "all") params.status = statusFilter
 
-      let data
-      if (scopeWorkspaceId && scopeNamespaceId) {
-        data = await listNamespaceHosts(scopeWorkspaceId, scopeNamespaceId, params)
-      } else if (scopeWorkspaceId) {
-        data = await listWorkspaceHosts(scopeWorkspaceId, params)
-      } else {
-        data = await listHosts(params)
-      }
+      const data = await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => listHosts(params),
+        (wsId) => listWorkspaceHosts(wsId, params),
+        (wsId, nsId) => listNamespaceHosts(wsId, nsId, params),
+      )
       setHosts(data.items ?? [])
       setTotalCount(data.totalCount)
     } catch (err) {
-      if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        toast.error(i18nKey !== err.message ? t(i18nKey) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t)
     } finally {
       setLoading(false)
     }
@@ -128,67 +118,52 @@ export default function HostListPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     try {
-      if (scopeWorkspaceId && scopeNamespaceId) {
-        await deleteNamespaceHost(scopeWorkspaceId, scopeNamespaceId, deleteTarget.metadata.id)
-      } else if (scopeWorkspaceId) {
-        await deleteWorkspaceHost(scopeWorkspaceId, deleteTarget.metadata.id)
-      } else {
-        await deleteHost(deleteTarget.metadata.id)
-      }
+      await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => deleteHost(deleteTarget.metadata.id),
+        (wsId) => deleteWorkspaceHost(wsId, deleteTarget.metadata.id),
+        (wsId, nsId) => deleteNamespaceHost(wsId, nsId, deleteTarget.metadata.id),
+      )
       toast.success(t("action.deleteSuccess"))
       setDeleteTarget(null)
       fetchData()
     } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("host.title") }) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "host.title")
     }
   }
 
   const handleBatchDelete = async () => {
     try {
       const ids = Array.from(selected)
-      if (scopeWorkspaceId && scopeNamespaceId) {
-        await deleteNamespaceHosts(scopeWorkspaceId, scopeNamespaceId, ids)
-      } else if (scopeWorkspaceId) {
-        await deleteWorkspaceHosts(scopeWorkspaceId, ids)
-      } else {
-        await deleteHosts(ids)
-      }
+      await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => deleteHosts(ids),
+        (wsId) => deleteWorkspaceHosts(wsId, ids),
+        (wsId, nsId) => deleteNamespaceHosts(wsId, nsId, ids),
+      )
       toast.success(t("action.deleteSuccess"))
       setBatchDeleteOpen(false)
       clearSelection()
       fetchData()
     } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err), { resource: t("host.title") }) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "host.title")
     }
   }
 
   const handleUnbind = async () => {
     if (!unbindTarget) return
     try {
-      if (scopeWorkspaceId && scopeNamespaceId) {
-        await unbindNamespaceHostEnvironment(scopeWorkspaceId, scopeNamespaceId, unbindTarget.metadata.id)
-      } else if (scopeWorkspaceId) {
-        await unbindWorkspaceHostEnvironment(scopeWorkspaceId, unbindTarget.metadata.id)
-      } else {
-        await unbindHostEnvironment(unbindTarget.metadata.id)
-      }
+      await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => unbindHostEnvironment(unbindTarget.metadata.id),
+        (wsId) => unbindWorkspaceHostEnvironment(wsId, unbindTarget.metadata.id),
+        (wsId, nsId) => unbindNamespaceHostEnvironment(wsId, nsId, unbindTarget.metadata.id),
+      )
       toast.success(t("action.updateSuccess"))
       setUnbindTarget(null)
       fetchData()
     } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err)) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "host.title")
     }
   }
 
@@ -464,20 +439,17 @@ export default function HostListPage() {
             const body = scopeWorkspaceId
               ? { workspaceId: scopeWorkspaceId }
               : {}
-            if (scopeWorkspaceId) {
-              await unassignWorkspaceHost(scopeWorkspaceId, unassignTarget.metadata.id, body)
-            } else {
-              await unassignHost(unassignTarget.metadata.id, body)
-            }
+            await scopedApiCall(
+              scopeWorkspaceId, undefined,
+              () => unassignHost(unassignTarget.metadata.id, body),
+              (wsId) => unassignWorkspaceHost(wsId, unassignTarget.metadata.id, body),
+              () => { throw new Error("unreachable") },
+            )
             toast.success(t("action.updateSuccess"))
             setUnassignTarget(null)
             fetchData()
           } catch (err) {
-            if (err instanceof ApiError) {
-              toast.error(translateApiError(err) !== err.message ? t(translateApiError(err)) : err.message)
-            } else {
-              toast.error(t("api.error.internalError"))
-            }
+            showApiError(err, t, "host.title")
           }
         }}
         confirmText={t("common.confirm")}
@@ -583,36 +555,26 @@ function HostFormDialog({
       }
 
       if (isEdit) {
-        if (scopeWorkspaceId && scopeNamespaceId) {
-          await updateNamespaceHost(scopeWorkspaceId, scopeNamespaceId, host.metadata.id, payload)
-        } else if (scopeWorkspaceId) {
-          await updateWorkspaceHost(scopeWorkspaceId, host.metadata.id, payload)
-        } else {
-          await updateHost(host.metadata.id, payload)
-        }
+        await scopedApiCall(
+          scopeWorkspaceId, scopeNamespaceId,
+          () => updateHost(host.metadata.id, payload),
+          (wsId) => updateWorkspaceHost(wsId, host.metadata.id, payload),
+          (wsId, nsId) => updateNamespaceHost(wsId, nsId, host.metadata.id, payload),
+        )
         toast.success(t("action.updateSuccess"))
       } else {
-        if (scopeWorkspaceId && scopeNamespaceId) {
-          await createNamespaceHost(scopeWorkspaceId, scopeNamespaceId, payload)
-        } else if (scopeWorkspaceId) {
-          await createWorkspaceHost(scopeWorkspaceId, payload)
-        } else {
-          await createHost(payload)
-        }
+        await scopedApiCall(
+          scopeWorkspaceId, scopeNamespaceId,
+          () => createHost(payload),
+          (wsId) => createWorkspaceHost(wsId, payload),
+          (wsId, nsId) => createNamespaceHost(wsId, nsId, payload),
+        )
         toast.success(t("action.createSuccess"))
       }
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      if (err instanceof ApiError) {
-        form.setError("root", {
-          message: translateApiError(err) !== err.message
-            ? t(translateApiError(err), { resource: t("host.title") })
-            : err.message,
-        })
-      } else {
-        form.setError("root", { message: t("api.error.internalError") })
-      }
+      showApiError(err, t, "host.title")
     } finally {
       setLoading(false)
     }
@@ -745,20 +707,17 @@ function AssignDialog({
         ? { workspaceId: selectedWsId }
         : { namespaceId: selectedNsId }
 
-      if (scopeWorkspaceId) {
-        await assignWorkspaceHost(scopeWorkspaceId, host.metadata.id, body)
-      } else {
-        await assignHost(host.metadata.id, body)
-      }
+      await scopedApiCall(
+        scopeWorkspaceId, undefined,
+        () => assignHost(host.metadata.id, body),
+        (wsId) => assignWorkspaceHost(wsId, host.metadata.id, body),
+        () => { throw new Error("unreachable") },
+      )
       toast.success(t("action.updateSuccess"))
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err)) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "host.title")
     } finally {
       setLoading(false)
     }
@@ -864,14 +823,12 @@ function BindEnvironmentDialog({
       setSelectedEnvId("")
       const fetchEnvs = async () => {
         try {
-          let data
-          if (scopeWorkspaceId && scopeNamespaceId) {
-            data = await listNamespaceEnvironments(scopeWorkspaceId, scopeNamespaceId, { pageSize: 100 })
-          } else if (scopeWorkspaceId) {
-            data = await listWorkspaceEnvironments(scopeWorkspaceId, { pageSize: 100 })
-          } else {
-            data = await listEnvironments({ pageSize: 100 })
-          }
+          const data = await scopedApiCall(
+            scopeWorkspaceId, scopeNamespaceId,
+            () => listEnvironments({ pageSize: 100 }),
+            (wsId) => listWorkspaceEnvironments(wsId, { pageSize: 100 }),
+            (wsId, nsId) => listNamespaceEnvironments(wsId, nsId, { pageSize: 100 }),
+          )
           setEnvironments(data.items ?? [])
         } catch {
           setEnvironments([])
@@ -887,22 +844,17 @@ function BindEnvironmentDialog({
     setLoading(true)
     try {
       const body = { environmentId: selectedEnvId }
-      if (scopeWorkspaceId && scopeNamespaceId) {
-        await bindNamespaceHostEnvironment(scopeWorkspaceId, scopeNamespaceId, host.metadata.id, body)
-      } else if (scopeWorkspaceId) {
-        await bindWorkspaceHostEnvironment(scopeWorkspaceId, host.metadata.id, body)
-      } else {
-        await bindHostEnvironment(host.metadata.id, body)
-      }
+      await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => bindHostEnvironment(host.metadata.id, body),
+        (wsId) => bindWorkspaceHostEnvironment(wsId, host.metadata.id, body),
+        (wsId, nsId) => bindNamespaceHostEnvironment(wsId, nsId, host.metadata.id, body),
+      )
       toast.success(t("action.updateSuccess"))
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(translateApiError(err) !== err.message ? t(translateApiError(err)) : err.message)
-      } else {
-        toast.error(t("api.error.internalError"))
-      }
+      showApiError(err, t, "host.title")
     } finally {
       setLoading(false)
     }
