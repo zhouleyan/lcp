@@ -56,3 +56,6 @@ ui/dist/
 
 docs/plans
 docs/specs
+
+# Worktrees
+.worktrees/
