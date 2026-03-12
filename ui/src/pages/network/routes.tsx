@@ -7,5 +7,6 @@ export const networkRoutes: RouteObject[] = [
   { index: true, element: <Navigate to="/network/networks" replace /> },
   { path: "networks", element: <NetworkListPage /> },
   { path: "networks/:networkId", element: <NetworkDetailPage /> },
+  { path: "networks/:networkId/subnets", element: <Navigate to=".." replace /> },
   { path: "networks/:networkId/subnets/:subnetId", element: <SubnetDetailPage /> },
 ]
