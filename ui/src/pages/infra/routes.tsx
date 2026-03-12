@@ -9,6 +9,8 @@ import SiteListPage from "./sites/list"
 import SiteDetailPage from "./sites/detail"
 import LocationListPage from "./locations/list"
 import LocationDetailPage from "./locations/detail"
+import RackListPage from "./racks/list"
+import RackDetailPage from "./racks/detail"
 
 export const infraRoutes: RouteObject[] = [
   { index: true, element: <Navigate to="/infra/hosts" replace /> },
@@ -34,4 +36,6 @@ export const infraRoutes: RouteObject[] = [
   { path: "sites/:siteId", element: <SiteDetailPage /> },
   { path: "locations", element: <LocationListPage /> },
   { path: "locations/:locationId", element: <LocationDetailPage /> },
+  { path: "racks", element: <RackListPage /> },
+  { path: "racks/:rackId", element: <RackDetailPage /> },
 ]

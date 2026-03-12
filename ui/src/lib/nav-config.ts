@@ -9,6 +9,7 @@ import {
   Layers,
   MapPin,
   Warehouse,
+  Box,
   ScrollText,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
@@ -48,6 +49,7 @@ export const NAV_ITEMS: NavItemConfig[] = [
   { resource: "regions", module: "infra", permission: "infra:regions:list", labelKey: "nav.regions", icon: MapPin, group: "nav.infra", scopes: ["platform"] },
   { resource: "sites", module: "infra", permission: "infra:sites:list", labelKey: "nav.sites", icon: Building2, group: "nav.infra", scopes: ["platform"] },
   { resource: "locations", module: "infra", permission: "infra:locations:list", labelKey: "nav.locations", icon: Warehouse, group: "nav.infra", scopes: ["platform"] },
+  { resource: "racks", module: "infra", permission: "infra:racks:list", labelKey: "nav.racks", icon: Box, group: "nav.infra", scopes: ["platform"] },
   { resource: "logs", module: "audit", permission: "audit:logs:list", labelKey: "nav.auditLogs", icon: ScrollText, group: "nav.audit", scopes: ["platform"] },
 ]
 
