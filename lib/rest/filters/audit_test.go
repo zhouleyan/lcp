@@ -3,6 +3,7 @@ package filters
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"lcp.io/lcp/lib/audit"
@@ -139,6 +140,58 @@ func TestWithAudit_FailedRequest(t *testing.T) {
 	}
 	if sink.events[0].ResourceID != "5" {
 		t.Errorf("expected resourceID=5, got %s", sink.events[0].ResourceID)
+	}
+}
+
+func TestWithAudit_CapturesResponseBody(t *testing.T) {
+	sink := &captureSink{}
+
+	respBody := `{"metadata":{"id":"42"},"spec":{"name":"test"}}`
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(respBody))
+	})
+
+	handler := WithAudit(sink)(inner)
+
+	r := httptest.NewRequest("PUT", "/api/iam/v1/users/42", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+
+	if len(sink.events) != 1 {
+		t.Fatalf("expected 1 audit event, got %d", len(sink.events))
+	}
+
+	event := sink.events[0]
+	if event.ResponseDetail == nil {
+		t.Fatal("expected ResponseDetail to be set")
+	}
+	if string(event.ResponseDetail) != respBody {
+		t.Errorf("ResponseDetail = %s, want %s", event.ResponseDetail, respBody)
+	}
+}
+
+func TestWithAudit_ResponseBodyTruncated(t *testing.T) {
+	sink := &captureSink{}
+
+	bigJSON := `{"data":"` + strings.Repeat("x", maxBodyCapture+100) + `"}`
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(bigJSON))
+	})
+
+	handler := WithAudit(sink)(inner)
+
+	r := httptest.NewRequest("POST", "/api/iam/v1/users", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+
+	if len(sink.events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(sink.events))
+	}
+	if len(sink.events[0].ResponseDetail) > maxBodyCapture {
+		t.Errorf("ResponseDetail should be truncated to %d, got %d", maxBodyCapture, len(sink.events[0].ResponseDetail))
 	}
 }
 

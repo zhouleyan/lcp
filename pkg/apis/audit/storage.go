@@ -85,7 +85,8 @@ func dbAuditLogToAPI(row *DBAuditLog) *AuditLog {
 		UserAgent:    row.UserAgent,
 		DurationMs:   int(row.DurationMs),
 		Success:      row.Success,
-		Detail:       nonNullJSON(row.Detail),
+		Detail:         nonNullJSON(row.Detail),
+		ResponseDetail: nonNullJSON(row.ResponseDetail),
 		CreatedAt:    row.CreatedAt.Format(time.RFC3339),
 	}
 	if row.UserID != nil {

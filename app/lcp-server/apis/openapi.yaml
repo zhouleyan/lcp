@@ -4886,6 +4886,9 @@ components:
         resourceType:
           type: string
           description: 资源类型
+        responseDetail:
+          $ref: '#/components/schemas/RawMessage'
+          description: 响应体（JSON）
         scope:
           type: string
           description: 作用域

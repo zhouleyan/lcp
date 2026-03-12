@@ -77,35 +77,36 @@ INSERT INTO audit_logs (
     user_id, username, event_type, action, resource_type, resource_id,
     module, scope, workspace_id, namespace_id,
     http_method, http_path, status_code, client_ip, user_agent,
-    duration_ms, success, detail, created_at
+    duration_ms, success, detail, response_detail, created_at
 ) VALUES (
     $1, $2, $3, $4, $5, $6,
     $7, $8, $9, $10,
     $11, $12, $13, $14, $15,
-    $16, $17, $18, $19
+    $16, $17, $18, $19, $20
 )
 `
 
 type CreateAuditLogParams struct {
-	UserID       *int64          `json:"user_id"`
-	Username     string          `json:"username"`
-	EventType    string          `json:"event_type"`
-	Action       string          `json:"action"`
-	ResourceType string          `json:"resource_type"`
-	ResourceID   string          `json:"resource_id"`
-	Module       string          `json:"module"`
-	Scope        string          `json:"scope"`
-	WorkspaceID  *int64          `json:"workspace_id"`
-	NamespaceID  *int64          `json:"namespace_id"`
-	HttpMethod   string          `json:"http_method"`
-	HttpPath     string          `json:"http_path"`
-	StatusCode   int32           `json:"status_code"`
-	ClientIp     string          `json:"client_ip"`
-	UserAgent    string          `json:"user_agent"`
-	DurationMs   int32           `json:"duration_ms"`
-	Success      bool            `json:"success"`
-	Detail       json.RawMessage `json:"detail"`
-	CreatedAt    time.Time       `json:"created_at"`
+	UserID         *int64          `json:"user_id"`
+	Username       string          `json:"username"`
+	EventType      string          `json:"event_type"`
+	Action         string          `json:"action"`
+	ResourceType   string          `json:"resource_type"`
+	ResourceID     string          `json:"resource_id"`
+	Module         string          `json:"module"`
+	Scope          string          `json:"scope"`
+	WorkspaceID    *int64          `json:"workspace_id"`
+	NamespaceID    *int64          `json:"namespace_id"`
+	HttpMethod     string          `json:"http_method"`
+	HttpPath       string          `json:"http_path"`
+	StatusCode     int32           `json:"status_code"`
+	ClientIp       string          `json:"client_ip"`
+	UserAgent      string          `json:"user_agent"`
+	DurationMs     int32           `json:"duration_ms"`
+	Success        bool            `json:"success"`
+	Detail         json.RawMessage `json:"detail"`
+	ResponseDetail json.RawMessage `json:"response_detail"`
+	CreatedAt      time.Time       `json:"created_at"`
 }
 
 func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error {
@@ -128,6 +129,7 @@ func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) 
 		arg.DurationMs,
 		arg.Success,
 		arg.Detail,
+		arg.ResponseDetail,
 		arg.CreatedAt,
 	)
 	return err
@@ -137,7 +139,7 @@ const getAuditLog = `-- name: GetAuditLog :one
 SELECT id, user_id, username, event_type, action, resource_type, resource_id,
        module, scope, workspace_id, namespace_id,
        http_method, http_path, status_code, client_ip, user_agent,
-       duration_ms, success, detail, created_at
+       duration_ms, success, detail, response_detail, created_at
 FROM audit_logs
 WHERE id = $1
 `
@@ -165,6 +167,7 @@ func (q *Queries) GetAuditLog(ctx context.Context, id int64) (AuditLog, error) {
 		&i.DurationMs,
 		&i.Success,
 		&i.Detail,
+		&i.ResponseDetail,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -174,7 +177,7 @@ const listAuditLogs = `-- name: ListAuditLogs :many
 SELECT id, user_id, username, event_type, action, resource_type, resource_id,
        module, scope, workspace_id, namespace_id,
        http_method, http_path, status_code, client_ip, user_agent,
-       duration_ms, success, detail, created_at
+       duration_ms, success, detail, response_detail, created_at
 FROM audit_logs
 WHERE
     ($1::BIGINT IS NULL OR user_id = $1)
@@ -284,6 +287,7 @@ func (q *Queries) ListAuditLogs(ctx context.Context, arg ListAuditLogsParams) ([
 			&i.DurationMs,
 			&i.Success,
 			&i.Detail,
+			&i.ResponseDetail,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

@@ -32,26 +32,31 @@ func (s *pgAuditLogStore) BatchCreate(ctx context.Context, events []libaudit.Eve
 		if detail == nil {
 			detail = json.RawMessage("null")
 		}
+		responseDetail := e.ResponseDetail
+		if responseDetail == nil {
+			responseDetail = json.RawMessage("null")
+		}
 		err := s.queries.CreateAuditLog(ctx, generated.CreateAuditLogParams{
-			UserID:       e.UserID,
-			Username:     e.Username,
-			EventType:    e.EventType,
-			Action:       e.Action,
-			ResourceType: e.ResourceType,
-			ResourceID:   e.ResourceID,
-			Module:       e.Module,
-			Scope:        e.Scope,
-			WorkspaceID:  e.WorkspaceID,
-			NamespaceID:  e.NamespaceID,
-			HttpMethod:   e.HTTPMethod,
-			HttpPath:     e.HTTPPath,
-			StatusCode:   int32(e.StatusCode),
-			ClientIp:     e.ClientIP,
-			UserAgent:    e.UserAgent,
-			DurationMs:   int32(e.DurationMs),
-			Success:      e.Success,
-			Detail:       detail,
-			CreatedAt:    e.CreatedAt,
+			UserID:         e.UserID,
+			Username:       e.Username,
+			EventType:      e.EventType,
+			Action:         e.Action,
+			ResourceType:   e.ResourceType,
+			ResourceID:     e.ResourceID,
+			Module:         e.Module,
+			Scope:          e.Scope,
+			WorkspaceID:    e.WorkspaceID,
+			NamespaceID:    e.NamespaceID,
+			HttpMethod:     e.HTTPMethod,
+			HttpPath:       e.HTTPPath,
+			StatusCode:     int32(e.StatusCode),
+			ClientIp:       e.ClientIP,
+			UserAgent:      e.UserAgent,
+			DurationMs:     int32(e.DurationMs),
+			Success:        e.Success,
+			Detail:         detail,
+			ResponseDetail: responseDetail,
+			CreatedAt:      e.CreatedAt,
 		})
 		if err != nil {
 			return fmt.Errorf("create audit log: %w", err)

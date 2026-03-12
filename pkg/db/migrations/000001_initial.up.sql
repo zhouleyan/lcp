@@ -194,6 +194,7 @@ CREATE TABLE audit_logs (
     duration_ms   INT          NOT NULL DEFAULT 0,
     success       BOOLEAN      NOT NULL DEFAULT true,
     detail        JSONB,
+    response_detail JSONB,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 

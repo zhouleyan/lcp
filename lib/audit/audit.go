@@ -25,8 +25,9 @@ type Event struct {
 	UserAgent    string
 	DurationMs   int
 	Success      bool
-	Detail       json.RawMessage
-	CreatedAt    time.Time
+	Detail         json.RawMessage
+	ResponseDetail json.RawMessage
+	CreatedAt      time.Time
 }
 
 // JSONString wraps a plain string as a JSON-encoded string value (e.g. `"hello"`).

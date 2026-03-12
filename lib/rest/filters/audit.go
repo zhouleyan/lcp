@@ -69,7 +69,7 @@ func WithAudit(logger audit.Logger) func(http.Handler) http.Handler {
 			sw := &statusWriter{
 				ResponseWriter: w,
 				code:           http.StatusOK,
-				capture:        verb == "create",
+				capture:        true,
 			}
 			start := time.Now()
 
@@ -78,6 +78,15 @@ func WithAudit(logger audit.Logger) func(http.Handler) http.Handler {
 			duration := time.Since(start)
 			event := buildAuditEvent(r, sw.code, duration)
 			event.Detail = bodyDetail
+			if sw.buf.Len() > 0 {
+				respBytes := sw.buf.Bytes()
+				if len(respBytes) > maxBodyCapture {
+					respBytes = respBytes[:maxBodyCapture]
+				}
+				if json.Valid(respBytes) {
+					event.ResponseDetail = respBytes
+				}
+			}
 			if verb == "create" && sw.code >= 200 && sw.code < 300 {
 				event.ResourceID = extractResourceIDFromResponse(sw.buf.Bytes())
 			}

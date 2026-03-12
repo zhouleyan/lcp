@@ -62,6 +62,8 @@ type AuditLogSpec struct {
 	Success bool `json:"success"`
 	// +openapi:description=请求体（JSON）
 	Detail json.RawMessage `json:"detail,omitempty"`
+	// +openapi:description=响应体（JSON）
+	ResponseDetail json.RawMessage `json:"responseDetail,omitempty"`
 	// +openapi:description=创建时间
 	CreatedAt string `json:"createdAt"`
 }

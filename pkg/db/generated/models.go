@@ -10,26 +10,27 @@ import (
 )
 
 type AuditLog struct {
-	ID           int64           `json:"id"`
-	UserID       *int64          `json:"user_id"`
-	Username     string          `json:"username"`
-	EventType    string          `json:"event_type"`
-	Action       string          `json:"action"`
-	ResourceType string          `json:"resource_type"`
-	ResourceID   string          `json:"resource_id"`
-	Module       string          `json:"module"`
-	Scope        string          `json:"scope"`
-	WorkspaceID  *int64          `json:"workspace_id"`
-	NamespaceID  *int64          `json:"namespace_id"`
-	HttpMethod   string          `json:"http_method"`
-	HttpPath     string          `json:"http_path"`
-	StatusCode   int32           `json:"status_code"`
-	ClientIp     string          `json:"client_ip"`
-	UserAgent    string          `json:"user_agent"`
-	DurationMs   int32           `json:"duration_ms"`
-	Success      bool            `json:"success"`
-	Detail       json.RawMessage `json:"detail"`
-	CreatedAt    time.Time       `json:"created_at"`
+	ID             int64           `json:"id"`
+	UserID         *int64          `json:"user_id"`
+	Username       string          `json:"username"`
+	EventType      string          `json:"event_type"`
+	Action         string          `json:"action"`
+	ResourceType   string          `json:"resource_type"`
+	ResourceID     string          `json:"resource_id"`
+	Module         string          `json:"module"`
+	Scope          string          `json:"scope"`
+	WorkspaceID    *int64          `json:"workspace_id"`
+	NamespaceID    *int64          `json:"namespace_id"`
+	HttpMethod     string          `json:"http_method"`
+	HttpPath       string          `json:"http_path"`
+	StatusCode     int32           `json:"status_code"`
+	ClientIp       string          `json:"client_ip"`
+	UserAgent      string          `json:"user_agent"`
+	DurationMs     int32           `json:"duration_ms"`
+	Success        bool            `json:"success"`
+	Detail         json.RawMessage `json:"detail"`
+	ResponseDetail json.RawMessage `json:"response_detail"`
+	CreatedAt      time.Time       `json:"created_at"`
 }
 
 // 环境表：管理维度，用于按生命周期阶段分组资源

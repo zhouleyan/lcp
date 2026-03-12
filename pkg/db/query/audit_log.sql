@@ -3,19 +3,19 @@ INSERT INTO audit_logs (
     user_id, username, event_type, action, resource_type, resource_id,
     module, scope, workspace_id, namespace_id,
     http_method, http_path, status_code, client_ip, user_agent,
-    duration_ms, success, detail, created_at
+    duration_ms, success, detail, response_detail, created_at
 ) VALUES (
     @user_id, @username, @event_type, @action, @resource_type, @resource_id,
     @module, @scope, @workspace_id, @namespace_id,
     @http_method, @http_path, @status_code, @client_ip, @user_agent,
-    @duration_ms, @success, @detail, @created_at
+    @duration_ms, @success, @detail, @response_detail, @created_at
 );
 
 -- name: GetAuditLog :one
 SELECT id, user_id, username, event_type, action, resource_type, resource_id,
        module, scope, workspace_id, namespace_id,
        http_method, http_path, status_code, client_ip, user_agent,
-       duration_ms, success, detail, created_at
+       duration_ms, success, detail, response_detail, created_at
 FROM audit_logs
 WHERE id = @id;
 
@@ -46,7 +46,7 @@ WHERE
 SELECT id, user_id, username, event_type, action, resource_type, resource_id,
        module, scope, workspace_id, namespace_id,
        http_method, http_path, status_code, client_ip, user_agent,
-       duration_ms, success, detail, created_at
+       duration_ms, success, detail, response_detail, created_at
 FROM audit_logs
 WHERE
     (sqlc.narg('user_id')::BIGINT IS NULL OR user_id = sqlc.narg('user_id'))
