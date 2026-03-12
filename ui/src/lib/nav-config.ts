@@ -8,6 +8,7 @@ import {
   Server,
   Layers,
   ScrollText,
+  Network,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -44,6 +45,7 @@ export const NAV_ITEMS: NavItemConfig[] = [
   { resource: "hosts", module: "infra", permission: "infra:hosts:list", labelKey: "nav.hosts", icon: Server, group: "nav.infra", scopes: ["platform", "workspace", "namespace"] },
   { resource: "environments", module: "infra", permission: "infra:environments:list", labelKey: "nav.environments", icon: Layers, group: "nav.infra", scopes: ["platform", "workspace", "namespace"] },
   { resource: "logs", module: "audit", permission: "audit:logs:list", labelKey: "nav.auditLogs", icon: ScrollText, group: "nav.audit", scopes: ["platform"] },
+  { resource: "networks", module: "network", permission: "network:networks:list", labelKey: "nav.networks", icon: Network, group: "nav.network", scopes: ["platform"] },
 ]
 
 // --- Derived maps ---
