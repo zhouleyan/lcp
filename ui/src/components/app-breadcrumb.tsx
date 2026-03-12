@@ -72,15 +72,17 @@ export function AppBreadcrumb() {
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i]
+    const parentPath = pathAccum
     pathAccum += "/" + seg
     const isLast = i === segments.length - 1
 
     const labelKey = segmentLabelKey(seg)
     if (labelKey) {
-      items.push({
-        label: t(labelKey),
-        href: isLast ? undefined : pathAccum,
-      })
+      // Sub-resources (e.g. "subnets") are embedded in the parent detail page,
+      // so link to the parent path instead of the non-existent standalone path.
+      const isSubResource = seg in SUB_RESOURCE_LABEL_KEYS
+      const href = isLast ? undefined : (isSubResource ? parentPath : pathAccum)
+      items.push({ label: t(labelKey), href })
     } else {
       // Dynamic segment (e.g. workspace ID, namespace ID, resource ID)
       const parentSeg = segments[i - 1]
