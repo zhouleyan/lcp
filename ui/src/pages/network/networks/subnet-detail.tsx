@@ -388,11 +388,25 @@ function AllocationsSection({
 /** Parse CIDR into network octets and the count of fully-fixed octets. */
 function parseCIDR(cidr: string) {
   const m = cidr.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)\/(\d+)$/)
-  if (!m) return { networkOctets: [0, 0, 0, 0], fixedCount: 0 }
+  if (!m) return { networkOctets: [0, 0, 0, 0], fixedCount: 0, prefix: 0 }
   return {
     networkOctets: [+m[1], +m[2], +m[3], +m[4]],
     fixedCount: Math.floor(+m[5] / 8),
+    prefix: +m[5],
   }
+}
+
+/** Compute the valid range [min, max] for each octet based on CIDR. */
+function computeOctetRanges(networkOctets: number[], prefix: number): { min: number; max: number }[] {
+  return networkOctets.map((octet, i) => {
+    const bitStart = i * 8
+    const bitEnd = bitStart + 8
+    if (prefix >= bitEnd) return { min: octet, max: octet }
+    if (prefix <= bitStart) return { min: 0, max: 255 }
+    const hostBits = bitEnd - prefix
+    const min = octet & (256 - (1 << hostBits))
+    return { min, max: min + ((1 << hostBits) - 1) }
+  })
 }
 
 function AllocationFormDialog({
@@ -413,7 +427,8 @@ function AllocationFormDialog({
   const [formError, setFormError] = useState("")
   const inputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null])
 
-  const { networkOctets, fixedCount } = useMemo(() => parseCIDR(cidr), [cidr])
+  const { networkOctets, fixedCount, prefix } = useMemo(() => parseCIDR(cidr), [cidr])
+  const octetRanges = useMemo(() => computeOctetRanges(networkOctets, prefix), [networkOctets, prefix])
 
   const defaultOctets = useMemo(() => {
     // Use backend-provided nextFreeIP if available
@@ -549,18 +564,25 @@ function AllocationFormDialog({
             <div className="flex items-center gap-1">
               {octets.map((octet, i) => (
                 <React.Fragment key={i}>
-                  {i > 0 && <span className="text-muted-foreground font-mono text-lg select-none">.</span>}
-                  <Input
-                    ref={(el) => { inputRefs.current[i] = el }}
-                    value={octet}
-                    onChange={(e) => updateOctet(i, e.target.value)}
-                    onKeyDown={(e) => handleOctetKeyDown(i, e)}
-                    onBlur={() => handleOctetBlur(i)}
-                    disabled={i < fixedCount}
-                    className="w-16 text-center font-mono tabular-nums"
-                    maxLength={3}
-                    inputMode="numeric"
-                  />
+                  {i > 0 && <span className="text-muted-foreground font-mono text-lg select-none pb-5">.</span>}
+                  <div className="flex flex-col items-center">
+                    <Input
+                      ref={(el) => { inputRefs.current[i] = el }}
+                      value={octet}
+                      onChange={(e) => updateOctet(i, e.target.value)}
+                      onKeyDown={(e) => handleOctetKeyDown(i, e)}
+                      onBlur={() => handleOctetBlur(i)}
+                      disabled={i < fixedCount}
+                      className="w-16 text-center font-mono tabular-nums"
+                      maxLength={3}
+                      inputMode="numeric"
+                    />
+                    <span className="text-muted-foreground text-[11px] mt-1 font-mono">
+                      {octetRanges[i].min === octetRanges[i].max
+                        ? String(octetRanges[i].min)
+                        : `${octetRanges[i].min}-${octetRanges[i].max}`}
+                    </span>
+                  </div>
                 </React.Fragment>
               ))}
             </div>
