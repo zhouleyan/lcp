@@ -195,7 +195,7 @@ export default function SubnetDetailPage() {
 
         {/* Allocations */}
         {networkId && subnetId && (
-          <AllocationsSection networkId={networkId} subnetId={subnetId} cidr={subnet.spec.cidr} onSubnetChange={fetchSubnet} />
+          <AllocationsSection networkId={networkId} subnetId={subnetId} cidr={subnet.spec.cidr} gateway={subnet.spec.gateway} onSubnetChange={fetchSubnet} />
         )}
       </div>
 
@@ -225,11 +225,12 @@ export default function SubnetDetailPage() {
 // ===== Allocations Section =====
 
 function AllocationsSection({
-  networkId, subnetId, cidr, onSubnetChange,
+  networkId, subnetId, cidr, gateway, onSubnetChange,
 }: {
   networkId: string
   subnetId: string
   cidr: string
+  gateway?: string
   onSubnetChange: () => void
 }) {
   const { t } = useTranslation()
@@ -365,6 +366,7 @@ function AllocationsSection({
           networkId={networkId}
           subnetId={subnetId}
           cidr={cidr}
+          gateway={gateway}
           onSuccess={handleCreateSuccess}
         />
 
@@ -394,13 +396,14 @@ function parseCIDR(cidr: string) {
 }
 
 function AllocationFormDialog({
-  open, onOpenChange, networkId, subnetId, cidr, onSuccess,
+  open, onOpenChange, networkId, subnetId, cidr, gateway, onSuccess,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   networkId: string
   subnetId: string
   cidr: string
+  gateway?: string
   onSuccess: () => void
 }) {
   const { t } = useTranslation()
@@ -414,9 +417,14 @@ function AllocationFormDialog({
 
   const defaultOctets = useMemo(() => {
     const d = networkOctets.map(String)
-    d[3] = String(networkOctets[3] + 1)
+    let lastOctet = networkOctets[3] + 1
+    // Skip gateway IP
+    if (gateway && gateway === d.slice(0, 3).join(".") + "." + lastOctet) {
+      lastOctet += 1
+    }
+    d[3] = String(lastOctet)
     return d
-  }, [networkOctets])
+  }, [networkOctets, gateway])
 
   const [octets, setOctets] = useState<string[]>(defaultOctets)
 
