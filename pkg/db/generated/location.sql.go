@@ -41,29 +41,6 @@ func (q *Queries) CountLocations(ctx context.Context, arg CountLocationsParams) 
 	return count, err
 }
 
-const countLocationsBySiteID = `-- name: CountLocationsBySiteID :one
-SELECT count(*)
-FROM locations
-WHERE site_id = $1
-    AND ($2::VARCHAR IS NULL OR status = $2)
-    AND ($3::VARCHAR IS NULL
-         OR name ILIKE '%' || $3 || '%'
-         OR display_name ILIKE '%' || $3 || '%')
-`
-
-type CountLocationsBySiteIDParams struct {
-	SiteID int64   `json:"site_id"`
-	Status *string `json:"status"`
-	Search *string `json:"search"`
-}
-
-func (q *Queries) CountLocationsBySiteID(ctx context.Context, arg CountLocationsBySiteIDParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countLocationsBySiteID, arg.SiteID, arg.Status, arg.Search)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createLocation = `-- name: CreateLocation :one
 INSERT INTO locations (name, display_name, description, site_id, status, floor, rack_capacity, contact_name, contact_phone, contact_email)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -154,7 +131,8 @@ SELECT
     l.id, l.name, l.display_name, l.description, l.site_id, l.status, l.floor, l.rack_capacity, l.contact_name, l.contact_phone, l.contact_email, l.created_at, l.updated_at,
     s.name AS site_name,
     s.region_id AS region_id,
-    r.name AS region_name
+    r.name AS region_name,
+    (SELECT count(*) FROM racks rk WHERE rk.location_id = l.id) AS rack_count
 FROM locations l
 JOIN sites s ON l.site_id = s.id
 JOIN regions r ON s.region_id = r.id
@@ -178,6 +156,7 @@ type GetLocationByIDRow struct {
 	SiteName     string    `json:"site_name"`
 	RegionID     int64     `json:"region_id"`
 	RegionName   string    `json:"region_name"`
+	RackCount    int64     `json:"rack_count"`
 }
 
 func (q *Queries) GetLocationByID(ctx context.Context, id int64) (GetLocationByIDRow, error) {
@@ -200,6 +179,7 @@ func (q *Queries) GetLocationByID(ctx context.Context, id int64) (GetLocationByI
 		&i.SiteName,
 		&i.RegionID,
 		&i.RegionName,
+		&i.RackCount,
 	)
 	return i, err
 }
@@ -210,7 +190,8 @@ WITH location_data AS (
         l.id, l.name, l.display_name, l.description, l.site_id, l.status, l.floor, l.rack_capacity, l.contact_name, l.contact_phone, l.contact_email, l.created_at, l.updated_at,
         s.name AS site_name,
         s.region_id AS region_id,
-        r.name AS region_name
+        r.name AS region_name,
+        (SELECT count(*) FROM racks rk WHERE rk.location_id = l.id) AS rack_count
     FROM locations l
     JOIN sites s ON l.site_id = s.id
     JOIN regions r ON s.region_id = r.id
@@ -221,7 +202,7 @@ WITH location_data AS (
              OR l.name ILIKE '%' || $8 || '%'
              OR l.display_name ILIKE '%' || $8 || '%')
 )
-SELECT id, name, display_name, description, site_id, status, floor, rack_capacity, contact_name, contact_phone, contact_email, created_at, updated_at, site_name, region_id, region_name FROM location_data
+SELECT id, name, display_name, description, site_id, status, floor, rack_capacity, contact_name, contact_phone, contact_email, created_at, updated_at, site_name, region_id, region_name, rack_count FROM location_data
 ORDER BY
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
@@ -260,6 +241,7 @@ type ListLocationsRow struct {
 	SiteName     string    `json:"site_name"`
 	RegionID     int64     `json:"region_id"`
 	RegionName   string    `json:"region_name"`
+	RackCount    int64     `json:"rack_count"`
 }
 
 func (q *Queries) ListLocations(ctx context.Context, arg ListLocationsParams) ([]ListLocationsRow, error) {
@@ -297,107 +279,7 @@ func (q *Queries) ListLocations(ctx context.Context, arg ListLocationsParams) ([
 			&i.SiteName,
 			&i.RegionID,
 			&i.RegionName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listLocationsBySiteID = `-- name: ListLocationsBySiteID :many
-WITH location_data AS (
-    SELECT
-        l.id, l.name, l.display_name, l.description, l.site_id, l.status, l.floor, l.rack_capacity, l.contact_name, l.contact_phone, l.contact_email, l.created_at, l.updated_at,
-        s.name AS site_name,
-        s.region_id AS region_id,
-        r.name AS region_name
-    FROM locations l
-    JOIN sites s ON l.site_id = s.id
-    JOIN regions r ON s.region_id = r.id
-    WHERE l.site_id = $5
-        AND ($6::VARCHAR IS NULL OR l.status = $6)
-        AND ($7::VARCHAR IS NULL
-             OR l.name ILIKE '%' || $7 || '%'
-             OR l.display_name ILIKE '%' || $7 || '%')
-)
-SELECT id, name, display_name, description, site_id, status, floor, rack_capacity, contact_name, contact_phone, contact_email, created_at, updated_at, site_name, region_id, region_name FROM location_data
-ORDER BY
-    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
-    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
-    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'asc' THEN created_at END ASC,
-    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'desc' THEN created_at END DESC,
-    created_at DESC
-LIMIT $4::INT
-OFFSET $3::INT
-`
-
-type ListLocationsBySiteIDParams struct {
-	SortField  string  `json:"sort_field"`
-	SortOrder  string  `json:"sort_order"`
-	PageOffset int32   `json:"page_offset"`
-	PageSize   int32   `json:"page_size"`
-	SiteID     int64   `json:"site_id"`
-	Status     *string `json:"status"`
-	Search     *string `json:"search"`
-}
-
-type ListLocationsBySiteIDRow struct {
-	ID           int64     `json:"id"`
-	Name         string    `json:"name"`
-	DisplayName  string    `json:"display_name"`
-	Description  string    `json:"description"`
-	SiteID       int64     `json:"site_id"`
-	Status       string    `json:"status"`
-	Floor        string    `json:"floor"`
-	RackCapacity int32     `json:"rack_capacity"`
-	ContactName  string    `json:"contact_name"`
-	ContactPhone string    `json:"contact_phone"`
-	ContactEmail string    `json:"contact_email"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	SiteName     string    `json:"site_name"`
-	RegionID     int64     `json:"region_id"`
-	RegionName   string    `json:"region_name"`
-}
-
-func (q *Queries) ListLocationsBySiteID(ctx context.Context, arg ListLocationsBySiteIDParams) ([]ListLocationsBySiteIDRow, error) {
-	rows, err := q.db.Query(ctx, listLocationsBySiteID,
-		arg.SortField,
-		arg.SortOrder,
-		arg.PageOffset,
-		arg.PageSize,
-		arg.SiteID,
-		arg.Status,
-		arg.Search,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListLocationsBySiteIDRow{}
-	for rows.Next() {
-		var i ListLocationsBySiteIDRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.DisplayName,
-			&i.Description,
-			&i.SiteID,
-			&i.Status,
-			&i.Floor,
-			&i.RackCapacity,
-			&i.ContactName,
-			&i.ContactPhone,
-			&i.ContactEmail,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.SiteName,
-			&i.RegionID,
-			&i.RegionName,
+			&i.RackCount,
 		); err != nil {
 			return nil, err
 		}

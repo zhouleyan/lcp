@@ -150,6 +150,25 @@ type Permission struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// 机柜表：数据中心机房内的物理机柜，属于某个机房
+type Rack struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
+	// 所属机房 ID
+	LocationID int64  `json:"location_id"`
+	Status     string `json:"status"`
+	// 机柜 U 高度（如 42）
+	UHeight int32 `json:"u_height"`
+	// 物理位置编号（如 A-01）
+	Position string `json:"position"`
+	// 供电容量描述
+	PowerCapacity string    `json:"power_capacity"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
 type RefreshToken struct {
 	ID        int64     `json:"id"`
 	TokenHash string    `json:"token_hash"`

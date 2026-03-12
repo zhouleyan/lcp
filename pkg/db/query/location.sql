@@ -8,7 +8,8 @@ SELECT
     l.*,
     s.name AS site_name,
     s.region_id AS region_id,
-    r.name AS region_name
+    r.name AS region_name,
+    (SELECT count(*) FROM racks rk WHERE rk.location_id = l.id) AS rack_count
 FROM locations l
 JOIN sites s ON l.site_id = s.id
 JOIN regions r ON s.region_id = r.id
@@ -70,7 +71,8 @@ WITH location_data AS (
         l.*,
         s.name AS site_name,
         s.region_id AS region_id,
-        r.name AS region_name
+        r.name AS region_name,
+        (SELECT count(*) FROM racks rk WHERE rk.location_id = l.id) AS rack_count
     FROM locations l
     JOIN sites s ON l.site_id = s.id
     JOIN regions r ON s.region_id = r.id
@@ -91,37 +93,3 @@ ORDER BY
 LIMIT sqlc.arg('page_size')::INT
 OFFSET sqlc.arg('page_offset')::INT;
 
--- name: ListLocationsBySiteID :many
-WITH location_data AS (
-    SELECT
-        l.*,
-        s.name AS site_name,
-        s.region_id AS region_id,
-        r.name AS region_name
-    FROM locations l
-    JOIN sites s ON l.site_id = s.id
-    JOIN regions r ON s.region_id = r.id
-    WHERE l.site_id = @site_id
-        AND (sqlc.narg('status')::VARCHAR IS NULL OR l.status = sqlc.narg('status'))
-        AND (sqlc.narg('search')::VARCHAR IS NULL
-             OR l.name ILIKE '%' || sqlc.narg('search') || '%'
-             OR l.display_name ILIKE '%' || sqlc.narg('search') || '%')
-)
-SELECT * FROM location_data
-ORDER BY
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN name END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN name END DESC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN created_at END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN created_at END DESC,
-    created_at DESC
-LIMIT sqlc.arg('page_size')::INT
-OFFSET sqlc.arg('page_offset')::INT;
-
--- name: CountLocationsBySiteID :one
-SELECT count(*)
-FROM locations
-WHERE site_id = @site_id
-    AND (sqlc.narg('status')::VARCHAR IS NULL OR status = sqlc.narg('status'))
-    AND (sqlc.narg('search')::VARCHAR IS NULL
-         OR name ILIKE '%' || sqlc.narg('search') || '%'
-         OR display_name ILIKE '%' || sqlc.narg('search') || '%');

@@ -44,29 +44,6 @@ func (q *Queries) CountSites(ctx context.Context, arg CountSitesParams) (int64, 
 	return count, err
 }
 
-const countSitesByRegionID = `-- name: CountSitesByRegionID :one
-SELECT count(*)
-FROM sites
-WHERE region_id = $1
-    AND ($2::VARCHAR IS NULL OR status = $2)
-    AND ($3::VARCHAR IS NULL
-         OR name ILIKE '%' || $3 || '%'
-         OR display_name ILIKE '%' || $3 || '%')
-`
-
-type CountSitesByRegionIDParams struct {
-	RegionID int64   `json:"region_id"`
-	Status   *string `json:"status"`
-	Search   *string `json:"search"`
-}
-
-func (q *Queries) CountSitesByRegionID(ctx context.Context, arg CountSitesByRegionIDParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countSitesByRegionID, arg.RegionID, arg.Status, arg.Search)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createSite = `-- name: CreateSite :one
 INSERT INTO sites (name, display_name, description, region_id, status, address, latitude, longitude, contact_name, contact_phone, contact_email)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -279,105 +256,6 @@ func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSit
 	items := []ListSitesRow{}
 	for rows.Next() {
 		var i ListSitesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.DisplayName,
-			&i.Description,
-			&i.RegionID,
-			&i.Status,
-			&i.Address,
-			&i.Latitude,
-			&i.Longitude,
-			&i.ContactName,
-			&i.ContactPhone,
-			&i.ContactEmail,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.RegionName,
-			&i.LocationCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSitesByRegionID = `-- name: ListSitesByRegionID :many
-WITH site_data AS (
-    SELECT
-        s.id, s.name, s.display_name, s.description, s.region_id, s.status, s.address, s.latitude, s.longitude, s.contact_name, s.contact_phone, s.contact_email, s.created_at, s.updated_at,
-        r.name AS region_name,
-        (SELECT count(*) FROM locations l WHERE l.site_id = s.id) AS location_count
-    FROM sites s
-    JOIN regions r ON s.region_id = r.id
-    WHERE s.region_id = $5
-        AND ($6::VARCHAR IS NULL OR s.status = $6)
-        AND ($7::VARCHAR IS NULL
-             OR s.name ILIKE '%' || $7 || '%'
-             OR s.display_name ILIKE '%' || $7 || '%')
-)
-SELECT id, name, display_name, description, region_id, status, address, latitude, longitude, contact_name, contact_phone, contact_email, created_at, updated_at, region_name, location_count FROM site_data
-ORDER BY
-    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
-    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
-    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'asc' THEN created_at END ASC,
-    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'desc' THEN created_at END DESC,
-    created_at DESC
-LIMIT $4::INT
-OFFSET $3::INT
-`
-
-type ListSitesByRegionIDParams struct {
-	SortField  string  `json:"sort_field"`
-	SortOrder  string  `json:"sort_order"`
-	PageOffset int32   `json:"page_offset"`
-	PageSize   int32   `json:"page_size"`
-	RegionID   int64   `json:"region_id"`
-	Status     *string `json:"status"`
-	Search     *string `json:"search"`
-}
-
-type ListSitesByRegionIDRow struct {
-	ID            int64     `json:"id"`
-	Name          string    `json:"name"`
-	DisplayName   string    `json:"display_name"`
-	Description   string    `json:"description"`
-	RegionID      int64     `json:"region_id"`
-	Status        string    `json:"status"`
-	Address       string    `json:"address"`
-	Latitude      *float64  `json:"latitude"`
-	Longitude     *float64  `json:"longitude"`
-	ContactName   string    `json:"contact_name"`
-	ContactPhone  string    `json:"contact_phone"`
-	ContactEmail  string    `json:"contact_email"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	RegionName    string    `json:"region_name"`
-	LocationCount int64     `json:"location_count"`
-}
-
-func (q *Queries) ListSitesByRegionID(ctx context.Context, arg ListSitesByRegionIDParams) ([]ListSitesByRegionIDRow, error) {
-	rows, err := q.db.Query(ctx, listSitesByRegionID,
-		arg.SortField,
-		arg.SortOrder,
-		arg.PageOffset,
-		arg.PageSize,
-		arg.RegionID,
-		arg.Status,
-		arg.Search,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListSitesByRegionIDRow{}
-	for rows.Next() {
-		var i ListSitesByRegionIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
