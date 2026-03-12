@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -757,10 +758,10 @@ func (s *allocationStorage) Create(ctx context.Context, obj runtime.Object, opti
 
 	// Allocate(ip) → 标记分配
 	if err := r.Allocate(ip); err != nil {
-		if err == ipam.ErrAllocated {
+		if errors.Is(err, ipam.ErrAllocated) {
 			return nil, apierrors.NewConflict("ip_allocation", alloc.Spec.IP)
 		}
-		if err == ipam.ErrNotInRange {
+		if errors.Is(err, ipam.ErrNotInRange) {
 			return nil, apierrors.NewBadRequest(fmt.Sprintf("IP %s is not within subnet CIDR %s", alloc.Spec.IP, subnet.Cidr), nil)
 		}
 		return nil, apierrors.NewInternalError(fmt.Errorf("allocate ip: %w", err))
