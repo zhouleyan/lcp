@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Link } from "react-router"
+import { Link, useSearchParams } from "react-router"
 import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -43,6 +43,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 
 export default function RackListPage() {
   const { t } = useTranslation()
+  const [searchParams] = useSearchParams()
   const {
     page, setPage, pageSize, setPageSize, sortBy, sortOrder, handleSort,
     searchInput, setSearchInput, search,
@@ -56,7 +57,7 @@ export default function RackListPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [regionFilter, setRegionFilter] = useState("all")
   const [siteFilter, setSiteFilter] = useState("all")
-  const [locationFilter, setLocationFilter] = useState("all")
+  const [locationFilter, setLocationFilter] = useState(() => searchParams.get("locationId") ?? "all")
   const [allRegions, setAllRegions] = useState<Region[]>([])
   const [allSites, setAllSites] = useState<Site[]>([])
   const [allLocations, setAllLocations] = useState<Location[]>([])
