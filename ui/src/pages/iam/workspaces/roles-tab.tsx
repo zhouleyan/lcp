@@ -71,13 +71,13 @@ export default function WorkspaceRolesTab() {
   useEffect(() => { setPage(1) }, [search, pageSize])
   useEffect(() => { clearSelection() }, [roles])
 
-  if (permissionsLoaded && !hasPermission("iam:workspaces:roles:list", { workspaceId })) {
+  if (permissionsLoaded && !hasPermission("iam:roles:list", { workspaceId })) {
     return <Navigate to="/" replace />
   }
 
-  const canCreate = hasPermission("iam:workspaces:roles:create", { workspaceId })
-  const canUpdate = hasPermission("iam:workspaces:roles:update", { workspaceId })
-  const canDelete = hasPermission("iam:workspaces:roles:delete", { workspaceId })
+  const canCreate = hasPermission("iam:roles:create", { workspaceId })
+  const canUpdate = hasPermission("iam:roles:update", { workspaceId })
+  const canDelete = hasPermission("iam:roles:delete", { workspaceId })
 
   const loadPermissions = useCallback(async () => {
     if (permissions.length > 0) return

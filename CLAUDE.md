@@ -283,10 +283,6 @@ Permissions are auto-generated from the resource tree at startup via `SyncPermis
 
 Permission checking follows `platform → workspace → namespace` inheritance: a platform-level permission grants access at all scopes.
 
-### Permission Cache
-
-`RBACChecker` caches user permission entries with a TTL. Uses `singleflight.Group` to deduplicate concurrent DB loads for the same user. Cache invalidation happens on role binding changes, workspace/namespace deletion (including batch), and ownership transfers — always through the `PermissionChecker` interface, never via direct `sharedPermCache` access.
-
 ### Built-in Role Seeding
 
 `SeedRBAC` runs at startup: upserts platform roles with rules, creates scoped roles for existing workspaces/namespaces, and migrates old global roles to scoped roles. Split into sub-functions (`seedBuiltinRoles`, `seedScopedRolesForWorkspaces`, `seedScopedRolesForNamespaces`, `migrateGlobalRolesToScoped`) for clarity.
@@ -294,7 +290,7 @@ Permission checking follows `platform → workspace → namespace` inheritance: 
 ## Testing
 
 - Unit tests in `lib/` and `pkg/apis/iam/` (standard `testing` package + `httptest`)
-- RBAC tests: `rbac_checker_test.go`, `rbac_cache_test.go`, `rbac_match_test.go`, `rbac_seed_test.go`, `rbac_sync_test.go`
+- RBAC tests: `rbac_checker_test.go`, `rbac_match_test.go`, `rbac_seed_test.go`, `rbac_sync_test.go`
 - Authorization middleware tests: `lib/rest/filters/authorization_test.go`, `requestinfo_test.go`
 - E2E testing: start server, use `curl` against `localhost:8428`
 

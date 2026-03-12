@@ -260,12 +260,11 @@ type workspaceStorage struct {
 	wsStore   WorkspaceStore
 	userStore UserStore
 	rbStore   RoleBindingStore
-	checker   PermissionChecker
 }
 
 // NewWorkspaceStorage 创建租户 REST 存储。
-func NewWorkspaceStorage(wsStore WorkspaceStore, userStore UserStore, rbStore RoleBindingStore, checker PermissionChecker) rest.StandardStorage {
-	return &workspaceStorage{wsStore: wsStore, userStore: userStore, rbStore: rbStore, checker: checker}
+func NewWorkspaceStorage(wsStore WorkspaceStore, userStore UserStore, rbStore RoleBindingStore) rest.StandardStorage {
+	return &workspaceStorage{wsStore: wsStore, userStore: userStore, rbStore: rbStore}
 }
 
 func (s *workspaceStorage) NewObject() runtime.Object { return &Workspace{} }
@@ -458,21 +457,8 @@ func (s *workspaceStorage) Delete(ctx context.Context, options *rest.DeleteOptio
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid workspace ID: %s", id), nil)
 	}
 
-	// Collect affected user IDs before deletion (CASCADE will remove role_bindings)
-	var affectedUserIDs []int64
-	if s.rbStore != nil {
-		affectedUserIDs, _ = s.rbStore.GetUserIDsByWorkspaceID(ctx, wid)
-	}
-
 	if err := s.wsStore.Delete(ctx, wid); err != nil {
 		return err
-	}
-
-	// Invalidate permission cache for affected users
-	if s.checker != nil {
-		for _, uid := range affectedUserIDs {
-			s.checker.InvalidateCache(uid)
-		}
 	}
 	return nil
 }
@@ -495,25 +481,9 @@ func (s *workspaceStorage) DeleteCollection(ctx context.Context, ids []string, o
 		int64IDs = append(int64IDs, wid)
 	}
 
-	// Collect affected user IDs before deletion (CASCADE will remove role_bindings)
-	var affectedUserIDs []int64
-	if s.rbStore != nil {
-		for _, wid := range int64IDs {
-			uids, _ := s.rbStore.GetUserIDsByWorkspaceID(ctx, wid)
-			affectedUserIDs = append(affectedUserIDs, uids...)
-		}
-	}
-
 	count, err := s.wsStore.DeleteByIDs(ctx, int64IDs)
 	if err != nil {
 		return nil, err
-	}
-
-	// Invalidate permission cache for affected users
-	if s.checker != nil {
-		for _, uid := range affectedUserIDs {
-			s.checker.InvalidateCache(uid)
-		}
 	}
 
 	return &rest.DeletionResult{
@@ -531,12 +501,11 @@ type namespaceStorage struct {
 	wsStore   WorkspaceStore
 	userStore UserStore
 	rbStore   RoleBindingStore
-	checker   PermissionChecker
 }
 
 // NewNamespaceStorage 创建项目 REST 存储。
-func NewNamespaceStorage(nsStore NamespaceStore, wsStore WorkspaceStore, userStore UserStore, rbStore RoleBindingStore, checker PermissionChecker) rest.StandardStorage {
-	return &namespaceStorage{nsStore: nsStore, wsStore: wsStore, userStore: userStore, rbStore: rbStore, checker: checker}
+func NewNamespaceStorage(nsStore NamespaceStore, wsStore WorkspaceStore, userStore UserStore, rbStore RoleBindingStore) rest.StandardStorage {
+	return &namespaceStorage{nsStore: nsStore, wsStore: wsStore, userStore: userStore, rbStore: rbStore}
 }
 
 func (s *namespaceStorage) NewObject() runtime.Object { return &Namespace{} }
@@ -781,21 +750,8 @@ func (s *namespaceStorage) Delete(ctx context.Context, options *rest.DeleteOptio
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid namespace ID: %s", id), nil)
 	}
 
-	// Collect affected user IDs before deletion (CASCADE will remove role_bindings)
-	var affectedUserIDs []int64
-	if s.rbStore != nil {
-		affectedUserIDs, _ = s.rbStore.GetUserIDsByNamespaceID(ctx, nid)
-	}
-
 	if err := s.nsStore.Delete(ctx, nid); err != nil {
 		return err
-	}
-
-	// Invalidate permission cache for affected users
-	if s.checker != nil {
-		for _, uid := range affectedUserIDs {
-			s.checker.InvalidateCache(uid)
-		}
 	}
 	return nil
 }
@@ -819,25 +775,9 @@ func (s *namespaceStorage) DeleteCollection(ctx context.Context, ids []string, o
 		int64IDs = append(int64IDs, nid)
 	}
 
-	// Collect affected user IDs before deletion (CASCADE will remove role_bindings)
-	var affectedUserIDs []int64
-	if s.rbStore != nil {
-		for _, nid := range int64IDs {
-			uids, _ := s.rbStore.GetUserIDsByNamespaceID(ctx, nid)
-			affectedUserIDs = append(affectedUserIDs, uids...)
-		}
-	}
-
 	count, err := s.nsStore.DeleteByIDs(ctx, int64IDs)
 	if err != nil {
 		return nil, err
-	}
-
-	// Invalidate permission cache for affected users
-	if s.checker != nil {
-		for _, uid := range affectedUserIDs {
-			s.checker.InvalidateCache(uid)
-		}
 	}
 
 	return &rest.DeletionResult{
@@ -1476,7 +1416,7 @@ type TransferOwnershipRequest struct {
 // +openapi:action=transfer-ownership
 // +openapi:resource=Workspace
 // +openapi:summary=转移租户所有权
-func NewTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBACChecker) rest.HandlerFunc {
+func NewTransferOwnershipHandler(rbStore RoleBindingStore, checker PermissionChecker) rest.HandlerFunc {
 	return func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
 		resourceID, err := parseID(params["workspaceId"])
 		if err != nil {
@@ -1505,13 +1445,9 @@ func NewTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBACChecker)
 			return nil, apierrors.NewInternalError(fmt.Errorf("check platform admin: %w", err))
 		}
 
-		oldOwnerUID, err := rbStore.TransferOwnership(ctx, ScopeWorkspace, resourceID, callerID, isPlatformAdmin, newOwnerUID, RoleWorkspaceAdmin)
-		if err != nil {
+		if _, err := rbStore.TransferOwnership(ctx, ScopeWorkspace, resourceID, callerID, isPlatformAdmin, newOwnerUID, RoleWorkspaceAdmin); err != nil {
 			return nil, err
 		}
-
-		checker.InvalidateCache(oldOwnerUID)
-		checker.InvalidateCache(newOwnerUID)
 
 		return &StatusResponse{
 			TypeMeta: runtime.TypeMeta{Kind: "Status"},
@@ -1525,7 +1461,7 @@ func NewTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBACChecker)
 // +openapi:action=transfer-ownership
 // +openapi:resource=Namespace
 // +openapi:summary=转移项目所有权
-func NewNamespaceTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBACChecker) rest.HandlerFunc {
+func NewNamespaceTransferOwnershipHandler(rbStore RoleBindingStore, checker PermissionChecker) rest.HandlerFunc {
 	return func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
 		nsID, err := parseID(params["namespaceId"])
 		if err != nil {
@@ -1554,13 +1490,9 @@ func NewNamespaceTransferOwnershipHandler(rbStore RoleBindingStore, checker *RBA
 			return nil, apierrors.NewInternalError(fmt.Errorf("check platform admin: %w", err))
 		}
 
-		oldOwnerUID, err := rbStore.TransferOwnership(ctx, ScopeNamespace, nsID, callerID, isPlatformAdmin, newOwnerUID, RoleNamespaceAdmin)
-		if err != nil {
+		if _, err := rbStore.TransferOwnership(ctx, ScopeNamespace, nsID, callerID, isPlatformAdmin, newOwnerUID, RoleNamespaceAdmin); err != nil {
 			return nil, err
 		}
-
-		checker.InvalidateCache(oldOwnerUID)
-		checker.InvalidateCache(newOwnerUID)
 
 		return &StatusResponse{
 			TypeMeta: runtime.TypeMeta{Kind: "Status"},
@@ -2340,12 +2272,11 @@ func (s *permissionStorage) List(ctx context.Context, options *rest.ListOptions)
 type roleBindingStorage struct {
 	rbStore   RoleBindingStore
 	roleStore RoleStore
-	checker   PermissionChecker
 }
 
 // NewRoleBindingStorage creates a platform-level role binding REST storage.
-func NewRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore, checker PermissionChecker) rest.Storage {
-	return &roleBindingStorage{rbStore: rbStore, roleStore: roleStore, checker: checker}
+func NewRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore) rest.Storage {
+	return &roleBindingStorage{rbStore: rbStore, roleStore: roleStore}
 }
 
 func (s *roleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
@@ -2401,8 +2332,6 @@ func (s *roleBindingStorage) Create(ctx context.Context, obj runtime.Object, opt
 		return nil, err
 	}
 
-	s.checker.InvalidateCache(userID)
-
 	return roleBindingToAPI(created, "", "", role.Name, role.DisplayName), nil
 }
 
@@ -2426,13 +2355,7 @@ func (s *roleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOpt
 		return nil
 	}
 
-	if err := s.rbStore.Delete(ctx, rbID); err != nil {
-		return err
-	}
-
-	s.checker.InvalidateCache(existing.UserID)
-
-	return nil
+	return s.rbStore.Delete(ctx, rbID)
 }
 
 // ===== workspaceRoleBindingStorage 租户级角色绑定 =====
@@ -2442,12 +2365,11 @@ func (s *roleBindingStorage) Delete(ctx context.Context, options *rest.DeleteOpt
 type workspaceRoleBindingStorage struct {
 	rbStore   RoleBindingStore
 	roleStore RoleStore
-	checker   PermissionChecker
 }
 
 // NewWorkspaceRoleBindingStorage creates a workspace-level role binding REST storage.
-func NewWorkspaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore, checker PermissionChecker) rest.Storage {
-	return &workspaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore, checker: checker}
+func NewWorkspaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore) rest.Storage {
+	return &workspaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore}
 }
 
 func (s *workspaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
@@ -2516,8 +2438,6 @@ func (s *workspaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 		return nil, err
 	}
 
-	s.checker.InvalidateCache(userID)
-
 	return roleBindingToAPI(created, "", "", role.Name, role.DisplayName), nil
 }
 
@@ -2541,13 +2461,7 @@ func (s *workspaceRoleBindingStorage) Delete(ctx context.Context, options *rest.
 		return nil
 	}
 
-	if err := s.rbStore.Delete(ctx, rbID); err != nil {
-		return err
-	}
-
-	s.checker.InvalidateCache(existing.UserID)
-
-	return nil
+	return s.rbStore.Delete(ctx, rbID)
 }
 
 // ===== namespaceRoleBindingStorage 项目级角色绑定 =====
@@ -2558,12 +2472,11 @@ type namespaceRoleBindingStorage struct {
 	rbStore   RoleBindingStore
 	roleStore RoleStore
 	nsStore   NamespaceStore
-	checker   PermissionChecker
 }
 
 // NewNamespaceRoleBindingStorage creates a namespace-level role binding REST storage.
-func NewNamespaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore, nsStore NamespaceStore, checker PermissionChecker) rest.Storage {
-	return &namespaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore, nsStore: nsStore, checker: checker}
+func NewNamespaceRoleBindingStorage(rbStore RoleBindingStore, roleStore RoleStore, nsStore NamespaceStore) rest.Storage {
+	return &namespaceRoleBindingStorage{rbStore: rbStore, roleStore: roleStore, nsStore: nsStore}
 }
 
 func (s *namespaceRoleBindingStorage) NewObject() runtime.Object { return &RoleBinding{} }
@@ -2642,8 +2555,6 @@ func (s *namespaceRoleBindingStorage) Create(ctx context.Context, obj runtime.Ob
 		return nil, err
 	}
 
-	s.checker.InvalidateCache(userID)
-
 	return roleBindingToAPI(created, "", "", role.Name, role.DisplayName), nil
 }
 
@@ -2668,13 +2579,7 @@ func (s *namespaceRoleBindingStorage) Delete(ctx context.Context, options *rest.
 		return nil
 	}
 
-	if err := s.rbStore.Delete(ctx, rbID); err != nil {
-		return err
-	}
-
-	s.checker.InvalidateCache(existing.UserID)
-
-	return nil
+	return s.rbStore.Delete(ctx, rbID)
 }
 
 // roleBindingToAPI converts a DBRoleBinding to the API type with optional display info.

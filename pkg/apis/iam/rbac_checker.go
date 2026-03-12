@@ -18,15 +18,48 @@ type PermissionChecker interface {
 	GetAccessibleWorkspaceIDs(ctx context.Context, userID int64) ([]int64, error)
 	// GetAccessibleNamespaceIDs returns namespace IDs the user has any role binding for.
 	GetAccessibleNamespaceIDs(ctx context.Context, userID int64) ([]int64, error)
-	// InvalidateCache removes the cached permission entry for a user.
-	// Call this when a user's role bindings change.
-	InvalidateCache(userID int64)
-	// InvalidateCacheAll removes all cached permission entries.
-	// Call this when role permission rules change (affects all users).
-	InvalidateCacheAll()
 }
 
-// RBACChecker implements PermissionChecker using the shared permission cache backed by RoleBindingStore.
+// UserPermissionEntry holds permission rules for a single user,
+// organized by scope level for efficient matching.
+type UserPermissionEntry struct {
+	IsPlatformAdmin bool               // true if platformRules contains "*:*" (fast short-circuit)
+	PlatformRules   []string           // patterns from platform-scoped bindings
+	WorkspaceRules  map[int64][]string // workspaceID → patterns
+	NamespaceRules  map[int64][]string // namespaceID → patterns
+}
+
+// HasPermission checks whether this entry grants the given permission code
+// at the specified scope/resource level, following scope chain inheritance:
+// platform rules apply everywhere, workspace rules apply to workspace and its namespaces.
+func (e *UserPermissionEntry) HasPermission(code, scope string, wsID, nsID int64) bool {
+	// 1. Platform-level rules apply to all scopes
+	for _, pattern := range e.PlatformRules {
+		if MatchPermission(pattern, code) {
+			return true
+		}
+	}
+	// 2. Workspace-level rules apply to workspace and namespace scopes
+	if (scope == ScopeWorkspace || scope == ScopeNamespace) && wsID > 0 {
+		for _, pattern := range e.WorkspaceRules[wsID] {
+			if MatchPermission(pattern, code) {
+				return true
+			}
+		}
+	}
+	// 3. Namespace-level rules apply to namespace scope only
+	if scope == ScopeNamespace && nsID > 0 {
+		for _, pattern := range e.NamespaceRules[nsID] {
+			if MatchPermission(pattern, code) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// RBACChecker implements PermissionChecker backed by RoleBindingStore.
+// Uses singleflight to deduplicate concurrent DB loads for the same user.
 type RBACChecker struct {
 	rbStore RoleBindingStore
 	sfGroup singleflight.Group
@@ -38,7 +71,7 @@ func NewRBACChecker(rbStore RoleBindingStore) *RBACChecker {
 }
 
 func (c *RBACChecker) CheckPermission(ctx context.Context, userID int64, permCode string, scope string, workspaceID, namespaceID int64) (bool, error) {
-	entry, err := c.getOrLoad(ctx, userID)
+	entry, err := c.loadEntry(ctx, userID)
 	if err != nil {
 		return false, err
 	}
@@ -46,7 +79,7 @@ func (c *RBACChecker) CheckPermission(ctx context.Context, userID int64, permCod
 }
 
 func (c *RBACChecker) IsPlatformAdmin(ctx context.Context, userID int64) (bool, error) {
-	entry, err := c.getOrLoad(ctx, userID)
+	entry, err := c.loadEntry(ctx, userID)
 	if err != nil {
 		return false, err
 	}
@@ -61,32 +94,12 @@ func (c *RBACChecker) GetAccessibleNamespaceIDs(ctx context.Context, userID int6
 	return c.rbStore.GetAccessibleNamespaceIDs(ctx, userID)
 }
 
-func (c *RBACChecker) InvalidateCache(userID int64) {
-	sharedPermCache.Invalidate(userID)
-}
-
-func (c *RBACChecker) InvalidateCacheAll() {
-	sharedPermCache.InvalidateAll()
-}
-
-// getOrLoad returns the cached entry for a user, loading from DB on cache miss.
+// loadEntry loads permission rules for a user from the database.
 // Uses singleflight to deduplicate concurrent loads for the same user.
-func (c *RBACChecker) getOrLoad(ctx context.Context, userID int64) (*UserPermissionEntry, error) {
-	if entry := sharedPermCache.Get(userID); entry != nil {
-		return entry, nil
-	}
+func (c *RBACChecker) loadEntry(ctx context.Context, userID int64) (*UserPermissionEntry, error) {
 	key := strconv.FormatInt(userID, 10)
 	v, err, _ := c.sfGroup.Do(key, func() (any, error) {
-		// Double-check cache after acquiring the singleflight slot
-		if entry := sharedPermCache.Get(userID); entry != nil {
-			return entry, nil
-		}
-		entry, err := c.loadUserEntry(ctx, userID)
-		if err != nil {
-			return nil, err
-		}
-		sharedPermCache.Set(userID, entry)
-		return entry, nil
+		return c.loadUserEntry(ctx, userID)
 	})
 	if err != nil {
 		return nil, err

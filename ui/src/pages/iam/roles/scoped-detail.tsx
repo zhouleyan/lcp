@@ -252,9 +252,16 @@ function MatchedRulesList({
 
   const ruleDetails = useMemo(() => {
     return rules.map((rule) => {
-      const matched = rule.includes("*")
+      const all = rule.includes("*")
         ? permissions.filter((p) => patternCovers(rule, p.spec.code))
         : permissions.filter((p) => p.spec.code === rule)
+      // Deduplicate by code — same code may exist at multiple scopes
+      const seen = new Set<string>()
+      const matched = all.filter((p) => {
+        if (seen.has(p.spec.code)) return false
+        seen.add(p.spec.code)
+        return true
+      })
       return { rule, matched }
     })
   }, [rules, permissions])

@@ -14,8 +14,6 @@ func newTestChecker(rules []UserPermissionRuleRow) (*RBACChecker, *atomic.Int32)
 			return rules, nil
 		},
 	}
-	// Reset the shared cache before each test
-	sharedPermCache.InvalidateAll()
 	return NewRBACChecker(store), &loadCount
 }
 
@@ -146,67 +144,6 @@ func TestRBACChecker_NoBindings(t *testing.T) {
 	isAdmin, _ := checker.IsPlatformAdmin(ctx, 1)
 	if isAdmin {
 		t.Error("user without bindings should not be admin")
-	}
-}
-
-func TestRBACChecker_CacheHit(t *testing.T) {
-	checker, loadCount := newTestChecker([]UserPermissionRuleRow{
-		{Scope: ScopePlatform, Pattern: "iam:users:list"},
-	})
-	ctx := context.Background()
-
-	// First call: cache miss → loads from DB
-	checker.CheckPermission(ctx, 1, "iam:users:list", ScopePlatform, 0, 0)
-	if loadCount.Load() != 1 {
-		t.Errorf("expected 1 DB load, got %d", loadCount.Load())
-	}
-
-	// Second call: cache hit → no DB load
-	checker.CheckPermission(ctx, 1, "iam:users:list", ScopePlatform, 0, 0)
-	if loadCount.Load() != 1 {
-		t.Errorf("expected still 1 DB load after cache hit, got %d", loadCount.Load())
-	}
-}
-
-func TestRBACChecker_InvalidateCache(t *testing.T) {
-	checker, loadCount := newTestChecker([]UserPermissionRuleRow{
-		{Scope: ScopePlatform, Pattern: "iam:users:list"},
-	})
-	ctx := context.Background()
-
-	// Load once
-	checker.CheckPermission(ctx, 1, "iam:users:list", ScopePlatform, 0, 0)
-	if loadCount.Load() != 1 {
-		t.Fatalf("expected 1 load, got %d", loadCount.Load())
-	}
-
-	// Invalidate and check again → should reload
-	checker.InvalidateCache(1)
-	checker.CheckPermission(ctx, 1, "iam:users:list", ScopePlatform, 0, 0)
-	if loadCount.Load() != 2 {
-		t.Errorf("expected 2 loads after invalidation, got %d", loadCount.Load())
-	}
-}
-
-func TestRBACChecker_InvalidateCacheAll(t *testing.T) {
-	checker, loadCount := newTestChecker([]UserPermissionRuleRow{
-		{Scope: ScopePlatform, Pattern: "*:*"},
-	})
-	ctx := context.Background()
-
-	// Load for two users
-	checker.CheckPermission(ctx, 1, "iam:users:list", ScopePlatform, 0, 0)
-	checker.CheckPermission(ctx, 2, "iam:users:list", ScopePlatform, 0, 0)
-	if loadCount.Load() != 2 {
-		t.Fatalf("expected 2 loads, got %d", loadCount.Load())
-	}
-
-	// InvalidateAll → both should reload
-	checker.InvalidateCacheAll()
-	checker.CheckPermission(ctx, 1, "iam:users:list", ScopePlatform, 0, 0)
-	checker.CheckPermission(ctx, 2, "iam:users:list", ScopePlatform, 0, 0)
-	if loadCount.Load() != 4 {
-		t.Errorf("expected 4 loads after invalidateAll, got %d", loadCount.Load())
 	}
 }
 
