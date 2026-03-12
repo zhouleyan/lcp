@@ -77,6 +77,8 @@ type SubnetSpec struct {
 	UsedIPs int `json:"usedIPs,omitempty"`
 	// +openapi:description=总可用 IP 数量（只读）
 	TotalIPs int `json:"totalIPs,omitempty"`
+	// +openapi:description=最小可分配 IP 地址（只读，无可用时为空）
+	NextFreeIP string `json:"nextFreeIP,omitempty"`
 }
 
 // SubnetList

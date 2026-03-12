@@ -369,6 +369,7 @@ export interface SubnetSpec {
   freeIPs?: number
   usedIPs?: number
   totalIPs?: number
+  nextFreeIP?: string
 }
 
 export interface Subnet extends TypeMeta {

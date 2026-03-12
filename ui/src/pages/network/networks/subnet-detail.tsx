@@ -195,7 +195,7 @@ export default function SubnetDetailPage() {
 
         {/* Allocations */}
         {networkId && subnetId && (
-          <AllocationsSection networkId={networkId} subnetId={subnetId} cidr={subnet.spec.cidr} gateway={subnet.spec.gateway} onSubnetChange={fetchSubnet} />
+          <AllocationsSection networkId={networkId} subnetId={subnetId} cidr={subnet.spec.cidr} nextFreeIP={subnet.spec.nextFreeIP} onSubnetChange={fetchSubnet} />
         )}
       </div>
 
@@ -225,12 +225,12 @@ export default function SubnetDetailPage() {
 // ===== Allocations Section =====
 
 function AllocationsSection({
-  networkId, subnetId, cidr, gateway, onSubnetChange,
+  networkId, subnetId, cidr, nextFreeIP, onSubnetChange,
 }: {
   networkId: string
   subnetId: string
   cidr: string
-  gateway?: string
+  nextFreeIP?: string
   onSubnetChange: () => void
 }) {
   const { t } = useTranslation()
@@ -366,7 +366,7 @@ function AllocationsSection({
           networkId={networkId}
           subnetId={subnetId}
           cidr={cidr}
-          gateway={gateway}
+          nextFreeIP={nextFreeIP}
           onSuccess={handleCreateSuccess}
         />
 
@@ -396,14 +396,14 @@ function parseCIDR(cidr: string) {
 }
 
 function AllocationFormDialog({
-  open, onOpenChange, networkId, subnetId, cidr, gateway, onSuccess,
+  open, onOpenChange, networkId, subnetId, cidr, nextFreeIP, onSuccess,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   networkId: string
   subnetId: string
   cidr: string
-  gateway?: string
+  nextFreeIP?: string
   onSuccess: () => void
 }) {
   const { t } = useTranslation()
@@ -416,15 +416,16 @@ function AllocationFormDialog({
   const { networkOctets, fixedCount } = useMemo(() => parseCIDR(cidr), [cidr])
 
   const defaultOctets = useMemo(() => {
-    const d = networkOctets.map(String)
-    let lastOctet = networkOctets[3] + 1
-    // Skip gateway IP
-    if (gateway && gateway === d.slice(0, 3).join(".") + "." + lastOctet) {
-      lastOctet += 1
+    // Use backend-provided nextFreeIP if available
+    if (nextFreeIP) {
+      const parts = nextFreeIP.split(".")
+      if (parts.length === 4) return parts
     }
-    d[3] = String(lastOctet)
+    // Fallback: network address +1
+    const d = networkOctets.map(String)
+    d[3] = String(networkOctets[3] + 1)
     return d
-  }, [networkOctets, gateway])
+  }, [networkOctets, nextFreeIP])
 
   const [octets, setOctets] = useState<string[]>(defaultOctets)
 

@@ -107,6 +107,16 @@ func (r *Range) ForEach(fn func(net.IP)) {
 	})
 }
 
+// NextFree returns the smallest unallocated IP in the range without reserving it.
+// Returns ErrFull if no IPs are available.
+func (r *Range) NextFree() (net.IP, error) {
+	offset, ok := r.alloc.NextFree()
+	if !ok {
+		return nil, ErrFull
+	}
+	return addIPOffset(r.base, offset), nil
+}
+
 // SaveToBytes serializes the bitmap state to []byte for database persistence.
 func (r *Range) SaveToBytes() []byte {
 	_, data := r.alloc.Snapshot()

@@ -892,6 +892,9 @@ func subnetToAPI(s *DBSubnet) *Subnet {
 			result.Spec.FreeIPs = r.Free()
 			result.Spec.UsedIPs = r.Used()
 			result.Spec.TotalIPs = r.Free() + r.Used()
+			if nextIP, err := r.NextFree(); err == nil {
+				result.Spec.NextFreeIP = nextIP.String()
+			}
 		}
 	}
 
