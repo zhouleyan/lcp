@@ -58,6 +58,7 @@ const common: Messages = {
   "nav.regions": "Regions",
   "nav.sites": "Sites",
   "nav.locations": "Locations",
+  "nav.racks": "Racks",
   "nav.apiDocs": "API Docs",
 
   // overview
@@ -118,6 +119,7 @@ const common: Messages = {
   "api.error.memberLimitExceeded": "Member limit exceeded for this namespace",
   "api.error.cannotDeleteWorkspace": "Cannot delete workspace: it still contains namespaces, please delete all namespaces first",
   "api.error.cannotDeleteNamespace": "Cannot delete namespace: it still contains members, please remove all members first",
+  "api.error.cannotDeleteLocation": "Cannot delete location: it still contains racks, please delete all racks first",
   "api.error.cannotRemoveOwner": "Cannot remove the owner from this resource",
   "api.error.oldPasswordIncorrect": "Current password is incorrect",
   "api.error.forbidden": "You do not have permission to perform this action",

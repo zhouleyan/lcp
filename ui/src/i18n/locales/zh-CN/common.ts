@@ -58,6 +58,7 @@ const common: Messages = {
   "nav.regions": "区域",
   "nav.sites": "站点",
   "nav.locations": "机房",
+  "nav.racks": "机柜",
   "nav.apiDocs": "API 文档",
 
   // overview
@@ -118,6 +119,7 @@ const common: Messages = {
   "api.error.memberLimitExceeded": "项目成员数已达上限",
   "api.error.cannotDeleteWorkspace": "无法删除租户：仍包含项目，请先删除所有项目",
   "api.error.cannotDeleteNamespace": "无法删除项目：仍包含成员，请先移除所有成员",
+  "api.error.cannotDeleteLocation": "无法删除机房：仍包含机柜，请先删除所有机柜",
   "api.error.cannotRemoveOwner": "无法移除所有者",
   "api.error.oldPasswordIncorrect": "当前密码不正确",
   "api.error.forbidden": "您没有权限执行此操作",
