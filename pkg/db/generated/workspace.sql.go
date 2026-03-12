@@ -311,15 +311,19 @@ func (q *Queries) ListWorkspaces(ctx context.Context, arg ListWorkspacesParams) 
 
 const patchWorkspace = `-- name: PatchWorkspace :one
 UPDATE workspaces
-SET name = COALESCE($1, name),
-    display_name = COALESCE($2, display_name),
-    description = COALESCE($3, description),
-    owner_id = COALESCE($4, owner_id),
-    status = COALESCE($5, status),
+SET name = COALESCE($1, workspaces.name),
+    display_name = COALESCE($2, workspaces.display_name),
+    description = COALESCE($3, workspaces.description),
+    owner_id = COALESCE($4, workspaces.owner_id),
+    status = COALESCE($5, workspaces.status),
     updated_at = now()
-WHERE id = $6
-RETURNING id, name, display_name, description, owner_id, status,
-          created_at, updated_at
+WHERE workspaces.id = $6
+RETURNING workspaces.id, workspaces.name, workspaces.display_name, workspaces.description,
+    workspaces.owner_id, workspaces.status, workspaces.created_at, workspaces.updated_at,
+    (SELECT u.username FROM users u WHERE u.id = workspaces.owner_id) AS owner_username,
+    (SELECT count(*) FROM namespaces n WHERE n.workspace_id = workspaces.id) AS namespace_count,
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = workspaces.id) AS member_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = workspaces.id) AS role_binding_count
 `
 
 type PatchWorkspaceParams struct {
@@ -331,7 +335,22 @@ type PatchWorkspaceParams struct {
 	ID          int64   `json:"id"`
 }
 
-func (q *Queries) PatchWorkspace(ctx context.Context, arg PatchWorkspaceParams) (Workspace, error) {
+type PatchWorkspaceRow struct {
+	ID               int64     `json:"id"`
+	Name             string    `json:"name"`
+	DisplayName      string    `json:"display_name"`
+	Description      string    `json:"description"`
+	OwnerID          int64     `json:"owner_id"`
+	Status           string    `json:"status"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	OwnerUsername    string    `json:"owner_username"`
+	NamespaceCount   int64     `json:"namespace_count"`
+	MemberCount      int64     `json:"member_count"`
+	RoleBindingCount int64     `json:"role_binding_count"`
+}
+
+func (q *Queries) PatchWorkspace(ctx context.Context, arg PatchWorkspaceParams) (PatchWorkspaceRow, error) {
 	row := q.db.QueryRow(ctx, patchWorkspace,
 		arg.Name,
 		arg.DisplayName,
@@ -340,7 +359,7 @@ func (q *Queries) PatchWorkspace(ctx context.Context, arg PatchWorkspaceParams) 
 		arg.Status,
 		arg.ID,
 	)
-	var i Workspace
+	var i PatchWorkspaceRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -350,6 +369,10 @@ func (q *Queries) PatchWorkspace(ctx context.Context, arg PatchWorkspaceParams) 
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUsername,
+		&i.NamespaceCount,
+		&i.MemberCount,
+		&i.RoleBindingCount,
 	)
 	return i, err
 }
@@ -362,9 +385,13 @@ SET name = $1,
     owner_id = $4,
     status = $5,
     updated_at = now()
-WHERE id = $6
-RETURNING id, name, display_name, description, owner_id, status,
-          created_at, updated_at
+WHERE workspaces.id = $6
+RETURNING workspaces.id, workspaces.name, workspaces.display_name, workspaces.description,
+    workspaces.owner_id, workspaces.status, workspaces.created_at, workspaces.updated_at,
+    (SELECT u.username FROM users u WHERE u.id = workspaces.owner_id) AS owner_username,
+    (SELECT count(*) FROM namespaces n WHERE n.workspace_id = workspaces.id) AS namespace_count,
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = workspaces.id) AS member_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = workspaces.id) AS role_binding_count
 `
 
 type UpdateWorkspaceParams struct {
@@ -376,7 +403,22 @@ type UpdateWorkspaceParams struct {
 	ID          int64  `json:"id"`
 }
 
-func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error) {
+type UpdateWorkspaceRow struct {
+	ID               int64     `json:"id"`
+	Name             string    `json:"name"`
+	DisplayName      string    `json:"display_name"`
+	Description      string    `json:"description"`
+	OwnerID          int64     `json:"owner_id"`
+	Status           string    `json:"status"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	OwnerUsername    string    `json:"owner_username"`
+	NamespaceCount   int64     `json:"namespace_count"`
+	MemberCount      int64     `json:"member_count"`
+	RoleBindingCount int64     `json:"role_binding_count"`
+}
+
+func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (UpdateWorkspaceRow, error) {
 	row := q.db.QueryRow(ctx, updateWorkspace,
 		arg.Name,
 		arg.DisplayName,
@@ -385,7 +427,7 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 		arg.Status,
 		arg.ID,
 	)
-	var i Workspace
+	var i UpdateWorkspaceRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -395,6 +437,10 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUsername,
+		&i.NamespaceCount,
+		&i.MemberCount,
+		&i.RoleBindingCount,
 	)
 	return i, err
 }

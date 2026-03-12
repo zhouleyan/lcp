@@ -32,10 +32,10 @@ func (m *mockNamespaceStoreForResolver) Create(_ context.Context, _ *DBNamespace
 func (m *mockNamespaceStoreForResolver) GetByName(_ context.Context, _ string) (*DBNamespace, error) {
 	return nil, nil
 }
-func (m *mockNamespaceStoreForResolver) Update(_ context.Context, _ *DBNamespace) (*DBNamespace, error) {
+func (m *mockNamespaceStoreForResolver) Update(_ context.Context, _ *DBNamespace) (*DBNamespaceWithOwner, error) {
 	return nil, nil
 }
-func (m *mockNamespaceStoreForResolver) Patch(_ context.Context, _ int64, _ *DBNamespace) (*DBNamespace, error) {
+func (m *mockNamespaceStoreForResolver) Patch(_ context.Context, _ int64, _ *DBNamespace) (*DBNamespaceWithOwner, error) {
 	return nil, nil
 }
 func (m *mockNamespaceStoreForResolver) Delete(_ context.Context, _ int64) error { return nil }

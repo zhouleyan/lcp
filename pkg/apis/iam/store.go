@@ -38,8 +38,8 @@ type WorkspaceStore interface {
 	Create(ctx context.Context, ws *DBWorkspace) (*DBWorkspaceWithOwner, error)
 	GetByID(ctx context.Context, id int64) (*DBWorkspaceWithOwner, error)
 	GetByName(ctx context.Context, name string) (*DBWorkspace, error)
-	Update(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error)
-	Patch(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspace, error)
+	Update(ctx context.Context, ws *DBWorkspace) (*DBWorkspaceWithOwner, error)
+	Patch(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspaceWithOwner, error)
 	Delete(ctx context.Context, id int64) error
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwner], error)
@@ -51,8 +51,8 @@ type NamespaceStore interface {
 	Create(ctx context.Context, ns *DBNamespace) (*DBNamespaceWithOwner, error)
 	GetByID(ctx context.Context, id int64) (*DBNamespaceWithOwner, error)
 	GetByName(ctx context.Context, name string) (*DBNamespace, error)
-	Update(ctx context.Context, ns *DBNamespace) (*DBNamespace, error)
-	Patch(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespace, error)
+	Update(ctx context.Context, ns *DBNamespace) (*DBNamespaceWithOwner, error)
+	Patch(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespaceWithOwner, error)
 	Delete(ctx context.Context, id int64) error
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwner], error)

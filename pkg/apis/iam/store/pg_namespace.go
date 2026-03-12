@@ -114,9 +114,10 @@ func (s *pgNamespaceStore) Create(ctx context.Context, ns *iam.DBNamespace) (*ia
 			CreatedAt:   nsRow.CreatedAt,
 			UpdatedAt:   nsRow.UpdatedAt,
 		},
-		OwnerUsername: nsRow.OwnerUsername,
-		WorkspaceName: nsRow.WorkspaceName,
-		MemberCount:   nsRow.MemberCount,
+		OwnerUsername:    nsRow.OwnerUsername,
+		WorkspaceName:    nsRow.WorkspaceName,
+		MemberCount:      nsRow.MemberCount,
+		RoleBindingCount: nsRow.RoleBindingCount,
 	}, nil
 }
 
@@ -160,7 +161,7 @@ func (s *pgNamespaceStore) GetByName(ctx context.Context, name string) (*iam.DBN
 	return new(row), nil
 }
 
-func (s *pgNamespaceStore) Update(ctx context.Context, ns *iam.DBNamespace) (*iam.DBNamespace, error) {
+func (s *pgNamespaceStore) Update(ctx context.Context, ns *iam.DBNamespace) (*iam.DBNamespaceWithOwner, error) {
 	row, err := s.queries.UpdateNamespace(ctx, generated.UpdateNamespaceParams{
 		ID:          ns.ID,
 		Name:        ns.Name,
@@ -178,10 +179,28 @@ func (s *pgNamespaceStore) Update(ctx context.Context, ns *iam.DBNamespace) (*ia
 		}
 		return nil, fmt.Errorf("update namespace: %w", err)
 	}
-	return new(row), nil
+	return &iam.DBNamespaceWithOwner{
+		Namespace: generated.Namespace{
+			ID:          row.ID,
+			Name:        row.Name,
+			DisplayName: row.DisplayName,
+			Description: row.Description,
+			WorkspaceID: row.WorkspaceID,
+			OwnerID:     row.OwnerID,
+			Visibility:  row.Visibility,
+			MaxMembers:  row.MaxMembers,
+			Status:      row.Status,
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+		},
+		OwnerUsername:    row.OwnerUsername,
+		WorkspaceName:    row.WorkspaceName,
+		MemberCount:      row.MemberCount,
+		RoleBindingCount: row.RoleBindingCount,
+	}, nil
 }
 
-func (s *pgNamespaceStore) Patch(ctx context.Context, id int64, ns *iam.DBNamespace) (*iam.DBNamespace, error) {
+func (s *pgNamespaceStore) Patch(ctx context.Context, id int64, ns *iam.DBNamespace) (*iam.DBNamespaceWithOwner, error) {
 	row, err := s.queries.PatchNamespace(ctx, generated.PatchNamespaceParams{
 		ID:          id,
 		Name:        toNullString(ns.Name),
@@ -199,7 +218,25 @@ func (s *pgNamespaceStore) Patch(ctx context.Context, id int64, ns *iam.DBNamesp
 		}
 		return nil, fmt.Errorf("patch namespace: %w", err)
 	}
-	return new(row), nil
+	return &iam.DBNamespaceWithOwner{
+		Namespace: generated.Namespace{
+			ID:          row.ID,
+			Name:        row.Name,
+			DisplayName: row.DisplayName,
+			Description: row.Description,
+			WorkspaceID: row.WorkspaceID,
+			OwnerID:     row.OwnerID,
+			Visibility:  row.Visibility,
+			MaxMembers:  row.MaxMembers,
+			Status:      row.Status,
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+		},
+		OwnerUsername:    row.OwnerUsername,
+		WorkspaceName:    row.WorkspaceName,
+		MemberCount:      row.MemberCount,
+		RoleBindingCount: row.RoleBindingCount,
+	}, nil
 }
 
 func (s *pgNamespaceStore) Delete(ctx context.Context, id int64) error {

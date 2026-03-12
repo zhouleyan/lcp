@@ -159,9 +159,10 @@ func (s *pgWorkspaceStore) Create(ctx context.Context, ws *iam.DBWorkspace) (*ia
 			CreatedAt:   wsRow.CreatedAt,
 			UpdatedAt:   wsRow.UpdatedAt,
 		},
-		OwnerUsername:  wsRow.OwnerUsername,
-		NamespaceCount: wsRow.NamespaceCount,
-		MemberCount:    wsRow.MemberCount,
+		OwnerUsername:    wsRow.OwnerUsername,
+		NamespaceCount:   wsRow.NamespaceCount,
+		MemberCount:      wsRow.MemberCount,
+		RoleBindingCount: wsRow.RoleBindingCount,
 	}, nil
 }
 
@@ -202,7 +203,7 @@ func (s *pgWorkspaceStore) GetByName(ctx context.Context, name string) (*iam.DBW
 	return new(row), nil
 }
 
-func (s *pgWorkspaceStore) Update(ctx context.Context, ws *iam.DBWorkspace) (*iam.DBWorkspace, error) {
+func (s *pgWorkspaceStore) Update(ctx context.Context, ws *iam.DBWorkspace) (*iam.DBWorkspaceWithOwner, error) {
 	row, err := s.queries.UpdateWorkspace(ctx, generated.UpdateWorkspaceParams{
 		ID:          ws.ID,
 		Name:        ws.Name,
@@ -217,10 +218,25 @@ func (s *pgWorkspaceStore) Update(ctx context.Context, ws *iam.DBWorkspace) (*ia
 		}
 		return nil, fmt.Errorf("update workspace: %w", err)
 	}
-	return new(row), nil
+	return &iam.DBWorkspaceWithOwner{
+		Workspace: generated.Workspace{
+			ID:          row.ID,
+			Name:        row.Name,
+			DisplayName: row.DisplayName,
+			Description: row.Description,
+			OwnerID:     row.OwnerID,
+			Status:      row.Status,
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+		},
+		OwnerUsername:    row.OwnerUsername,
+		NamespaceCount:   row.NamespaceCount,
+		MemberCount:      row.MemberCount,
+		RoleBindingCount: row.RoleBindingCount,
+	}, nil
 }
 
-func (s *pgWorkspaceStore) Patch(ctx context.Context, id int64, ws *iam.DBWorkspace) (*iam.DBWorkspace, error) {
+func (s *pgWorkspaceStore) Patch(ctx context.Context, id int64, ws *iam.DBWorkspace) (*iam.DBWorkspaceWithOwner, error) {
 	row, err := s.queries.PatchWorkspace(ctx, generated.PatchWorkspaceParams{
 		ID:          id,
 		Name:        toNullString(ws.Name),
@@ -235,7 +251,22 @@ func (s *pgWorkspaceStore) Patch(ctx context.Context, id int64, ws *iam.DBWorksp
 		}
 		return nil, fmt.Errorf("patch workspace: %w", err)
 	}
-	return new(row), nil
+	return &iam.DBWorkspaceWithOwner{
+		Workspace: generated.Workspace{
+			ID:          row.ID,
+			Name:        row.Name,
+			DisplayName: row.DisplayName,
+			Description: row.Description,
+			OwnerID:     row.OwnerID,
+			Status:      row.Status,
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+		},
+		OwnerUsername:    row.OwnerUsername,
+		NamespaceCount:   row.NamespaceCount,
+		MemberCount:      row.MemberCount,
+		RoleBindingCount: row.RoleBindingCount,
+	}, nil
 }
 
 func (s *pgWorkspaceStore) Delete(ctx context.Context, id int64) error {

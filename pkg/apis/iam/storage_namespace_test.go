@@ -378,7 +378,7 @@ func TestNamespaceStorage_Create_WorkspaceNotFound(t *testing.T) {
 func TestNamespaceStorage_Update(t *testing.T) {
 	existingNsWithOwner := testNamespaceWithOwner(1, "my-namespace", 10, 100, "alice", "my-workspace")
 
-	updatedDBNs := testNamespace(1, "updated-namespace", 10, 100)
+	updatedDBNs := testNamespaceWithOwner(1, "updated-namespace", 10, 100, "alice", "my-workspace")
 	updatedDBNs.DisplayName = "Updated Namespace"
 	updatedDBNs.Description = "Updated description"
 
@@ -392,7 +392,7 @@ func TestNamespaceStorage_Update(t *testing.T) {
 			}
 			return existingNsWithOwner, nil
 		},
-		UpdateFn: func(ctx context.Context, ns *DBNamespace) (*DBNamespace, error) {
+		UpdateFn: func(ctx context.Context, ns *DBNamespace) (*DBNamespaceWithOwner, error) {
 			updateCalled = true
 			if ns.ID != 1 {
 				t.Errorf("expected namespace ID 1, got %d", ns.ID)
@@ -460,14 +460,14 @@ func TestNamespaceStorage_Update(t *testing.T) {
 // --- TestNamespaceStorage_Patch ---
 
 func TestNamespaceStorage_Patch(t *testing.T) {
-	patchedDBNs := testNamespace(1, "my-namespace", 10, 100)
+	patchedDBNs := testNamespaceWithOwner(1, "my-namespace", 10, 100, "alice", "my-workspace")
 	patchedDBNs.DisplayName = "Patched Namespace"
 	patchedDBNs.Description = "Original description"
 
 	var patchCalled bool
 
 	nsStore := &mockNamespaceStore{
-		PatchFn: func(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespace, error) {
+		PatchFn: func(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespaceWithOwner, error) {
 			patchCalled = true
 			if id != 1 {
 				t.Errorf("expected id 1, got %d", id)

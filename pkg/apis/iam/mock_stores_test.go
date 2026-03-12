@@ -102,8 +102,8 @@ type mockWorkspaceStore struct {
 	CreateFn          func(ctx context.Context, ws *DBWorkspace) (*DBWorkspaceWithOwner, error)
 	GetByIDFn         func(ctx context.Context, id int64) (*DBWorkspaceWithOwner, error)
 	GetByNameFn       func(ctx context.Context, name string) (*DBWorkspace, error)
-	UpdateFn          func(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error)
-	PatchFn           func(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspace, error)
+	UpdateFn          func(ctx context.Context, ws *DBWorkspace) (*DBWorkspaceWithOwner, error)
+	PatchFn           func(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspaceWithOwner, error)
 	DeleteFn          func(ctx context.Context, id int64) error
 	DeleteByIDsFn     func(ctx context.Context, ids []int64) (int64, error)
 	ListFn            func(ctx context.Context, query db.ListQuery) (*db.ListResult[DBWorkspaceWithOwner], error)
@@ -119,10 +119,10 @@ func (m *mockWorkspaceStore) GetByID(ctx context.Context, id int64) (*DBWorkspac
 func (m *mockWorkspaceStore) GetByName(ctx context.Context, name string) (*DBWorkspace, error) {
 	return m.GetByNameFn(ctx, name)
 }
-func (m *mockWorkspaceStore) Update(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error) {
+func (m *mockWorkspaceStore) Update(ctx context.Context, ws *DBWorkspace) (*DBWorkspaceWithOwner, error) {
 	return m.UpdateFn(ctx, ws)
 }
-func (m *mockWorkspaceStore) Patch(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspace, error) {
+func (m *mockWorkspaceStore) Patch(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspaceWithOwner, error) {
 	return m.PatchFn(ctx, id, ws)
 }
 func (m *mockWorkspaceStore) Delete(ctx context.Context, id int64) error {
@@ -144,8 +144,8 @@ type mockNamespaceStore struct {
 	CreateFn      func(ctx context.Context, ns *DBNamespace) (*DBNamespaceWithOwner, error)
 	GetByIDFn     func(ctx context.Context, id int64) (*DBNamespaceWithOwner, error)
 	GetByNameFn   func(ctx context.Context, name string) (*DBNamespace, error)
-	UpdateFn      func(ctx context.Context, ns *DBNamespace) (*DBNamespace, error)
-	PatchFn       func(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespace, error)
+	UpdateFn      func(ctx context.Context, ns *DBNamespace) (*DBNamespaceWithOwner, error)
+	PatchFn       func(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespaceWithOwner, error)
 	DeleteFn      func(ctx context.Context, id int64) error
 	DeleteByIDsFn func(ctx context.Context, ids []int64) (int64, error)
 	ListFn        func(ctx context.Context, query db.ListQuery) (*db.ListResult[DBNamespaceWithOwner], error)
@@ -161,10 +161,10 @@ func (m *mockNamespaceStore) GetByID(ctx context.Context, id int64) (*DBNamespac
 func (m *mockNamespaceStore) GetByName(ctx context.Context, name string) (*DBNamespace, error) {
 	return m.GetByNameFn(ctx, name)
 }
-func (m *mockNamespaceStore) Update(ctx context.Context, ns *DBNamespace) (*DBNamespace, error) {
+func (m *mockNamespaceStore) Update(ctx context.Context, ns *DBNamespace) (*DBNamespaceWithOwner, error) {
 	return m.UpdateFn(ctx, ns)
 }
-func (m *mockNamespaceStore) Patch(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespace, error) {
+func (m *mockNamespaceStore) Patch(ctx context.Context, id int64, ns *DBNamespace) (*DBNamespaceWithOwner, error) {
 	return m.PatchFn(ctx, id, ns)
 }
 func (m *mockNamespaceStore) Delete(ctx context.Context, id int64) error {

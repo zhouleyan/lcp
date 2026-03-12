@@ -30,9 +30,13 @@ SET name = @name,
     owner_id = @owner_id,
     status = @status,
     updated_at = now()
-WHERE id = @id
-RETURNING id, name, display_name, description, owner_id, status,
-          created_at, updated_at;
+WHERE workspaces.id = @id
+RETURNING workspaces.id, workspaces.name, workspaces.display_name, workspaces.description,
+    workspaces.owner_id, workspaces.status, workspaces.created_at, workspaces.updated_at,
+    (SELECT u.username FROM users u WHERE u.id = workspaces.owner_id) AS owner_username,
+    (SELECT count(*) FROM namespaces n WHERE n.workspace_id = workspaces.id) AS namespace_count,
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = workspaces.id) AS member_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = workspaces.id) AS role_binding_count;
 
 -- name: DeleteWorkspace :exec
 DELETE FROM workspaces WHERE id = @id;
@@ -101,12 +105,16 @@ WHERE workspace_id = @workspace_id;
 
 -- name: PatchWorkspace :one
 UPDATE workspaces
-SET name = COALESCE(sqlc.narg('name'), name),
-    display_name = COALESCE(sqlc.narg('display_name'), display_name),
-    description = COALESCE(sqlc.narg('description'), description),
-    owner_id = COALESCE(sqlc.narg('owner_id'), owner_id),
-    status = COALESCE(sqlc.narg('status'), status),
+SET name = COALESCE(sqlc.narg('name'), workspaces.name),
+    display_name = COALESCE(sqlc.narg('display_name'), workspaces.display_name),
+    description = COALESCE(sqlc.narg('description'), workspaces.description),
+    owner_id = COALESCE(sqlc.narg('owner_id'), workspaces.owner_id),
+    status = COALESCE(sqlc.narg('status'), workspaces.status),
     updated_at = now()
-WHERE id = @id
-RETURNING id, name, display_name, description, owner_id, status,
-          created_at, updated_at;
+WHERE workspaces.id = @id
+RETURNING workspaces.id, workspaces.name, workspaces.display_name, workspaces.description,
+    workspaces.owner_id, workspaces.status, workspaces.created_at, workspaces.updated_at,
+    (SELECT u.username FROM users u WHERE u.id = workspaces.owner_id) AS owner_username,
+    (SELECT count(*) FROM namespaces n WHERE n.workspace_id = workspaces.id) AS namespace_count,
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = workspaces.id) AS member_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'workspace' AND rb.workspace_id = workspaces.id) AS role_binding_count;

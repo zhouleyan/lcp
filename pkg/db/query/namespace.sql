@@ -34,9 +34,14 @@ SET name = @name,
     max_members = @max_members,
     status = @status,
     updated_at = now()
-WHERE id = @id
-RETURNING id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status,
-          created_at, updated_at;
+WHERE namespaces.id = @id
+RETURNING namespaces.id, namespaces.name, namespaces.display_name, namespaces.description,
+    namespaces.workspace_id, namespaces.owner_id, namespaces.visibility, namespaces.max_members,
+    namespaces.status, namespaces.created_at, namespaces.updated_at,
+    (SELECT u.username FROM users u WHERE u.id = namespaces.owner_id) AS owner_username,
+    (SELECT w.name FROM workspaces w WHERE w.id = namespaces.workspace_id) AS workspace_name,
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = namespaces.id) AS member_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = namespaces.id) AS role_binding_count;
 
 -- name: DeleteNamespace :exec
 DELETE FROM namespaces WHERE id = @id;
@@ -112,15 +117,20 @@ WHERE scope = 'namespace' AND namespace_id = @namespace_id;
 
 -- name: PatchNamespace :one
 UPDATE namespaces
-SET name = COALESCE(sqlc.narg('name'), name),
-    display_name = COALESCE(sqlc.narg('display_name'), display_name),
-    description = COALESCE(sqlc.narg('description'), description),
-    workspace_id = COALESCE(sqlc.narg('workspace_id'), workspace_id),
-    owner_id = COALESCE(sqlc.narg('owner_id'), owner_id),
-    visibility = COALESCE(sqlc.narg('visibility'), visibility),
-    max_members = COALESCE(sqlc.narg('max_members'), max_members),
-    status = COALESCE(sqlc.narg('status'), status),
+SET name = COALESCE(sqlc.narg('name'), namespaces.name),
+    display_name = COALESCE(sqlc.narg('display_name'), namespaces.display_name),
+    description = COALESCE(sqlc.narg('description'), namespaces.description),
+    workspace_id = COALESCE(sqlc.narg('workspace_id'), namespaces.workspace_id),
+    owner_id = COALESCE(sqlc.narg('owner_id'), namespaces.owner_id),
+    visibility = COALESCE(sqlc.narg('visibility'), namespaces.visibility),
+    max_members = COALESCE(sqlc.narg('max_members'), namespaces.max_members),
+    status = COALESCE(sqlc.narg('status'), namespaces.status),
     updated_at = now()
-WHERE id = @id
-RETURNING id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status,
-          created_at, updated_at;
+WHERE namespaces.id = @id
+RETURNING namespaces.id, namespaces.name, namespaces.display_name, namespaces.description,
+    namespaces.workspace_id, namespaces.owner_id, namespaces.visibility, namespaces.max_members,
+    namespaces.status, namespaces.created_at, namespaces.updated_at,
+    (SELECT u.username FROM users u WHERE u.id = namespaces.owner_id) AS owner_username,
+    (SELECT w.name FROM workspaces w WHERE w.id = namespaces.workspace_id) AS workspace_name,
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = namespaces.id) AS member_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = namespaces.id) AS role_binding_count;

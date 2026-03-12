@@ -398,7 +398,7 @@ func (s *workspaceStorage) Update(ctx context.Context, obj runtime.Object, optio
 		return nil, err
 	}
 
-	return workspaceToAPI(updated), nil
+	return workspaceWithOwnerToAPI(updated), nil
 }
 
 // +openapi:summary=更新租户信息（部分）
@@ -442,7 +442,7 @@ func (s *workspaceStorage) Patch(ctx context.Context, obj runtime.Object, option
 		return nil, err
 	}
 
-	return workspaceToAPI(patched), nil
+	return workspaceWithOwnerToAPI(patched), nil
 }
 
 // +openapi:summary=删除租户
@@ -678,7 +678,7 @@ func (s *namespaceStorage) Update(ctx context.Context, obj runtime.Object, optio
 		return nil, err
 	}
 
-	return namespaceToAPI(updated), nil
+	return namespaceWithOwnerToAPI(updated), nil
 }
 
 // +openapi:summary=更新项目信息（部分）
@@ -734,7 +734,7 @@ func (s *namespaceStorage) Patch(ctx context.Context, obj runtime.Object, option
 		return nil, err
 	}
 
-	return namespaceToAPI(patched), nil
+	return namespaceWithOwnerToAPI(patched), nil
 }
 
 // +openapi:summary=删除项目

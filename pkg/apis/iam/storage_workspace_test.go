@@ -300,12 +300,12 @@ func TestWorkspaceStorage_Create_OwnerNotFound(t *testing.T) {
 // --- TestWorkspaceStorage_Update ---
 
 func TestWorkspaceStorage_Update(t *testing.T) {
-	updatedDBWs := testWorkspace(1, "updated-workspace", 10)
+	updatedDBWs := testWorkspaceWithOwner(1, "updated-workspace", 10, "owner")
 	updatedDBWs.DisplayName = "Updated Workspace"
 	updatedDBWs.Description = "Updated description"
 
 	wsStore := &mockWorkspaceStore{
-		UpdateFn: func(ctx context.Context, ws *DBWorkspace) (*DBWorkspace, error) {
+		UpdateFn: func(ctx context.Context, ws *DBWorkspace) (*DBWorkspaceWithOwner, error) {
 			if ws.ID != 1 {
 				t.Errorf("expected workspace ID 1, got %d", ws.ID)
 			}
@@ -360,14 +360,14 @@ func TestWorkspaceStorage_Update(t *testing.T) {
 // --- TestWorkspaceStorage_Patch ---
 
 func TestWorkspaceStorage_Patch(t *testing.T) {
-	patchedDBWs := testWorkspace(1, "my-workspace", 10)
+	patchedDBWs := testWorkspaceWithOwner(1, "my-workspace", 10, "owner")
 	patchedDBWs.DisplayName = "Patched Workspace"
 	patchedDBWs.Description = "Original description"
 
 	var patchCalled bool
 
 	wsStore := &mockWorkspaceStore{
-		PatchFn: func(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspace, error) {
+		PatchFn: func(ctx context.Context, id int64, ws *DBWorkspace) (*DBWorkspaceWithOwner, error) {
 			patchCalled = true
 			if id != 1 {
 				t.Errorf("expected id 1, got %d", id)

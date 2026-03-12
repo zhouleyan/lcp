@@ -351,18 +351,23 @@ func (q *Queries) ListNamespaces(ctx context.Context, arg ListNamespacesParams) 
 
 const patchNamespace = `-- name: PatchNamespace :one
 UPDATE namespaces
-SET name = COALESCE($1, name),
-    display_name = COALESCE($2, display_name),
-    description = COALESCE($3, description),
-    workspace_id = COALESCE($4, workspace_id),
-    owner_id = COALESCE($5, owner_id),
-    visibility = COALESCE($6, visibility),
-    max_members = COALESCE($7, max_members),
-    status = COALESCE($8, status),
+SET name = COALESCE($1, namespaces.name),
+    display_name = COALESCE($2, namespaces.display_name),
+    description = COALESCE($3, namespaces.description),
+    workspace_id = COALESCE($4, namespaces.workspace_id),
+    owner_id = COALESCE($5, namespaces.owner_id),
+    visibility = COALESCE($6, namespaces.visibility),
+    max_members = COALESCE($7, namespaces.max_members),
+    status = COALESCE($8, namespaces.status),
     updated_at = now()
-WHERE id = $9
-RETURNING id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status,
-          created_at, updated_at
+WHERE namespaces.id = $9
+RETURNING namespaces.id, namespaces.name, namespaces.display_name, namespaces.description,
+    namespaces.workspace_id, namespaces.owner_id, namespaces.visibility, namespaces.max_members,
+    namespaces.status, namespaces.created_at, namespaces.updated_at,
+    (SELECT u.username FROM users u WHERE u.id = namespaces.owner_id) AS owner_username,
+    (SELECT w.name FROM workspaces w WHERE w.id = namespaces.workspace_id) AS workspace_name,
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = namespaces.id) AS member_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = namespaces.id) AS role_binding_count
 `
 
 type PatchNamespaceParams struct {
@@ -377,7 +382,25 @@ type PatchNamespaceParams struct {
 	ID          int64   `json:"id"`
 }
 
-func (q *Queries) PatchNamespace(ctx context.Context, arg PatchNamespaceParams) (Namespace, error) {
+type PatchNamespaceRow struct {
+	ID               int64     `json:"id"`
+	Name             string    `json:"name"`
+	DisplayName      string    `json:"display_name"`
+	Description      string    `json:"description"`
+	WorkspaceID      int64     `json:"workspace_id"`
+	OwnerID          int64     `json:"owner_id"`
+	Visibility       string    `json:"visibility"`
+	MaxMembers       int32     `json:"max_members"`
+	Status           string    `json:"status"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	OwnerUsername    string    `json:"owner_username"`
+	WorkspaceName    string    `json:"workspace_name"`
+	MemberCount      int64     `json:"member_count"`
+	RoleBindingCount int64     `json:"role_binding_count"`
+}
+
+func (q *Queries) PatchNamespace(ctx context.Context, arg PatchNamespaceParams) (PatchNamespaceRow, error) {
 	row := q.db.QueryRow(ctx, patchNamespace,
 		arg.Name,
 		arg.DisplayName,
@@ -389,7 +412,7 @@ func (q *Queries) PatchNamespace(ctx context.Context, arg PatchNamespaceParams) 
 		arg.Status,
 		arg.ID,
 	)
-	var i Namespace
+	var i PatchNamespaceRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -402,6 +425,10 @@ func (q *Queries) PatchNamespace(ctx context.Context, arg PatchNamespaceParams) 
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUsername,
+		&i.WorkspaceName,
+		&i.MemberCount,
+		&i.RoleBindingCount,
 	)
 	return i, err
 }
@@ -417,9 +444,14 @@ SET name = $1,
     max_members = $7,
     status = $8,
     updated_at = now()
-WHERE id = $9
-RETURNING id, name, display_name, description, workspace_id, owner_id, visibility, max_members, status,
-          created_at, updated_at
+WHERE namespaces.id = $9
+RETURNING namespaces.id, namespaces.name, namespaces.display_name, namespaces.description,
+    namespaces.workspace_id, namespaces.owner_id, namespaces.visibility, namespaces.max_members,
+    namespaces.status, namespaces.created_at, namespaces.updated_at,
+    (SELECT u.username FROM users u WHERE u.id = namespaces.owner_id) AS owner_username,
+    (SELECT w.name FROM workspaces w WHERE w.id = namespaces.workspace_id) AS workspace_name,
+    (SELECT count(DISTINCT rb.user_id) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = namespaces.id) AS member_count,
+    (SELECT count(*) FROM role_bindings rb WHERE rb.scope = 'namespace' AND rb.namespace_id = namespaces.id) AS role_binding_count
 `
 
 type UpdateNamespaceParams struct {
@@ -434,7 +466,25 @@ type UpdateNamespaceParams struct {
 	ID          int64  `json:"id"`
 }
 
-func (q *Queries) UpdateNamespace(ctx context.Context, arg UpdateNamespaceParams) (Namespace, error) {
+type UpdateNamespaceRow struct {
+	ID               int64     `json:"id"`
+	Name             string    `json:"name"`
+	DisplayName      string    `json:"display_name"`
+	Description      string    `json:"description"`
+	WorkspaceID      int64     `json:"workspace_id"`
+	OwnerID          int64     `json:"owner_id"`
+	Visibility       string    `json:"visibility"`
+	MaxMembers       int32     `json:"max_members"`
+	Status           string    `json:"status"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	OwnerUsername    string    `json:"owner_username"`
+	WorkspaceName    string    `json:"workspace_name"`
+	MemberCount      int64     `json:"member_count"`
+	RoleBindingCount int64     `json:"role_binding_count"`
+}
+
+func (q *Queries) UpdateNamespace(ctx context.Context, arg UpdateNamespaceParams) (UpdateNamespaceRow, error) {
 	row := q.db.QueryRow(ctx, updateNamespace,
 		arg.Name,
 		arg.DisplayName,
@@ -446,7 +496,7 @@ func (q *Queries) UpdateNamespace(ctx context.Context, arg UpdateNamespaceParams
 		arg.Status,
 		arg.ID,
 	)
-	var i Namespace
+	var i UpdateNamespaceRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -459,6 +509,10 @@ func (q *Queries) UpdateNamespace(ctx context.Context, arg UpdateNamespaceParams
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUsername,
+		&i.WorkspaceName,
+		&i.MemberCount,
+		&i.RoleBindingCount,
 	)
 	return i, err
 }
