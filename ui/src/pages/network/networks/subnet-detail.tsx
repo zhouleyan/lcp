@@ -26,7 +26,7 @@ import {
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { getSubnet, updateSubnet, deleteSubnet } from "@/api/network/subnets"
 import { listAllocations, createAllocation, deleteAllocation } from "@/api/network/allocations"
-import { showApiError } from "@/api/client"
+import { ApiError, showApiError, translateApiError, translateDetailMessage } from "@/api/client"
 import type { Subnet, IPAllocation, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
@@ -394,7 +394,9 @@ function AllocationFormDialog({
   const [loading, setLoading] = useState(false)
 
   const schema = z.object({
-    ip: z.string().min(1, t("api.validation.required", { field: t("allocation.ip") })),
+    ip: z.string()
+      .min(1, t("api.validation.required", { field: t("allocation.ip") }))
+      .regex(/^\d{1,3}(\.\d{1,3}){3}$/, t("api.validation.ip.format")),
     description: z.string().optional(),
   })
 
@@ -422,7 +424,18 @@ function AllocationFormDialog({
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      showApiError(err, t, "allocation.title")
+      if (err instanceof ApiError && err.details?.length) {
+        for (const d of err.details) {
+          const fieldName = d.field.replace(/^(spec|metadata)\./, "") as keyof FormValues
+          const i18nKey = translateDetailMessage(d.message)
+          form.setError(fieldName, { message: i18nKey !== d.message ? t(i18nKey, { field: t(`allocation.${fieldName}`) || fieldName }) : d.message })
+        }
+      } else if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey, { resource: t("allocation.title") }) : err.message })
+      } else {
+        form.setError("root", { message: t("api.error.internalError") })
+      }
     } finally {
       setLoading(false)
     }
@@ -523,7 +536,18 @@ function EditSubnetDialog({
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      showApiError(err, t, "subnet.title")
+      if (err instanceof ApiError && err.details?.length) {
+        for (const d of err.details) {
+          const fieldName = d.field.replace(/^(spec|metadata)\./, "") as keyof FormValues
+          const i18nKey = translateDetailMessage(d.message)
+          form.setError(fieldName, { message: i18nKey !== d.message ? t(i18nKey, { field: fieldName }) : d.message })
+        }
+      } else if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey, { resource: t("subnet.title") }) : err.message })
+      } else {
+        form.setError("root", { message: t("api.error.internalError") })
+      }
     } finally {
       setLoading(false)
     }
@@ -537,6 +561,11 @@ function EditSubnetDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {form.formState.errors.root && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {form.formState.errors.root.message}
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">{t("subnet.name")}</label>
               <Input value={subnet.metadata.name} disabled className="mt-1" />

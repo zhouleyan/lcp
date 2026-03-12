@@ -121,6 +121,15 @@ const detailMessageMap: Record<string, string> = {
   "must contain at least one lowercase letter": "api.validation.password.lowercase",
   "must contain at least one digit": "api.validation.password.digit",
   "must be 'active' or 'inactive'": "api.validation.status.format",
+  "invalid IP address format": "api.validation.ip.format",
+  "must be 3-50 lowercase alphanumeric characters or hyphens, starting and ending with alphanumeric": "api.validation.name.networkFormat",
+}
+
+const detailMessagePrefixMap: Record<string, string> = {
+  "invalid CIDR format": "api.validation.cidr.format",
+  "gateway ": "api.validation.gateway.notInRange",
+  "CIDR ": "api.validation.cidr.overlap",
+  "must be at most ": "api.validation.description.tooLong",
 }
 
 const messageMap: Record<string, string> = {
@@ -147,7 +156,11 @@ const reasonMessageMap: Record<string, string> = {
 }
 
 export function translateDetailMessage(message: string): string {
-  return detailMessageMap[message] ?? message
+  if (detailMessageMap[message]) return detailMessageMap[message]
+  for (const [prefix, key] of Object.entries(detailMessagePrefixMap)) {
+    if (message.startsWith(prefix)) return key
+  }
+  return message
 }
 
 export function translateApiError(err: ApiError): string {

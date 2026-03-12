@@ -137,6 +137,12 @@ const common: Messages = {
   "api.validation.email.taken": "This email is already taken",
   "api.validation.phone.taken": "This phone number is already taken",
   "api.validation.password.hint": "8-128 characters, must include uppercase, lowercase, and a digit",
+  "api.validation.name.networkFormat": "Must be 3-50 lowercase alphanumeric characters or hyphens, starting and ending with alphanumeric",
+  "api.validation.cidr.format": "Please enter a valid CIDR (e.g. 10.0.0.0/24)",
+  "api.validation.ip.format": "Please enter a valid IP address",
+  "api.validation.gateway.notInRange": "Gateway is not within the CIDR range",
+  "api.validation.cidr.overlap": "CIDR overlaps with an existing subnet",
+  "api.validation.description.tooLong": "Description is too long",
 
   // action feedback
   "action.createSuccess": "Created successfully",

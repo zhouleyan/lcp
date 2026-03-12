@@ -137,6 +137,12 @@ const common: Messages = {
   "api.validation.email.taken": "该邮箱已被使用",
   "api.validation.phone.taken": "该手机号已被使用",
   "api.validation.password.hint": "8-128位，需包含大写字母、小写字母和数字",
+  "api.validation.name.networkFormat": "需为3-50位小写字母、数字或连字符，以字母或数字开头和结尾",
+  "api.validation.cidr.format": "请输入有效的 CIDR（如 10.0.0.0/24）",
+  "api.validation.ip.format": "请输入有效的 IP 地址",
+  "api.validation.gateway.notInRange": "网关不在 CIDR 范围内",
+  "api.validation.cidr.overlap": "CIDR 与已有子网重叠",
+  "api.validation.description.tooLong": "描述内容过长",
 
   // action feedback
   "action.createSuccess": "创建成功",
