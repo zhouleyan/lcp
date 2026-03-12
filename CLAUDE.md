@@ -19,7 +19,7 @@ pkg/apis/iam/store/   # PostgreSQL store implementations (pg_*.go)
 pkg/apis/iam/v1/      # Route registration (install.go)
 pkg/apis/dashboard/   # Dashboard module: overview statistics API
 pkg/db/               # Database: connection pool, pagination helpers, sqlc config
-pkg/db/schema/        # PostgreSQL DDL (schema.sql)
+pkg/db/migrations/    # Numbered *.up.sql migration files (embedded at compile time)
 pkg/db/query/         # sqlc SQL query files (*.sql)
 pkg/db/generated/     # sqlc auto-generated Go code (DO NOT EDIT)
 cmd/openapi-gen/      # OpenAPI spec generator from +openapi: annotations
@@ -73,7 +73,7 @@ HTTP Request
 
 ### Adding a New Resource (Checklist)
 
-1. **Schema**: Add table to `pkg/db/schema/schema.sql`
+1. **Migration**: Create `pkg/db/migrations/NNNNNN_<description>.up.sql` with `CREATE TABLE` / `ALTER TABLE` statements
 2. **Queries**: Create `pkg/db/query/<resource>.sql` with sqlc annotations
 3. **Generate**: Run `make sqlc-generate`
 4. **Types**: Add API types + DB type aliases in `pkg/apis/iam/types.go`
@@ -141,6 +141,21 @@ ORDER BY
 LIMIT sqlc.arg('page_size')::INT
 OFFSET sqlc.arg('page_offset')::INT;
 ```
+
+### Database Migrations
+
+Migrations live in `pkg/db/migrations/` as numbered `*.up.sql` files. They are embedded at compile time and executed automatically at server startup (before API module initialization).
+
+**File naming**: `NNNNNN_description.up.sql` (6-digit zero-padded version prefix)
+
+**Adding a migration**:
+1. Create `pkg/db/migrations/NNNNNN_description.up.sql` with the incremental DDL
+2. Run `make sqlc-generate` (sqlc reads all `*.up.sql` files as the schema)
+3. Restart server — migration applies automatically
+
+**Concurrency safety**: Uses `pg_advisory_lock` — safe for multiple instances starting simultaneously.
+
+**No down migrations**: Roll forward with a new up migration to fix issues.
 
 ### API Type Pattern
 
@@ -351,14 +366,14 @@ go run ./app/lcp-server/ -config ./app/lcp-server/config.yaml
 
 ### 数据库 Schema 变更
 
-如果分支修改了 `pkg/db/schema/schema.sql`，本地数据库不会自动迁移。需要手动执行 DDL 变更：
+迁移文件在 `pkg/db/migrations/` 目录下，服务启动时自动执行。如果分支新增了迁移文件，重启服务即可自动应用。
 
 ```bash
 # 查看表结构
 docker exec lcp-postgres psql -U lcp -d lcp -c "\d <table_name>"
 
-# 执行迁移（示例：修改约束）
-docker exec lcp-postgres psql -U lcp -d lcp -c "ALTER TABLE ..."
+# 查看已执行的迁移版本
+docker exec lcp-postgres psql -U lcp -d lcp -c "SELECT * FROM schema_migrations ORDER BY version"
 ```
 
 注意：切换回 main 分支后数据库 schema 可能不兼容，需要相应回滚。
