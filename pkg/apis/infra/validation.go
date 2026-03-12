@@ -104,3 +104,115 @@ func ValidateBindEnvironmentRequest(req *BindEnvironmentRequest) validation.Erro
 
 	return errs
 }
+
+// ValidateRegionCreate validates a RegionSpec for creation.
+func ValidateRegionCreate(name string, spec *RegionSpec) validation.ErrorList {
+	var errs validation.ErrorList
+
+	if name == "" {
+		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "is required"})
+	} else if !nameRegexp.MatchString(name) {
+		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 3-50 lowercase alphanumeric characters or hyphens"})
+	}
+
+	if spec.DisplayName == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.displayName", Message: "is required"})
+	}
+
+	if spec.Status != "" && !validStatuses[spec.Status] {
+		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+
+	return errs
+}
+
+// ValidateRegionUpdate validates a RegionSpec for full update.
+func ValidateRegionUpdate(spec *RegionSpec) validation.ErrorList {
+	var errs validation.ErrorList
+
+	if spec.Status != "" && !validStatuses[spec.Status] {
+		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+
+	return errs
+}
+
+// ValidateSiteCreate validates a SiteSpec for creation.
+func ValidateSiteCreate(name string, spec *SiteSpec) validation.ErrorList {
+	var errs validation.ErrorList
+
+	if name == "" {
+		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "is required"})
+	} else if !nameRegexp.MatchString(name) {
+		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 3-50 lowercase alphanumeric characters or hyphens"})
+	}
+
+	if spec.DisplayName == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.displayName", Message: "is required"})
+	}
+
+	if spec.RegionID == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.regionId", Message: "is required"})
+	}
+
+	if spec.Status != "" && !validStatuses[spec.Status] {
+		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+
+	return errs
+}
+
+// ValidateSiteUpdate validates a SiteSpec for full update.
+func ValidateSiteUpdate(spec *SiteSpec) validation.ErrorList {
+	var errs validation.ErrorList
+
+	if spec.Status != "" && !validStatuses[spec.Status] {
+		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+
+	return errs
+}
+
+// ValidateLocationCreate validates a LocationSpec for creation.
+func ValidateLocationCreate(name string, spec *LocationSpec) validation.ErrorList {
+	var errs validation.ErrorList
+
+	if name == "" {
+		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "is required"})
+	} else if !nameRegexp.MatchString(name) {
+		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 3-50 lowercase alphanumeric characters or hyphens"})
+	}
+
+	if spec.DisplayName == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.displayName", Message: "is required"})
+	}
+
+	if spec.SiteID == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.siteId", Message: "is required"})
+	}
+
+	if spec.Status != "" && !validStatuses[spec.Status] {
+		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+
+	if spec.RackCapacity < 0 {
+		errs = append(errs, validation.FieldError{Field: "spec.rackCapacity", Message: "must be >= 0"})
+	}
+
+	return errs
+}
+
+// ValidateLocationUpdate validates a LocationSpec for full update.
+func ValidateLocationUpdate(spec *LocationSpec) validation.ErrorList {
+	var errs validation.ErrorList
+
+	if spec.Status != "" && !validStatuses[spec.Status] {
+		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+
+	if spec.RackCapacity < 0 {
+		errs = append(errs, validation.FieldError{Field: "spec.rackCapacity", Message: "must be >= 0"})
+	}
+
+	return errs
+}
