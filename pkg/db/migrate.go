@@ -59,6 +59,29 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, fsys embed.FS) error {
 		return fmt.Errorf("iterate versions: %w", err)
 	}
 
+	// Baseline detection: if schema_migrations is empty but the database already
+	// has business tables (pre-migration era), mark the initial migration as applied
+	// so it won't try to CREATE TABLE on an existing schema.
+	if len(applied) == 0 {
+		var exists bool
+		err := conn.QueryRow(ctx,
+			"SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='users')",
+		).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("check existing schema: %w", err)
+		}
+		if exists {
+			// Pre-existing database — mark version 1 (initial schema) as already applied.
+			if _, err := conn.Exec(ctx,
+				"INSERT INTO schema_migrations (version, filename) VALUES ($1, $2)",
+				1, "000001_initial.up.sql",
+			); err != nil {
+				return fmt.Errorf("baseline initial migration: %w", err)
+			}
+			applied[1] = true
+		}
+	}
+
 	// Discover migration files.
 	entries, err := fsys.ReadDir(".")
 	if err != nil {
