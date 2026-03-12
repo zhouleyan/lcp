@@ -87,6 +87,26 @@ type HostAssignment struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// 机房表：数据中心内的物理机房，属于某个站点
+type Location struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
+	// 所属站点 ID
+	SiteID int64  `json:"site_id"`
+	Status string `json:"status"`
+	// 楼层（支持 B1, M 等非数字值）
+	Floor string `json:"floor"`
+	// 机柜总容量
+	RackCapacity int32     `json:"rack_capacity"`
+	ContactName  string    `json:"contact_name"`
+	ContactPhone string    `json:"contact_phone"`
+	ContactEmail string    `json:"contact_email"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 type Namespace struct {
 	ID          int64     `json:"id"`
 	Name        string    `json:"name"`
@@ -141,6 +161,19 @@ type RefreshToken struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// 区域表：可用域/地理区域，CMDB 顶层位置资源
+type Region struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	Status      string    `json:"status"`
+	Latitude    *float64  `json:"latitude"`
+	Longitude   *float64  `json:"longitude"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 // 角色表：内置角色 + 用户自定义角色
 type Role struct {
 	ID int64 `json:"id"`
@@ -185,6 +218,25 @@ type RolePermissionRule struct {
 	RoleID int64 `json:"role_id"`
 	// 权限模式：*:*（全通配）、iam:*（前缀）、*:list（后缀）、iam:users:list（精确）
 	Pattern string `json:"pattern"`
+}
+
+// 站点表：数据中心/物理站点，属于某个区域
+type Site struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
+	// 所属区域 ID
+	RegionID     int64     `json:"region_id"`
+	Status       string    `json:"status"`
+	Address      string    `json:"address"`
+	Latitude     *float64  `json:"latitude"`
+	Longitude    *float64  `json:"longitude"`
+	ContactName  string    `json:"contact_name"`
+	ContactPhone string    `json:"contact_phone"`
+	ContactEmail string    `json:"contact_email"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type User struct {
