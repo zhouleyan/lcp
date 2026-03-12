@@ -28,6 +28,13 @@ func NewInfraModule(database *db.DB) ModuleResult {
 	nsHostStorage := infra.NewNamespaceHostStorage(p.Host)
 	nsEnvStorage := infra.NewNamespaceEnvironmentStorage(p.Environment)
 
+	// CMDB platform-level storages
+	regionStorage := infra.NewRegionStorage(p.Region)
+	siteStorage := infra.NewSiteStorage(p.Site)
+	locationStorage := infra.NewLocationStorage(p.Location)
+	regionSiteStorage := infra.NewRegionSiteStorage(p.Site)
+	siteLocationStorage := infra.NewSiteLocationStorage(p.Location)
+
 	// Action handlers
 	assignHandler := infra.NewAssignHandler(p.Host, p.HostAssignment)
 	unassignHandler := infra.NewUnassignHandler(p.HostAssignment)
@@ -103,6 +110,24 @@ func NewInfraModule(database *db.DB) ModuleResult {
 						},
 					},
 				},
+			},
+			{
+				Name:    "regions",
+				Storage: regionStorage,
+				SubResources: []rest.ResourceInfo{
+					{Name: "sites", Storage: regionSiteStorage},
+				},
+			},
+			{
+				Name:    "sites",
+				Storage: siteStorage,
+				SubResources: []rest.ResourceInfo{
+					{Name: "locations", Storage: siteLocationStorage},
+				},
+			},
+			{
+				Name:    "locations",
+				Storage: locationStorage,
 			},
 		},
 	}
