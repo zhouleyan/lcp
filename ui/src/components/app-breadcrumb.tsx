@@ -18,10 +18,16 @@ interface BreadcrumbEntry {
   href?: string
 }
 
+/** Label keys for sub-resources not in NAV_ITEMS (nested resource paths like subnets under networks). */
+const SUB_RESOURCE_LABEL_KEYS: Record<string, string> = {
+  subnets: "subnet.title",
+  allocations: "allocation.title",
+}
+
 /** Resolve a path segment to its i18n label key. Module prefixes use `nav.{name}` convention. */
 function segmentLabelKey(seg: string): string | undefined {
   if (isModulePrefix(seg)) return `nav.${seg}`
-  return RESOURCE_LABEL_KEYS[seg]
+  return RESOURCE_LABEL_KEYS[seg] ?? SUB_RESOURCE_LABEL_KEYS[seg]
 }
 
 export function AppBreadcrumb() {
@@ -76,21 +82,13 @@ export function AppBreadcrumb() {
         href: isLast ? undefined : pathAccum,
       })
     } else {
-      // Dynamic segment (e.g. workspace ID, namespace ID)
+      // Dynamic segment (e.g. workspace ID, namespace ID, resource ID)
       const parentSeg = segments[i - 1]
-      if (parentSeg === "workspaces") {
-        items.push({
-          label: workspaceName ?? seg,
-          href: isLast ? undefined : pathAccum,
-        })
-      } else if (parentSeg === "namespaces") {
-        items.push({
-          label: seg,
-          href: isLast ? undefined : pathAccum,
-        })
-      } else {
-        items.push({ label: seg })
-      }
+      const displayLabel = parentSeg === "workspaces" ? (workspaceName ?? seg) : seg
+      items.push({
+        label: displayLabel,
+        href: isLast ? undefined : pathAccum,
+      })
     }
   }
 
