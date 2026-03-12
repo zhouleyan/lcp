@@ -1,35 +1,22 @@
 import { useCallback, useEffect, useState } from "react"
 import { Link, useParams, useNavigate } from "react-router"
 import { Pencil, Trash2, MapPin } from "lucide-react"
-import { useForm } from "react-hook-form"
-import { z } from "zod/v4"
-import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { getRegion, updateRegion, deleteRegion, getRegionSites } from "@/api/infra/regions"
-import { ApiError, showApiError, translateApiError, translateDetailMessage } from "@/api/client"
+import { getRegion, deleteRegion, getRegionSites } from "@/api/infra/regions"
+import { showApiError } from "@/api/client"
 import type { Region, Site, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
 import { Pagination } from "@/components/pagination"
+import { RegionFormDialog } from "./list"
 
 export default function RegionDetailPage() {
   const { regionId } = useParams()
@@ -265,7 +252,7 @@ export default function RegionDetailPage() {
       </div>
 
       {/* Edit dialog */}
-      <EditRegionDialog
+      <RegionFormDialog
         open={editOpen}
         onOpenChange={setEditOpen}
         region={region}
@@ -284,172 +271,3 @@ export default function RegionDetailPage() {
   )
 }
 
-// ===== Edit Region Dialog =====
-
-function EditRegionDialog({
-  open, onOpenChange, region, onSuccess,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  region: Region
-  onSuccess: () => void
-}) {
-  const { t } = useTranslation()
-  const [loading, setLoading] = useState(false)
-
-  const schema = z.object({
-    displayName: z.string().min(1, t("api.validation.required", { field: t("region.displayName") })),
-    description: z.string().optional(),
-    status: z.enum(["active", "inactive"]),
-    latitude: z.union([z.coerce.number().min(-90).max(90), z.literal("")]).optional().transform(v => v === "" ? undefined : v),
-    longitude: z.union([z.coerce.number().min(-180).max(180), z.literal("")]).optional().transform(v => v === "" ? undefined : v),
-  })
-
-  type FormValues = {
-    displayName: string
-    description: string
-    status: "active" | "inactive"
-    latitude: number | ""
-    longitude: number | ""
-  }
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema) as never,
-    mode: "onBlur",
-    defaultValues: {
-      displayName: region.spec.displayName ?? "",
-      description: region.spec.description ?? "",
-      status: (region.spec.status as "active" | "inactive") ?? "active",
-      latitude: region.spec.latitude ?? "",
-      longitude: region.spec.longitude ?? "",
-    },
-  })
-
-  useEffect(() => {
-    if (open) {
-      form.reset({
-        displayName: region.spec.displayName ?? "",
-        description: region.spec.description ?? "",
-        status: (region.spec.status as "active" | "inactive") ?? "active",
-        latitude: region.spec.latitude ?? "",
-        longitude: region.spec.longitude ?? "",
-      })
-    }
-  }, [open, region, form])
-
-  const onSubmit = async (values: FormValues) => {
-    setLoading(true)
-    try {
-      const lat = values.latitude === "" ? undefined : values.latitude
-      const lng = values.longitude === "" ? undefined : values.longitude
-      const payload = {
-        metadata: region.metadata,
-        spec: {
-          ...region.spec,
-          displayName: values.displayName,
-          description: values.description,
-          status: values.status,
-          latitude: lat,
-          longitude: lng,
-        },
-      }
-      await updateRegion(region.metadata.id, payload)
-      toast.success(t("action.updateSuccess"))
-      onOpenChange(false)
-      onSuccess()
-    } catch (err) {
-      if (err instanceof ApiError && err.details?.length) {
-        for (const d of err.details) {
-          const field = d.field.replace(/^(metadata|spec)\./, "") as keyof FormValues
-          const i18nKey = translateDetailMessage(d.message)
-          form.setError(field, { message: i18nKey !== d.message ? t(i18nKey, { field: t(`region.${field}`) || field }) : d.message })
-        }
-      } else if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey, { resource: t("region.title") }) : err.message })
-      } else {
-        form.setError("root", { message: t("api.error.internalError") })
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
-        <DialogHeader>
-          <DialogTitle>{t("region.edit")}</DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {form.formState.errors.root && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {form.formState.errors.root.message}
-              </div>
-            )}
-            <div>
-              <label className="text-sm font-medium">{t("region.name")}</label>
-              <Input value={region.metadata.name} disabled className="mt-1" />
-            </div>
-            <FormField control={form.control} name="displayName" render={({ field }) => (
-              <FormItem><FormLabel>{t("region.displayName")}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem><FormLabel>{t("region.description")}</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="status" render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("common.status")}</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl><SelectTrigger className="w-full"><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="active">{t("common.active")}</SelectItem>
-                    <SelectItem value="inactive">{t("common.inactive")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="latitude" render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("region.latitude")}</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="any"
-                    placeholder="-90 ~ 90"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.target.value === "" ? "" : Number(e.target.value))}
-                    onBlur={field.onBlur}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="longitude" render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("region.longitude")}</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="any"
-                    placeholder="-180 ~ 180"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.target.value === "" ? "" : Number(e.target.value))}
-                    onBlur={field.onBlur}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <DialogFooter className="mt-6 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-              <Button type="submit" disabled={loading}>{loading ? "..." : t("common.save")}</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  )
-}

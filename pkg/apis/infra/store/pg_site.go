@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/pkg/apis/infra"
 	"lcp.io/lcp/pkg/db"
@@ -15,13 +14,12 @@ import (
 )
 
 type pgSiteStore struct {
-	pool    *pgxpool.Pool
 	queries *generated.Queries
 }
 
 // NewPGSiteStore creates a new PostgreSQL-backed SiteStore.
-func NewPGSiteStore(pool *pgxpool.Pool, queries *generated.Queries) infra.SiteStore {
-	return &pgSiteStore{pool: pool, queries: queries}
+func NewPGSiteStore(queries *generated.Queries) infra.SiteStore {
+	return &pgSiteStore{queries: queries}
 }
 
 func (s *pgSiteStore) Create(ctx context.Context, site *infra.DBSite) (*infra.DBSite, error) {
@@ -215,34 +213,3 @@ func (s *pgSiteStore) List(ctx context.Context, q db.ListQuery) (*db.ListResult[
 	return &db.ListResult[infra.DBSiteListRow]{Items: rows, TotalCount: count}, nil
 }
 
-func (s *pgSiteStore) ListByRegionID(ctx context.Context, regionID int64, q db.ListQuery) (*db.ListResult[infra.DBSiteByRegionRow], error) {
-	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
-	sortOrder := q.SortOrder
-	if sortOrder == "" {
-		sortOrder = "desc"
-	}
-
-	count, err := s.queries.CountSitesByRegionID(ctx, generated.CountSitesByRegionIDParams{
-		RegionID: regionID,
-		Status:   filterStr(q.Filters, "status"),
-		Search:   filterStr(q.Filters, "search"),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("count sites by region: %w", err)
-	}
-
-	rows, err := s.queries.ListSitesByRegionID(ctx, generated.ListSitesByRegionIDParams{
-		RegionID:   regionID,
-		Status:     filterStr(q.Filters, "status"),
-		Search:     filterStr(q.Filters, "search"),
-		SortField:  q.SortBy,
-		SortOrder:  sortOrder,
-		PageOffset: offset,
-		PageSize:   limit,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("list sites by region: %w", err)
-	}
-
-	return &db.ListResult[infra.DBSiteByRegionRow]{Items: rows, TotalCount: count}, nil
-}

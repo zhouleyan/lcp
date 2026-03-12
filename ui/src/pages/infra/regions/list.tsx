@@ -29,7 +29,7 @@ import {
 import {
   listRegions, createRegion, updateRegion, deleteRegion, deleteRegions,
 } from "@/api/infra/regions"
-import { ApiError, showApiError, translateApiError, translateDetailMessage } from "@/api/client"
+import { showApiError, handleFormApiError } from "@/api/client"
 import type { Region, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
@@ -281,7 +281,7 @@ export default function RegionListPage() {
 
 // ===== Region Form Dialog =====
 
-interface RegionFormValues {
+export interface RegionFormValues {
   name: string
   displayName: string
   description: string
@@ -290,7 +290,7 @@ interface RegionFormValues {
   longitude: number | ""
 }
 
-function RegionFormDialog({
+export function RegionFormDialog({
   open, onOpenChange, region, onSuccess,
 }: {
   open: boolean
@@ -371,18 +371,7 @@ function RegionFormDialog({
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      if (err instanceof ApiError && err.details?.length) {
-        for (const d of err.details) {
-          const field = d.field.replace(/^(metadata|spec)\./, "") as keyof RegionFormValues
-          const i18nKey = translateDetailMessage(d.message)
-          form.setError(field, { message: i18nKey !== d.message ? t(i18nKey, { field: t(`region.${field}`) || field }) : d.message })
-        }
-      } else if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey, { resource: t("region.title") }) : err.message })
-      } else {
-        form.setError("root", { message: t("api.error.internalError") })
-      }
+      handleFormApiError(err, form, t, "region", "region.title")
     } finally {
       setLoading(false)
     }

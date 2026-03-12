@@ -31,7 +31,7 @@ import {
 } from "@/api/infra/locations"
 import { listRegions } from "@/api/infra/regions"
 import { listSites } from "@/api/infra/sites"
-import { ApiError, showApiError, translateApiError, translateDetailMessage } from "@/api/client"
+import { showApiError, handleFormApiError, SELECT_PAGE_SIZE } from "@/api/client"
 import type { Location, Region, Site, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
@@ -67,12 +67,12 @@ export default function LocationListPage() {
 
   // Fetch regions on mount
   useEffect(() => {
-    listRegions({ page: 1, pageSize: 200 }).then(data => setAllRegions(data.items ?? [])).catch(() => {})
+    listRegions({ page: 1, pageSize: SELECT_PAGE_SIZE }).then(data => setAllRegions(data.items ?? [])).catch(() => {})
   }, [])
 
   // Fetch sites when region filter changes (cascade)
   useEffect(() => {
-    const params: ListParams = { page: 1, pageSize: 200 }
+    const params: ListParams = { page: 1, pageSize: SELECT_PAGE_SIZE }
     if (regionFilter !== "all") params.regionId = regionFilter
     listSites(params).then(data => setAllSites(data.items ?? [])).catch(() => {})
     setSiteFilter("all") // reset site filter when region changes
@@ -356,7 +356,7 @@ export default function LocationListPage() {
 
 // ===== Location Form Dialog =====
 
-interface LocationFormValues {
+export interface LocationFormValues {
   name: string
   displayName: string
   description: string
@@ -369,7 +369,7 @@ interface LocationFormValues {
   contactEmail: string
 }
 
-function LocationFormDialog({
+export function LocationFormDialog({
   open, onOpenChange, location, onSuccess, allSites,
 }: {
   open: boolean
@@ -472,18 +472,7 @@ function LocationFormDialog({
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      if (err instanceof ApiError && err.details?.length) {
-        for (const d of err.details) {
-          const field = d.field.replace(/^(metadata|spec)\./, "") as keyof LocationFormValues
-          const i18nKey = translateDetailMessage(d.message)
-          form.setError(field, { message: i18nKey !== d.message ? t(i18nKey, { field: t(`location.${field}`) || field }) : d.message })
-        }
-      } else if (err instanceof ApiError) {
-        const i18nKey = translateApiError(err)
-        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey, { resource: t("location.title") }) : err.message })
-      } else {
-        form.setError("root", { message: t("api.error.internalError") })
-      }
+      handleFormApiError(err, form, t, "location", "location.title")
     } finally {
       setLoading(false)
     }

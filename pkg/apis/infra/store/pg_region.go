@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/pkg/apis/infra"
 	"lcp.io/lcp/pkg/db"
@@ -15,13 +14,12 @@ import (
 )
 
 type pgRegionStore struct {
-	pool    *pgxpool.Pool
 	queries *generated.Queries
 }
 
 // NewPGRegionStore creates a new PostgreSQL-backed RegionStore.
-func NewPGRegionStore(pool *pgxpool.Pool, queries *generated.Queries) infra.RegionStore {
-	return &pgRegionStore{pool: pool, queries: queries}
+func NewPGRegionStore(queries *generated.Queries) infra.RegionStore {
+	return &pgRegionStore{queries: queries}
 }
 
 func (s *pgRegionStore) Create(ctx context.Context, region *infra.DBRegion) (*infra.DBRegion, error) {

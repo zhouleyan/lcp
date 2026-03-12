@@ -89,35 +89,3 @@ ORDER BY
 LIMIT sqlc.arg('page_size')::INT
 OFFSET sqlc.arg('page_offset')::INT;
 
--- name: ListSitesByRegionID :many
-WITH site_data AS (
-    SELECT
-        s.*,
-        r.name AS region_name,
-        (SELECT count(*) FROM locations l WHERE l.site_id = s.id) AS location_count
-    FROM sites s
-    JOIN regions r ON s.region_id = r.id
-    WHERE s.region_id = @region_id
-        AND (sqlc.narg('status')::VARCHAR IS NULL OR s.status = sqlc.narg('status'))
-        AND (sqlc.narg('search')::VARCHAR IS NULL
-             OR s.name ILIKE '%' || sqlc.narg('search') || '%'
-             OR s.display_name ILIKE '%' || sqlc.narg('search') || '%')
-)
-SELECT * FROM site_data
-ORDER BY
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN name END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN name END DESC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN created_at END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN created_at END DESC,
-    created_at DESC
-LIMIT sqlc.arg('page_size')::INT
-OFFSET sqlc.arg('page_offset')::INT;
-
--- name: CountSitesByRegionID :one
-SELECT count(*)
-FROM sites
-WHERE region_id = @region_id
-    AND (sqlc.narg('status')::VARCHAR IS NULL OR status = sqlc.narg('status'))
-    AND (sqlc.narg('search')::VARCHAR IS NULL
-         OR name ILIKE '%' || sqlc.narg('search') || '%'
-         OR display_name ILIKE '%' || sqlc.narg('search') || '%');
