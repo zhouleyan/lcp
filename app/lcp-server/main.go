@@ -18,6 +18,7 @@ import (
 	localapis "lcp.io/lcp/app/lcp-server/apis"
 	"lcp.io/lcp/pkg/apis"
 	"lcp.io/lcp/pkg/db"
+	"lcp.io/lcp/pkg/db/migrations"
 	"lcp.io/lcp/ui"
 )
 
@@ -50,6 +51,12 @@ func main() {
 	if err != nil {
 		logger.Fatalf("cannot create database: %v", err)
 	}
+
+	// Run database migrations
+	if err := db.Migrate(ctx, database.GetPool(), migrations.FS); err != nil {
+		logger.Fatalf("cannot run database migrations: %v", err)
+	}
+	logger.Infof("database migrations applied")
 
 	// Hot-reload
 	config.RegisterReloadCallback(func(c *config.Config) {
