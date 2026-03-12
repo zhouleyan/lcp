@@ -95,6 +95,20 @@ export function getFirstPermittedPath(
       return buildScopedPath(item.resource, wsId, nsId)
     }
   }
+  // Fallback: when workspace is selected but no namespace specified,
+  // check namespace-scoped permissions within this workspace.
+  // This handles users who only have namespace-level access (e.g. added directly to a namespace).
+  if (wsId && !nsId) {
+    for (const [entryNsId, nsPerms] of Object.entries(perms.namespaces ?? {})) {
+      if (nsPerms.workspaceId !== wsId) continue
+      const nsScope = { workspaceId: wsId, namespaceId: entryNsId }
+      for (const item of NAV_ITEMS) {
+        if (checkPermission(perms, item.permission, nsScope)) {
+          return buildScopedPath(item.resource, wsId, entryNsId)
+        }
+      }
+    }
+  }
   return "/error?status=403"
 }
 

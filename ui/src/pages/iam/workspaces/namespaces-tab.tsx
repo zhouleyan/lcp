@@ -50,7 +50,7 @@ export default function WorkspaceNamespacesPage() {
     searchInput, setSearchInput, search,
     selected, toggleAll, toggleOne, clearSelection,
   } = useListState()
-  const { hasPermission } = usePermission()
+  const { hasPermission, hasAnyPermission } = usePermission()
   const [namespaces, setNamespaces] = useState<Namespace[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
@@ -159,7 +159,7 @@ export default function WorkspaceNamespacesPage() {
             className="pl-9"
           />
         </div>
-        {selected.size > 0 && hasPermission("iam:namespaces:deleteCollection", { workspaceId }) && (
+        {selected.size > 0 && hasAnyPermission("iam:namespaces:deleteCollection") && (
           <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
             <Trash2 className="mr-2 h-4 w-4" />
             {t("namespace.batchDelete")} ({selected.size})
@@ -172,7 +172,7 @@ export default function WorkspaceNamespacesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              {hasPermission("iam:namespaces:deleteCollection", { workspaceId }) && (
+              {hasAnyPermission("iam:namespaces:deleteCollection") && (
                 <TableHead className="w-10">
                   <Checkbox
                     checked={namespaces.length > 0 && selected.size === namespaces.length}
@@ -223,9 +223,7 @@ export default function WorkspaceNamespacesPage() {
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
                 {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
-              {(hasPermission("iam:namespaces:update", { workspaceId }) || hasPermission("iam:namespaces:delete", { workspaceId })) && (
-                <TableHead className="w-24">{t("common.actions")}</TableHead>
-              )}
+              <TableHead className="w-24">{t("common.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -246,7 +244,7 @@ export default function WorkspaceNamespacesPage() {
             ) : (
               namespaces.map((ns) => (
                 <TableRow key={ns.metadata.id}>
-                  {hasPermission("iam:namespaces:deleteCollection", { workspaceId }) && (
+                  {hasAnyPermission("iam:namespaces:deleteCollection") && (
                     <TableCell>
                       <Checkbox
                         checked={selected.has(ns.metadata.id)}
@@ -278,22 +276,20 @@ export default function WorkspaceNamespacesPage() {
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                     {new Date(ns.metadata.createdAt).toLocaleString()}
                   </TableCell>
-                  {(hasPermission("iam:namespaces:update", { workspaceId }) || hasPermission("iam:namespaces:delete", { workspaceId })) && (
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {hasPermission("iam:namespaces:update", { workspaceId }) && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(ns)} title={t("common.edit")}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {hasPermission("iam:namespaces:delete", { workspaceId }) && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(ns)} title={t("common.delete")}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  )}
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {hasPermission("iam:namespaces:update", { workspaceId, namespaceId: ns.metadata.id }) && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(ns)} title={t("common.edit")}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {hasPermission("iam:namespaces:delete", { workspaceId, namespaceId: ns.metadata.id }) && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(ns)} title={t("common.delete")}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             )}
