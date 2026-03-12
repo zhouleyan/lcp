@@ -8,8 +8,6 @@ services:
       TZ: ${TIME_ZONE}
     volumes:
       - pgdata:/var/lib/postgresql
-      - ../../pkg/db/schema/schema.sql:/schema.sql:ro
-      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 3s
