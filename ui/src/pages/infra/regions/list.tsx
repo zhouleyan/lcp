@@ -350,8 +350,8 @@ function RegionFormDialog({
             displayName: values.displayName,
             description: values.description,
             status: values.status,
-            latitude: lat || undefined,
-            longitude: lng || undefined,
+            latitude: lat !== undefined && lat !== "" ? lat : undefined,
+            longitude: lng !== undefined && lng !== "" ? lng : undefined,
           } as Region["spec"],
         })
         toast.success(t("action.updateSuccess"))
@@ -362,8 +362,8 @@ function RegionFormDialog({
             displayName: values.displayName,
             description: values.description,
             status: values.status,
-            latitude: lat || undefined,
-            longitude: lng || undefined,
+            latitude: lat !== undefined && lat !== "" ? lat : undefined,
+            longitude: lng !== undefined && lng !== "" ? lng : undefined,
           } as Region["spec"],
         })
         toast.success(t("action.createSuccess"))

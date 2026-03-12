@@ -349,8 +349,8 @@ function EditRegionDialog({
           displayName: values.displayName,
           description: values.description,
           status: values.status,
-          latitude: lat || undefined,
-          longitude: lng || undefined,
+          latitude: lat !== undefined && lat !== "" ? lat : undefined,
+          longitude: lng !== undefined && lng !== "" ? lng : undefined,
         },
       }
       await updateRegion(region.metadata.id, payload)
