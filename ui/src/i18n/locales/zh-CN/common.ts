@@ -55,6 +55,9 @@ const common: Messages = {
   "nav.infra": "基础设施",
   "nav.hosts": "主机",
   "nav.environments": "环境",
+  "nav.regions": "区域",
+  "nav.sites": "站点",
+  "nav.locations": "机房",
   "nav.apiDocs": "API 文档",
 
   // overview

@@ -55,6 +55,9 @@ const common: Messages = {
   "nav.infra": "Infrastructure",
   "nav.hosts": "Hosts",
   "nav.environments": "Environments",
+  "nav.regions": "Regions",
+  "nav.sites": "Sites",
+  "nav.locations": "Locations",
   "nav.apiDocs": "API Docs",
 
   // overview
