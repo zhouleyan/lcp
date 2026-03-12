@@ -123,6 +123,16 @@ const detailMessageMap: Record<string, string> = {
   "must be 'active' or 'inactive'": "api.validation.status.format",
   "must be 3-50 lowercase alphanumeric characters or hyphens": "api.validation.name.format",
   "must be >= 0": "api.validation.rackCapacity.min",
+  "invalid IP address format": "api.validation.ip.format",
+  "must be 3-50 lowercase alphanumeric characters or hyphens, starting and ending with alphanumeric": "api.validation.name.networkFormat",
+}
+
+const detailMessagePrefixMap: Record<string, string> = {
+  "invalid CIDR format": "api.validation.cidr.format",
+  "gateway ": "api.validation.gateway.notInRange",
+  "CIDR ": "api.validation.cidr.overlap",
+  "subnet CIDR ": "api.validation.cidr.notWithinNetwork",
+  "must be at most ": "api.validation.description.tooLong",
 }
 
 const messageMap: Record<string, string> = {
@@ -137,6 +147,11 @@ const messagePrefixMap: Record<string, string> = {
   "cannot delete workspace": "api.error.cannotDeleteWorkspace",
   "cannot delete namespace": "api.error.cannotDeleteNamespace",
   "cannot delete location": "api.error.cannotDeleteLocation",
+  "cannot delete network": "api.error.cannotDeleteNetwork",
+  "cannot delete subnet": "api.error.cannotDeleteSubnet",
+  "network has reached the maximum number of subnets": "api.error.maxSubnetsReached",
+  "subnet already has gateway": "api.error.subnetAlreadyHasGateway",
+  "IP ": "api.error.ipNotInRange",
 }
 
 const reasonMessageMap: Record<string, string> = {
@@ -147,7 +162,11 @@ const reasonMessageMap: Record<string, string> = {
 }
 
 export function translateDetailMessage(message: string): string {
-  return detailMessageMap[message] ?? message
+  if (detailMessageMap[message]) return detailMessageMap[message]
+  for (const [prefix, key] of Object.entries(detailMessagePrefixMap)) {
+    if (message.startsWith(prefix)) return key
+  }
+  return message
 }
 
 export function translateApiError(err: ApiError): string {

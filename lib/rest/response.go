@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	apierrors "lcp.io/lcp/lib/api/errors"
+	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/runtime"
 )
 
@@ -59,6 +60,11 @@ func ErrorNegotiated(
 	} else {
 		code = http.StatusInternalServerError
 		errObj = apierrors.NewInternalError(err)
+	}
+
+	// Log server errors (5xx) with full detail for debugging
+	if code >= 500 {
+		logger.Errorf("[%d] %s %s: %v", code, req.Method, req.URL.Path, err)
 	}
 
 	result, negErr := runtime.NegotiateOutputMediaType(req, ns)

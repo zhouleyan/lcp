@@ -87,6 +87,19 @@ type HostAssignment struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// IP 分配记录表：记录每个已分配的 IP
+type IpAllocation struct {
+	ID int64 `json:"id"`
+	// 所属子网 ID
+	SubnetID int64 `json:"subnet_id"`
+	// 分配的 IP 地址
+	Ip          string `json:"ip"`
+	Description string `json:"description"`
+	// 是否为网关地址（自动分配，不可手动删除）
+	IsGateway bool      `json:"is_gateway"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // 机房表：数据中心内的物理机房，属于某个站点
 type Location struct {
 	ID          int64  `json:"id"`
@@ -119,6 +132,23 @@ type Namespace struct {
 	Status      string    `json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// 网络表：平台级 VPC 逻辑分组容器
+type Network struct {
+	ID int64 `json:"id"`
+	// 网络名称，全局唯一
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
+	// 网络 CIDR 地址段（可选），限制子网 CIDR 分配范围
+	Cidr       string `json:"cidr"`
+	MaxSubnets int32  `json:"max_subnets"`
+	IsPublic   bool   `json:"is_public"`
+	// 状态：active / inactive
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // OIDC 签名密钥：自动生成，存储 PEM 编码的密钥对
@@ -256,6 +286,24 @@ type Site struct {
 	ContactEmail string    `json:"contact_email"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// 子网表：每个子网 = 一个 CIDR + 一个 bitmap
+type Subnet struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
+	// 所属网络 ID
+	NetworkID int64 `json:"network_id"`
+	// CIDR 表示，如 10.0.0.0/24
+	Cidr string `json:"cidr"`
+	// 网关 IP 地址
+	Gateway string `json:"gateway"`
+	// IP 分配位图（BYTEA）
+	Bitmap    []byte    `json:"bitmap"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type User struct {

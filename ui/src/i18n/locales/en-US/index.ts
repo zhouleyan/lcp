@@ -4,6 +4,7 @@ import iam from "./iam"
 import dashboard from "./dashboard"
 import audit from "./audit"
 import infra from "./infra"
+import network from "./network"
 
 const enUS: Messages = {
   ...common,
@@ -11,6 +12,7 @@ const enUS: Messages = {
   ...dashboard,
   ...audit,
   ...infra,
+  ...network,
 }
 
 export default enUS

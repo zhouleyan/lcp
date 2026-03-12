@@ -338,6 +338,71 @@ export interface HostAssignmentList extends TypeMeta {
   totalCount: number
 }
 
+// --- Network ---
+
+export interface NetworkSpec {
+  displayName?: string
+  description?: string
+  cidr?: string
+  maxSubnets?: number
+  isPublic?: boolean
+  status?: "active" | "inactive"
+  subnetCount?: number
+}
+
+export interface Network extends TypeMeta {
+  metadata: ObjectMeta
+  spec: NetworkSpec
+}
+
+export interface NetworkList extends TypeMeta {
+  items: Network[]
+  totalCount: number
+}
+
+// --- Subnet ---
+
+export interface SubnetSpec {
+  displayName?: string
+  description?: string
+  cidr: string
+  gateway?: string
+  networkId?: string
+  freeIPs?: number
+  usedIPs?: number
+  totalIPs?: number
+  nextFreeIP?: string
+}
+
+export interface Subnet extends TypeMeta {
+  metadata: ObjectMeta
+  spec: SubnetSpec
+}
+
+export interface SubnetList extends TypeMeta {
+  items: Subnet[]
+  totalCount: number
+}
+
+// --- IPAllocation ---
+
+export interface IPAllocationSpec {
+  ip: string
+  description?: string
+  isGateway?: boolean
+  subnetId?: string
+}
+
+export interface IPAllocation extends TypeMeta {
+  metadata: ObjectMeta
+  spec: IPAllocationSpec
+}
+
+export interface IPAllocationList extends TypeMeta {
+  items: IPAllocation[]
+  totalCount: number
+}
+
 // --- Infra Requests ---
 
 export interface AssignHostRequest {

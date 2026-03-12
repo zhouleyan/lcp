@@ -11,6 +11,7 @@ import {
   Warehouse,
   Box,
   ScrollText,
+  Network,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -51,6 +52,7 @@ export const NAV_ITEMS: NavItemConfig[] = [
   { resource: "locations", module: "infra", permission: "infra:locations:list", labelKey: "nav.locations", icon: Warehouse, group: "nav.infra", scopes: ["platform"] },
   { resource: "racks", module: "infra", permission: "infra:racks:list", labelKey: "nav.racks", icon: Box, group: "nav.infra", scopes: ["platform"] },
   { resource: "logs", module: "audit", permission: "audit:logs:list", labelKey: "nav.auditLogs", icon: ScrollText, group: "nav.audit", scopes: ["platform"] },
+  { resource: "networks", module: "network", permission: "network:networks:list", labelKey: "nav.networks", icon: Network, group: "nav.network", scopes: ["platform"] },
 ]
 
 // --- Derived maps ---

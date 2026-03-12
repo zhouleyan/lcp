@@ -18,10 +18,16 @@ interface BreadcrumbEntry {
   href?: string
 }
 
+/** Label keys for sub-resources not in NAV_ITEMS (nested resource paths like subnets under networks). */
+const SUB_RESOURCE_LABEL_KEYS: Record<string, string> = {
+  subnets: "subnet.title",
+  allocations: "allocation.title",
+}
+
 /** Resolve a path segment to its i18n label key. Module prefixes use `nav.{name}` convention. */
 function segmentLabelKey(seg: string): string | undefined {
   if (isModulePrefix(seg)) return `nav.${seg}`
-  return RESOURCE_LABEL_KEYS[seg]
+  return RESOURCE_LABEL_KEYS[seg] ?? SUB_RESOURCE_LABEL_KEYS[seg]
 }
 
 export function AppBreadcrumb() {
@@ -66,31 +72,25 @@ export function AppBreadcrumb() {
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i]
+    const parentPath = pathAccum
     pathAccum += "/" + seg
     const isLast = i === segments.length - 1
 
     const labelKey = segmentLabelKey(seg)
     if (labelKey) {
+      // Sub-resources (e.g. "subnets") are embedded in the parent detail page,
+      // so link to the parent path instead of the non-existent standalone path.
+      const isSubResource = seg in SUB_RESOURCE_LABEL_KEYS
+      const href = isLast ? undefined : (isSubResource ? parentPath : pathAccum)
+      items.push({ label: t(labelKey), href })
+    } else {
+      // Dynamic segment (e.g. workspace ID, namespace ID, resource ID)
+      const parentSeg = segments[i - 1]
+      const displayLabel = parentSeg === "workspaces" ? (workspaceName ?? seg) : seg
       items.push({
-        label: t(labelKey),
+        label: displayLabel,
         href: isLast ? undefined : pathAccum,
       })
-    } else {
-      // Dynamic segment (e.g. workspace ID, namespace ID)
-      const parentSeg = segments[i - 1]
-      if (parentSeg === "workspaces") {
-        items.push({
-          label: workspaceName ?? seg,
-          href: isLast ? undefined : pathAccum,
-        })
-      } else if (parentSeg === "namespaces") {
-        items.push({
-          label: seg,
-          href: isLast ? undefined : pathAccum,
-        })
-      } else {
-        items.push({ label: seg })
-      }
     }
   }
 

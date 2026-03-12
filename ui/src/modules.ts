@@ -4,7 +4,7 @@
  * Adding a new module here makes it automatically recognised by breadcrumbs,
  * scope detection, and any other path-parsing logic.
  */
-export const MODULE_PREFIXES = new Set(["iam", "dashboard", "audit", "infra"])
+export const MODULE_PREFIXES = new Set(["iam", "dashboard", "audit", "infra", "network"])
 
 /** Check whether a path segment is a known module prefix. */
 export function isModulePrefix(segment: string): boolean {

@@ -168,6 +168,56 @@ func TestRange_IPv6(t *testing.T) {
 	}
 }
 
+func TestRange_SaveLoadBytes(t *testing.T) {
+	r1, _ := NewCIDRRange(mustParseCIDR(t, "10.0.0.0/24"))
+
+	// Allocate some IPs
+	r1.Allocate(net.ParseIP("10.0.0.1"))
+	r1.Allocate(net.ParseIP("10.0.0.50"))
+	r1.Allocate(net.ParseIP("10.0.0.100"))
+
+	if r1.Free() != 251 {
+		t.Fatalf("expected 251 free, got %d", r1.Free())
+	}
+
+	// Save bitmap
+	data := r1.SaveToBytes()
+
+	// Create a new range and restore
+	r2, _ := NewCIDRRange(mustParseCIDR(t, "10.0.0.0/24"))
+	if err := r2.LoadFromBytes(data); err != nil {
+		t.Fatalf("LoadFromBytes: %v", err)
+	}
+
+	// Verify same state
+	if r2.Free() != 251 {
+		t.Fatalf("expected 251 free after restore, got %d", r2.Free())
+	}
+	if !r2.Has(net.ParseIP("10.0.0.1")) {
+		t.Fatal("expected 10.0.0.1 to be allocated after restore")
+	}
+	if !r2.Has(net.ParseIP("10.0.0.50")) {
+		t.Fatal("expected 10.0.0.50 to be allocated after restore")
+	}
+	if !r2.Has(net.ParseIP("10.0.0.100")) {
+		t.Fatal("expected 10.0.0.100 to be allocated after restore")
+	}
+	if r2.Has(net.ParseIP("10.0.0.2")) {
+		t.Fatal("expected 10.0.0.2 to NOT be allocated after restore")
+	}
+
+	// Verify empty bitmap round-trip
+	r4, _ := NewCIDRRange(mustParseCIDR(t, "10.0.0.0/24"))
+	emptyData := r4.SaveToBytes()
+	r5, _ := NewCIDRRange(mustParseCIDR(t, "10.0.0.0/24"))
+	if err := r5.LoadFromBytes(emptyData); err != nil {
+		t.Fatalf("LoadFromBytes empty: %v", err)
+	}
+	if r5.Free() != 254 {
+		t.Fatalf("expected 254 free for empty restore, got %d", r5.Free())
+	}
+}
+
 func TestRange_FullAllocateRelease(t *testing.T) {
 	r, _ := NewCIDRRange(mustParseCIDR(t, "10.0.0.0/24"))
 

@@ -76,6 +76,23 @@ func (b *AllocationBitmap) AllocateNext() (int, bool) {
 	return next, true
 }
 
+// NextFree returns the smallest unallocated offset without reserving it.
+// Returns (0, false) if all items are allocated.
+func (b *AllocationBitmap) NextFree() (int, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.count >= b.max {
+		return 0, false
+	}
+	for i := range b.max {
+		if b.allocated.Bit(i) == 0 {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
 // Release releases the item back to the pool. Releasing an
 // unallocated item or an item out of the range is a no-op.
 func (b *AllocationBitmap) Release(offset int) {
