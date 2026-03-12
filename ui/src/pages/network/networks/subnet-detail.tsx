@@ -466,7 +466,16 @@ function AllocationFormDialog({
     }
   }
 
-  const checkOccupied = async () => {
+  const handleOctetBlur = async (index: number) => {
+    // Reset empty editable octet to default
+    if (index >= fixedCount && octets[index] === "") {
+      const next = [...octets]
+      next[index] = defaultOctets[index]
+      setOctets(next)
+      setIpError("")
+      return
+    }
+    // Check occupied when all octets are filled
     if (octets.some((o) => o === "")) return
     const ip = octets.join(".")
     try {
@@ -546,7 +555,7 @@ function AllocationFormDialog({
                     value={octet}
                     onChange={(e) => updateOctet(i, e.target.value)}
                     onKeyDown={(e) => handleOctetKeyDown(i, e)}
-                    onBlur={() => { if (i === 3 || i === [3, 2, 1, 0].find((j) => j >= fixedCount)) checkOccupied() }}
+                    onBlur={() => handleOctetBlur(i)}
                     disabled={i < fixedCount}
                     className="w-16 text-center font-mono tabular-nums"
                     maxLength={3}
