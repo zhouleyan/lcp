@@ -5,6 +5,9 @@ type Stores struct {
 	Host           HostStore
 	HostAssignment HostAssignmentStore
 	Environment    EnvironmentStore
+	Region         RegionStore
+	Site           SiteStore
+	Location       LocationStore
 }
 
 // RESTStorageProvider centralizes all Infra Store instances.
