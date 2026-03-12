@@ -311,7 +311,7 @@ function EditLocationDialog({
           siteId: values.siteId,
           status: values.status,
           floor: values.floor,
-          rackCapacity: rc !== undefined && rc !== "" ? rc : undefined,
+          rackCapacity: rc,
           contactName: values.contactName,
           contactPhone: values.contactPhone,
           contactEmail: values.contactEmail,
