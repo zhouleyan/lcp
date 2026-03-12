@@ -15,6 +15,7 @@ import (
 	"lcp.io/lcp/pkg/apis/iam"
 	iamv1 "lcp.io/lcp/pkg/apis/iam/v1"
 	infrav1 "lcp.io/lcp/pkg/apis/infra/v1"
+	networkv1 "lcp.io/lcp/pkg/apis/network/v1"
 	"lcp.io/lcp/pkg/db"
 )
 
@@ -38,7 +39,10 @@ func NewAPIGroupInfos(ctx context.Context, database *db.DB) Result {
 	// --- Infra module ---
 	infraResult := infrav1.NewInfraModule(database)
 
-	groups := []*rest.APIGroupInfo{iamResult.Group, dashboardResult.Group, auditResult.Group, infraResult.Group}
+	// --- Network module ---
+	networkResult := networkv1.NewNetworkModule(database)
+
+	groups := []*rest.APIGroupInfo{iamResult.Group, dashboardResult.Group, auditResult.Group, infraResult.Group, networkResult.Group}
 
 	// Sync permissions for ALL modules centrally
 	iamv1.SyncAllPermissions(ctx, database, groups)
