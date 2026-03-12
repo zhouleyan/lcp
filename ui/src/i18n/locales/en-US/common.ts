@@ -132,6 +132,8 @@ const common: Messages = {
   "api.validation.password.uppercase": "Password must contain at least one uppercase letter",
   "api.validation.password.lowercase": "Password must contain at least one lowercase letter",
   "api.validation.password.digit": "Password must contain at least one digit",
+  "api.validation.name.format": "Name must be 3-50 lowercase letters, digits, or hyphens",
+  "api.validation.rackCapacity.min": "Rack capacity must be >= 0",
   "api.validation.status.format": "Status must be 'active' or 'inactive'",
   "api.validation.username.taken": "This username is already taken",
   "api.validation.email.taken": "This email is already taken",

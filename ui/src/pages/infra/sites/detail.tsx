@@ -26,7 +26,7 @@ import {
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { getSite, updateSite, deleteSite, getSiteLocations } from "@/api/infra/sites"
 import { listRegions } from "@/api/infra/regions"
-import { showApiError } from "@/api/client"
+import { ApiError, showApiError, translateApiError, translateDetailMessage } from "@/api/client"
 import type { Site, Region, Location, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
@@ -346,7 +346,7 @@ function EditSiteDialog({
   }, [open])
 
   const schema = z.object({
-    displayName: z.string().optional(),
+    displayName: z.string().min(1, t("api.validation.required", { field: t("site.displayName") })),
     description: z.string().optional(),
     regionId: z.string().min(1, t("api.validation.required", { field: t("site.regionId") })),
     status: z.enum(["active", "inactive"]),
@@ -431,7 +431,18 @@ function EditSiteDialog({
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      showApiError(err, t, "site.title")
+      if (err instanceof ApiError && err.details?.length) {
+        for (const d of err.details) {
+          const field = d.field.replace(/^(metadata|spec)\./, "") as keyof FormValues
+          const i18nKey = translateDetailMessage(d.message)
+          form.setError(field, { message: i18nKey !== d.message ? t(i18nKey, { field: t(`site.${field}`) || field }) : d.message })
+        }
+      } else if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey, { resource: t("site.title") }) : err.message })
+      } else {
+        form.setError("root", { message: t("api.error.internalError") })
+      }
     } finally {
       setLoading(false)
     }

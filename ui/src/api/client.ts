@@ -121,6 +121,8 @@ const detailMessageMap: Record<string, string> = {
   "must contain at least one lowercase letter": "api.validation.password.lowercase",
   "must contain at least one digit": "api.validation.password.digit",
   "must be 'active' or 'inactive'": "api.validation.status.format",
+  "must be 3-50 lowercase alphanumeric characters or hyphens": "api.validation.name.format",
+  "must be >= 0": "api.validation.rackCapacity.min",
 }
 
 const messageMap: Record<string, string> = {

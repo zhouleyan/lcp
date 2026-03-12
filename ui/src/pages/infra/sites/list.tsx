@@ -30,7 +30,7 @@ import {
   listSites, createSite, updateSite, deleteSite, deleteSites,
 } from "@/api/infra/sites"
 import { listRegions } from "@/api/infra/regions"
-import { showApiError } from "@/api/client"
+import { ApiError, showApiError, translateApiError, translateDetailMessage } from "@/api/client"
 import type { Site, Region, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
@@ -349,7 +349,7 @@ function SiteFormDialog({
       .min(3, t("api.validation.name.format"))
       .max(50, t("api.validation.name.format"))
       .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, t("api.validation.name.format")),
-    displayName: z.string().optional(),
+    displayName: z.string().min(1, t("api.validation.required", { field: t("site.displayName") })),
     description: z.string().optional(),
     regionId: z.string().min(1, t("api.validation.required", { field: t("site.regionId") })),
     status: z.enum(["active", "inactive"]),
@@ -439,7 +439,18 @@ function SiteFormDialog({
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      showApiError(err, t, "site.title")
+      if (err instanceof ApiError && err.details?.length) {
+        for (const d of err.details) {
+          const field = d.field.replace(/^(metadata|spec)\./, "") as keyof SiteFormValues
+          const i18nKey = translateDetailMessage(d.message)
+          form.setError(field, { message: i18nKey !== d.message ? t(i18nKey, { field: t(`site.${field}`) || field }) : d.message })
+        }
+      } else if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey, { resource: t("site.title") }) : err.message })
+      } else {
+        form.setError("root", { message: t("api.error.internalError") })
+      }
     } finally {
       setLoading(false)
     }

@@ -29,7 +29,7 @@ import {
 import {
   listRegions, createRegion, updateRegion, deleteRegion, deleteRegions,
 } from "@/api/infra/regions"
-import { showApiError } from "@/api/client"
+import { ApiError, showApiError, translateApiError, translateDetailMessage } from "@/api/client"
 import type { Region, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
@@ -307,7 +307,7 @@ function RegionFormDialog({
       .min(3, t("api.validation.name.format"))
       .max(50, t("api.validation.name.format"))
       .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, t("api.validation.name.format")),
-    displayName: z.string().optional(),
+    displayName: z.string().min(1, t("api.validation.required", { field: t("region.displayName") })),
     description: z.string().optional(),
     status: z.enum(["active", "inactive"]),
     latitude: z.union([z.coerce.number().min(-90).max(90), z.literal("")]).optional().transform(v => v === "" ? undefined : v),
@@ -371,7 +371,18 @@ function RegionFormDialog({
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      showApiError(err, t, "region.title")
+      if (err instanceof ApiError && err.details?.length) {
+        for (const d of err.details) {
+          const field = d.field.replace(/^(metadata|spec)\./, "") as keyof RegionFormValues
+          const i18nKey = translateDetailMessage(d.message)
+          form.setError(field, { message: i18nKey !== d.message ? t(i18nKey, { field: t(`region.${field}`) || field }) : d.message })
+        }
+      } else if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey, { resource: t("region.title") }) : err.message })
+      } else {
+        form.setError("root", { message: t("api.error.internalError") })
+      }
     } finally {
       setLoading(false)
     }

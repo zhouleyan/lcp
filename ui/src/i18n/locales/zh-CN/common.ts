@@ -132,6 +132,8 @@ const common: Messages = {
   "api.validation.password.uppercase": "密码需包含至少一个大写字母",
   "api.validation.password.lowercase": "密码需包含至少一个小写字母",
   "api.validation.password.digit": "密码需包含至少一个数字",
+  "api.validation.name.format": "名称需为3-50位小写字母、数字或连字符",
+  "api.validation.rackCapacity.min": "机柜容量不能小于 0",
   "api.validation.status.format": "状态必须为「活跃」或「停用」",
   "api.validation.username.taken": "该用户名已被使用",
   "api.validation.email.taken": "该邮箱已被使用",

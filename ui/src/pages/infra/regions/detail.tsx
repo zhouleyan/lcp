@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/form"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { getRegion, updateRegion, deleteRegion, getRegionSites } from "@/api/infra/regions"
-import { showApiError } from "@/api/client"
+import { ApiError, showApiError, translateApiError, translateDetailMessage } from "@/api/client"
 import type { Region, Site, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
@@ -298,7 +298,7 @@ function EditRegionDialog({
   const [loading, setLoading] = useState(false)
 
   const schema = z.object({
-    displayName: z.string().optional(),
+    displayName: z.string().min(1, t("api.validation.required", { field: t("region.displayName") })),
     description: z.string().optional(),
     status: z.enum(["active", "inactive"]),
     latitude: z.union([z.coerce.number().min(-90).max(90), z.literal("")]).optional().transform(v => v === "" ? undefined : v),
@@ -358,7 +358,18 @@ function EditRegionDialog({
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      showApiError(err, t, "region.title")
+      if (err instanceof ApiError && err.details?.length) {
+        for (const d of err.details) {
+          const field = d.field.replace(/^(metadata|spec)\./, "") as keyof FormValues
+          const i18nKey = translateDetailMessage(d.message)
+          form.setError(field, { message: i18nKey !== d.message ? t(i18nKey, { field: t(`region.${field}`) || field }) : d.message })
+        }
+      } else if (err instanceof ApiError) {
+        const i18nKey = translateApiError(err)
+        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey, { resource: t("region.title") }) : err.message })
+      } else {
+        form.setError("root", { message: t("api.error.internalError") })
+      }
     } finally {
       setLoading(false)
     }
