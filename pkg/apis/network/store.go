@@ -22,7 +22,7 @@ type NetworkStore interface {
 
 // SubnetStore defines database operations on subnets.
 type SubnetStore interface {
-	Create(ctx context.Context, subnet *DBSubnet) (*DBSubnet, error)
+	Create(ctx context.Context, tx pgx.Tx, subnet *DBSubnet) (*DBSubnet, error)
 	GetByID(ctx context.Context, id int64) (*DBSubnet, error)
 	GetByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*DBSubnet, error)
 	Update(ctx context.Context, subnet *DBSubnet) (*DBSubnet, error)

@@ -29,8 +29,13 @@ func (s *pgSubnetStore) BeginTx(ctx context.Context) (pgx.Tx, error) {
 	return s.pool.Begin(ctx)
 }
 
-func (s *pgSubnetStore) Create(ctx context.Context, subnet *network.DBSubnet) (*network.DBSubnet, error) {
-	row, err := s.queries.CreateSubnet(ctx, generated.CreateSubnetParams{
+func (s *pgSubnetStore) Create(ctx context.Context, tx pgx.Tx, subnet *network.DBSubnet) (*network.DBSubnet, error) {
+	q := s.queries
+	if tx != nil {
+		q = q.WithTx(tx)
+	}
+
+	row, err := q.CreateSubnet(ctx, generated.CreateSubnetParams{
 		Name:        subnet.Name,
 		DisplayName: subnet.DisplayName,
 		Description: subnet.Description,
