@@ -349,6 +349,81 @@ export interface BindEnvironmentRequest {
   environmentId: string
 }
 
+// --- Region ---
+
+export interface RegionSpec {
+  displayName?: string
+  description?: string
+  status?: string
+  latitude?: number | null
+  longitude?: number | null
+  siteCount?: number
+}
+
+export interface Region extends TypeMeta {
+  metadata: ObjectMeta
+  spec: RegionSpec
+}
+
+export interface RegionList extends TypeMeta {
+  items: Region[]
+  totalCount: number
+}
+
+// --- Site ---
+
+export interface SiteSpec {
+  displayName?: string
+  description?: string
+  regionId: string
+  regionName?: string
+  status?: string
+  address?: string
+  latitude?: number | null
+  longitude?: number | null
+  contactName?: string
+  contactPhone?: string
+  contactEmail?: string
+  locationCount?: number
+}
+
+export interface Site extends TypeMeta {
+  metadata: ObjectMeta
+  spec: SiteSpec
+}
+
+export interface SiteList extends TypeMeta {
+  items: Site[]
+  totalCount: number
+}
+
+// --- Location ---
+
+export interface LocationSpec {
+  displayName?: string
+  description?: string
+  siteId: string
+  siteName?: string
+  regionId?: string
+  regionName?: string
+  status?: string
+  floor?: string
+  rackCapacity?: number
+  contactName?: string
+  contactPhone?: string
+  contactEmail?: string
+}
+
+export interface Location extends TypeMeta {
+  metadata: ObjectMeta
+  spec: LocationSpec
+}
+
+export interface LocationList extends TypeMeta {
+  items: Location[]
+  totalCount: number
+}
+
 export interface StatusResponseDetail {
   field: string
   message: string
