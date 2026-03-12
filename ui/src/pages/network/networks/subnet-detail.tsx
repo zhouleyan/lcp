@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useNavigate } from "react-router"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import { useForm } from "react-hook-form"
@@ -195,7 +195,7 @@ export default function SubnetDetailPage() {
 
         {/* Allocations */}
         {networkId && subnetId && (
-          <AllocationsSection networkId={networkId} subnetId={subnetId} onSubnetChange={fetchSubnet} />
+          <AllocationsSection networkId={networkId} subnetId={subnetId} cidr={subnet.spec.cidr} onSubnetChange={fetchSubnet} />
         )}
       </div>
 
@@ -225,10 +225,11 @@ export default function SubnetDetailPage() {
 // ===== Allocations Section =====
 
 function AllocationsSection({
-  networkId, subnetId, onSubnetChange,
+  networkId, subnetId, cidr, onSubnetChange,
 }: {
   networkId: string
   subnetId: string
+  cidr: string
   onSubnetChange: () => void
 }) {
   const { t } = useTranslation()
@@ -363,6 +364,7 @@ function AllocationsSection({
           onOpenChange={setCreateOpen}
           networkId={networkId}
           subnetId={subnetId}
+          cidr={cidr}
           onSuccess={handleCreateSuccess}
         />
 
@@ -381,66 +383,131 @@ function AllocationsSection({
 
 // ===== Allocation Form Dialog =====
 
+/** Parse CIDR into network octets and the count of fully-fixed octets. */
+function parseCIDR(cidr: string) {
+  const m = cidr.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)\/(\d+)$/)
+  if (!m) return { networkOctets: [0, 0, 0, 0], fixedCount: 0 }
+  return {
+    networkOctets: [+m[1], +m[2], +m[3], +m[4]],
+    fixedCount: Math.floor(+m[5] / 8),
+  }
+}
+
 function AllocationFormDialog({
-  open, onOpenChange, networkId, subnetId, onSuccess,
+  open, onOpenChange, networkId, subnetId, cidr, onSuccess,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   networkId: string
   subnetId: string
+  cidr: string
   onSuccess: () => void
 }) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
+  const [ipError, setIpError] = useState("")
+  const [description, setDescription] = useState("")
+  const [formError, setFormError] = useState("")
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null])
 
-  const schema = z.object({
-    ip: z.string()
-      .min(1, t("api.validation.required", { field: t("allocation.ip") }))
-      .regex(/^\d{1,3}(\.\d{1,3}){3}$/, t("api.validation.ip.format")),
-    description: z.string().optional(),
-  })
+  const { networkOctets, fixedCount } = useMemo(() => parseCIDR(cidr), [cidr])
 
-  type FormValues = z.infer<typeof schema>
+  const defaultOctets = useMemo(() => {
+    const d = networkOctets.map(String)
+    d[3] = String(networkOctets[3] + 1)
+    return d
+  }, [networkOctets])
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema) as never,
-    mode: "onBlur",
-    defaultValues: { ip: "", description: "" },
-  })
+  const [octets, setOctets] = useState<string[]>(defaultOctets)
 
   useEffect(() => {
     if (open) {
-      form.reset({ ip: "", description: "" })
+      setOctets([...defaultOctets])
+      setIpError("")
+      setDescription("")
+      setFormError("")
+      setLoading(false)
     }
-  }, [open, form])
+  }, [open, defaultOctets])
 
-  const onSubmit = async (values: FormValues) => {
+  const updateOctet = (index: number, value: string) => {
+    if (!/^\d{0,3}$/.test(value)) return
+    if (value !== "" && +value > 255) return
+    const next = [...octets]
+    next[index] = value
+    setOctets(next)
+    setIpError("")
+    // Auto-advance to next input when octet is complete
+    if (value.length === 3 || (value.length === 2 && +value > 25)) {
+      const nextEditable = [index + 1, index + 2, index + 3].find((i) => i < 4 && i >= fixedCount)
+      if (nextEditable !== undefined) inputRefs.current[nextEditable]?.focus()
+    }
+  }
+
+  const handleOctetKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "." || e.key === "Tab") {
+      if (e.key === ".") e.preventDefault()
+      const nextEditable = [index + 1, index + 2, index + 3].find((i) => i < 4 && i >= fixedCount)
+      if (nextEditable !== undefined) inputRefs.current[nextEditable]?.focus()
+    }
+    // Backspace on empty → go to previous editable
+    if (e.key === "Backspace" && octets[index] === "") {
+      const prevEditable = [index - 1, index - 2, index - 3].find((i) => i >= 0 && i >= fixedCount)
+      if (prevEditable !== undefined) inputRefs.current[prevEditable]?.focus()
+    }
+  }
+
+  const checkOccupied = async () => {
+    if (octets.some((o) => o === "")) return
+    const ip = octets.join(".")
+    try {
+      const data = await listAllocations(networkId, subnetId, { page: 1, pageSize: 1, search: ip })
+      if (data.items?.some((a) => a.spec.ip === ip)) {
+        setIpError(t("api.error.ipAlreadyAllocated"))
+      }
+    } catch { /* backend will validate on submit */ }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const emptyEditable = octets.some((o, i) => i >= fixedCount && o === "")
+    if (emptyEditable) {
+      setIpError(t("api.validation.required", { field: t("allocation.ip") }))
+      return
+    }
+    if (ipError) return
+
+    const ip = octets.join(".")
     setLoading(true)
     try {
       await createAllocation(networkId, subnetId, {
-        spec: { ip: values.ip, description: values.description },
+        spec: { ip, description: description || undefined },
       })
       toast.success(t("action.createSuccess"))
       onOpenChange(false)
       onSuccess()
     } catch (err) {
       if (err instanceof ApiError && err.details?.length) {
-        for (const d of err.details) {
-          const fieldName = d.field.replace(/^(spec|metadata)\./, "") as keyof FormValues
-          const i18nKey = translateDetailMessage(d.message)
-          form.setError(fieldName, { message: i18nKey !== d.message ? t(i18nKey, { field: t(`allocation.${fieldName}`) || fieldName }) : d.message })
+        const ipDetail = err.details.find((d) => d.field === "spec.ip")
+        if (ipDetail) {
+          const i18nKey = translateDetailMessage(ipDetail.message)
+          setIpError(i18nKey !== ipDetail.message ? t(i18nKey, { field: t("allocation.ip") }) : ipDetail.message)
+        }
+        const descDetail = err.details.find((d) => d.field === "spec.description")
+        if (descDetail) {
+          const i18nKey = translateDetailMessage(descDetail.message)
+          setFormError(i18nKey !== descDetail.message ? t(i18nKey, { field: t("allocation.description") }) : descDetail.message)
         }
       } else if (err instanceof ApiError) {
         const i18nKey = translateApiError(err)
         const msg = i18nKey !== err.message ? t(i18nKey, { resource: t("allocation.title") }) : err.message
-        // IP-related errors (not in range, already allocated) → show on ip field
         if (err.status === 409 || err.message.startsWith("IP ")) {
-          form.setError("ip", { message: msg })
+          setIpError(msg)
         } else {
-          form.setError("root", { message: msg })
+          setFormError(msg)
         }
       } else {
-        form.setError("root", { message: t("api.error.internalError") })
+        setFormError(t("api.error.internalError"))
       }
     } finally {
       setLoading(false)
@@ -453,33 +520,43 @@ function AllocationFormDialog({
         <DialogHeader>
           <DialogTitle>{t("allocation.create")}</DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {form.formState.errors.root && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {form.formState.errors.root.message}
-              </div>
-            )}
-            <FormField control={form.control} name="ip" render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("allocation.ip")}</FormLabel>
-                <FormControl><Input {...field} placeholder={t("allocation.ipPlaceholder")} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("allocation.description")}</FormLabel>
-                <FormControl><Textarea rows={2} {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <DialogFooter className="mt-6 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-              <Button type="submit" disabled={loading}>{loading ? "..." : t("common.save")}</Button>
-            </DialogFooter>
-          </form>
-        </Form>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {formError && (
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {formError}
+            </div>
+          )}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{t("allocation.ip")}</label>
+            <div className="flex items-center gap-1">
+              {octets.map((octet, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <span className="text-muted-foreground font-mono text-lg select-none">.</span>}
+                  <Input
+                    ref={(el) => { inputRefs.current[i] = el }}
+                    value={octet}
+                    onChange={(e) => updateOctet(i, e.target.value)}
+                    onKeyDown={(e) => handleOctetKeyDown(i, e)}
+                    onBlur={() => { if (i === 3 || i === [3, 2, 1, 0].find((j) => j >= fixedCount)) checkOccupied() }}
+                    disabled={i < fixedCount}
+                    className="w-16 text-center font-mono tabular-nums"
+                    maxLength={3}
+                    inputMode="numeric"
+                  />
+                </React.Fragment>
+              ))}
+            </div>
+            {ipError && <p className="text-sm text-destructive">{ipError}</p>}
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{t("allocation.description")}</label>
+            <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+          <DialogFooter className="mt-6 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
+            <Button type="submit" disabled={loading}>{loading ? "..." : t("common.save")}</Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

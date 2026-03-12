@@ -119,6 +119,7 @@ const common: Messages = {
   "api.error.cannotDeleteSubnet": "Cannot delete subnet: has non-gateway IP allocations",
   "api.error.cannotDeleteGateway": "Cannot directly release gateway IP allocation",
   "api.error.ipNotInRange": "IP address is not within the subnet CIDR range",
+  "api.error.ipAlreadyAllocated": "This IP address is already allocated",
   "api.error.cannotRemoveOwner": "Cannot remove the owner from this resource",
   "api.error.oldPasswordIncorrect": "Current password is incorrect",
   "api.error.forbidden": "You do not have permission to perform this action",
