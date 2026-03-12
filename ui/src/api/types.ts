@@ -250,6 +250,7 @@ export interface AuditLogSpec {
   durationMs?: number
   success: boolean
   detail?: Record<string, unknown>
+  responseDetail?: Record<string, unknown>
   createdAt: string
 }
 

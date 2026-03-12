@@ -438,6 +438,19 @@ export default function AuditLogListPage() {
                   </div>
                 </>
               )}
+
+              {/* Response Body */}
+              {selectedLog.spec.responseDetail && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold">{t("audit.responseDetail.field")}</h3>
+                    <pre className="max-h-80 overflow-auto rounded-md border bg-muted/50 p-4 font-mono text-xs leading-relaxed">
+                      {formatJsonDetail(selectedLog.spec.responseDetail)}
+                    </pre>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </DialogContent>
