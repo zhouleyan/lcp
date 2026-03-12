@@ -409,6 +409,7 @@ export interface LocationSpec {
   status?: string
   floor?: string
   rackCapacity?: number
+  rackCount?: number
   contactName?: string
   contactPhone?: string
   contactEmail?: string
@@ -421,6 +422,33 @@ export interface Location extends TypeMeta {
 
 export interface LocationList extends TypeMeta {
   items: Location[]
+  totalCount: number
+}
+
+// --- Rack ---
+
+export interface RackSpec {
+  displayName?: string
+  description?: string
+  locationId: string
+  locationName?: string
+  siteId?: string
+  siteName?: string
+  regionId?: string
+  regionName?: string
+  status?: string
+  uHeight?: number
+  position?: string
+  powerCapacity?: string
+}
+
+export interface Rack extends TypeMeta {
+  metadata: ObjectMeta
+  spec: RackSpec
+}
+
+export interface RackList extends TypeMeta {
+  items: Rack[]
   totalCount: number
 }
 
