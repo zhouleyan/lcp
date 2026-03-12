@@ -703,7 +703,23 @@ function SubnetFormDialog({
               <FormField control={form.control} name="cidr" render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("subnet.cidr")}</FormLabel>
-                  <FormControl><Input {...field} disabled={isEdit} placeholder={t("subnet.cidrPlaceholder")} /></FormControl>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      disabled={isEdit}
+                      placeholder={t("subnet.cidrPlaceholder")}
+                      onBlur={(e) => {
+                        field.onBlur()
+                        if (isEdit || form.getValues("gateway")) return
+                        const match = e.target.value.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/\d{1,2}$/)
+                        if (match) {
+                          const octets = [+match[1], +match[2], +match[3], +match[4]]
+                          octets[3] += 1
+                          if (octets[3] <= 255) form.setValue("gateway", octets.join("."))
+                        }
+                      }}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
