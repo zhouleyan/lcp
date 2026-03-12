@@ -206,7 +206,7 @@ type RegionSpec struct {
 	Latitude *float64 `json:"latitude,omitempty"`
 	// +openapi:description=经度
 	Longitude *float64 `json:"longitude,omitempty"`
-	// +openapi:description=下属站点数量（只读）
+	// +openapi:description=下属数据中心数量（只读）
 	SiteCount int64 `json:"siteCount,omitempty"`
 }
 
@@ -223,7 +223,7 @@ func (r *RegionList) GetTypeMeta() *runtime.TypeMeta { return &r.TypeMeta }
 // --- Site types ---
 
 // Site
-// +openapi:description=站点管理：数据中心/物理站点，属于某个区域。
+// +openapi:description=数据中心管理：数据中心/物理站点，属于某个区域。
 type Site struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -233,7 +233,7 @@ type Site struct {
 func (s *Site) GetTypeMeta() *runtime.TypeMeta { return &s.TypeMeta }
 
 // SiteSpec
-// +openapi:description=站点属性：包含区域关联、地址、联系人、经纬度等信息。
+// +openapi:description=数据中心属性：包含区域关联、地址、联系人、经纬度等信息。
 type SiteSpec struct {
 	// +openapi:description=显示名称
 	DisplayName string `json:"displayName,omitempty"`
@@ -265,7 +265,7 @@ type SiteSpec struct {
 }
 
 // SiteList
-// +openapi:description=站点列表：分页返回的站点集合。
+// +openapi:description=数据中心列表：分页返回的数据中心集合。
 type SiteList struct {
 	runtime.TypeMeta `json:",inline"`
 	Items            []Site `json:"items"`
@@ -277,7 +277,7 @@ func (s *SiteList) GetTypeMeta() *runtime.TypeMeta { return &s.TypeMeta }
 // --- Location types ---
 
 // Location
-// +openapi:description=机房管理：数据中心内的物理机房，属于某个站点。
+// +openapi:description=机房管理：数据中心内的物理机房，属于某个数据中心。
 type Location struct {
 	runtime.TypeMeta `json:",inline"`
 	types.ObjectMeta `json:"metadata"`
@@ -287,18 +287,18 @@ type Location struct {
 func (l *Location) GetTypeMeta() *runtime.TypeMeta { return &l.TypeMeta }
 
 // LocationSpec
-// +openapi:description=机房属性：包含站点关联、楼层、机柜容量、联系人等信息。
+// +openapi:description=机房属性：包含数据中心关联、楼层、机柜容量、联系人等信息。
 type LocationSpec struct {
 	// +openapi:description=显示名称
 	DisplayName string `json:"displayName,omitempty"`
 	// +openapi:description=描述
 	Description string `json:"description,omitempty"`
 	// +openapi:required
-	// +openapi:description=所属站点 ID
+	// +openapi:description=所属数据中心 ID
 	SiteID string `json:"siteId"`
-	// +openapi:description=所属站点名称（只读）
+	// +openapi:description=所属数据中心名称（只读）
 	SiteName string `json:"siteName,omitempty"`
-	// +openapi:description=所属区域 ID（只读，通过站点关联）
+	// +openapi:description=所属区域 ID（只读，通过数据中心关联）
 	RegionID string `json:"regionId,omitempty"`
 	// +openapi:description=所属区域名称（只读）
 	RegionName string `json:"regionName,omitempty"`
@@ -354,9 +354,9 @@ type RackSpec struct {
 	LocationID string `json:"locationId"`
 	// +openapi:description=所属机房名称（只读）
 	LocationName string `json:"locationName,omitempty"`
-	// +openapi:description=所属站点 ID（只读，通过机房关联）
+	// +openapi:description=所属数据中心 ID（只读，通过机房关联）
 	SiteID string `json:"siteId,omitempty"`
-	// +openapi:description=所属站点名称（只读）
+	// +openapi:description=所属数据中心名称（只读）
 	SiteName string `json:"siteName,omitempty"`
 	// +openapi:description=所属区域 ID（只读）
 	RegionID string `json:"regionId,omitempty"`

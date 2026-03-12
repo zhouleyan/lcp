@@ -1932,8 +1932,8 @@ func NewRegionSiteStorage(siteStore SiteStore) rest.Lister {
 }
 
 // List 获取区域下的站点列表。
-// +openapi:summary=获取站点列表
-// +openapi:summary.regions.sites=获取区域下的站点列表
+// +openapi:summary=获取数据中心列表
+// +openapi:summary.regions.sites=获取区域下的数据中心列表
 func (s *regionSiteStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	regionIDStr := options.PathParams["regionId"]
 	if _, err := parseID(regionIDStr); err != nil {
@@ -1978,7 +1978,7 @@ func NewSiteStorage(siteStore SiteStore) rest.StandardStorage {
 func (s *siteStorage) NewObject() runtime.Object { return &Site{} }
 
 // Get 获取站点详情。
-// +openapi:summary=获取站点详情
+// +openapi:summary=获取数据中心详情
 func (s *siteStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
 	id := options.PathParams["siteId"]
 	sid, err := parseID(id)
@@ -1994,8 +1994,8 @@ func (s *siteStorage) Get(ctx context.Context, options *rest.GetOptions) (runtim
 	return siteWithDetailsToAPI(site), nil
 }
 
-// List 获取站点列表。
-// +openapi:summary=获取站点列表
+// List 获取数据中心列表。
+// +openapi:summary=获取数据中心列表
 func (s *siteStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	query := restOptionsToListQuery(options)
 
@@ -2017,7 +2017,7 @@ func (s *siteStorage) List(ctx context.Context, options *rest.ListOptions) (runt
 }
 
 // Create 创建站点。
-// +openapi:summary=创建站点
+// +openapi:summary=创建数据中心
 func (s *siteStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
 	site, ok := obj.(*Site)
 	if !ok {
@@ -2063,7 +2063,7 @@ func (s *siteStorage) Create(ctx context.Context, obj runtime.Object, options *r
 }
 
 // Update 全量更新站点信息。
-// +openapi:summary=更新站点信息（全量）
+// +openapi:summary=更新数据中心信息（全量）
 func (s *siteStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
 	site, ok := obj.(*Site)
 	if !ok {
@@ -2114,7 +2114,7 @@ func (s *siteStorage) Update(ctx context.Context, obj runtime.Object, options *r
 }
 
 // Patch 部分更新站点信息。
-// +openapi:summary=更新站点信息（部分）
+// +openapi:summary=更新数据中心信息（部分）
 func (s *siteStorage) Patch(ctx context.Context, obj runtime.Object, options *rest.PatchOptions) (runtime.Object, error) {
 	site, ok := obj.(*Site)
 	if !ok {
@@ -2147,7 +2147,7 @@ func (s *siteStorage) Patch(ctx context.Context, obj runtime.Object, options *re
 }
 
 // Delete 删除单个站点。
-// +openapi:summary=删除站点
+// +openapi:summary=删除数据中心
 func (s *siteStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
 	if options.DryRun {
 		return nil
@@ -2163,7 +2163,7 @@ func (s *siteStorage) Delete(ctx context.Context, options *rest.DeleteOptions) e
 }
 
 // DeleteCollection 批量删除站点。
-// +openapi:summary=批量删除站点
+// +openapi:summary=批量删除数据中心
 func (s *siteStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
 	if options.DryRun {
 		return &rest.DeletionResult{
@@ -2207,7 +2207,7 @@ func NewSiteLocationStorage(locationStore LocationStore) rest.Lister {
 
 // List 获取站点下的机房列表。
 // +openapi:summary=获取机房列表
-// +openapi:summary.sites.locations=获取站点下的机房列表
+// +openapi:summary.sites.locations=获取数据中心下的机房列表
 func (s *siteLocationStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
 	siteIDStr := options.PathParams["siteId"]
 	if _, err := parseID(siteIDStr); err != nil {

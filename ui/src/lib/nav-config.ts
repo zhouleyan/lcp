@@ -40,19 +40,19 @@ export interface NavItemConfig {
  */
 export const NAV_ITEMS: NavItemConfig[] = [
   { resource: "overview", module: "dashboard", permission: "dashboard:overview:list", labelKey: "nav.overview", icon: Home, scopes: ["platform", "workspace", "namespace"] },
-  { resource: "workspaces", module: "iam", permission: "iam:workspaces:list", labelKey: "nav.workspaces", icon: Building2, group: "nav.iam", scopes: ["platform"] },
-  { resource: "namespaces", module: "iam", permission: "iam:namespaces:list", labelKey: "nav.namespaces", icon: FolderKanban, group: "nav.iam", scopes: ["platform", "workspace"] },
-  { resource: "users", module: "iam", permission: "iam:users:list", labelKey: "nav.users", icon: Users, group: "nav.iam", scopes: ["platform", "workspace", "namespace"] },
-  { resource: "roles", module: "iam", permission: "iam:roles:list", labelKey: "nav.roles", icon: Shield, group: "nav.iam", scopes: ["platform", "workspace", "namespace"] },
-  { resource: "rolebindings", module: "iam", permission: "iam:rolebindings:list", labelKey: "nav.rolebindings", icon: ShieldCheck, group: "nav.iam", scopes: ["platform", "workspace", "namespace"] },
+  { resource: "networks", module: "network", permission: "network:networks:list", labelKey: "nav.networks", icon: Network, group: "nav.network", scopes: ["platform"] },
   { resource: "hosts", module: "infra", permission: "infra:hosts:list", labelKey: "nav.hosts", icon: Server, group: "nav.infra", scopes: ["platform", "workspace", "namespace"] },
   { resource: "environments", module: "infra", permission: "infra:environments:list", labelKey: "nav.environments", icon: Layers, group: "nav.infra", scopes: ["platform", "workspace", "namespace"] },
   { resource: "regions", module: "infra", permission: "infra:regions:list", labelKey: "nav.regions", icon: MapPin, group: "nav.infra", scopes: ["platform"] },
   { resource: "sites", module: "infra", permission: "infra:sites:list", labelKey: "nav.sites", icon: Building2, group: "nav.infra", scopes: ["platform"] },
   { resource: "locations", module: "infra", permission: "infra:locations:list", labelKey: "nav.locations", icon: Warehouse, group: "nav.infra", scopes: ["platform"] },
   { resource: "racks", module: "infra", permission: "infra:racks:list", labelKey: "nav.racks", icon: Box, group: "nav.infra", scopes: ["platform"] },
+  { resource: "workspaces", module: "iam", permission: "iam:workspaces:list", labelKey: "nav.workspaces", icon: Building2, group: "nav.iam", scopes: ["platform"] },
+  { resource: "namespaces", module: "iam", permission: "iam:namespaces:list", labelKey: "nav.namespaces", icon: FolderKanban, group: "nav.iam", scopes: ["platform", "workspace"] },
+  { resource: "users", module: "iam", permission: "iam:users:list", labelKey: "nav.users", icon: Users, group: "nav.iam", scopes: ["platform", "workspace", "namespace"] },
+  { resource: "roles", module: "iam", permission: "iam:roles:list", labelKey: "nav.roles", icon: Shield, group: "nav.iam", scopes: ["platform", "workspace", "namespace"] },
+  { resource: "rolebindings", module: "iam", permission: "iam:rolebindings:list", labelKey: "nav.rolebindings", icon: ShieldCheck, group: "nav.iam", scopes: ["platform", "workspace", "namespace"] },
   { resource: "logs", module: "audit", permission: "audit:logs:list", labelKey: "nav.auditLogs", icon: ScrollText, group: "nav.audit", scopes: ["platform"] },
-  { resource: "networks", module: "network", permission: "network:networks:list", labelKey: "nav.networks", icon: Network, group: "nav.network", scopes: ["platform"] },
 ]
 
 // --- Derived maps ---

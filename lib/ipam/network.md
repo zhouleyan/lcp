@@ -267,8 +267,8 @@ ui/src/i18n/locales/{en-US,zh-CN}/
 
 ```
 network:networks:list / get / create / update / patch / delete / deleteCollection
-network:subnets:list / get / create / update / patch / delete / deleteCollection
-network:allocations:list / get / create / delete
+network:networks:subnets:list / get / create / update / patch / delete / deleteCollection
+network:networks:subnets:allocations:list / get / create / delete
 ```
 
 ## 后端文件清单

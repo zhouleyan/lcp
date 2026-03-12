@@ -274,6 +274,7 @@ func (s *networkStorage) DeleteCollection(ctx context.Context, ids []string, opt
 // ===== subnetStorage =====
 
 // subnetStorage 子网资源的 REST 存储实现，嵌套在 networks 下。
+// +openapi:path=/networks/{networkId}/subnets
 type subnetStorage struct {
 	subnetStore  SubnetStore
 	allocStore   IPAllocationStore
@@ -655,6 +656,8 @@ func (s *subnetStorage) DeleteCollection(ctx context.Context, ids []string, opti
 // ===== allocationStorage =====
 
 // allocationStorage IP 分配资源的 REST 存储实现，嵌套在 subnets 下。
+// +openapi:path=/networks/{networkId}/subnets/{subnetId}/allocations
+// +openapi:resource=IPAllocation
 type allocationStorage struct {
 	allocStore  IPAllocationStore
 	subnetStore SubnetStore

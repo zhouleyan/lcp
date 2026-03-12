@@ -55,11 +55,27 @@
     },
     {
       "name": "Site",
-      "description": "站点管理：数据中心/物理站点，属于某个区域。"
+      "description": "数据中心管理：数据中心/物理站点，属于某个区域。"
     },
     {
       "name": "Location",
-      "description": "机房管理：数据中心内的物理机房，属于某个站点。"
+      "description": "机房管理：数据中心内的物理机房，属于某个数据中心。"
+    },
+    {
+      "name": "Rack",
+      "description": "机柜管理：数据中心机房内的物理机柜，属于某个机房。"
+    },
+    {
+      "name": "Network",
+      "description": "网络管理：平台级 VPC 逻辑分组容器，用于组织和隔离子网资源。"
+    },
+    {
+      "name": "Subnet",
+      "description": "子网管理：网络下的 CIDR 子网，支持 IP 地址分配和位图跟踪。"
+    },
+    {
+      "name": "IPAllocation",
+      "description": "IP 分配记录：子网中已分配的 IP 地址信息。"
     }
   ],
   "paths": {
@@ -4347,6 +4363,314 @@
         }
       }
     },
+    "/api/infra/v1/locations/{locationId}/racks": {
+      "get": {
+        "summary": "获取机房下的机柜列表",
+        "operationId": "listLocationRack",
+        "tags": [
+          "Rack"
+        ],
+        "parameters": [
+          {
+            "name": "locationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RackList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/infra/v1/racks": {
+      "get": {
+        "summary": "获取机柜列表",
+        "operationId": "listRack",
+        "tags": [
+          "Rack"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RackList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "创建机柜",
+        "operationId": "createRack",
+        "tags": [
+          "Rack"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Rack"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rack"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "批量删除机柜",
+        "operationId": "deleteCollectionRack",
+        "tags": [
+          "Rack"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/infra/v1/racks/{rackId}": {
+      "get": {
+        "summary": "获取机柜详情",
+        "operationId": "getRack",
+        "tags": [
+          "Rack"
+        ],
+        "parameters": [
+          {
+            "name": "rackId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rack"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "更新机柜信息（全量）",
+        "operationId": "updateRack",
+        "tags": [
+          "Rack"
+        ],
+        "parameters": [
+          {
+            "name": "rackId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Rack"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rack"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "更新机柜信息（部分）",
+        "operationId": "patchRack",
+        "tags": [
+          "Rack"
+        ],
+        "parameters": [
+          {
+            "name": "rackId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Rack"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rack"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除机柜",
+        "operationId": "deleteRack",
+        "tags": [
+          "Rack"
+        ],
+        "parameters": [
+          {
+            "name": "rackId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/api/infra/v1/regions": {
       "get": {
         "summary": "获取区域列表",
@@ -4594,7 +4918,7 @@
     },
     "/api/infra/v1/regions/{regionId}/sites": {
       "get": {
-        "summary": "获取区域下的站点列表",
+        "summary": "获取区域下的数据中心列表",
         "operationId": "listRegionSite",
         "tags": [
           "Site"
@@ -4657,7 +4981,7 @@
     },
     "/api/infra/v1/sites": {
       "get": {
-        "summary": "获取站点列表",
+        "summary": "获取数据中心列表",
         "operationId": "listSite",
         "tags": [
           "Site"
@@ -4710,7 +5034,7 @@
         }
       },
       "post": {
-        "summary": "创建站点",
+        "summary": "创建数据中心",
         "operationId": "createSite",
         "tags": [
           "Site"
@@ -4739,7 +5063,7 @@
         }
       },
       "delete": {
-        "summary": "批量删除站点",
+        "summary": "批量删除数据中心",
         "operationId": "deleteCollectionSite",
         "tags": [
           "Site"
@@ -4771,7 +5095,7 @@
     },
     "/api/infra/v1/sites/{siteId}": {
       "get": {
-        "summary": "获取站点详情",
+        "summary": "获取数据中心详情",
         "operationId": "getSite",
         "tags": [
           "Site"
@@ -4800,7 +5124,7 @@
         }
       },
       "put": {
-        "summary": "更新站点信息（全量）",
+        "summary": "更新数据中心信息（全量）",
         "operationId": "updateSite",
         "tags": [
           "Site"
@@ -4839,7 +5163,7 @@
         }
       },
       "patch": {
-        "summary": "更新站点信息（部分）",
+        "summary": "更新数据中心信息（部分）",
         "operationId": "patchSite",
         "tags": [
           "Site"
@@ -4878,7 +5202,7 @@
         }
       },
       "delete": {
-        "summary": "删除站点",
+        "summary": "删除数据中心",
         "operationId": "deleteSite",
         "tags": [
           "Site"
@@ -4902,7 +5226,7 @@
     },
     "/api/infra/v1/sites/{siteId}/locations": {
       "get": {
-        "summary": "获取站点下的机房列表",
+        "summary": "获取数据中心下的机房列表",
         "operationId": "listSiteLocation",
         "tags": [
           "Location"
@@ -6663,6 +6987,714 @@
         }
       }
     },
+    "/api/network/v1/networks": {
+      "get": {
+        "summary": "获取网络列表",
+        "operationId": "listNetwork",
+        "tags": [
+          "Network"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "创建网络",
+        "operationId": "createNetwork",
+        "tags": [
+          "Network"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Network"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Network"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "批量删除网络",
+        "operationId": "deleteCollectionNetwork",
+        "tags": [
+          "Network"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/network/v1/networks/{networkId}": {
+      "get": {
+        "summary": "获取网络详情",
+        "operationId": "getNetwork",
+        "tags": [
+          "Network"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Network"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "更新网络信息（全量）",
+        "operationId": "updateNetwork",
+        "tags": [
+          "Network"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Network"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Network"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "更新网络信息（部分）",
+        "operationId": "patchNetwork",
+        "tags": [
+          "Network"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Network"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Network"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除网络",
+        "operationId": "deleteNetwork",
+        "tags": [
+          "Network"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/network/v1/networks/{networkId}/subnets": {
+      "get": {
+        "summary": "获取子网列表",
+        "operationId": "listNetworkSubnet",
+        "tags": [
+          "Subnet"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubnetList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "创建子网",
+        "operationId": "createNetworkSubnet",
+        "tags": [
+          "Subnet"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Subnet"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subnet"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "批量删除子网",
+        "operationId": "deleteCollectionNetworkSubnet",
+        "tags": [
+          "Subnet"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/network/v1/networks/{networkId}/subnets/{subnetId}": {
+      "get": {
+        "summary": "获取子网详情",
+        "operationId": "getNetworkSubnet",
+        "tags": [
+          "Subnet"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subnetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subnet"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "更新子网信息（全量）",
+        "operationId": "updateNetworkSubnet",
+        "tags": [
+          "Subnet"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subnetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Subnet"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subnet"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "更新子网信息（部分）",
+        "operationId": "patchNetworkSubnet",
+        "tags": [
+          "Subnet"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subnetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Subnet"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subnet"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除子网",
+        "operationId": "deleteNetworkSubnet",
+        "tags": [
+          "Subnet"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subnetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/network/v1/networks/{networkId}/subnets/{subnetId}/allocations": {
+      "get": {
+        "summary": "获取 IP 分配列表",
+        "operationId": "listNetworkSubnetIPAllocation",
+        "tags": [
+          "IPAllocation"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subnetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IPAllocationList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "分配 IP 地址",
+        "operationId": "createNetworkSubnetIPAllocation",
+        "tags": [
+          "IPAllocation"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subnetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IPAllocation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IPAllocation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/network/v1/networks/{networkId}/subnets/{subnetId}/allocations/{allocationId}": {
+      "delete": {
+        "summary": "释放 IP 地址",
+        "operationId": "deleteNetworkSubnetIPAllocation",
+        "tags": [
+          "IPAllocation"
+        ],
+        "parameters": [
+          {
+            "name": "networkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subnetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "allocationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/oidc/authorize": {
       "get": {
         "summary": "授权端点",
@@ -7184,6 +8216,53 @@
           "scope"
         ]
       },
+      "IPAllocation": {
+        "type": "object",
+        "properties": {
+          "spec": {
+            "$ref": "#/components/schemas/IPAllocationSpec"
+          }
+        }
+      },
+      "IPAllocationList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IPAllocation"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "IPAllocationSpec": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "分配描述"
+          },
+          "ip": {
+            "type": "string",
+            "description": "IP 地址"
+          },
+          "isGateway": {
+            "type": "boolean",
+            "description": "是否为网关地址（只读）"
+          },
+          "subnetId": {
+            "type": "string",
+            "description": "所属子网 ID（只读）"
+          }
+        },
+        "required": [
+          "ip"
+        ]
+      },
       "Location": {
         "type": "object",
         "properties": {
@@ -7240,9 +8319,14 @@
             "format": "int32",
             "description": "机柜总容量"
           },
+          "rackCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "下属机柜数量（只读）"
+          },
           "regionId": {
             "type": "string",
-            "description": "所属区域 ID（只读，通过站点关联）"
+            "description": "所属区域 ID（只读，通过数据中心关联）"
           },
           "regionName": {
             "type": "string",
@@ -7250,11 +8334,11 @@
           },
           "siteId": {
             "type": "string",
-            "description": "所属站点 ID"
+            "description": "所属数据中心 ID"
           },
           "siteName": {
             "type": "string",
-            "description": "所属站点名称（只读）"
+            "description": "所属数据中心名称（只读）"
           },
           "status": {
             "type": "string",
@@ -7390,6 +8474,68 @@
           "workspaceId",
           "ownerId"
         ]
+      },
+      "Network": {
+        "type": "object",
+        "properties": {
+          "spec": {
+            "$ref": "#/components/schemas/NetworkSpec"
+          }
+        }
+      },
+      "NetworkList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Network"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "NetworkSpec": {
+        "type": "object",
+        "properties": {
+          "cidr": {
+            "type": "string",
+            "description": "网络 CIDR 地址段（可选），限制子网 CIDR 分配范围"
+          },
+          "description": {
+            "type": "string",
+            "description": "网络描述"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "网络显示名称"
+          },
+          "isPublic": {
+            "type": "boolean",
+            "description": "是否公开网络（true=平台公开，false=租户私有）"
+          },
+          "maxSubnets": {
+            "type": "integer",
+            "format": "int32",
+            "description": "子网数量上限（1-50，默认 10）"
+          },
+          "status": {
+            "type": "string",
+            "description": "网络状态",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "subnetCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "子网数量（只读）"
+          }
+        }
       },
       "OIDCDiscoveryResponse": {
         "type": "object",
@@ -7691,6 +8837,90 @@
           "scope"
         ]
       },
+      "Rack": {
+        "type": "object",
+        "properties": {
+          "spec": {
+            "$ref": "#/components/schemas/RackSpec"
+          }
+        }
+      },
+      "RackList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Rack"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "RackSpec": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "描述"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "显示名称"
+          },
+          "locationId": {
+            "type": "string",
+            "description": "所属机房 ID"
+          },
+          "locationName": {
+            "type": "string",
+            "description": "所属机房名称（只读）"
+          },
+          "position": {
+            "type": "string",
+            "description": "物理位置编号（如 A-01）"
+          },
+          "powerCapacity": {
+            "type": "string",
+            "description": "供电容量描述"
+          },
+          "regionId": {
+            "type": "string",
+            "description": "所属区域 ID（只读）"
+          },
+          "regionName": {
+            "type": "string",
+            "description": "所属区域名称（只读）"
+          },
+          "siteId": {
+            "type": "string",
+            "description": "所属数据中心 ID（只读，通过机房关联）"
+          },
+          "siteName": {
+            "type": "string",
+            "description": "所属数据中心名称（只读）"
+          },
+          "status": {
+            "type": "string",
+            "description": "状态",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "uHeight": {
+            "type": "integer",
+            "format": "int32",
+            "description": "机柜 U 高度（如 42）"
+          }
+        },
+        "required": [
+          "locationId"
+        ]
+      },
       "Region": {
         "type": "object",
         "properties": {
@@ -7738,7 +8968,7 @@
           "siteCount": {
             "type": "integer",
             "format": "int64",
-            "description": "下属站点数量（只读）"
+            "description": "下属数据中心数量（只读）"
           },
           "status": {
             "type": "string",
@@ -7992,6 +9222,76 @@
           "regionId"
         ]
       },
+      "Subnet": {
+        "type": "object",
+        "properties": {
+          "spec": {
+            "$ref": "#/components/schemas/SubnetSpec"
+          }
+        }
+      },
+      "SubnetList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Subnet"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SubnetSpec": {
+        "type": "object",
+        "properties": {
+          "cidr": {
+            "type": "string",
+            "description": "CIDR 地址段，如 10.0.0.0/24"
+          },
+          "description": {
+            "type": "string",
+            "description": "子网描述"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "子网显示名称"
+          },
+          "freeIPs": {
+            "type": "integer",
+            "format": "int",
+            "description": "可用 IP 数量（只读）"
+          },
+          "gateway": {
+            "type": "string",
+            "description": "网关 IP 地址"
+          },
+          "networkId": {
+            "type": "string",
+            "description": "所属网络 ID（只读）"
+          },
+          "nextFreeIP": {
+            "type": "string",
+            "description": "最小可分配 IP 地址（只读，无可用时为空）"
+          },
+          "totalIPs": {
+            "type": "integer",
+            "format": "int",
+            "description": "总可用 IP 数量（只读）"
+          },
+          "usedIPs": {
+            "type": "integer",
+            "format": "int",
+            "description": "已用 IP 数量（只读）"
+          }
+        },
+        "required": [
+          "cidr"
+        ]
+      },
       "User": {
         "type": "object",
         "properties": {
@@ -8241,7 +9541,16 @@
         "Environment",
         "Region",
         "Site",
-        "Location"
+        "Location",
+        "Rack"
+      ]
+    },
+    {
+      "name": "network",
+      "tags": [
+        "Network",
+        "Subnet",
+        "IPAllocation"
       ]
     }
   ]
