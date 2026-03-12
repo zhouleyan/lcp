@@ -146,6 +146,7 @@ const messagePrefixMap: Record<string, string> = {
   "cannot delete network": "api.error.cannotDeleteNetwork",
   "cannot delete subnet": "api.error.cannotDeleteSubnet",
   "cannot delete gateway IP allocation": "api.error.cannotDeleteGateway",
+  "IP ": "api.error.ipNotInRange",
 }
 
 const reasonMessageMap: Record<string, string> = {

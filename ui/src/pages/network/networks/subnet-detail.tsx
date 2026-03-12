@@ -432,7 +432,13 @@ function AllocationFormDialog({
         }
       } else if (err instanceof ApiError) {
         const i18nKey = translateApiError(err)
-        form.setError("root", { message: i18nKey !== err.message ? t(i18nKey, { resource: t("allocation.title") }) : err.message })
+        const msg = i18nKey !== err.message ? t(i18nKey, { resource: t("allocation.title") }) : err.message
+        // IP-related errors (not in range, already allocated) → show on ip field
+        if (err.status === 409 || err.message.startsWith("IP ")) {
+          form.setError("ip", { message: msg })
+        } else {
+          form.setError("root", { message: msg })
+        }
       } else {
         form.setError("root", { message: t("api.error.internalError") })
       }
