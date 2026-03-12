@@ -571,7 +571,7 @@ function RoleFormDialog({
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("role.name")}</FormLabel>
+                      <FormLabel required>{t("role.name")}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -642,7 +642,7 @@ function RoleFormDialog({
                 name="rules"
                 render={() => (
                   <FormItem className="col-span-2 flex flex-col min-h-0">
-                    <FormLabel>
+                    <FormLabel required>
                       {t("role.rules")}
                       {selectedRules.length > 0 && (
                         <span className="text-muted-foreground ml-2 font-normal">

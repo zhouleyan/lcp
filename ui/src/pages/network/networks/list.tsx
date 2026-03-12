@@ -417,20 +417,21 @@ function NetworkFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t("network.edit") : t("network.create")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-col flex-1 overflow-hidden">
             {form.formState.errors.root && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="shrink-0 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {form.formState.errors.root.message}
               </div>
             )}
+            <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem>
-                <FormLabel>{t("network.name")}</FormLabel>
+                <FormLabel required>{t("network.name")}</FormLabel>
                 <FormControl><Input {...field} disabled={isEdit} placeholder="my-network" /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -463,7 +464,8 @@ function NetworkFormDialog({
                 </FormControl>
               </FormItem>
             )} />
-            <DialogFooter className="mt-6 pt-4 border-t">
+            </div>
+            <DialogFooter className="mt-6 pt-4 border-t shrink-0">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
               <Button type="submit" disabled={loading}>{loading ? "..." : t("common.save")}</Button>
             </DialogFooter>

@@ -352,12 +352,12 @@ function AddMemberDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{t("workspace.addMember")}</DialogTitle>
           <DialogDescription>{t("workspace.addMemberDesc")}</DialogDescription>
         </DialogHeader>
-        <div>
+        <div className="flex-1 min-h-0 overflow-y-auto"><div>
           <p className="mb-2 text-sm font-medium">{t("rolebinding.selectRole")}</p>
           <div className="max-h-[120px] overflow-auto border rounded-md">
             {loading ? (
@@ -409,8 +409,8 @@ function AddMemberDialog({
             })
           )}
           </div>
-        </div>
-        <DialogFooter className="mt-6 pt-4 border-t">
+        </div></div>
+        <DialogFooter className="mt-6 pt-4 border-t shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
           <Button onClick={handleSubmit} disabled={selectedIds.size === 0 || !selectedRoleId || submitting}>
             {submitting ? "..." : t("workspace.addMember")} {selectedIds.size > 0 && `(${selectedIds.size})`}

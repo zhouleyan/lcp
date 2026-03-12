@@ -542,23 +542,24 @@ function UserFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
+      <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t("user.edit") : t("user.create")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-col flex-1 overflow-hidden">
             {form.formState.errors.root && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="shrink-0 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {form.formState.errors.root.message}
               </div>
             )}
+            <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
             <FormField
               control={form.control}
               name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("user.username")}</FormLabel>
+                  <FormLabel required>{t("user.username")}</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
@@ -580,7 +581,7 @@ function UserFormDialog({
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("user.email")}</FormLabel>
+                  <FormLabel required>{t("user.email")}</FormLabel>
                   <FormControl>
                     <Input
                       type="email"
@@ -615,7 +616,7 @@ function UserFormDialog({
               name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("common.phone")}</FormLabel>
+                  <FormLabel required>{t("common.phone")}</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
@@ -637,7 +638,7 @@ function UserFormDialog({
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("common.password")}</FormLabel>
+                    <FormLabel required>{t("common.password")}</FormLabel>
                     <FormControl>
                       <Input type="password" {...field} />
                     </FormControl>
@@ -668,7 +669,8 @@ function UserFormDialog({
                 </FormItem>
               )}
             />
-            <DialogFooter className="mt-6 pt-4 border-t">
+            </div>
+            <DialogFooter className="mt-6 pt-4 border-t shrink-0">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 {t("common.cancel")}
               </Button>
