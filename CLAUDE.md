@@ -97,6 +97,96 @@ HTTP Request
 - **Batch operations**: Use `BatchRequest{IDs []string}` for batch add; `rest.DeleteCollectionRequest{IDs}` for batch delete
 - **Content negotiation**: JSON (default) + YAML (via `Accept: application/yaml`)
 
+### Storage 组织规则
+
+判断标准：**同一资源名在不同层级下，操作语义是否相同？**
+
+- **从属关系**（资源有父 ID 外键）→ 复用单个 storage 实例，通过 `SubResources` 嵌套注册到多个位置，用 `options.PathParams` 过滤
+- **关联关系**（通过中间表关联，操作语义和数据源不同）→ 拆分为独立 storage
+
+```
+新资源要挂到 /workspaces/{id}/xxx 或 /namespaces/{id}/xxx 下
+  │
+  ├── 资源有 workspace_id / namespace_id 外键？（从属关系）
+  │     → 复用同一个 storage，通过 PathParams 过滤
+  │     → 例：namespaceStorage, subnetStorage, allocationStorage
+  │
+  └── 资源独立存在，通过中间表关联？（关联关系/成员关系）
+        → 新建专门的 storage
+        → 例：workspaceUserStorage（操作 role_bindings 表，不是 users 表）
+```
+
+**复用 storage 示例**（`namespaceStorage` 同时注册在 `/namespaces` 和 `/workspaces/{workspaceId}/namespaces`）：
+```go
+// install.go — 同一个 storage 实例注册到多个位置
+nsStorage := iam.NewNamespaceStorage(p.Namespace)
+
+Resources: []rest.ResourceInfo{
+    {Name: "namespaces", Storage: nsStorage},           // /namespaces
+    {Name: "workspaces", Storage: wsStorage, SubResources: []rest.ResourceInfo{
+        {Name: "namespaces", Storage: nsStorage},       // /workspaces/{workspaceId}/namespaces
+    }},
+}
+
+// storage.go — 通过 PathParams 判断调用上下文
+func (s *namespaceStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+    if wsID, ok := options.PathParams["workspaceId"]; ok {
+        query.Filters["workspace_id"] = wsID  // 工作空间级：按 workspace_id 过滤
+    }
+    // 无 PathParams → 平台级，不加过滤
+}
+```
+
+**拆分 storage 示例**（`workspaceUserStorage` 独立于 `userStorage`）：
+```go
+// userStorage      → /users             → 操作 users 表（用户 CRUD）
+// workspaceUserStorage → /workspaces/{id}/users → 操作 role_bindings 表（成员管理）
+```
+
+绝大多数 PaaS 业务资源（hosts、databases、apps 等）都应走复用模式。只有"成员管理"这类操作语义和底层表完全不同的场景才需要拆分。
+
+### 多路径 OpenAPI 注释规则
+
+当同一个 storage 注册到多个路径时，需要为每个路径提供独立的 summary：
+
+**struct 上**：用 `+openapi:path=` 声明额外路径（主路径从 struct 名自动推导，无需注解）
+
+**method 上**：
+- `+openapi:summary=` 默认对应主路径
+- `+openapi:summary.X.Y.Z=` 对应额外路径，后缀为路径段中资源名的点分连接（去掉 `{xxxId}` 部分）
+
+**后缀命名规则**：
+
+| 实际 URL 路径 | 限定 summary 后缀 |
+|---|---|
+| `/workspaces/{wsId}/namespaces` | `.workspaces.namespaces` |
+| `/workspaces/{wsId}/databases` | `.workspaces.databases` |
+| `/workspaces/{wsId}/namespaces/{nsId}/databases` | `.workspaces.namespaces.databases` |
+
+**双路径示例**（注册在 2 个位置，每方法 2 行 summary）：
+```go
+// +openapi:path=/workspaces/{workspaceId}/namespaces
+type namespaceStorage struct { ... }
+
+// +openapi:summary=获取项目列表
+// +openapi:summary.workspaces.namespaces=获取工作空间下的项目列表
+func (s *namespaceStorage) List(...) { ... }
+```
+
+**三路径示例**（注册在 3 个位置，每方法 3 行 summary）：
+```go
+// +openapi:path=/workspaces/{workspaceId}/databases
+// +openapi:path=/workspaces/{workspaceId}/namespaces/{namespaceId}/databases
+type databaseStorage struct { ... }
+
+// +openapi:summary=获取数据库列表
+// +openapi:summary.workspaces.databases=获取租户下的数据库列表
+// +openapi:summary.workspaces.namespaces.databases=获取项目下的数据库列表
+func (s *databaseStorage) List(...) { ... }
+```
+
+**单路径资源**不需要限定 summary，直接使用 `+openapi:summary=` 即可。
+
 ### Error Handling
 
 ```go
