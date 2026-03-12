@@ -46,7 +46,7 @@ SELECT count(*)
 FROM networks
 WHERE
     (sqlc.narg('status')::VARCHAR IS NULL OR status = sqlc.narg('status'))
-    AND (sqlc.narg('name')::VARCHAR IS NULL OR name ILIKE '%' || sqlc.narg('name') || '%')
+    AND (sqlc.narg('name')::VARCHAR IS NULL OR name = sqlc.narg('name'))
     AND (sqlc.narg('search')::VARCHAR IS NULL
          OR name ILIKE '%' || sqlc.narg('search') || '%'
          OR display_name ILIKE '%' || sqlc.narg('search') || '%'
@@ -61,7 +61,7 @@ WITH net_data AS (
     FROM networks n
     WHERE
         (sqlc.narg('status')::VARCHAR IS NULL OR n.status = sqlc.narg('status'))
-        AND (sqlc.narg('name')::VARCHAR IS NULL OR n.name ILIKE '%' || sqlc.narg('name') || '%')
+        AND (sqlc.narg('name')::VARCHAR IS NULL OR n.name = sqlc.narg('name'))
         AND (sqlc.narg('search')::VARCHAR IS NULL
              OR n.name ILIKE '%' || sqlc.narg('search') || '%'
              OR n.display_name ILIKE '%' || sqlc.narg('search') || '%'

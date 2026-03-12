@@ -82,6 +82,26 @@ func (q *Queries) DeleteIPAllocationsBySubnetID(ctx context.Context, subnetID in
 	return err
 }
 
+const getIPAllocationByID = `-- name: GetIPAllocationByID :one
+SELECT id, subnet_id, ip, description, is_gateway, created_at
+FROM ip_allocations
+WHERE id = $1
+`
+
+func (q *Queries) GetIPAllocationByID(ctx context.Context, id int64) (IpAllocation, error) {
+	row := q.db.QueryRow(ctx, getIPAllocationByID, id)
+	var i IpAllocation
+	err := row.Scan(
+		&i.ID,
+		&i.SubnetID,
+		&i.Ip,
+		&i.Description,
+		&i.IsGateway,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getIPAllocationBySubnetAndIP = `-- name: GetIPAllocationBySubnetAndIP :one
 SELECT id, subnet_id, ip, description, is_gateway, created_at
 FROM ip_allocations

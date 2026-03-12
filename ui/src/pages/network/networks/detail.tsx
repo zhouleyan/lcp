@@ -590,6 +590,7 @@ interface SubnetFormValues {
   gateway: string
 }
 
+// Mirrors backend ValidateSubnetCreate CIDR containment check for instant UX feedback.
 function isCIDRWithinNetwork(subnetCIDR: string, networkCIDR: string): boolean {
   const parse = (cidr: string) => {
     const [ip, prefixStr] = cidr.split("/")

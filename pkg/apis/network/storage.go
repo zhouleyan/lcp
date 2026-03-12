@@ -159,7 +159,7 @@ func (s *networkStorage) Update(ctx context.Context, obj runtime.Object, options
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid network ID: %s", id), nil)
 	}
 
-	updated, err := s.networkStore.Update(ctx, &DBNetwork{
+	_, err = s.networkStore.Update(ctx, &DBNetwork{
 		ID:          nid,
 		Name:        n.ObjectMeta.Name,
 		DisplayName: n.Spec.DisplayName,
@@ -170,7 +170,13 @@ func (s *networkStorage) Update(ctx context.Context, obj runtime.Object, options
 		return nil, err
 	}
 
-	return networkToAPI(updated), nil
+	// Re-fetch to get full row with cidr, maxSubnets, isPublic, subnetCount
+	full, err := s.networkStore.GetByID(ctx, nid)
+	if err != nil {
+		return nil, err
+	}
+
+	return networkWithCountToAPI(full), nil
 }
 
 // Patch 部分更新网络。
@@ -230,23 +236,31 @@ func (s *networkStorage) Delete(ctx context.Context, options *rest.DeleteOptions
 	return s.networkStore.Delete(ctx, nid)
 }
 
-// DeleteCollection 批量删除网络。
+// DeleteCollection 批量删除网络（逐个检查删除保护）。
 // +openapi:summary=批量删除网络
 func (s *networkStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
 	if options.DryRun {
 		return &rest.DeletionResult{SuccessCount: len(ids)}, nil
 	}
 
-	int64IDs := make([]int64, 0, len(ids))
+	// 逐个检查删除保护，收集可删除的 ID
+	var deletableIDs []int64
 	for _, id := range ids {
 		nid, err := parseID(id)
 		if err != nil {
 			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid network ID: %s", id), nil)
 		}
-		int64IDs = append(int64IDs, nid)
+		count, err := s.networkStore.CountSubnets(ctx, nid)
+		if err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			return nil, apierrors.NewConflictMessage("cannot delete network: subnets still exist")
+		}
+		deletableIDs = append(deletableIDs, nid)
 	}
 
-	count, err := s.networkStore.DeleteByIDs(ctx, int64IDs)
+	count, err := s.networkStore.DeleteByIDs(ctx, deletableIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -328,6 +342,7 @@ func (s *subnetStorage) List(ctx context.Context, options *rest.ListOptions) (ru
 }
 
 // listSortedByUsage 按 IP 使用率排序（需在 Go 层计算 bitmap 后排序）。
+// 注意：加载最多 10000 条子网到内存排序，maxSubnets 上限为 50，实际不会触及此限制。
 func (s *subnetStorage) listSortedByUsage(ctx context.Context, nid int64, query db.ListQuery) (runtime.Object, error) {
 	allQuery := query
 	allQuery.SortBy = ""
@@ -588,36 +603,52 @@ func (s *subnetStorage) Delete(ctx context.Context, options *rest.DeleteOptions)
 	return nil
 }
 
-// DeleteCollection 批量删除子网。
+// DeleteCollection 批量删除子网（逐个检查删除保护，事务内清理 allocations）。
 // +openapi:summary=批量删除子网
 func (s *subnetStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
 	if options.DryRun {
 		return &rest.DeletionResult{SuccessCount: len(ids)}, nil
 	}
 
-	networkID := options.PathParams["networkId"]
-	nid, err := parseID(networkID)
-	if err != nil {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid network ID: %s", networkID), nil)
-	}
-
-	int64IDs := make([]int64, 0, len(ids))
+	// 逐个检查删除保护
+	var int64IDs []int64
 	for _, id := range ids {
 		sid, err := parseID(id)
 		if err != nil {
 			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid subnet ID: %s", id), nil)
 		}
+		count, err := s.subnetStore.CountNonGatewayAllocations(ctx, sid)
+		if err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			return nil, apierrors.NewConflictMessage("cannot delete subnet: IP allocations still exist")
+		}
 		int64IDs = append(int64IDs, sid)
 	}
 
-	count, err := s.subnetStore.DeleteByIDs(ctx, nid, int64IDs)
+	// 事务内先删 allocations 再删 subnets
+	tx, err := s.subnetStore.BeginTx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, apierrors.NewInternalError(fmt.Errorf("begin transaction: %w", err))
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	for _, sid := range int64IDs {
+		if err := s.allocStore.DeleteBySubnetID(ctx, tx, sid); err != nil {
+			return nil, apierrors.NewInternalError(fmt.Errorf("delete allocations for subnet %d: %w", sid, err))
+		}
+		if err := s.subnetStore.DeleteTx(ctx, tx, sid); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, apierrors.NewInternalError(fmt.Errorf("commit transaction: %w", err))
 	}
 
 	return &rest.DeletionResult{
-		SuccessCount: int(count),
-		FailedCount:  len(ids) - int(count),
+		SuccessCount: len(int64IDs),
 	}, nil
 }
 
@@ -801,42 +832,13 @@ func (s *allocationStorage) Delete(ctx context.Context, options *rest.DeleteOpti
 	}
 
 	// 查询分配记录
-	// 复用 subnet+ip 查询的方式不太方便，用 ID 查
-	// 但我们没有 GetByID 方法，需要通过 subnet+ip 查
-	// 实际上 allocationId 就是 ip_allocations.id，直接删除前先查
-	// 这里用 list + filter 或直接查——为简单起见，我们 list subnetId 下找到该记录
-	// 但更好的做法：先 get，再判断 is_gateway
-
-	// 由于 DeleteOptions 只有 PathParams，我们需要用 allocID 来定位
-	// 重新设计：allocationId 参数实际使用 IP 地址值（因为 IP 是 subnet 内唯一的）
-	// 但按照 REST 框架约定 allocationId 是 ID，我们按 ID 处理
-	// 需要反查 IP 再做 bitmap 释放
-
-	// 方案：先查出分配记录的 IP，再走锁定路径释放
-	// 由于没有 GetByID，我们先 list 该 subnet 下所有记录找到对应的
-	// 但这不够高效。改用直接在 delete 时传 IP 参数更合理。
-	// 然而框架已定为通过 path param 删除，所以我们在 store 层补充一个方法。
-	// 为简单起见这里直接走 SQL delete + bitmap update。
-
-	// 用 list 查找——在实践中记录数不大，可接受
-	// 更好的做法：在 allocationStore 增加 GetByID，但计划没有这个。
-	// 先通过 list 过滤
-	result, err := s.allocStore.List(ctx, sid, db.ListQuery{
-		Pagination: db.Pagination{Page: 1, PageSize: 10000},
-	})
+	target, err := s.allocStore.GetByID(ctx, aid)
 	if err != nil {
-		return apierrors.NewInternalError(fmt.Errorf("list allocations: %w", err))
+		return err
 	}
 
-	var target *DBIPAllocation
-	for i := range result.Items {
-		if result.Items[i].ID == aid {
-			target = &result.Items[i]
-			break
-		}
-	}
-
-	if target == nil {
+	// 校验 allocation 属于该 subnet
+	if target.SubnetID != sid {
 		return apierrors.NewNotFound("ip_allocation", allocID)
 	}
 
@@ -876,7 +878,7 @@ func (s *allocationStorage) Delete(ctx context.Context, options *rest.DeleteOpti
 		return apierrors.NewInternalError(fmt.Errorf("update bitmap: %w", err))
 	}
 
-	if err := s.allocStore.Delete(ctx, target.ID); err != nil {
+	if err := s.allocStore.DeleteTx(ctx, tx, target.ID); err != nil {
 		return apierrors.NewInternalError(fmt.Errorf("delete allocation: %w", err))
 	}
 
@@ -1017,12 +1019,9 @@ func networkSpecToPatchFields(n *Network) map[string]any {
 	if n.ObjectMeta.Name != "" {
 		fields["name"] = n.ObjectMeta.Name
 	}
-	if n.Spec.DisplayName != "" {
-		fields["displayName"] = n.Spec.DisplayName
-	}
-	if n.Spec.Description != "" {
-		fields["description"] = n.Spec.Description
-	}
+	// Always include displayName and description so they can be cleared to empty
+	fields["displayName"] = n.Spec.DisplayName
+	fields["description"] = n.Spec.Description
 	if n.Spec.Status != "" {
 		fields["status"] = n.Spec.Status
 	}
@@ -1034,11 +1033,8 @@ func subnetSpecToPatchFields(s *Subnet) map[string]any {
 	if s.ObjectMeta.Name != "" {
 		fields["name"] = s.ObjectMeta.Name
 	}
-	if s.Spec.DisplayName != "" {
-		fields["displayName"] = s.Spec.DisplayName
-	}
-	if s.Spec.Description != "" {
-		fields["description"] = s.Spec.Description
-	}
+	// Always include displayName and description so they can be cleared to empty
+	fields["displayName"] = s.Spec.DisplayName
+	fields["description"] = s.Spec.Description
 	return fields
 }

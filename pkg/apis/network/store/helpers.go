@@ -11,20 +11,6 @@ func filterStr(filters map[string]any, key string) *string {
 	return nil
 }
 
-func filterInt64(filters map[string]any, key string) *int64 {
-	if v, ok := filters[key]; ok {
-		switch val := v.(type) {
-		case int64:
-			return &val
-		case string:
-			if i, err := strconv.ParseInt(val, 10, 64); err == nil {
-				return &i
-			}
-		}
-	}
-	return nil
-}
-
 func filterBool(filters map[string]any, key string) *bool {
 	if v, ok := filters[key]; ok {
 		switch val := v.(type) {

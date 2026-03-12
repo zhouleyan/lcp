@@ -89,13 +89,15 @@ func ValidateSubnetCreate(name string, spec *SubnetSpec, existingCIDRs []string,
 		}
 	}
 
-	// 校验 gateway 在 CIDR 范围内
+	// 校验 gateway 在 CIDR 范围内，且不是网络地址或广播地址
 	if spec.Gateway != "" {
 		gw := net.ParseIP(spec.Gateway)
 		if gw == nil {
 			errs = append(errs, validation.FieldError{Field: "spec.gateway", Message: "invalid IP address format"})
 		} else if !cidrNet.Contains(gw) {
 			errs = append(errs, validation.FieldError{Field: "spec.gateway", Message: fmt.Sprintf("gateway %s is not within CIDR %s", spec.Gateway, spec.CIDR)})
+		} else if isNetworkOrBroadcast(gw, cidrNet) {
+			errs = append(errs, validation.FieldError{Field: "spec.gateway", Message: fmt.Sprintf("gateway %s is a network or broadcast address", spec.Gateway)})
 		}
 	}
 
@@ -149,4 +151,31 @@ func ValidateIPAllocationCreate(spec *IPAllocationSpec) validation.ErrorList {
 // CIDRsOverlap 检查两个 CIDR 是否存在重叠。
 func CIDRsOverlap(a, b *net.IPNet) bool {
 	return a.Contains(b.IP) || b.Contains(a.IP)
+}
+
+// isNetworkOrBroadcast 判断 IP 是否为 CIDR 的网络地址或广播地址。
+// 对于 /31 和 /32 前缀不做此判断（这些前缀没有保留地址）。
+func isNetworkOrBroadcast(ip net.IP, cidr *net.IPNet) bool {
+	ones, bits := cidr.Mask.Size()
+	if ones >= bits-1 {
+		return false // /31 or /32
+	}
+	ip4 := ip.To4()
+	if ip4 == nil {
+		return false
+	}
+	// 网络地址：IP & mask == IP
+	network := make(net.IP, 4)
+	for i := range ip4 {
+		network[i] = cidr.IP[i] & cidr.Mask[i]
+	}
+	if ip4.Equal(network) {
+		return true
+	}
+	// 广播地址：network | ~mask
+	broadcast := make(net.IP, 4)
+	for i := range network {
+		broadcast[i] = network[i] | ^cidr.Mask[i]
+	}
+	return ip4.Equal(broadcast)
 }

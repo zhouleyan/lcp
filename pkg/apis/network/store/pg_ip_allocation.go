@@ -46,6 +46,17 @@ func (s *pgIPAllocationStore) Create(ctx context.Context, tx pgx.Tx, alloc *netw
 	return &row, nil
 }
 
+func (s *pgIPAllocationStore) GetByID(ctx context.Context, id int64) (*network.DBIPAllocation, error) {
+	row, err := s.queries.GetIPAllocationByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("ip_allocation", fmt.Sprintf("%d", id))
+		}
+		return nil, fmt.Errorf("get ip allocation by id: %w", err)
+	}
+	return &row, nil
+}
+
 func (s *pgIPAllocationStore) GetBySubnetAndIP(ctx context.Context, subnetID int64, ip string) (*network.DBIPAllocation, error) {
 	row, err := s.queries.GetIPAllocationBySubnetAndIP(ctx, generated.GetIPAllocationBySubnetAndIPParams{
 		SubnetID: subnetID,
@@ -62,6 +73,14 @@ func (s *pgIPAllocationStore) GetBySubnetAndIP(ctx context.Context, subnetID int
 
 func (s *pgIPAllocationStore) Delete(ctx context.Context, id int64) error {
 	err := s.queries.DeleteIPAllocation(ctx, id)
+	if err != nil {
+		return fmt.Errorf("delete ip allocation: %w", err)
+	}
+	return nil
+}
+
+func (s *pgIPAllocationStore) DeleteTx(ctx context.Context, tx pgx.Tx, id int64) error {
+	err := s.queries.WithTx(tx).DeleteIPAllocation(ctx, id)
 	if err != nil {
 		return fmt.Errorf("delete ip allocation: %w", err)
 	}

@@ -3,6 +3,11 @@ INSERT INTO ip_allocations (subnet_id, ip, description, is_gateway)
 VALUES (@subnet_id, @ip, @description, @is_gateway)
 RETURNING id, subnet_id, ip, description, is_gateway, created_at;
 
+-- name: GetIPAllocationByID :one
+SELECT id, subnet_id, ip, description, is_gateway, created_at
+FROM ip_allocations
+WHERE id = @id;
+
 -- name: GetIPAllocationBySubnetAndIP :one
 SELECT id, subnet_id, ip, description, is_gateway, created_at
 FROM ip_allocations

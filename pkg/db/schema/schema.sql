@@ -353,7 +353,7 @@ CREATE TABLE subnets (
     name         VARCHAR(255) NOT NULL,
     display_name VARCHAR(255) NOT NULL DEFAULT '',
     description  TEXT         NOT NULL DEFAULT '',
-    network_id   BIGINT       NOT NULL REFERENCES networks(id),
+    network_id   BIGINT       NOT NULL REFERENCES networks(id) ON DELETE RESTRICT,
     cidr         VARCHAR(50)  NOT NULL,
     gateway      VARCHAR(45)  NOT NULL DEFAULT '',
     bitmap       BYTEA        NOT NULL DEFAULT '',
@@ -376,7 +376,7 @@ COMMENT ON COLUMN subnets.bitmap IS 'IP 分配位图（BYTEA）';
 -- ip_allocations table (IP allocation records)
 CREATE TABLE ip_allocations (
     id          BIGSERIAL    PRIMARY KEY,
-    subnet_id   BIGINT       NOT NULL REFERENCES subnets(id),
+    subnet_id   BIGINT       NOT NULL REFERENCES subnets(id) ON DELETE RESTRICT,
     ip          VARCHAR(45)  NOT NULL,
     description VARCHAR(512) NOT NULL DEFAULT '',
     is_gateway  BOOLEAN      NOT NULL DEFAULT false,

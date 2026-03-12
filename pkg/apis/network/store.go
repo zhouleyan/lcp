@@ -41,8 +41,10 @@ type SubnetStore interface {
 // IPAllocationStore defines database operations on IP allocations.
 type IPAllocationStore interface {
 	Create(ctx context.Context, tx pgx.Tx, alloc *DBIPAllocation) (*DBIPAllocation, error)
+	GetByID(ctx context.Context, id int64) (*DBIPAllocation, error)
 	GetBySubnetAndIP(ctx context.Context, subnetID int64, ip string) (*DBIPAllocation, error)
 	Delete(ctx context.Context, id int64) error
+	DeleteTx(ctx context.Context, tx pgx.Tx, id int64) error
 	DeleteBySubnetID(ctx context.Context, tx pgx.Tx, subnetID int64) error
 	List(ctx context.Context, subnetID int64, query db.ListQuery) (*db.ListResult[DBIPAllocation], error)
 }

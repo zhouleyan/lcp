@@ -15,7 +15,7 @@ SELECT count(*)
 FROM networks
 WHERE
     ($1::VARCHAR IS NULL OR status = $1)
-    AND ($2::VARCHAR IS NULL OR name ILIKE '%' || $2 || '%')
+    AND ($2::VARCHAR IS NULL OR name = $2)
     AND ($3::VARCHAR IS NULL
          OR name ILIKE '%' || $3 || '%'
          OR display_name ILIKE '%' || $3 || '%'
@@ -173,7 +173,7 @@ WITH net_data AS (
     FROM networks n
     WHERE
         ($5::VARCHAR IS NULL OR n.status = $5)
-        AND ($6::VARCHAR IS NULL OR n.name ILIKE '%' || $6 || '%')
+        AND ($6::VARCHAR IS NULL OR n.name = $6)
         AND ($7::VARCHAR IS NULL
              OR n.name ILIKE '%' || $7 || '%'
              OR n.display_name ILIKE '%' || $7 || '%'
