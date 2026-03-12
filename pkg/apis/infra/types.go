@@ -309,6 +309,8 @@ type LocationSpec struct {
 	Floor string `json:"floor,omitempty"`
 	// +openapi:description=机柜总容量
 	RackCapacity int32 `json:"rackCapacity,omitempty"`
+	// +openapi:description=下属机柜数量（只读）
+	RackCount int64 `json:"rackCount,omitempty"`
 	// +openapi:description=负责人姓名
 	ContactName string `json:"contactName,omitempty"`
 	// +openapi:description=负责人电话
@@ -327,6 +329,59 @@ type LocationList struct {
 }
 
 func (l *LocationList) GetTypeMeta() *runtime.TypeMeta { return &l.TypeMeta }
+
+// --- Rack types ---
+
+// Rack
+// +openapi:description=机柜管理：数据中心机房内的物理机柜，属于某个机房。
+type Rack struct {
+	runtime.TypeMeta `json:",inline"`
+	types.ObjectMeta `json:"metadata"`
+	Spec             RackSpec `json:"spec"`
+}
+
+func (r *Rack) GetTypeMeta() *runtime.TypeMeta { return &r.TypeMeta }
+
+// RackSpec
+// +openapi:description=机柜属性：包含机房关联、U 高度、位置编号、供电容量等信息。
+type RackSpec struct {
+	// +openapi:description=显示名称
+	DisplayName string `json:"displayName,omitempty"`
+	// +openapi:description=描述
+	Description string `json:"description,omitempty"`
+	// +openapi:required
+	// +openapi:description=所属机房 ID
+	LocationID string `json:"locationId"`
+	// +openapi:description=所属机房名称（只读）
+	LocationName string `json:"locationName,omitempty"`
+	// +openapi:description=所属站点 ID（只读，通过机房关联）
+	SiteID string `json:"siteId,omitempty"`
+	// +openapi:description=所属站点名称（只读）
+	SiteName string `json:"siteName,omitempty"`
+	// +openapi:description=所属区域 ID（只读）
+	RegionID string `json:"regionId,omitempty"`
+	// +openapi:description=所属区域名称（只读）
+	RegionName string `json:"regionName,omitempty"`
+	// +openapi:description=状态
+	// +openapi:enum=active,inactive
+	Status string `json:"status,omitempty"`
+	// +openapi:description=机柜 U 高度（如 42）
+	UHeight int32 `json:"uHeight,omitempty"`
+	// +openapi:description=物理位置编号（如 A-01）
+	Position string `json:"position,omitempty"`
+	// +openapi:description=供电容量描述
+	PowerCapacity string `json:"powerCapacity,omitempty"`
+}
+
+// RackList
+// +openapi:description=机柜列表：分页返回的机柜集合。
+type RackList struct {
+	runtime.TypeMeta `json:",inline"`
+	Items            []Rack `json:"items"`
+	TotalCount       int64  `json:"totalCount"`
+}
+
+func (r *RackList) GetTypeMeta() *runtime.TypeMeta { return &r.TypeMeta }
 
 // --- DB type aliases ---
 
@@ -391,9 +446,6 @@ type DBSiteWithDetails = generated.GetSiteByIDRow
 // DBSiteListRow is an alias for ListSites row.
 type DBSiteListRow = generated.ListSitesRow
 
-// DBSiteByRegionRow is an alias for ListSitesByRegionID row.
-type DBSiteByRegionRow = generated.ListSitesByRegionIDRow
-
 // --- Location DB type aliases ---
 
 // DBLocation is an alias for the sqlc-generated Location model.
@@ -405,5 +457,14 @@ type DBLocationWithDetails = generated.GetLocationByIDRow
 // DBLocationListRow is an alias for ListLocations row.
 type DBLocationListRow = generated.ListLocationsRow
 
-// DBLocationBySiteRow is an alias for ListLocationsBySiteID row.
-type DBLocationBySiteRow = generated.ListLocationsBySiteIDRow
+// --- Rack DB type aliases ---
+
+// DBRack is an alias for the sqlc-generated Rack model.
+type DBRack = generated.Rack
+
+// DBRackWithDetails extends Rack with location/site/region names from GetRackByID.
+type DBRackWithDetails = generated.GetRackByIDRow
+
+// DBRackListRow is an alias for ListRacks row.
+type DBRackListRow = generated.ListRacksRow
+

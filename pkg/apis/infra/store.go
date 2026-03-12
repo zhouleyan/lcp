@@ -65,7 +65,6 @@ type SiteStore interface {
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	CountChildLocations(ctx context.Context, siteID int64) (int64, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBSiteListRow], error)
-	ListByRegionID(ctx context.Context, regionID int64, query db.ListQuery) (*db.ListResult[DBSiteByRegionRow], error)
 }
 
 // LocationStore defines database operations on locations.
@@ -77,5 +76,16 @@ type LocationStore interface {
 	Delete(ctx context.Context, id int64) error
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBLocationListRow], error)
-	ListBySiteID(ctx context.Context, siteID int64, query db.ListQuery) (*db.ListResult[DBLocationBySiteRow], error)
+	CountChildRacks(ctx context.Context, locationID int64) (int64, error)
+}
+
+// RackStore defines database operations on racks.
+type RackStore interface {
+	Create(ctx context.Context, rack *DBRack) (*DBRack, error)
+	GetByID(ctx context.Context, id int64) (*DBRackWithDetails, error)
+	Update(ctx context.Context, rack *DBRack) (*DBRack, error)
+	Patch(ctx context.Context, id int64, fields map[string]any) (*DBRack, error)
+	Delete(ctx context.Context, id int64) error
+	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
+	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBRackListRow], error)
 }
