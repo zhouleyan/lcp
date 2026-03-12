@@ -324,3 +324,68 @@ CREATE TABLE oidc_keys (
 COMMENT ON TABLE oidc_keys IS 'OIDC 签名密钥：自动生成，存储 PEM 编码的密钥对';
 COMMENT ON COLUMN oidc_keys.key_id IS 'RFC 7638 thumbprint，用于 JWK kid 字段';
 COMMENT ON COLUMN oidc_keys.algorithm IS '签名算法：EdDSA, ES256, RS256';
+
+-- networks table (logical VPC containers)
+CREATE TABLE networks (
+    id           BIGSERIAL    PRIMARY KEY,
+    name         VARCHAR(255) NOT NULL UNIQUE,
+    display_name VARCHAR(255) NOT NULL DEFAULT '',
+    description  TEXT         NOT NULL DEFAULT '',
+    status       VARCHAR(20)  NOT NULL DEFAULT 'active',
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_networks_status     ON networks(status);
+CREATE INDEX idx_networks_created_at ON networks(created_at);
+
+COMMENT ON TABLE networks IS '网络表：平台级 VPC 逻辑分组容器';
+COMMENT ON COLUMN networks.name IS '网络名称，全局唯一';
+COMMENT ON COLUMN networks.status IS '状态：active / inactive';
+
+-- subnets table (CIDR + bitmap)
+CREATE TABLE subnets (
+    id           BIGSERIAL    PRIMARY KEY,
+    name         VARCHAR(255) NOT NULL,
+    display_name VARCHAR(255) NOT NULL DEFAULT '',
+    description  TEXT         NOT NULL DEFAULT '',
+    network_id   BIGINT       NOT NULL REFERENCES networks(id),
+    cidr         VARCHAR(50)  NOT NULL,
+    gateway      VARCHAR(45)  NOT NULL DEFAULT '',
+    bitmap       BYTEA        NOT NULL DEFAULT '',
+    status       VARCHAR(20)  NOT NULL DEFAULT 'active',
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+
+    CONSTRAINT uk_subnet_network_name UNIQUE (network_id, name),
+    CONSTRAINT uk_subnet_network_cidr UNIQUE (network_id, cidr)
+);
+
+CREATE INDEX idx_subnets_network_id ON subnets(network_id);
+CREATE INDEX idx_subnets_status     ON subnets(status);
+CREATE INDEX idx_subnets_created_at ON subnets(created_at);
+
+COMMENT ON TABLE subnets IS '子网表：每个子网 = 一个 CIDR + 一个 bitmap';
+COMMENT ON COLUMN subnets.network_id IS '所属网络 ID';
+COMMENT ON COLUMN subnets.cidr IS 'CIDR 表示，如 10.0.0.0/24';
+COMMENT ON COLUMN subnets.gateway IS '网关 IP 地址';
+COMMENT ON COLUMN subnets.bitmap IS 'IP 分配位图（BYTEA）';
+
+-- ip_allocations table (IP allocation records)
+CREATE TABLE ip_allocations (
+    id          BIGSERIAL    PRIMARY KEY,
+    subnet_id   BIGINT       NOT NULL REFERENCES subnets(id),
+    ip          VARCHAR(45)  NOT NULL,
+    description VARCHAR(512) NOT NULL DEFAULT '',
+    is_gateway  BOOLEAN      NOT NULL DEFAULT false,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+
+    CONSTRAINT uk_allocation_subnet_ip UNIQUE (subnet_id, ip)
+);
+
+CREATE INDEX idx_ip_allocations_subnet_id ON ip_allocations(subnet_id);
+
+COMMENT ON TABLE ip_allocations IS 'IP 分配记录表：记录每个已分配的 IP';
+COMMENT ON COLUMN ip_allocations.subnet_id IS '所属子网 ID';
+COMMENT ON COLUMN ip_allocations.ip IS '分配的 IP 地址';
+COMMENT ON COLUMN ip_allocations.is_gateway IS '是否为网关地址（自动分配，不可手动删除）';
