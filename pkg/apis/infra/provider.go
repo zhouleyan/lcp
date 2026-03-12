@@ -8,6 +8,7 @@ type Stores struct {
 	Region         RegionStore
 	Site           SiteStore
 	Location       LocationStore
+	Rack           RackStore
 }
 
 // RESTStorageProvider centralizes all Infra Store instances.

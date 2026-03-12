@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/pkg/apis/infra"
 	"lcp.io/lcp/pkg/db"
@@ -15,13 +14,12 @@ import (
 )
 
 type pgLocationStore struct {
-	pool    *pgxpool.Pool
 	queries *generated.Queries
 }
 
 // NewPGLocationStore creates a new PostgreSQL-backed LocationStore.
-func NewPGLocationStore(pool *pgxpool.Pool, queries *generated.Queries) infra.LocationStore {
-	return &pgLocationStore{pool: pool, queries: queries}
+func NewPGLocationStore(queries *generated.Queries) infra.LocationStore {
+	return &pgLocationStore{queries: queries}
 }
 
 func (s *pgLocationStore) Create(ctx context.Context, location *infra.DBLocation) (*infra.DBLocation, error) {
@@ -134,6 +132,14 @@ func (s *pgLocationStore) Patch(ctx context.Context, id int64, fields map[string
 }
 
 func (s *pgLocationStore) Delete(ctx context.Context, id int64) error {
+	count, err := s.queries.CountLocationChildRacks(ctx, id)
+	if err != nil {
+		return fmt.Errorf("count location child racks: %w", err)
+	}
+	if count > 0 {
+		return apierrors.NewBadRequest(fmt.Sprintf("cannot delete location: has %d child racks", count), nil)
+	}
+
 	if err := s.queries.DeleteLocation(ctx, id); err != nil {
 		return fmt.Errorf("delete location: %w", err)
 	}
@@ -144,6 +150,17 @@ func (s *pgLocationStore) DeleteByIDs(ctx context.Context, ids []int64) (int64, 
 	if len(ids) == 0 {
 		return 0, nil
 	}
+
+	for _, id := range ids {
+		count, err := s.queries.CountLocationChildRacks(ctx, id)
+		if err != nil {
+			return 0, fmt.Errorf("count location child racks for id %d: %w", id, err)
+		}
+		if count > 0 {
+			return 0, apierrors.NewBadRequest(fmt.Sprintf("cannot delete location %d: has %d child racks", id, count), nil)
+		}
+	}
+
 	deletedIDs, err := s.queries.DeleteLocationsByIDs(ctx, ids)
 	if err != nil {
 		return 0, fmt.Errorf("delete locations by ids: %w", err)
@@ -185,34 +202,11 @@ func (s *pgLocationStore) List(ctx context.Context, q db.ListQuery) (*db.ListRes
 	return &db.ListResult[infra.DBLocationListRow]{Items: rows, TotalCount: count}, nil
 }
 
-func (s *pgLocationStore) ListBySiteID(ctx context.Context, siteID int64, q db.ListQuery) (*db.ListResult[infra.DBLocationBySiteRow], error) {
-	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
-	sortOrder := q.SortOrder
-	if sortOrder == "" {
-		sortOrder = "desc"
-	}
-
-	count, err := s.queries.CountLocationsBySiteID(ctx, generated.CountLocationsBySiteIDParams{
-		SiteID: siteID,
-		Status: filterStr(q.Filters, "status"),
-		Search: filterStr(q.Filters, "search"),
-	})
+func (s *pgLocationStore) CountChildRacks(ctx context.Context, locationID int64) (int64, error) {
+	count, err := s.queries.CountLocationChildRacks(ctx, locationID)
 	if err != nil {
-		return nil, fmt.Errorf("count locations by site: %w", err)
+		return 0, fmt.Errorf("count location child racks: %w", err)
 	}
-
-	rows, err := s.queries.ListLocationsBySiteID(ctx, generated.ListLocationsBySiteIDParams{
-		SiteID:     siteID,
-		Status:     filterStr(q.Filters, "status"),
-		Search:     filterStr(q.Filters, "search"),
-		SortField:  q.SortBy,
-		SortOrder:  sortOrder,
-		PageOffset: offset,
-		PageSize:   limit,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("list locations by site: %w", err)
-	}
-
-	return &db.ListResult[infra.DBLocationBySiteRow]{Items: rows, TotalCount: count}, nil
+	return count, nil
 }
+
