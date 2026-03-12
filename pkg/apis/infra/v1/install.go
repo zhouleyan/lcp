@@ -32,8 +32,10 @@ func NewInfraModule(database *db.DB) ModuleResult {
 	regionStorage := infra.NewRegionStorage(p.Region)
 	siteStorage := infra.NewSiteStorage(p.Site)
 	locationStorage := infra.NewLocationStorage(p.Location)
+	rackStorage := infra.NewRackStorage(p.Rack)
 	regionSiteStorage := infra.NewRegionSiteStorage(p.Site)
 	siteLocationStorage := infra.NewSiteLocationStorage(p.Location)
+	locationRackStorage := infra.NewLocationRackStorage(p.Rack)
 
 	// Action handlers
 	assignHandler := infra.NewAssignHandler(p.Host, p.HostAssignment)
@@ -128,6 +130,13 @@ func NewInfraModule(database *db.DB) ModuleResult {
 			{
 				Name:    "locations",
 				Storage: locationStorage,
+				SubResources: []rest.ResourceInfo{
+					{Name: "racks", Storage: locationRackStorage},
+				},
+			},
+			{
+				Name:    "racks",
+				Storage: rackStorage,
 			},
 		},
 	}

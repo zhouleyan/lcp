@@ -1935,21 +1935,25 @@ func NewRegionSiteStorage(siteStore SiteStore) rest.Lister {
 // +openapi:summary=获取站点列表
 // +openapi:summary.regions.sites=获取区域下的站点列表
 func (s *regionSiteStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
-	regionID, err := parseID(options.PathParams["regionId"])
-	if err != nil {
+	regionIDStr := options.PathParams["regionId"]
+	if _, err := parseID(regionIDStr); err != nil {
 		return nil, apierrors.NewBadRequest("invalid region ID", nil)
 	}
 
 	query := restOptionsToListQuery(options)
+	if query.Filters == nil {
+		query.Filters = map[string]any{}
+	}
+	query.Filters["regionId"] = regionIDStr
 
-	result, err := s.siteStore.ListByRegionID(ctx, regionID, query)
+	result, err := s.siteStore.List(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 
 	items := make([]Site, len(result.Items))
 	for i, item := range result.Items {
-		items[i] = siteByRegionRowToAPI(&item)
+		items[i] = siteRowToAPI(&item)
 	}
 
 	return &SiteList{
@@ -2205,27 +2209,299 @@ func NewSiteLocationStorage(locationStore LocationStore) rest.Lister {
 // +openapi:summary=获取机房列表
 // +openapi:summary.sites.locations=获取站点下的机房列表
 func (s *siteLocationStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
-	siteID, err := parseID(options.PathParams["siteId"])
-	if err != nil {
+	siteIDStr := options.PathParams["siteId"]
+	if _, err := parseID(siteIDStr); err != nil {
 		return nil, apierrors.NewBadRequest("invalid site ID", nil)
 	}
 
 	query := restOptionsToListQuery(options)
+	if query.Filters == nil {
+		query.Filters = map[string]any{}
+	}
+	query.Filters["siteId"] = siteIDStr
 
-	result, err := s.locationStore.ListBySiteID(ctx, siteID, query)
+	result, err := s.locationStore.List(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 
 	items := make([]Location, len(result.Items))
 	for i, item := range result.Items {
-		items[i] = locationBySiteRowToAPI(&item)
+		items[i] = locationRowToAPI(&item)
 	}
 
 	return &LocationList{
 		TypeMeta:   runtime.TypeMeta{Kind: "LocationList"},
 		Items:      items,
 		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// ===== locationRackStorage 机房下机柜列表 =====
+
+// locationRackStorage 机房下机柜资源的嵌套列表存储。
+// +openapi:path=/locations/{locationId}/racks
+type locationRackStorage struct {
+	rackStore RackStore
+}
+
+// NewLocationRackStorage 创建机房下机柜列表存储。
+func NewLocationRackStorage(rackStore RackStore) rest.Lister {
+	return &locationRackStorage{rackStore: rackStore}
+}
+
+// List 获取机房下的机柜列表。
+// +openapi:summary=获取机柜列表
+// +openapi:summary.locations.racks=获取机房下的机柜列表
+func (s *locationRackStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	locationIDStr := options.PathParams["locationId"]
+	if _, err := parseID(locationIDStr); err != nil {
+		return nil, apierrors.NewBadRequest("invalid location ID", nil)
+	}
+
+	query := restOptionsToListQuery(options)
+	if query.Filters == nil {
+		query.Filters = map[string]any{}
+	}
+	query.Filters["locationId"] = locationIDStr
+
+	result, err := s.rackStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Rack, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = rackRowToAPI(&item)
+	}
+
+	return &RackList{
+		TypeMeta:   runtime.TypeMeta{Kind: "RackList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// ===== rackStorage 平台级机柜存储 =====
+
+// rackStorage 平台级机柜资源的 REST 存储实现，支持 CRUD 和批量删除。
+type rackStorage struct {
+	rackStore RackStore
+}
+
+// NewRackStorage 创建平台级机柜 REST 存储。
+func NewRackStorage(rackStore RackStore) rest.StandardStorage {
+	return &rackStorage{rackStore: rackStore}
+}
+
+func (s *rackStorage) NewObject() runtime.Object { return &Rack{} }
+
+// Get 获取机柜详情。
+// +openapi:summary=获取机柜详情
+func (s *rackStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
+	id := options.PathParams["rackId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid rack ID: %s", id), nil)
+	}
+
+	rack, err := s.rackStore.GetByID(ctx, rid)
+	if err != nil {
+		return nil, err
+	}
+
+	return rackWithDetailsToAPI(rack), nil
+}
+
+// List 获取机柜列表。
+// +openapi:summary=获取机柜列表
+func (s *rackStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	query := restOptionsToListQuery(options)
+
+	result, err := s.rackStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Rack, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = rackRowToAPI(&item)
+	}
+
+	return &RackList{
+		TypeMeta:   runtime.TypeMeta{Kind: "RackList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// Create 创建机柜。
+// +openapi:summary=创建机柜
+func (s *rackStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	rack, ok := obj.(*Rack)
+	if !ok {
+		return nil, fmt.Errorf("expected *Rack, got %T", obj)
+	}
+
+	if errs := ValidateRackCreate(rack.ObjectMeta.Name, &rack.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return rack, nil
+	}
+
+	locationID, err := parseID(rack.Spec.LocationID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid locationId: %s", rack.Spec.LocationID), nil)
+	}
+
+	status := rack.Spec.Status
+	if status == "" {
+		status = "active"
+	}
+
+	created, err := s.rackStore.Create(ctx, &DBRack{
+		Name:          rack.ObjectMeta.Name,
+		DisplayName:   rack.Spec.DisplayName,
+		Description:   rack.Spec.Description,
+		LocationID:    locationID,
+		Status:        status,
+		UHeight:       rack.Spec.UHeight,
+		Position:      rack.Spec.Position,
+		PowerCapacity: rack.Spec.PowerCapacity,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return rackToAPI(created), nil
+}
+
+// Update 全量更新机柜信息。
+// +openapi:summary=更新机柜信息（全量）
+func (s *rackStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
+	rack, ok := obj.(*Rack)
+	if !ok {
+		return nil, fmt.Errorf("expected *Rack, got %T", obj)
+	}
+
+	if errs := ValidateRackUpdate(&rack.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return rack, nil
+	}
+
+	id := options.PathParams["rackId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid rack ID: %s", id), nil)
+	}
+
+	var locationID int64
+	if rack.Spec.LocationID != "" {
+		locationID, err = parseID(rack.Spec.LocationID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid locationId: %s", rack.Spec.LocationID), nil)
+		}
+	}
+
+	updated, err := s.rackStore.Update(ctx, &DBRack{
+		ID:            rid,
+		Name:          rack.ObjectMeta.Name,
+		DisplayName:   rack.Spec.DisplayName,
+		Description:   rack.Spec.Description,
+		LocationID:    locationID,
+		Status:        rack.Spec.Status,
+		UHeight:       rack.Spec.UHeight,
+		Position:      rack.Spec.Position,
+		PowerCapacity: rack.Spec.PowerCapacity,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return rackToAPI(updated), nil
+}
+
+// Patch 部分更新机柜信息。
+// +openapi:summary=更新机柜信息（部分）
+func (s *rackStorage) Patch(ctx context.Context, obj runtime.Object, options *rest.PatchOptions) (runtime.Object, error) {
+	rack, ok := obj.(*Rack)
+	if !ok {
+		return nil, fmt.Errorf("expected *Rack, got %T", obj)
+	}
+
+	id := options.PathParams["rackId"]
+
+	if options.DryRun {
+		existing, err := s.Get(ctx, &rest.GetOptions{PathParams: options.PathParams})
+		if err != nil {
+			return nil, err
+		}
+		return existing, nil
+	}
+
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid rack ID: %s", id), nil)
+	}
+
+	fields := rackSpecToPatchFields(rack)
+
+	patched, err := s.rackStore.Patch(ctx, rid, fields)
+	if err != nil {
+		return nil, err
+	}
+
+	return rackToAPI(patched), nil
+}
+
+// Delete 删除单个机柜。
+// +openapi:summary=删除机柜
+func (s *rackStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	if options.DryRun {
+		return nil
+	}
+
+	id := options.PathParams["rackId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid rack ID: %s", id), nil)
+	}
+
+	return s.rackStore.Delete(ctx, rid)
+}
+
+// DeleteCollection 批量删除机柜。
+// +openapi:summary=批量删除机柜
+func (s *rackStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
+	if options.DryRun {
+		return &rest.DeletionResult{
+			SuccessCount: len(ids),
+			FailedCount:  0,
+		}, nil
+	}
+
+	int64IDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		rid, err := parseID(id)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid rack ID: %s", id), nil)
+		}
+		int64IDs = append(int64IDs, rid)
+	}
+
+	count, err := s.rackStore.DeleteByIDs(ctx, int64IDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &rest.DeletionResult{
+		SuccessCount: int(count),
+		FailedCount:  len(ids) - int(count),
 	}, nil
 }
 
@@ -3127,33 +3403,6 @@ func siteRowToAPI(s *DBSiteListRow) Site {
 	}
 }
 
-// siteByRegionRowToAPI converts a DBSiteByRegionRow (ListSitesByRegionIDRow) to an API Site.
-func siteByRegionRowToAPI(s *DBSiteByRegionRow) Site {
-	return Site{
-		TypeMeta: runtime.TypeMeta{Kind: "Site"},
-		ObjectMeta: types.ObjectMeta{
-			ID:        strconv.FormatInt(s.ID, 10),
-			Name:      s.Name,
-			CreatedAt: new(s.CreatedAt),
-			UpdatedAt: new(s.UpdatedAt),
-		},
-		Spec: SiteSpec{
-			DisplayName:   s.DisplayName,
-			Description:   s.Description,
-			RegionID:      strconv.FormatInt(s.RegionID, 10),
-			RegionName:    s.RegionName,
-			Status:        s.Status,
-			Address:       s.Address,
-			Latitude:      s.Latitude,
-			Longitude:     s.Longitude,
-			ContactName:   s.ContactName,
-			ContactPhone:  s.ContactPhone,
-			ContactEmail:  s.ContactEmail,
-			LocationCount: s.LocationCount,
-		},
-	}
-}
-
 // ===== Location DB → API conversion helpers =====
 
 // locationToAPI converts a DBLocation to an API Location.
@@ -3200,6 +3449,7 @@ func locationWithDetailsToAPI(l *DBLocationWithDetails) *Location {
 	location.Spec.SiteName = l.SiteName
 	location.Spec.RegionID = strconv.FormatInt(l.RegionID, 10)
 	location.Spec.RegionName = l.RegionName
+	location.Spec.RackCount = l.RackCount
 	return location
 }
 
@@ -3223,6 +3473,7 @@ func locationRowToAPI(l *DBLocationListRow) Location {
 			Status:       l.Status,
 			Floor:        l.Floor,
 			RackCapacity: l.RackCapacity,
+			RackCount:    l.RackCount,
 			ContactName:  l.ContactName,
 			ContactPhone: l.ContactPhone,
 			ContactEmail: l.ContactEmail,
@@ -3230,29 +3481,106 @@ func locationRowToAPI(l *DBLocationListRow) Location {
 	}
 }
 
-// locationBySiteRowToAPI converts a DBLocationBySiteRow (ListLocationsBySiteIDRow) to an API Location.
-func locationBySiteRowToAPI(l *DBLocationBySiteRow) Location {
-	return Location{
-		TypeMeta: runtime.TypeMeta{Kind: "Location"},
+// rackSpecToPatchFields extracts non-zero fields from a Rack for patch operations.
+func rackSpecToPatchFields(r *Rack) map[string]any {
+	fields := make(map[string]any)
+	if r.ObjectMeta.Name != "" {
+		fields["name"] = r.ObjectMeta.Name
+	}
+	if r.Spec.DisplayName != "" {
+		fields["displayName"] = r.Spec.DisplayName
+	}
+	if r.Spec.Description != "" {
+		fields["description"] = r.Spec.Description
+	}
+	if r.Spec.LocationID != "" {
+		if locationID, err := parseID(r.Spec.LocationID); err == nil {
+			fields["locationId"] = locationID
+		}
+	}
+	if r.Spec.Status != "" {
+		fields["status"] = r.Spec.Status
+	}
+	if r.Spec.UHeight != 0 {
+		fields["uHeight"] = r.Spec.UHeight
+	}
+	if r.Spec.Position != "" {
+		fields["position"] = r.Spec.Position
+	}
+	if r.Spec.PowerCapacity != "" {
+		fields["powerCapacity"] = r.Spec.PowerCapacity
+	}
+	return fields
+}
+
+// rackToAPI converts a DBRack to an API Rack.
+func rackToAPI(r *DBRack) *Rack {
+	return &Rack{
+		TypeMeta: runtime.TypeMeta{Kind: "Rack"},
 		ObjectMeta: types.ObjectMeta{
-			ID:        strconv.FormatInt(l.ID, 10),
-			Name:      l.Name,
-			CreatedAt: new(l.CreatedAt),
-			UpdatedAt: new(l.UpdatedAt),
+			ID:        strconv.FormatInt(r.ID, 10),
+			Name:      r.Name,
+			CreatedAt: new(r.CreatedAt),
+			UpdatedAt: new(r.UpdatedAt),
 		},
-		Spec: LocationSpec{
-			DisplayName:  l.DisplayName,
-			Description:  l.Description,
-			SiteID:       strconv.FormatInt(l.SiteID, 10),
-			SiteName:     l.SiteName,
-			RegionID:     strconv.FormatInt(l.RegionID, 10),
-			RegionName:   l.RegionName,
-			Status:       l.Status,
-			Floor:        l.Floor,
-			RackCapacity: l.RackCapacity,
-			ContactName:  l.ContactName,
-			ContactPhone: l.ContactPhone,
-			ContactEmail: l.ContactEmail,
+		Spec: RackSpec{
+			DisplayName:   r.DisplayName,
+			Description:   r.Description,
+			LocationID:    strconv.FormatInt(r.LocationID, 10),
+			Status:        r.Status,
+			UHeight:       r.UHeight,
+			Position:      r.Position,
+			PowerCapacity: r.PowerCapacity,
+		},
+	}
+}
+
+// rackWithDetailsToAPI converts a DBRackWithDetails (GetRackByIDRow) to an API Rack.
+func rackWithDetailsToAPI(r *DBRackWithDetails) *Rack {
+	rack := rackToAPI(&DBRack{
+		ID:            r.ID,
+		Name:          r.Name,
+		DisplayName:   r.DisplayName,
+		Description:   r.Description,
+		LocationID:    r.LocationID,
+		Status:        r.Status,
+		UHeight:       r.UHeight,
+		Position:      r.Position,
+		PowerCapacity: r.PowerCapacity,
+		CreatedAt:     r.CreatedAt,
+		UpdatedAt:     r.UpdatedAt,
+	})
+	rack.Spec.LocationName = r.LocationName
+	rack.Spec.SiteID = strconv.FormatInt(r.SiteID, 10)
+	rack.Spec.SiteName = r.SiteName
+	rack.Spec.RegionID = strconv.FormatInt(r.RegionID, 10)
+	rack.Spec.RegionName = r.RegionName
+	return rack
+}
+
+// rackRowToAPI converts a DBRackListRow (ListRacksRow) to an API Rack.
+func rackRowToAPI(r *DBRackListRow) Rack {
+	return Rack{
+		TypeMeta: runtime.TypeMeta{Kind: "Rack"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(r.ID, 10),
+			Name:      r.Name,
+			CreatedAt: new(r.CreatedAt),
+			UpdatedAt: new(r.UpdatedAt),
+		},
+		Spec: RackSpec{
+			DisplayName:   r.DisplayName,
+			Description:   r.Description,
+			LocationID:    strconv.FormatInt(r.LocationID, 10),
+			LocationName:  r.LocationName,
+			SiteID:        strconv.FormatInt(r.SiteID, 10),
+			SiteName:      r.SiteName,
+			RegionID:      strconv.FormatInt(r.RegionID, 10),
+			RegionName:    r.RegionName,
+			Status:        r.Status,
+			UHeight:       r.UHeight,
+			Position:      r.Position,
+			PowerCapacity: r.PowerCapacity,
 		},
 	}
 }
