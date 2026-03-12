@@ -343,6 +343,9 @@ export interface HostAssignmentList extends TypeMeta {
 export interface NetworkSpec {
   displayName?: string
   description?: string
+  cidr?: string
+  maxSubnets?: number
+  isPublic?: boolean
   status?: "active" | "inactive"
   subnetCount?: number
 }
@@ -364,7 +367,6 @@ export interface SubnetSpec {
   description?: string
   cidr: string
   gateway?: string
-  status?: "active" | "inactive"
   networkId?: string
   freeIPs?: number
   usedIPs?: number

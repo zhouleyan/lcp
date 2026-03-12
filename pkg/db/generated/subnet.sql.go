@@ -24,38 +24,31 @@ const countSubnets = `-- name: CountSubnets :one
 SELECT count(*)
 FROM subnets
 WHERE network_id = $1
-    AND ($2::VARCHAR IS NULL OR status = $2)
-    AND ($3::VARCHAR IS NULL OR name ILIKE '%' || $3 || '%')
-    AND ($4::VARCHAR IS NULL
-         OR name ILIKE '%' || $4 || '%'
-         OR display_name ILIKE '%' || $4 || '%'
-         OR description ILIKE '%' || $4 || '%'
-         OR cidr ILIKE '%' || $4 || '%')
+    AND ($2::VARCHAR IS NULL OR name ILIKE '%' || $2 || '%')
+    AND ($3::VARCHAR IS NULL
+         OR name ILIKE '%' || $3 || '%'
+         OR display_name ILIKE '%' || $3 || '%'
+         OR description ILIKE '%' || $3 || '%'
+         OR cidr ILIKE '%' || $3 || '%')
 `
 
 type CountSubnetsParams struct {
 	NetworkID int64   `json:"network_id"`
-	Status    *string `json:"status"`
 	Name      *string `json:"name"`
 	Search    *string `json:"search"`
 }
 
 func (q *Queries) CountSubnets(ctx context.Context, arg CountSubnetsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countSubnets,
-		arg.NetworkID,
-		arg.Status,
-		arg.Name,
-		arg.Search,
-	)
+	row := q.db.QueryRow(ctx, countSubnets, arg.NetworkID, arg.Name, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const createSubnet = `-- name: CreateSubnet :one
-INSERT INTO subnets (name, display_name, description, network_id, cidr, gateway, bitmap, status)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, name, display_name, description, network_id, cidr, gateway, bitmap, status, created_at, updated_at
+INSERT INTO subnets (name, display_name, description, network_id, cidr, gateway, bitmap)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, name, display_name, description, network_id, cidr, gateway, bitmap, created_at, updated_at
 `
 
 type CreateSubnetParams struct {
@@ -66,7 +59,6 @@ type CreateSubnetParams struct {
 	Cidr        string `json:"cidr"`
 	Gateway     string `json:"gateway"`
 	Bitmap      []byte `json:"bitmap"`
-	Status      string `json:"status"`
 }
 
 func (q *Queries) CreateSubnet(ctx context.Context, arg CreateSubnetParams) (Subnet, error) {
@@ -78,7 +70,6 @@ func (q *Queries) CreateSubnet(ctx context.Context, arg CreateSubnetParams) (Sub
 		arg.Cidr,
 		arg.Gateway,
 		arg.Bitmap,
-		arg.Status,
 	)
 	var i Subnet
 	err := row.Scan(
@@ -90,7 +81,6 @@ func (q *Queries) CreateSubnet(ctx context.Context, arg CreateSubnetParams) (Sub
 		&i.Cidr,
 		&i.Gateway,
 		&i.Bitmap,
-		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -139,7 +129,7 @@ func (q *Queries) DeleteSubnetsByIDs(ctx context.Context, arg DeleteSubnetsByIDs
 const getSubnetByID = `-- name: GetSubnetByID :one
 SELECT
     s.id, s.name, s.display_name, s.description, s.network_id,
-    s.cidr, s.gateway, s.bitmap, s.status,
+    s.cidr, s.gateway, s.bitmap,
     s.created_at, s.updated_at
 FROM subnets s
 WHERE s.id = $1
@@ -157,7 +147,6 @@ func (q *Queries) GetSubnetByID(ctx context.Context, id int64) (Subnet, error) {
 		&i.Cidr,
 		&i.Gateway,
 		&i.Bitmap,
-		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -167,7 +156,7 @@ func (q *Queries) GetSubnetByID(ctx context.Context, id int64) (Subnet, error) {
 const getSubnetByIDForUpdate = `-- name: GetSubnetByIDForUpdate :one
 SELECT
     s.id, s.name, s.display_name, s.description, s.network_id,
-    s.cidr, s.gateway, s.bitmap, s.status,
+    s.cidr, s.gateway, s.bitmap,
     s.created_at, s.updated_at
 FROM subnets s
 WHERE s.id = $1
@@ -186,7 +175,6 @@ func (q *Queries) GetSubnetByIDForUpdate(ctx context.Context, id int64) (Subnet,
 		&i.Cidr,
 		&i.Gateway,
 		&i.Bitmap,
-		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -225,32 +213,32 @@ func (q *Queries) ListSubnetCIDRsByNetworkID(ctx context.Context, networkID int6
 const listSubnets = `-- name: ListSubnets :many
 SELECT
     s.id, s.name, s.display_name, s.description, s.network_id,
-    s.cidr, s.gateway, s.bitmap, s.status,
+    s.cidr, s.gateway, s.bitmap,
     s.created_at, s.updated_at
 FROM subnets s
 WHERE s.network_id = $1
-    AND ($2::VARCHAR IS NULL OR s.status = $2)
-    AND ($3::VARCHAR IS NULL OR s.name ILIKE '%' || $3 || '%')
-    AND ($4::VARCHAR IS NULL
-         OR s.name ILIKE '%' || $4 || '%'
-         OR s.display_name ILIKE '%' || $4 || '%'
-         OR s.description ILIKE '%' || $4 || '%'
-         OR s.cidr ILIKE '%' || $4 || '%')
+    AND ($2::VARCHAR IS NULL OR s.name ILIKE '%' || $2 || '%')
+    AND ($3::VARCHAR IS NULL
+         OR s.name ILIKE '%' || $3 || '%'
+         OR s.display_name ILIKE '%' || $3 || '%'
+         OR s.description ILIKE '%' || $3 || '%'
+         OR s.cidr ILIKE '%' || $3 || '%')
 ORDER BY
-    CASE WHEN $5::VARCHAR = 'name' AND $6::VARCHAR = 'asc' THEN s.name END ASC,
-    CASE WHEN $5::VARCHAR = 'name' AND $6::VARCHAR = 'desc' THEN s.name END DESC,
-    CASE WHEN $5::VARCHAR = 'cidr' AND $6::VARCHAR = 'asc' THEN s.cidr END ASC,
-    CASE WHEN $5::VARCHAR = 'cidr' AND $6::VARCHAR = 'desc' THEN s.cidr END DESC,
-    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'asc' THEN s.created_at END ASC,
-    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'desc' THEN s.created_at END DESC,
+    CASE WHEN $4::VARCHAR = 'name' AND $5::VARCHAR = 'asc' THEN s.name END ASC,
+    CASE WHEN $4::VARCHAR = 'name' AND $5::VARCHAR = 'desc' THEN s.name END DESC,
+    CASE WHEN $4::VARCHAR = 'cidr' AND $5::VARCHAR = 'asc' THEN s.cidr END ASC,
+    CASE WHEN $4::VARCHAR = 'cidr' AND $5::VARCHAR = 'desc' THEN s.cidr END DESC,
+    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'asc' THEN s.created_at END ASC,
+    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'desc' THEN s.created_at END DESC,
+    CASE WHEN $4::VARCHAR = 'updated_at' AND $5::VARCHAR = 'asc' THEN s.updated_at END ASC,
+    CASE WHEN $4::VARCHAR = 'updated_at' AND $5::VARCHAR = 'desc' THEN s.updated_at END DESC,
     s.created_at DESC
-LIMIT $8::INT
-OFFSET $7::INT
+LIMIT $7::INT
+OFFSET $6::INT
 `
 
 type ListSubnetsParams struct {
 	NetworkID  int64   `json:"network_id"`
-	Status     *string `json:"status"`
 	Name       *string `json:"name"`
 	Search     *string `json:"search"`
 	SortField  string  `json:"sort_field"`
@@ -262,7 +250,6 @@ type ListSubnetsParams struct {
 func (q *Queries) ListSubnets(ctx context.Context, arg ListSubnetsParams) ([]Subnet, error) {
 	rows, err := q.db.Query(ctx, listSubnets,
 		arg.NetworkID,
-		arg.Status,
 		arg.Name,
 		arg.Search,
 		arg.SortField,
@@ -286,7 +273,6 @@ func (q *Queries) ListSubnets(ctx context.Context, arg ListSubnetsParams) ([]Sub
 			&i.Cidr,
 			&i.Gateway,
 			&i.Bitmap,
-			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -305,17 +291,15 @@ UPDATE subnets
 SET name = CASE WHEN $1::VARCHAR IS NOT NULL THEN $1 ELSE name END,
     display_name = CASE WHEN $2::VARCHAR IS NOT NULL THEN $2 ELSE display_name END,
     description = CASE WHEN $3::TEXT IS NOT NULL THEN $3 ELSE description END,
-    status = CASE WHEN $4::VARCHAR IS NOT NULL THEN $4 ELSE status END,
     updated_at = now()
-WHERE id = $5
-RETURNING id, name, display_name, description, network_id, cidr, gateway, bitmap, status, created_at, updated_at
+WHERE id = $4
+RETURNING id, name, display_name, description, network_id, cidr, gateway, bitmap, created_at, updated_at
 `
 
 type PatchSubnetParams struct {
 	Name        *string `json:"name"`
 	DisplayName *string `json:"display_name"`
 	Description *string `json:"description"`
-	Status      *string `json:"status"`
 	ID          int64   `json:"id"`
 }
 
@@ -324,7 +308,6 @@ func (q *Queries) PatchSubnet(ctx context.Context, arg PatchSubnetParams) (Subne
 		arg.Name,
 		arg.DisplayName,
 		arg.Description,
-		arg.Status,
 		arg.ID,
 	)
 	var i Subnet
@@ -337,7 +320,6 @@ func (q *Queries) PatchSubnet(ctx context.Context, arg PatchSubnetParams) (Subne
 		&i.Cidr,
 		&i.Gateway,
 		&i.Bitmap,
-		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -349,17 +331,15 @@ UPDATE subnets
 SET name = $1,
     display_name = $2,
     description = $3,
-    status = $4,
     updated_at = now()
-WHERE id = $5
-RETURNING id, name, display_name, description, network_id, cidr, gateway, bitmap, status, created_at, updated_at
+WHERE id = $4
+RETURNING id, name, display_name, description, network_id, cidr, gateway, bitmap, created_at, updated_at
 `
 
 type UpdateSubnetParams struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"display_name"`
 	Description string `json:"description"`
-	Status      string `json:"status"`
 	ID          int64  `json:"id"`
 }
 
@@ -368,7 +348,6 @@ func (q *Queries) UpdateSubnet(ctx context.Context, arg UpdateSubnetParams) (Sub
 		arg.Name,
 		arg.DisplayName,
 		arg.Description,
-		arg.Status,
 		arg.ID,
 	)
 	var i Subnet
@@ -381,7 +360,6 @@ func (q *Queries) UpdateSubnet(ctx context.Context, arg UpdateSubnetParams) (Sub
 		&i.Cidr,
 		&i.Gateway,
 		&i.Bitmap,
-		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -399,5 +377,19 @@ type UpdateSubnetBitmapParams struct {
 
 func (q *Queries) UpdateSubnetBitmap(ctx context.Context, arg UpdateSubnetBitmapParams) error {
 	_, err := q.db.Exec(ctx, updateSubnetBitmap, arg.Bitmap, arg.ID)
+	return err
+}
+
+const updateSubnetGateway = `-- name: UpdateSubnetGateway :exec
+UPDATE subnets SET gateway = $1, updated_at = now() WHERE id = $2
+`
+
+type UpdateSubnetGatewayParams struct {
+	Gateway string `json:"gateway"`
+	ID      int64  `json:"id"`
+}
+
+func (q *Queries) UpdateSubnetGateway(ctx context.Context, arg UpdateSubnetGatewayParams) error {
+	_, err := q.db.Exec(ctx, updateSubnetGateway, arg.Gateway, arg.ID)
 	return err
 }

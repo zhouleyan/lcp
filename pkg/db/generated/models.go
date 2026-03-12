@@ -121,6 +121,10 @@ type Network struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"display_name"`
 	Description string `json:"description"`
+	// 网络 CIDR 地址段（可选），限制子网 CIDR 分配范围
+	Cidr       string `json:"cidr"`
+	MaxSubnets int32  `json:"max_subnets"`
+	IsPublic   bool   `json:"is_public"`
 	// 状态：active / inactive
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
@@ -227,7 +231,6 @@ type Subnet struct {
 	Gateway string `json:"gateway"`
 	// IP 分配位图（BYTEA）
 	Bitmap    []byte    `json:"bitmap"`
-	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

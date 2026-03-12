@@ -43,7 +43,6 @@ func (s *pgSubnetStore) Create(ctx context.Context, tx pgx.Tx, subnet *network.D
 		Cidr:        subnet.Cidr,
 		Gateway:     subnet.Gateway,
 		Bitmap:      subnet.Bitmap,
-		Status:      subnet.Status,
 	})
 	if err != nil {
 		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
@@ -82,7 +81,6 @@ func (s *pgSubnetStore) Update(ctx context.Context, subnet *network.DBSubnet) (*
 		Name:        subnet.Name,
 		DisplayName: subnet.DisplayName,
 		Description: subnet.Description,
-		Status:      subnet.Status,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -106,9 +104,6 @@ func (s *pgSubnetStore) Patch(ctx context.Context, id int64, fields map[string]a
 	}
 	if v, ok := fields["description"].(string); ok {
 		params.Description = &v
-	}
-	if v, ok := fields["status"].(string); ok {
-		params.Status = &v
 	}
 
 	row, err := s.queries.PatchSubnet(ctx, params)
@@ -135,8 +130,27 @@ func (s *pgSubnetStore) UpdateBitmap(ctx context.Context, tx pgx.Tx, id int64, b
 	return nil
 }
 
+func (s *pgSubnetStore) UpdateGateway(ctx context.Context, tx pgx.Tx, id int64, gateway string) error {
+	err := s.queries.WithTx(tx).UpdateSubnetGateway(ctx, generated.UpdateSubnetGatewayParams{
+		ID:      id,
+		Gateway: gateway,
+	})
+	if err != nil {
+		return fmt.Errorf("update subnet gateway: %w", err)
+	}
+	return nil
+}
+
 func (s *pgSubnetStore) Delete(ctx context.Context, id int64) error {
 	err := s.queries.DeleteSubnet(ctx, id)
+	if err != nil {
+		return fmt.Errorf("delete subnet: %w", err)
+	}
+	return nil
+}
+
+func (s *pgSubnetStore) DeleteTx(ctx context.Context, tx pgx.Tx, id int64) error {
+	err := s.queries.WithTx(tx).DeleteSubnet(ctx, id)
 	if err != nil {
 		return fmt.Errorf("delete subnet: %w", err)
 	}
@@ -163,7 +177,6 @@ func (s *pgSubnetStore) List(ctx context.Context, networkID int64, q db.ListQuer
 
 	count, err := s.queries.CountSubnets(ctx, generated.CountSubnetsParams{
 		NetworkID: networkID,
-		Status:    filterStr(q.Filters, "status"),
 		Name:      filterStr(q.Filters, "name"),
 		Search:    filterStr(q.Filters, "search"),
 	})
@@ -173,7 +186,6 @@ func (s *pgSubnetStore) List(ctx context.Context, networkID int64, q db.ListQuer
 
 	rows, err := s.queries.ListSubnets(ctx, generated.ListSubnetsParams{
 		NetworkID:  networkID,
-		Status:     filterStr(q.Filters, "status"),
 		Name:       filterStr(q.Filters, "name"),
 		Search:     filterStr(q.Filters, "search"),
 		SortField:  q.SortBy,

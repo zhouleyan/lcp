@@ -116,8 +116,9 @@ const common: Messages = {
   "api.error.cannotDeleteWorkspace": "无法删除租户：仍包含项目，请先删除所有项目",
   "api.error.cannotDeleteNamespace": "无法删除项目：仍包含成员，请先移除所有成员",
   "api.error.cannotDeleteNetwork": "无法删除网络：存在关联子网",
-  "api.error.cannotDeleteSubnet": "无法删除子网：存在非网关 IP 分配",
-  "api.error.cannotDeleteGateway": "网关 IP 不可直接释放",
+  "api.error.cannotDeleteSubnet": "无法删除子网：存在 IP 分配记录",
+  "api.error.maxSubnetsReached": "网络已达到子网数量上限",
+  "api.error.subnetAlreadyHasGateway": "该子网已设置网关地址",
   "api.error.ipNotInRange": "IP 地址不在子网 CIDR 范围内",
   "api.error.ipAlreadyAllocated": "该 IP 地址已被分配",
   "api.error.cannotRemoveOwner": "无法移除所有者",
@@ -144,6 +145,7 @@ const common: Messages = {
   "api.validation.ip.format": "请输入有效的 IP 地址",
   "api.validation.gateway.notInRange": "网关不在 CIDR 范围内",
   "api.validation.cidr.overlap": "CIDR 与已有子网重叠",
+  "api.validation.cidr.notWithinNetwork": "子网 CIDR 不在网络 CIDR 范围内",
   "api.validation.description.tooLong": "描述内容过长",
 
   // action feedback

@@ -47,15 +47,18 @@ func (q *Queries) CountSubnetsByNetworkID(ctx context.Context, networkID int64) 
 }
 
 const createNetwork = `-- name: CreateNetwork :one
-INSERT INTO networks (name, display_name, description, status)
-VALUES ($1, $2, $3, $4)
-RETURNING id, name, display_name, description, status, created_at, updated_at
+INSERT INTO networks (name, display_name, description, cidr, max_subnets, is_public, status)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, name, display_name, description, cidr, max_subnets, is_public, status, created_at, updated_at
 `
 
 type CreateNetworkParams struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"display_name"`
 	Description string `json:"description"`
+	Cidr        string `json:"cidr"`
+	MaxSubnets  int32  `json:"max_subnets"`
+	IsPublic    bool   `json:"is_public"`
 	Status      string `json:"status"`
 }
 
@@ -64,6 +67,9 @@ func (q *Queries) CreateNetwork(ctx context.Context, arg CreateNetworkParams) (N
 		arg.Name,
 		arg.DisplayName,
 		arg.Description,
+		arg.Cidr,
+		arg.MaxSubnets,
+		arg.IsPublic,
 		arg.Status,
 	)
 	var i Network
@@ -72,6 +78,9 @@ func (q *Queries) CreateNetwork(ctx context.Context, arg CreateNetworkParams) (N
 		&i.Name,
 		&i.DisplayName,
 		&i.Description,
+		&i.Cidr,
+		&i.MaxSubnets,
+		&i.IsPublic,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -115,7 +124,7 @@ func (q *Queries) DeleteNetworksByIDs(ctx context.Context, ids []int64) ([]int64
 
 const getNetworkByID = `-- name: GetNetworkByID :one
 SELECT
-    n.id, n.name, n.display_name, n.description, n.status,
+    n.id, n.name, n.display_name, n.description, n.cidr, n.max_subnets, n.is_public, n.status,
     n.created_at, n.updated_at,
     (SELECT count(*) FROM subnets s WHERE s.network_id = n.id) AS subnet_count
 FROM networks n
@@ -127,6 +136,9 @@ type GetNetworkByIDRow struct {
 	Name        string    `json:"name"`
 	DisplayName string    `json:"display_name"`
 	Description string    `json:"description"`
+	Cidr        string    `json:"cidr"`
+	MaxSubnets  int32     `json:"max_subnets"`
+	IsPublic    bool      `json:"is_public"`
 	Status      string    `json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
@@ -141,6 +153,9 @@ func (q *Queries) GetNetworkByID(ctx context.Context, id int64) (GetNetworkByIDR
 		&i.Name,
 		&i.DisplayName,
 		&i.Description,
+		&i.Cidr,
+		&i.MaxSubnets,
+		&i.IsPublic,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -152,7 +167,7 @@ func (q *Queries) GetNetworkByID(ctx context.Context, id int64) (GetNetworkByIDR
 const listNetworks = `-- name: ListNetworks :many
 WITH net_data AS (
     SELECT
-        n.id, n.name, n.display_name, n.description, n.status,
+        n.id, n.name, n.display_name, n.description, n.cidr, n.max_subnets, n.is_public, n.status,
         n.created_at, n.updated_at,
         (SELECT count(*) FROM subnets s WHERE s.network_id = n.id) AS subnet_count
     FROM networks n
@@ -164,12 +179,20 @@ WITH net_data AS (
              OR n.display_name ILIKE '%' || $7 || '%'
              OR n.description ILIKE '%' || $7 || '%')
 )
-SELECT id, name, display_name, description, status, created_at, updated_at, subnet_count FROM net_data
+SELECT id, name, display_name, description, cidr, max_subnets, is_public, status, created_at, updated_at, subnet_count FROM net_data
 ORDER BY
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
+    CASE WHEN $1::VARCHAR = 'display_name' AND $2::VARCHAR = 'asc' THEN display_name END ASC,
+    CASE WHEN $1::VARCHAR = 'display_name' AND $2::VARCHAR = 'desc' THEN display_name END DESC,
+    CASE WHEN $1::VARCHAR = 'cidr' AND $2::VARCHAR = 'asc' THEN cidr END ASC,
+    CASE WHEN $1::VARCHAR = 'cidr' AND $2::VARCHAR = 'desc' THEN cidr END DESC,
+    CASE WHEN $1::VARCHAR = 'subnet_count' AND $2::VARCHAR = 'asc' THEN subnet_count END ASC,
+    CASE WHEN $1::VARCHAR = 'subnet_count' AND $2::VARCHAR = 'desc' THEN subnet_count END DESC,
     CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'asc' THEN created_at END ASC,
     CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN $1::VARCHAR = 'updated_at' AND $2::VARCHAR = 'asc' THEN updated_at END ASC,
+    CASE WHEN $1::VARCHAR = 'updated_at' AND $2::VARCHAR = 'desc' THEN updated_at END DESC,
     created_at DESC
 LIMIT $4::INT
 OFFSET $3::INT
@@ -190,6 +213,9 @@ type ListNetworksRow struct {
 	Name        string    `json:"name"`
 	DisplayName string    `json:"display_name"`
 	Description string    `json:"description"`
+	Cidr        string    `json:"cidr"`
+	MaxSubnets  int32     `json:"max_subnets"`
+	IsPublic    bool      `json:"is_public"`
 	Status      string    `json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
@@ -218,6 +244,9 @@ func (q *Queries) ListNetworks(ctx context.Context, arg ListNetworksParams) ([]L
 			&i.Name,
 			&i.DisplayName,
 			&i.Description,
+			&i.Cidr,
+			&i.MaxSubnets,
+			&i.IsPublic,
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -241,7 +270,7 @@ SET name = CASE WHEN $1::VARCHAR IS NOT NULL THEN $1 ELSE name END,
     status = CASE WHEN $4::VARCHAR IS NOT NULL THEN $4 ELSE status END,
     updated_at = now()
 WHERE id = $5
-RETURNING id, name, display_name, description, status, created_at, updated_at
+RETURNING id, name, display_name, description, cidr, max_subnets, is_public, status, created_at, updated_at
 `
 
 type PatchNetworkParams struct {
@@ -266,6 +295,9 @@ func (q *Queries) PatchNetwork(ctx context.Context, arg PatchNetworkParams) (Net
 		&i.Name,
 		&i.DisplayName,
 		&i.Description,
+		&i.Cidr,
+		&i.MaxSubnets,
+		&i.IsPublic,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -281,7 +313,7 @@ SET name = $1,
     status = $4,
     updated_at = now()
 WHERE id = $5
-RETURNING id, name, display_name, description, status, created_at, updated_at
+RETURNING id, name, display_name, description, cidr, max_subnets, is_public, status, created_at, updated_at
 `
 
 type UpdateNetworkParams struct {
@@ -306,6 +338,9 @@ func (q *Queries) UpdateNetwork(ctx context.Context, arg UpdateNetworkParams) (N
 		&i.Name,
 		&i.DisplayName,
 		&i.Description,
+		&i.Cidr,
+		&i.MaxSubnets,
+		&i.IsPublic,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,

@@ -116,8 +116,9 @@ const common: Messages = {
   "api.error.cannotDeleteWorkspace": "Cannot delete workspace: it still contains namespaces, please delete all namespaces first",
   "api.error.cannotDeleteNamespace": "Cannot delete namespace: it still contains members, please remove all members first",
   "api.error.cannotDeleteNetwork": "Cannot delete network: has associated subnets",
-  "api.error.cannotDeleteSubnet": "Cannot delete subnet: has non-gateway IP allocations",
-  "api.error.cannotDeleteGateway": "Cannot directly release gateway IP allocation",
+  "api.error.cannotDeleteSubnet": "Cannot delete subnet: has IP allocations",
+  "api.error.maxSubnetsReached": "Network has reached the maximum number of subnets",
+  "api.error.subnetAlreadyHasGateway": "This subnet already has a gateway address",
   "api.error.ipNotInRange": "IP address is not within the subnet CIDR range",
   "api.error.ipAlreadyAllocated": "This IP address is already allocated",
   "api.error.cannotRemoveOwner": "Cannot remove the owner from this resource",
@@ -144,6 +145,7 @@ const common: Messages = {
   "api.validation.ip.format": "Please enter a valid IP address",
   "api.validation.gateway.notInRange": "Gateway is not within the CIDR range",
   "api.validation.cidr.overlap": "CIDR overlaps with an existing subnet",
+  "api.validation.cidr.notWithinNetwork": "Subnet CIDR is not within network CIDR range",
   "api.validation.description.tooLong": "Description is too long",
 
   // action feedback

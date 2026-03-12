@@ -30,6 +30,9 @@ func (s *pgNetworkStore) Create(ctx context.Context, n *network.DBNetwork) (*net
 		Name:        n.Name,
 		DisplayName: n.DisplayName,
 		Description: n.Description,
+		Cidr:        n.Cidr,
+		MaxSubnets:  n.MaxSubnets,
+		IsPublic:    n.IsPublic,
 		Status:      n.Status,
 	})
 	if err != nil {

@@ -11,12 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
@@ -33,6 +31,7 @@ import { usePermission } from "@/hooks/use-permission"
 import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
+import { cidrUsableRange } from "./utils"
 
 export default function SubnetDetailPage() {
   const { networkId, subnetId } = useParams()
@@ -97,9 +96,6 @@ export default function SubnetDetailPage() {
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">{subnet.metadata.name}</h1>
-          <Badge variant={subnet.spec.status === "active" ? "default" : "secondary"}>
-            {subnet.spec.status === "active" ? t("common.active") : t("common.inactive")}
-          </Badge>
           <Badge variant="outline" className="font-mono">{subnet.spec.cidr}</Badge>
         </div>
         <div className="flex items-center gap-2">
@@ -128,7 +124,7 @@ export default function SubnetDetailPage() {
             <div className="space-y-2">
               <div className="h-3 rounded-full bg-muted">
                 <div
-                  className="h-3 rounded-full bg-primary transition-all"
+                  className={`h-3 rounded-full transition-all ${usagePercent > 90 ? "bg-primary" : usagePercent > 60 ? "bg-primary/50" : "bg-primary/20"}`}
                   style={{ width: `${usagePercent}%` }}
                 />
               </div>
@@ -159,19 +155,20 @@ export default function SubnetDetailPage() {
               </div>
               <div>
                 <span className="text-muted-foreground">{t("subnet.cidr")}</span>
-                <p className="font-medium font-mono">{subnet.spec.cidr}</p>
+                <p className="font-medium font-mono">
+                  {subnet.spec.cidr}
+                  {cidrUsableRange(subnet.spec.cidr) && (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">{cidrUsableRange(subnet.spec.cidr)}</span>
+                  )}
+                </p>
               </div>
               <div>
                 <span className="text-muted-foreground">{t("subnet.gateway")}</span>
                 <p className="font-medium font-mono">{subnet.spec.gateway || "-"}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">{t("common.status")}</span>
-                <p>
-                  <Badge variant={subnet.spec.status === "active" ? "default" : "secondary"}>
-                    {subnet.spec.status === "active" ? t("common.active") : t("common.inactive")}
-                  </Badge>
-                </p>
+                <span className="text-muted-foreground">{t("subnet.broadcast")}</span>
+                <p className="font-medium font-mono">{computeBroadcastIP(subnet.spec.cidr) || "-"}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">{t("subnet.freeIPs")}</span>
@@ -195,7 +192,7 @@ export default function SubnetDetailPage() {
 
         {/* Allocations */}
         {networkId && subnetId && (
-          <AllocationsSection networkId={networkId} subnetId={subnetId} cidr={subnet.spec.cidr} nextFreeIP={subnet.spec.nextFreeIP} onSubnetChange={fetchSubnet} />
+          <AllocationsSection networkId={networkId} subnetId={subnetId} cidr={subnet.spec.cidr} gateway={subnet.spec.gateway} nextFreeIP={subnet.spec.nextFreeIP} onSubnetChange={fetchSubnet} />
         )}
       </div>
 
@@ -225,11 +222,12 @@ export default function SubnetDetailPage() {
 // ===== Allocations Section =====
 
 function AllocationsSection({
-  networkId, subnetId, cidr, nextFreeIP, onSubnetChange,
+  networkId, subnetId, cidr, gateway, nextFreeIP, onSubnetChange,
 }: {
   networkId: string
   subnetId: string
   cidr: string
+  gateway?: string
   nextFreeIP?: string
   onSubnetChange: () => void
 }) {
@@ -331,15 +329,15 @@ function AllocationsSection({
                     <TableCell className="font-mono text-sm">{alloc.spec.ip}</TableCell>
                     <TableCell className="text-sm">{alloc.spec.description || "-"}</TableCell>
                     <TableCell>
-                      {alloc.spec.isGateway && (
-                        <Badge variant="outline">{t("allocation.isGateway")}</Badge>
-                      )}
+                      {alloc.spec.isGateway
+                        ? <Badge variant="outline">{t("allocation.isGateway")}</Badge>
+                        : <span className="text-muted-foreground">-</span>}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                       {new Date(alloc.metadata.createdAt).toLocaleString()}
                     </TableCell>
                     <TableCell>
-                      {hasPermission("network:allocations:delete") && !alloc.spec.isGateway && (
+                      {hasPermission("network:allocations:delete") && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -366,6 +364,7 @@ function AllocationsSection({
           networkId={networkId}
           subnetId={subnetId}
           cidr={cidr}
+          gateway={gateway}
           nextFreeIP={nextFreeIP}
           onSuccess={handleCreateSuccess}
         />
@@ -385,6 +384,14 @@ function AllocationsSection({
 
 // ===== Allocation Form Dialog =====
 
+/** Compute broadcast IP from CIDR string. */
+function computeBroadcastIP(cidr: string): string | null {
+  const { networkOctets, prefix } = parseCIDR(cidr)
+  if (prefix === 0) return null
+  const ranges = computeMaskRanges(networkOctets, prefix)
+  return ranges.map((r) => r.max).join(".")
+}
+
 /** Parse CIDR into network octets and the count of fully-fixed octets. */
 function parseCIDR(cidr: string) {
   const m = cidr.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)\/(\d+)$/)
@@ -396,8 +403,8 @@ function parseCIDR(cidr: string) {
   }
 }
 
-/** Compute the valid range [min, max] for each octet based on CIDR. */
-function computeOctetRanges(networkOctets: number[], prefix: number): { min: number; max: number }[] {
+/** Compute mask-based range [min, max] for each octet. */
+function computeMaskRanges(networkOctets: number[], prefix: number): { min: number; max: number }[] {
   return networkOctets.map((octet, i) => {
     const bitStart = i * 8
     const bitEnd = bitStart + 8
@@ -409,14 +416,37 @@ function computeOctetRanges(networkOctets: number[], prefix: number): { min: num
   })
 }
 
+/** Compute the usable range [min, max] for each octet, excluding network/broadcast.
+ *  For prefix >= 24 && <= 30 (single variable octet), tightens last octet by ±1.
+ *  For wider prefixes, per-octet hints can't express the cross-octet constraint. */
+function computeOctetRanges(networkOctets: number[], prefix: number): { min: number; max: number }[] {
+  const ranges = computeMaskRanges(networkOctets, prefix)
+  if (prefix >= 24 && prefix <= 30) {
+    ranges[3] = { min: ranges[3].min + 1, max: ranges[3].max - 1 }
+  }
+  return ranges
+}
+
+/** Compute the full usable IP range for a CIDR (excludes network and broadcast for prefix <= 30). */
+function computeUsableRange(networkOctets: number[], prefix: number): { first: string; last: string } | null {
+  if (prefix > 30) return null
+  const ranges = computeMaskRanges(networkOctets, prefix)
+  const firstIP = ranges.map((r) => r.min)
+  const lastIP = ranges.map((r) => r.max)
+  firstIP[3] += 1
+  lastIP[3] -= 1
+  return { first: firstIP.join("."), last: lastIP.join(".") }
+}
+
 function AllocationFormDialog({
-  open, onOpenChange, networkId, subnetId, cidr, nextFreeIP, onSuccess,
+  open, onOpenChange, networkId, subnetId, cidr, gateway, nextFreeIP, onSuccess,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   networkId: string
   subnetId: string
   cidr: string
+  gateway?: string
   nextFreeIP?: string
   onSuccess: () => void
 }) {
@@ -424,11 +454,21 @@ function AllocationFormDialog({
   const [loading, setLoading] = useState(false)
   const [ipError, setIpError] = useState("")
   const [description, setDescription] = useState("")
+  const [isGateway, setIsGateway] = useState(false)
   const [formError, setFormError] = useState("")
   const inputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null])
 
   const { networkOctets, fixedCount, prefix } = useMemo(() => parseCIDR(cidr), [cidr])
   const octetRanges = useMemo(() => computeOctetRanges(networkOctets, prefix), [networkOctets, prefix])
+  const usableRange = useMemo(() => computeUsableRange(networkOctets, prefix), [networkOctets, prefix])
+  const reservedIPs = useMemo(() => {
+    if (prefix > 30) return new Set<string>()
+    const ranges = computeMaskRanges(networkOctets, prefix)
+    return new Set([
+      ranges.map((r) => r.min).join("."), // network address
+      ranges.map((r) => r.max).join("."), // broadcast address
+    ])
+  }, [networkOctets, prefix])
 
   const defaultOctets = useMemo(() => {
     // Use backend-provided nextFreeIP if available
@@ -449,6 +489,7 @@ function AllocationFormDialog({
       setOctets([...defaultOctets])
       setIpError("")
       setDescription("")
+      setIsGateway(false)
       setFormError("")
       setLoading(false)
     }
@@ -490,9 +531,15 @@ function AllocationFormDialog({
       setIpError("")
       return
     }
-    // Check occupied when all octets are filled
+    // Check when all octets are filled
     if (octets.some((o) => o === "")) return
     const ip = octets.join(".")
+    // Reject network/broadcast addresses
+    if (reservedIPs.has(ip)) {
+      setIpError(t("allocation.reservedIP"))
+      return
+    }
+    // Check occupied
     try {
       const data = await listAllocations(networkId, subnetId, { page: 1, pageSize: 1, search: ip })
       if (data.items?.some((a) => a.spec.ip === ip)) {
@@ -511,10 +558,14 @@ function AllocationFormDialog({
     if (ipError) return
 
     const ip = octets.join(".")
+    if (reservedIPs.has(ip)) {
+      setIpError(t("allocation.reservedIP"))
+      return
+    }
     setLoading(true)
     try {
       await createAllocation(networkId, subnetId, {
-        spec: { ip, description: description || undefined },
+        spec: { ip, description: description || undefined, isGateway: isGateway || undefined },
       })
       toast.success(t("action.createSuccess"))
       onOpenChange(false)
@@ -586,12 +637,23 @@ function AllocationFormDialog({
                 </React.Fragment>
               ))}
             </div>
+            {usableRange && (
+              <p className="text-muted-foreground text-xs font-mono">
+                {t("allocation.usableRange", { first: usableRange.first, last: usableRange.last })}
+              </p>
+            )}
             {ipError && <p className="text-sm text-destructive">{ipError}</p>}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">{t("allocation.description")}</label>
             <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
+          {!gateway && (
+            <div className="flex items-center gap-2">
+              <Checkbox id="isGateway" checked={isGateway} onCheckedChange={(v) => setIsGateway(v === true)} />
+              <label htmlFor="isGateway" className="text-sm cursor-pointer select-none">{t("allocation.setAsGateway")}</label>
+            </div>
+          )}
           <DialogFooter className="mt-6 pt-4 border-t">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
             <Button type="submit" disabled={loading}>{loading ? "..." : t("common.save")}</Button>
@@ -619,7 +681,6 @@ function EditSubnetDialog({
   const schema = z.object({
     displayName: z.string().optional(),
     description: z.string().optional(),
-    status: z.enum(["active", "inactive"]),
   })
 
   type FormValues = z.infer<typeof schema>
@@ -630,7 +691,6 @@ function EditSubnetDialog({
     defaultValues: {
       displayName: subnet.spec.displayName ?? "",
       description: subnet.spec.description ?? "",
-      status: (subnet.spec.status as "active" | "inactive") ?? "active",
     },
   })
 
@@ -639,7 +699,6 @@ function EditSubnetDialog({
       form.reset({
         displayName: subnet.spec.displayName ?? "",
         description: subnet.spec.description ?? "",
-        status: (subnet.spec.status as "active" | "inactive") ?? "active",
       })
     }
   }, [open, subnet, form])
@@ -651,7 +710,6 @@ function EditSubnetDialog({
         ...subnet.spec,
         displayName: values.displayName,
         description: values.description,
-        status: values.status,
       }
 
       await updateSubnet(networkId, subnet.metadata.id, { metadata: subnet.metadata, spec })
@@ -708,19 +766,6 @@ function EditSubnetDialog({
             )} />
             <FormField control={form.control} name="description" render={({ field }) => (
               <FormItem><FormLabel>{t("subnet.description")}</FormLabel><FormControl><Textarea rows={2} {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="status" render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("common.status")}</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl><SelectTrigger className="w-full"><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="active">{t("common.active")}</SelectItem>
-                    <SelectItem value="inactive">{t("common.inactive")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
             )} />
             <DialogFooter className="mt-6 pt-4 border-t">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>

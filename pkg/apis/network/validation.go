@@ -20,6 +20,16 @@ func ValidateNetworkCreate(name string, spec *NetworkSpec) validation.ErrorList 
 		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 3-50 lowercase alphanumeric characters or hyphens, starting and ending with alphanumeric"})
 	}
 
+	if spec.CIDR != "" {
+		if _, _, err := net.ParseCIDR(spec.CIDR); err != nil {
+			errs = append(errs, validation.FieldError{Field: "spec.cidr", Message: fmt.Sprintf("invalid CIDR format: %v", err)})
+		}
+	}
+
+	if spec.MaxSubnets != 0 && (spec.MaxSubnets < 1 || spec.MaxSubnets > 50) {
+		errs = append(errs, validation.FieldError{Field: "spec.maxSubnets", Message: "must be between 1 and 50"})
+	}
+
 	if len(spec.Description) > 1024 {
 		errs = append(errs, validation.FieldError{Field: "spec.description", Message: "must be at most 1024 characters"})
 	}
@@ -46,8 +56,8 @@ func ValidateNetworkUpdate(spec *NetworkSpec) validation.ErrorList {
 	return errs
 }
 
-// ValidateSubnetCreate 校验创建子网的参数。
-func ValidateSubnetCreate(name string, spec *SubnetSpec, existingCIDRs []string) validation.ErrorList {
+// ValidateSubnetCreate 校验创建子网的参数。networkCIDR 为所属网络的 CIDR（可选），用于校验子网 CIDR 是否在网络范围内。
+func ValidateSubnetCreate(name string, spec *SubnetSpec, existingCIDRs []string, networkCIDR string) validation.ErrorList {
 	var errs validation.ErrorList
 
 	if name == "" {
@@ -65,6 +75,18 @@ func ValidateSubnetCreate(name string, spec *SubnetSpec, existingCIDRs []string)
 	if err != nil {
 		errs = append(errs, validation.FieldError{Field: "spec.cidr", Message: fmt.Sprintf("invalid CIDR format: %v", err)})
 		return errs
+	}
+
+	// 校验子网 CIDR 在网络 CIDR 范围内
+	if networkCIDR != "" {
+		_, networkNet, err := net.ParseCIDR(networkCIDR)
+		if err == nil {
+			ones1, _ := networkNet.Mask.Size()
+			ones2, _ := cidrNet.Mask.Size()
+			if !networkNet.Contains(cidrNet.IP) || ones2 < ones1 {
+				errs = append(errs, validation.FieldError{Field: "spec.cidr", Message: fmt.Sprintf("subnet CIDR %s is not within network CIDR %s", spec.CIDR, networkCIDR)})
+			}
+		}
 	}
 
 	// 校验 gateway 在 CIDR 范围内
@@ -93,10 +115,6 @@ func ValidateSubnetCreate(name string, spec *SubnetSpec, existingCIDRs []string)
 		errs = append(errs, validation.FieldError{Field: "spec.description", Message: "must be at most 1024 characters"})
 	}
 
-	if spec.Status != "" && spec.Status != "active" && spec.Status != "inactive" {
-		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
-	}
-
 	return errs
 }
 
@@ -106,10 +124,6 @@ func ValidateSubnetUpdate(spec *SubnetSpec) validation.ErrorList {
 
 	if len(spec.Description) > 1024 {
 		errs = append(errs, validation.FieldError{Field: "spec.description", Message: "must be at most 1024 characters"})
-	}
-
-	if spec.Status != "" && spec.Status != "active" && spec.Status != "inactive" {
-		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
 	}
 
 	return errs

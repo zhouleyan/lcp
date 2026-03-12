@@ -129,6 +129,7 @@ const detailMessagePrefixMap: Record<string, string> = {
   "invalid CIDR format": "api.validation.cidr.format",
   "gateway ": "api.validation.gateway.notInRange",
   "CIDR ": "api.validation.cidr.overlap",
+  "subnet CIDR ": "api.validation.cidr.notWithinNetwork",
   "must be at most ": "api.validation.description.tooLong",
 }
 
@@ -145,7 +146,8 @@ const messagePrefixMap: Record<string, string> = {
   "cannot delete namespace": "api.error.cannotDeleteNamespace",
   "cannot delete network": "api.error.cannotDeleteNetwork",
   "cannot delete subnet": "api.error.cannotDeleteSubnet",
-  "cannot delete gateway IP allocation": "api.error.cannotDeleteGateway",
+  "network has reached the maximum number of subnets": "api.error.maxSubnetsReached",
+  "subnet already has gateway": "api.error.subnetAlreadyHasGateway",
   "IP ": "api.error.ipNotInRange",
 }
 

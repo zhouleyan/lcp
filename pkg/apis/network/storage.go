@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 
 	apierrors "lcp.io/lcp/lib/api/errors"
@@ -110,10 +111,23 @@ func (s *networkStorage) Create(ctx context.Context, obj runtime.Object, options
 		status = "active"
 	}
 
+	maxSubnets := n.Spec.MaxSubnets
+	if maxSubnets == 0 {
+		maxSubnets = 10
+	}
+
+	isPublic := true
+	if n.Spec.IsPublic != nil {
+		isPublic = *n.Spec.IsPublic
+	}
+
 	created, err := s.networkStore.Create(ctx, &DBNetwork{
 		Name:        n.ObjectMeta.Name,
 		DisplayName: n.Spec.DisplayName,
 		Description: n.Spec.Description,
+		Cidr:        n.Spec.CIDR,
+		MaxSubnets:  maxSubnets,
+		IsPublic:    isPublic,
 		Status:      status,
 	})
 	if err != nil {
@@ -210,7 +224,7 @@ func (s *networkStorage) Delete(ctx context.Context, options *rest.DeleteOptions
 		return err
 	}
 	if count > 0 {
-		return apierrors.NewConflict("network", id)
+		return apierrors.NewConflictMessage("cannot delete network: subnets still exist")
 	}
 
 	return s.networkStore.Delete(ctx, nid)
@@ -291,6 +305,11 @@ func (s *subnetStorage) List(ctx context.Context, options *rest.ListOptions) (ru
 
 	query := restOptionsToListQuery(options)
 
+	// usage 排序需要在 Go 层计算后排序
+	if query.SortBy == "usage" {
+		return s.listSortedByUsage(ctx, nid, query)
+	}
+
 	result, err := s.subnetStore.List(ctx, nid, query)
 	if err != nil {
 		return nil, err
@@ -308,6 +327,55 @@ func (s *subnetStorage) List(ctx context.Context, options *rest.ListOptions) (ru
 	}, nil
 }
 
+// listSortedByUsage 按 IP 使用率排序（需在 Go 层计算 bitmap 后排序）。
+func (s *subnetStorage) listSortedByUsage(ctx context.Context, nid int64, query db.ListQuery) (runtime.Object, error) {
+	allQuery := query
+	allQuery.SortBy = ""
+	allQuery.Pagination = db.Pagination{Page: 1, PageSize: 10000}
+
+	result, err := s.subnetStore.List(ctx, nid, allQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Subnet, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = *subnetToAPI(&item)
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		pi := subnetUsagePercent(&items[i])
+		pj := subnetUsagePercent(&items[j])
+		if query.SortOrder == "asc" {
+			return pi < pj
+		}
+		return pi > pj
+	})
+
+	total := len(items)
+	start := (query.Pagination.Page - 1) * query.Pagination.PageSize
+	end := start + query.Pagination.PageSize
+	if start > total {
+		start = total
+	}
+	if end > total {
+		end = total
+	}
+
+	return &SubnetList{
+		TypeMeta:   runtime.TypeMeta{Kind: "SubnetList"},
+		Items:      items[start:end],
+		TotalCount: int64(total),
+	}, nil
+}
+
+func subnetUsagePercent(s *Subnet) float64 {
+	if s.Spec.TotalIPs == 0 {
+		return 0
+	}
+	return float64(s.Spec.UsedIPs) / float64(s.Spec.TotalIPs)
+}
+
 // Create 创建子网。
 // +openapi:summary=创建子网
 func (s *subnetStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
@@ -322,6 +390,17 @@ func (s *subnetStorage) Create(ctx context.Context, obj runtime.Object, options 
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid network ID: %s", networkID), nil)
 	}
 
+	// 查询网络（用于子网范围校验和数量限制）
+	networkObj, err := s.networkStore.GetByID(ctx, nid)
+	if err != nil {
+		return nil, err
+	}
+
+	// 子网数量限制检查
+	if networkObj.SubnetCount >= int64(networkObj.MaxSubnets) {
+		return nil, apierrors.NewConflictMessage(fmt.Sprintf("network has reached the maximum number of subnets (%d)", networkObj.MaxSubnets))
+	}
+
 	// 查询已有 CIDR 做重叠检测
 	existingCIDRs, err := s.subnetStore.ListCIDRsByNetworkID(ctx, nid)
 	if err != nil {
@@ -332,7 +411,7 @@ func (s *subnetStorage) Create(ctx context.Context, obj runtime.Object, options 
 		cidrStrs[i] = c.Cidr
 	}
 
-	if errs := ValidateSubnetCreate(subnet.ObjectMeta.Name, &subnet.Spec, cidrStrs); errs.HasErrors() {
+	if errs := ValidateSubnetCreate(subnet.ObjectMeta.Name, &subnet.Spec, cidrStrs, networkObj.Cidr); errs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
@@ -358,11 +437,6 @@ func (s *subnetStorage) Create(ctx context.Context, obj runtime.Object, options 
 
 	bitmap := r.SaveToBytes()
 
-	status := subnet.Spec.Status
-	if status == "" {
-		status = "active"
-	}
-
 	// 事务：创建 subnet + 创建 gateway allocation
 	tx, err := s.subnetStore.BeginTx(ctx)
 	if err != nil {
@@ -378,7 +452,6 @@ func (s *subnetStorage) Create(ctx context.Context, obj runtime.Object, options 
 		Cidr:        subnet.Spec.CIDR,
 		Gateway:     subnet.Spec.Gateway,
 		Bitmap:      bitmap,
-		Status:      status,
 	})
 	if err != nil {
 		return nil, err
@@ -431,7 +504,6 @@ func (s *subnetStorage) Update(ctx context.Context, obj runtime.Object, options 
 		Name:        subnet.ObjectMeta.Name,
 		DisplayName: subnet.Spec.DisplayName,
 		Description: subnet.Spec.Description,
-		Status:      subnet.Spec.Status,
 	})
 	if err != nil {
 		return nil, err
@@ -491,7 +563,7 @@ func (s *subnetStorage) Delete(ctx context.Context, options *rest.DeleteOptions)
 		return err
 	}
 	if count > 0 {
-		return apierrors.NewConflict("subnet", id)
+		return apierrors.NewConflictMessage("cannot delete subnet: IP allocations still exist")
 	}
 
 	// 事务内先删所有 ip_allocations 再删 subnet
@@ -505,7 +577,7 @@ func (s *subnetStorage) Delete(ctx context.Context, options *rest.DeleteOptions)
 		return apierrors.NewInternalError(fmt.Errorf("delete allocations: %w", err))
 	}
 
-	if err := s.subnetStore.Delete(ctx, sid); err != nil {
+	if err := s.subnetStore.DeleteTx(ctx, tx, sid); err != nil {
 		return err
 	}
 
@@ -665,15 +737,28 @@ func (s *allocationStorage) Create(ctx context.Context, obj runtime.Object, opti
 		return nil, apierrors.NewInternalError(fmt.Errorf("update bitmap: %w", err))
 	}
 
+	// 如果请求设为网关，检查子网是否已有网关
+	isGateway := alloc.Spec.IsGateway
+	if isGateway && subnet.Gateway != "" {
+		return nil, apierrors.NewConflictMessage(fmt.Sprintf("subnet already has gateway %s", subnet.Gateway))
+	}
+
 	// INSERT ip_allocation → 记录
 	created, err := s.allocStore.Create(ctx, tx, &DBIPAllocation{
 		SubnetID:    sid,
 		Ip:          alloc.Spec.IP,
 		Description: alloc.Spec.Description,
-		IsGateway:   false,
+		IsGateway:   isGateway,
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// 设为网关时更新子网的 gateway 字段
+	if isGateway {
+		if err := s.subnetStore.UpdateGateway(ctx, tx, sid, alloc.Spec.IP); err != nil {
+			return nil, apierrors.NewInternalError(fmt.Errorf("update subnet gateway: %w", err))
+		}
 	}
 
 	// COMMIT
@@ -755,11 +840,6 @@ func (s *allocationStorage) Delete(ctx context.Context, options *rest.DeleteOpti
 		return apierrors.NewNotFound("ip_allocation", allocID)
 	}
 
-	// gateway 分配不可删除
-	if target.IsGateway {
-		return apierrors.NewBadRequest("cannot delete gateway IP allocation", nil)
-	}
-
 	ip := net.ParseIP(target.Ip)
 
 	// 锁定路径释放 bitmap
@@ -800,6 +880,13 @@ func (s *allocationStorage) Delete(ctx context.Context, options *rest.DeleteOpti
 		return apierrors.NewInternalError(fmt.Errorf("delete allocation: %w", err))
 	}
 
+	// 释放网关 IP 时清空子网 gateway 字段
+	if target.IsGateway {
+		if err := s.subnetStore.UpdateGateway(ctx, tx, sid, ""); err != nil {
+			return apierrors.NewInternalError(fmt.Errorf("clear subnet gateway: %w", err))
+		}
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return apierrors.NewInternalError(fmt.Errorf("commit transaction: %w", err))
 	}
@@ -821,6 +908,9 @@ func networkToAPI(n *DBNetwork) *Network {
 		Spec: NetworkSpec{
 			DisplayName: n.DisplayName,
 			Description: n.Description,
+			CIDR:        n.Cidr,
+			MaxSubnets:  n.MaxSubnets,
+			IsPublic:    &n.IsPublic,
 			Status:      n.Status,
 		},
 	}
@@ -838,6 +928,9 @@ func networkWithCountToAPI(n *DBNetworkWithCount) *Network {
 		Spec: NetworkSpec{
 			DisplayName: n.DisplayName,
 			Description: n.Description,
+			CIDR:        n.Cidr,
+			MaxSubnets:  n.MaxSubnets,
+			IsPublic:    &n.IsPublic,
 			Status:      n.Status,
 			SubnetCount: n.SubnetCount,
 		},
@@ -856,6 +949,9 @@ func networkListRowToAPI(n *DBNetworkListRow) Network {
 		Spec: NetworkSpec{
 			DisplayName: n.DisplayName,
 			Description: n.Description,
+			CIDR:        n.Cidr,
+			MaxSubnets:  n.MaxSubnets,
+			IsPublic:    &n.IsPublic,
 			Status:      n.Status,
 			SubnetCount: n.SubnetCount,
 		},
@@ -876,7 +972,6 @@ func subnetToAPI(s *DBSubnet) *Subnet {
 			Description: s.Description,
 			CIDR:        s.Cidr,
 			Gateway:     s.Gateway,
-			Status:      s.Status,
 			NetworkID:   strconv.FormatInt(s.NetworkID, 10),
 		},
 	}
@@ -944,9 +1039,6 @@ func subnetSpecToPatchFields(s *Subnet) map[string]any {
 	}
 	if s.Spec.Description != "" {
 		fields["description"] = s.Spec.Description
-	}
-	if s.Spec.Status != "" {
-		fields["status"] = s.Spec.Status
 	}
 	return fields
 }

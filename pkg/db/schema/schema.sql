@@ -331,6 +331,9 @@ CREATE TABLE networks (
     name         VARCHAR(255) NOT NULL UNIQUE,
     display_name VARCHAR(255) NOT NULL DEFAULT '',
     description  TEXT         NOT NULL DEFAULT '',
+    cidr         VARCHAR(50)  NOT NULL DEFAULT '',
+    max_subnets  INT          NOT NULL DEFAULT 10,
+    is_public    BOOLEAN      NOT NULL DEFAULT true,
     status       VARCHAR(20)  NOT NULL DEFAULT 'active',
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
@@ -341,6 +344,7 @@ CREATE INDEX idx_networks_created_at ON networks(created_at);
 
 COMMENT ON TABLE networks IS '网络表：平台级 VPC 逻辑分组容器';
 COMMENT ON COLUMN networks.name IS '网络名称，全局唯一';
+COMMENT ON COLUMN networks.cidr IS '网络 CIDR 地址段（可选），限制子网 CIDR 分配范围';
 COMMENT ON COLUMN networks.status IS '状态：active / inactive';
 
 -- subnets table (CIDR + bitmap)
@@ -353,7 +357,6 @@ CREATE TABLE subnets (
     cidr         VARCHAR(50)  NOT NULL,
     gateway      VARCHAR(45)  NOT NULL DEFAULT '',
     bitmap       BYTEA        NOT NULL DEFAULT '',
-    status       VARCHAR(20)  NOT NULL DEFAULT 'active',
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
 
@@ -362,7 +365,6 @@ CREATE TABLE subnets (
 );
 
 CREATE INDEX idx_subnets_network_id ON subnets(network_id);
-CREATE INDEX idx_subnets_status     ON subnets(status);
 CREATE INDEX idx_subnets_created_at ON subnets(created_at);
 
 COMMENT ON TABLE subnets IS '子网表：每个子网 = 一个 CIDR + 一个 bitmap';

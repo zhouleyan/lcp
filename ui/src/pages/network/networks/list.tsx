@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router"
-import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react"
+import { Plus, Pencil, Trash2, Search } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -9,14 +9,12 @@ import { Button } from "@/components/ui/button"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -37,6 +35,7 @@ import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { cidrUsableRange } from "./utils"
 
 export default function NetworkListPage() {
   const { t } = useTranslation()
@@ -50,8 +49,6 @@ export default function NetworkListPage() {
   const [networks, setNetworks] = useState<Network[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
-  const [statusFilter, setStatusFilter] = useState("all")
-
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Network | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Network | null>(null)
@@ -62,7 +59,6 @@ export default function NetworkListPage() {
     try {
       const params: ListParams = { page, pageSize, sortBy, sortOrder }
       if (search) params.search = search
-      if (statusFilter !== "all") params.status = statusFilter
 
       const data = await listNetworks(params)
       setNetworks(data.items ?? [])
@@ -73,10 +69,10 @@ export default function NetworkListPage() {
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, sortBy, sortOrder, search, statusFilter])
+  }, [page, pageSize, sortBy, sortOrder, search])
 
   useEffect(() => { fetchData() }, [fetchData])
-  useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
+  useEffect(() => { setPage(1) }, [search, pageSize])
   useEffect(() => { clearSelection() }, [networks])
 
   const handleDelete = async () => {
@@ -157,25 +153,21 @@ export default function NetworkListPage() {
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
                 {t("common.name")}<SortIcon field="name" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
-              <TableHead>{t("common.displayName")}</TableHead>
-              <TableHead>{t("network.subnetCount")}</TableHead>
-              <TableHead>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="inline-flex items-center gap-1 select-none">
-                      {t("common.status")}
-                      <Filter className={`h-3 w-3 ${statusFilter !== "all" ? "text-primary" : "opacity-40"}`} />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem onClick={() => setStatusFilter("all")}>{t("common.all")}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setStatusFilter("active")}>{t("common.active")}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>{t("common.inactive")}</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("display_name")}>
+                {t("common.displayName")}<SortIcon field="display_name" sortBy={sortBy} sortOrder={sortOrder} />
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("cidr")}>
+                {t("network.cidr")}<SortIcon field="cidr" sortBy={sortBy} sortOrder={sortOrder} />
+              </TableHead>
+              <TableHead>{t("network.isPublic")}</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("subnet_count")}>
+                {t("network.subnetCount")}<SortIcon field="subnet_count" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
                 {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("updated_at")}>
+                {t("common.updated")}<SortIcon field="updated_at" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead className="w-28">{t("common.actions")}</TableHead>
             </TableRow>
@@ -184,14 +176,14 @@ export default function NetworkListPage() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((_, j) => (
+                  {Array.from({ length: 9 }).map((_, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : networks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground py-8 text-center">
+                <TableCell colSpan={9} className="text-muted-foreground py-8 text-center">
                   {t("network.noData")}
                 </TableCell>
               </TableRow>
@@ -212,14 +204,41 @@ export default function NetworkListPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="text-sm">{net.spec.displayName || "-"}</TableCell>
-                  <TableCell className="text-sm">{net.spec.subnetCount ?? 0}</TableCell>
+                  <TableCell className="text-sm font-mono">
+                    <div>{net.spec.cidr || "-"}</div>
+                    {net.spec.cidr && cidrUsableRange(net.spec.cidr) && (
+                      <div className="text-xs text-muted-foreground">{cidrUsableRange(net.spec.cidr)}</div>
+                    )}
+                  </TableCell>
                   <TableCell>
-                    <Badge variant={net.spec.status === "active" ? "default" : "secondary"}>
-                      {net.spec.status === "active" ? t("common.active") : t("common.inactive")}
+                    <Badge variant={net.spec.isPublic !== false ? "default" : "secondary"}>
+                      {net.spec.isPublic !== false ? t("network.public") : t("network.private")}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const used = net.spec.subnetCount ?? 0
+                      const total = net.spec.maxSubnets ?? 10
+                      const pct = total > 0 ? Math.round((used / total) * 100) : 0
+                      const barColor = pct > 90 ? "bg-primary" : pct > 60 ? "bg-primary/50" : "bg-primary/20"
+                      return (
+                        <div className="pr-8 space-y-1">
+                          <div className="h-2 rounded-full bg-muted">
+                            <div className={`h-2 rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{used} / {total}</span>
+                            <span>{pct}%</span>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                     {new Date(net.metadata.createdAt).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                    {net.metadata.updatedAt ? new Date(net.metadata.updatedAt).toLocaleString() : "-"}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -298,7 +317,9 @@ interface NetworkFormValues {
   name: string
   displayName: string
   description: string
-  status: "active" | "inactive"
+  cidr: string
+  maxSubnets: number
+  isPublic: boolean
 }
 
 function NetworkFormDialog({
@@ -320,13 +341,18 @@ function NetworkFormDialog({
       .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, t("api.validation.name.networkFormat")),
     displayName: z.string().optional(),
     description: z.string().optional(),
-    status: z.enum(["active", "inactive"]),
+    cidr: z.string().optional().refine(
+      (v) => !v || /^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(v),
+      t("api.validation.cidr.format"),
+    ),
+    maxSubnets: z.coerce.number().int().min(1, t("network.maxSubnetsRange")).max(50, t("network.maxSubnetsRange")),
+    isPublic: z.boolean(),
   })
 
   const form = useForm<NetworkFormValues>({
     resolver: zodResolver(schema) as never,
     mode: "onBlur",
-    defaultValues: { name: "", displayName: "", description: "", status: "active" },
+    defaultValues: { name: "", displayName: "", description: "", cidr: "", maxSubnets: 10, isPublic: true },
   })
 
   useEffect(() => {
@@ -336,10 +362,12 @@ function NetworkFormDialog({
           name: network.metadata.name,
           displayName: network.spec.displayName ?? "",
           description: network.spec.description ?? "",
-          status: (network.spec.status as "active" | "inactive") ?? "active",
+          cidr: network.spec.cidr ?? "",
+          maxSubnets: network.spec.maxSubnets ?? 10,
+          isPublic: network.spec.isPublic !== false,
         })
       } else {
-        form.reset({ name: "", displayName: "", description: "", status: "active" })
+        form.reset({ name: "", displayName: "", description: "", cidr: "", maxSubnets: 10, isPublic: true })
       }
     }
   }, [open, network, form])
@@ -350,7 +378,9 @@ function NetworkFormDialog({
       const spec: Network["spec"] = {
         displayName: values.displayName,
         description: values.description,
-        status: values.status,
+        cidr: values.cidr || undefined,
+        maxSubnets: values.maxSubnets,
+        isPublic: values.isPublic,
       }
 
       const payload = {
@@ -411,17 +441,26 @@ function NetworkFormDialog({
             <FormField control={form.control} name="description" render={({ field }) => (
               <FormItem><FormLabel>{t("network.description")}</FormLabel><FormControl><Textarea rows={2} {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <FormField control={form.control} name="status" render={({ field }) => (
+            <FormField control={form.control} name="cidr" render={({ field }) => (
               <FormItem>
-                <FormLabel>{t("common.status")}</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl><SelectTrigger className="w-full"><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="active">{t("common.active")}</SelectItem>
-                    <SelectItem value="inactive">{t("common.inactive")}</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormLabel>{t("network.cidr")}</FormLabel>
+                <FormControl><Input {...field} disabled={isEdit} placeholder={t("network.cidrPlaceholder")} className="font-mono" /></FormControl>
                 <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="maxSubnets" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("network.maxSubnets")}</FormLabel>
+                <FormControl><Input type="number" min={1} max={50} placeholder={t("network.maxSubnetsPlaceholder")} {...field} disabled={isEdit} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="isPublic" render={({ field }) => (
+              <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                <FormLabel className="cursor-pointer">{t("network.isPublic")}</FormLabel>
+                <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
               </FormItem>
             )} />
             <DialogFooter className="mt-6 pt-4 border-t">

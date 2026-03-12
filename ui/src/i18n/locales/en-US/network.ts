@@ -17,6 +17,14 @@ const network: Messages = {
   "network.batchDeleteConfirm": "Are you sure you want to delete {count} selected networks? This action cannot be undone.",
   "network.searchPlaceholder": "Search name, display name...",
   "network.detail": "Network Detail",
+  "network.cidr": "CIDR",
+  "network.cidrPlaceholder": "e.g. 10.0.0.0/8 (optional)",
+  "network.maxSubnets": "Max Subnets",
+  "network.maxSubnetsRange": "Must be between 1 and 50",
+  "network.maxSubnetsPlaceholder": "1-50, default 10",
+  "network.isPublic": "Visibility",
+  "network.public": "Public",
+  "network.private": "Private",
   "network.basicInfo": "Basic Information",
 
   // subnet
@@ -30,7 +38,6 @@ const network: Messages = {
   "subnet.description": "Description",
   "subnet.cidr": "CIDR",
   "subnet.gateway": "Gateway",
-  "subnet.status": "Status",
   "subnet.freeIPs": "Free IPs",
   "subnet.usedIPs": "Used IPs",
   "subnet.totalIPs": "Total IPs",
@@ -43,6 +50,7 @@ const network: Messages = {
   "subnet.basicInfo": "Basic Information",
   "subnet.cidrPlaceholder": "e.g. 10.0.0.0/24",
   "subnet.gatewayPlaceholder": "e.g. 10.0.0.1",
+  "subnet.broadcast": "Broadcast",
 
   // allocation
   "allocation.title": "IP Allocations",
@@ -55,6 +63,9 @@ const network: Messages = {
   "allocation.deleteConfirm": "Are you sure you want to release IP \"{ip}\"?",
   "allocation.ipPlaceholder": "e.g. 10.0.0.100",
   "allocation.cannotDeleteGateway": "Cannot directly release gateway IP.",
+  "allocation.usableRange": "Usable range: {first} - {last}",
+  "allocation.reservedIP": "This IP is a network or broadcast address and cannot be allocated.",
+  "allocation.setAsGateway": "Set as gateway",
 
   // nav
   "nav.network": "Network",

@@ -28,7 +28,9 @@ type SubnetStore interface {
 	Update(ctx context.Context, subnet *DBSubnet) (*DBSubnet, error)
 	Patch(ctx context.Context, id int64, fields map[string]any) (*DBSubnet, error)
 	UpdateBitmap(ctx context.Context, tx pgx.Tx, id int64, bitmap []byte) error
+	UpdateGateway(ctx context.Context, tx pgx.Tx, id int64, gateway string) error
 	Delete(ctx context.Context, id int64) error
+	DeleteTx(ctx context.Context, tx pgx.Tx, id int64) error
 	DeleteByIDs(ctx context.Context, networkID int64, ids []int64) (int64, error)
 	List(ctx context.Context, networkID int64, query db.ListQuery) (*db.ListResult[DBSubnet], error)
 	ListCIDRsByNetworkID(ctx context.Context, networkID int64) ([]DBSubnetCIDR, error)

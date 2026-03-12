@@ -25,6 +25,12 @@ type NetworkSpec struct {
 	DisplayName string `json:"displayName,omitempty"`
 	// +openapi:description=网络描述
 	Description string `json:"description,omitempty"`
+	// +openapi:description=网络 CIDR 地址段（可选），限制子网 CIDR 分配范围
+	CIDR string `json:"cidr,omitempty"`
+	// +openapi:description=子网数量上限（1-50，默认 10）
+	MaxSubnets int32 `json:"maxSubnets,omitempty"`
+	// +openapi:description=是否公开网络（true=平台公开，false=租户私有）
+	IsPublic *bool `json:"isPublic,omitempty"`
 	// +openapi:description=网络状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
@@ -66,9 +72,6 @@ type SubnetSpec struct {
 	CIDR string `json:"cidr"`
 	// +openapi:description=网关 IP 地址
 	Gateway string `json:"gateway,omitempty"`
-	// +openapi:description=子网状态
-	// +openapi:enum=active,inactive
-	Status string `json:"status,omitempty"`
 	// +openapi:description=所属网络 ID（只读）
 	NetworkID string `json:"networkId,omitempty"`
 	// +openapi:description=可用 IP 数量（只读）

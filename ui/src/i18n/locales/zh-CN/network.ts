@@ -17,6 +17,14 @@ const network: Messages = {
   "network.batchDeleteConfirm": "确定要删除选中的 {count} 个网络吗？此操作不可撤销。",
   "network.searchPlaceholder": "搜索名称、显示名称...",
   "network.detail": "网络详情",
+  "network.cidr": "CIDR",
+  "network.cidrPlaceholder": "如 10.0.0.0/8（可选）",
+  "network.maxSubnets": "子网上限",
+  "network.maxSubnetsRange": "必须在 1 到 50 之间",
+  "network.maxSubnetsPlaceholder": "1-50，默认 10",
+  "network.isPublic": "可见性",
+  "network.public": "公开",
+  "network.private": "私有",
   "network.basicInfo": "基本信息",
 
   // subnet
@@ -30,7 +38,6 @@ const network: Messages = {
   "subnet.description": "描述",
   "subnet.cidr": "CIDR",
   "subnet.gateway": "网关",
-  "subnet.status": "状态",
   "subnet.freeIPs": "可用 IP",
   "subnet.usedIPs": "已用 IP",
   "subnet.totalIPs": "总 IP",
@@ -43,6 +50,7 @@ const network: Messages = {
   "subnet.basicInfo": "基本信息",
   "subnet.cidrPlaceholder": "如 10.0.0.0/24",
   "subnet.gatewayPlaceholder": "如 10.0.0.1",
+  "subnet.broadcast": "广播地址",
 
   // allocation
   "allocation.title": "IP 分配",
@@ -55,6 +63,9 @@ const network: Messages = {
   "allocation.deleteConfirm": "确定要释放 IP \"{ip}\" 吗？",
   "allocation.ipPlaceholder": "如 10.0.0.100",
   "allocation.cannotDeleteGateway": "网关 IP 不可直接释放。",
+  "allocation.usableRange": "可分配范围: {first} - {last}",
+  "allocation.reservedIP": "该 IP 为网络地址或广播地址，不可分配。",
+  "allocation.setAsGateway": "设为网关地址",
 
   // nav
   "nav.network": "网络",

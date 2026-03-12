@@ -1,400 +1,311 @@
-# LCP 网络管理模块设计
+# LCP 网络管理模块 — 实现现状
+
+> 最后更新: 2026-03-12
 
 ## 概述
 
-基于 `lib/ipam` 构建 LCP 平台网络管理功能，采用 **Network → Subnet → Allocation** 三层资源模型，通过 REST API 暴露，支持自动和手动 IP 分配。
+基于 `lib/ipam` 构建的平台级网络管理模块，采用 **Network → Subnet → IPAllocation** 三层资源模型。通过 bitmap 实现高效 IP 地址分配与回收，bitmap 持久化在 DB 中，服务无状态，支持横向扩容。
+
+**当前阶段：Phase 1（平台级网络地址簿管理）已完成。**
+
+- Phase 1（已完成）：平台级 Network + Subnet + IPAllocation 纯地址簿管理
+- Phase 2（未开始）：Workspace 分配、Host 关联（ip_allocations 加 host_id 外键）
 
 ## 资源模型
 
 ```
-Network (私有网络/VPC，Workspace 级别)
-  └── Subnet (子网，对应一个 CIDR 段，含 bitmap)
-        └── Allocation (IP 分配记录，关联到 Host)
+Network (平台级 VPC，逻辑分组容器)
+  └── Subnet (子网，CIDR + bitmap)
+        └── IPAllocation (IP 分配记录，IP + description + is_gateway)
 ```
-
-**与 lib/ipam 的映射关系：**
 
 | 业务概念 | lib/ipam 对应 | 说明 |
 |---------|-------------|------|
-| Network | 无直接对应 | 纯 DB 记录，逻辑分组容器 |
-| Subnet | `ipam.Pool` | 每次请求从 DB bitmap 临时构建，用完丢弃 |
-| Subnet 的 CIDR | Pool 中的单个 CIDR | 一个 Subnet = 一个 CIDR |
-| Subnet 的 bitmap | `Pool` 内部 bitmap | 持久化在 subnets 表的 `bitmap BYTEA` 字段 |
-| 网关 IP | 特殊 Allocation | host_id = NULL，标记为 gateway |
-| IP 分配 | `ip_allocations` 记录 | host_id 外键关联 hosts 表 |
+| Network | 无直接对应 | 纯逻辑容器，可选 CIDR（限制子网分配范围） |
+| Subnet | `ipam.Range` | 每次请求从 DB bitmap 临时构建，用完丢弃 |
+| Subnet 的 bitmap | `Range` 内部 bitmap | 持久化在 subnets 表的 `bitmap BYTEA` 字段 |
+| 网关 IP | 特殊 IPAllocation | is_gateway=true，创建子网时自动分配 |
+| IP 分配 | `ip_allocations` 记录 | Phase 1 无 host_id，纯地址簿 |
 
-**与现有 hosts/environments 表的关系：**
-
-```
-Workspace
-├── Network (Workspace 级，逻辑分组容器)
-│     └── Subnet (持有 CIDR + bitmap)
-│           └── ip_allocations ←── host_id ──→ Host
-├── Namespace
-│     └── Host ←── environment_id ──→ Environment
-```
-
-ip_allocations 本质是 **hosts 与 subnets 之间的多对多关联表**：一台主机可以在多个子网中各持有 IP，一个子网可以分配给多台主机。
-
-注意 scope 差异：Network 是 Workspace 级资源，Host 是多 scope（platform/workspace/namespace）资源。平台级或 Namespace 级 Host 也可从 Workspace 级 Network 中分配 IP。
-
-## 业务流程
-
-### 流程 1：管理员创建网络
+## API 路由（已实现）
 
 ```
-用户操作: POST /api/network/v1/workspaces/{workspaceId}/networks
-请求体:   { "metadata": {"name": "vpc-prod"}, "spec": {"description": "生产网络"} }
+/api/network/v1/networks                                              # CRUD + batch delete
+/api/network/v1/networks/{networkId}/subnets                          # CRUD + batch delete
+/api/network/v1/networks/{networkId}/subnets/{subnetId}/allocations   # list + create + delete
 ```
 
-**步骤：**
-1. 验证 workspaceId 存在、name 合法
-2. 插入 `networks` 表记录
-3. 返回 Network 对象
+所有资源为平台级，无 Workspace/Namespace 作用域。
 
-**lib/ipam 交互：** 无。Network 是逻辑容器，不持有 CIDR。
-
----
-
-### 流程 2：管理员在网络下创建子网
-
-```
-用户操作: POST /api/network/v1/workspaces/{wsId}/networks/{netId}/subnets
-请求体:   { "metadata": {"name": "web-tier"}, "spec": {"cidr": "10.0.1.0/24", "gateway": "10.0.1.1"} }
-```
-
-**步骤：**
-1. 验证 network 存在、CIDR 格式合法、CIDR 不与同网络下其他子网重叠
-2. 创建 ipam.Pool，根据 CIDR 生成初始 bitmap
-3. 如果指定了 gateway，在 Pool 中标记 gateway IP 为已占用
-4. 序列化 bitmap 为 `[]byte`
-5. BEGIN 事务
-6. 插入 `subnets` 表记录（含 bitmap 字段）
-7. 如果指定了 gateway，插入 `ip_allocations` 记录（host_id = NULL，标记为 gateway）
-8. COMMIT
-9. 返回 Subnet 对象（含 usedIPs/freeIPs/totalIPs 统计）
-
-**lib/ipam 交互：**
-- `Pool.CreateFromCIDR()` — 创建 IP 池并生成 bitmap
-- `Pool.Allocate()` — 预留网关 IP
-- `Pool.SaveToBytes()` — 序列化 bitmap
-
----
-
-### 流程 3：用户为主机分配 IP（自动）
-
-```
-用户操作: POST /api/network/v1/workspaces/{wsId}/networks/{netId}/subnets/{subId}/allocations
-请求体:   { "spec": {"hostId": "123", "description": "Web 服务器"} }
-```
-
-**步骤：**
-1. 验证 subnet 存在、hostId 有效
-2. BEGIN 事务
-3. `SELECT bitmap FROM subnets WHERE id = ? FOR UPDATE` — 行锁
-4. 反序列化 bitmap → 构建临时 ipam.Pool
-5. 调用 `Pool.AllocateNext()` 获取下一个可用 IP
-6. 序列化更新后的 bitmap
-7. `UPDATE subnets SET bitmap = ? WHERE id = ?`
-8. 插入 `ip_allocations` 表记录（含 host_id 外键）
-9. COMMIT
-10. 返回 Allocation 对象（含 IP、CIDR、hostId）
-
-**lib/ipam 交互：**
-- `Pool.LoadFromBytes()` — 从 DB bitmap 恢复 Pool 状态
-- `Pool.AllocateNext()` — 自动分配下一个可用 IP
-- `Pool.SaveToBytes()` — 序列化 bitmap 写回 DB
-
----
-
-### 流程 4：用户为主机分配 IP（手动指定）
-
-```
-用户操作: POST /api/network/v1/.../subnets/{subId}/allocations
-请求体:   { "spec": {"ip": "10.0.1.100", "hostId": "456"} }
-```
-
-**步骤：**
-1. 验证 subnet 存在、IP 在 CIDR 范围内、hostId 有效
-2. BEGIN 事务
-3. `SELECT bitmap FROM subnets WHERE id = ? FOR UPDATE` — 行锁
-4. 反序列化 bitmap → 构建临时 ipam.Pool
-5. 调用 `Pool.Allocate(ip)` 标记指定 IP
-6. 序列化更新后的 bitmap
-7. `UPDATE subnets SET bitmap = ? WHERE id = ?`
-8. 插入 `ip_allocations` 表记录
-9. COMMIT
-10. 返回 Allocation 对象
-
-**lib/ipam 交互：**
-- `Pool.LoadFromBytes()` → `Pool.Allocate()` → `Pool.SaveToBytes()`
-
----
-
-### 流程 5：释放 IP
-
-```
-用户操作: DELETE /api/network/v1/.../subnets/{subId}/allocations/{allocId}
-```
-
-**步骤：**
-1. BEGIN 事务
-2. 从 DB 查找 allocation 记录获取 IP
-3. `SELECT bitmap FROM subnets WHERE id = ? FOR UPDATE` — 行锁
-4. 反序列化 bitmap → `Pool.Release(ip)` → 序列化写回
-5. `UPDATE subnets SET bitmap = ? WHERE id = ?`
-6. 删除 `ip_allocations` 表记录
-7. COMMIT
-
-**lib/ipam 交互：**
-- `Pool.LoadFromBytes()` → `Pool.Release()` → `Pool.SaveToBytes()`
-
----
-
-### 流程 6：删除子网
-
-```
-用户操作: DELETE /api/network/v1/.../networks/{netId}/subnets/{subId}
-```
-
-**步骤：**
-1. 查询子网下是否有非 gateway 的 allocation
-2. 有 → 返回 409 Conflict（"subnet has allocated IPs"）
-3. 无 → BEGIN 事务
-4. 删除 gateway 的 `ip_allocations` 记录
-5. 删除 `subnets` 表记录（bitmap 随之删除）
-6. COMMIT
-
-**lib/ipam 交互：** 无（直接删除 DB 记录即可，无内存状态需要清理）
-
----
-
-### 流程 7：删除网络
-
-```
-用户操作: DELETE /api/network/v1/.../networks/{netId}
-```
-
-**步骤：**
-1. 检查网络下是否有子网
-2. 有 → 返回 409 Conflict（"network has subnets"）
-3. 无 → 删除 `networks` 表记录
-
-**lib/ipam 交互：** 无
-
-## API 路由
-
-```
-# Workspace 下的网络管理
-/api/network/v1/workspaces/{workspaceId}/networks                              # CRUD
-/api/network/v1/workspaces/{workspaceId}/networks/{networkId}/subnets          # CRUD
-/api/network/v1/workspaces/{workspaceId}/networks/{networkId}/subnets/{subnetId}/allocations  # list + create/delete
-
-# 平台级列表（管理员视角）
-/api/network/v1/networks                                                        # list all
-/api/network/v1/subnets                                                         # list all
-```
-
-## 数据交互图
-
-```
-                        ┌─────────────────┐
-                        │   REST Client   │
-                        └────────┬────────┘
-                                 │ HTTP
-                        ┌────────▼────────┐
-                        │  REST Storage   │  pkg/apis/network/storage.go
-                        │  (networkStorage│
-                        │  subnetStorage  │
-                        │  allocStorage)  │
-                        └────────┬────────┘
-                                 │
-                        ┌────────▼────────┐
-                        │  DB Store       │  PostgreSQL
-                        │  (PostgreSQL)   │
-                        │                 │
-                        │  networks       │
-                        │  subnets        │  ← bitmap BYTEA 字段
-                        │  ip_allocations │  ← host_id 外键 → hosts
-                        └────────┬────────┘
-                                 │ bitmap 读写
-                        ┌────────▼────────┐
-                        │  lib/ipam Pool  │  临时构建，用完丢弃
-                        │  (bitmap 运算)  │
-                        │                 │
-                        │  LoadFromBytes  │  DB → Pool
-                        │  SaveToBytes    │  Pool → DB
-                        └─────────────────┘
-```
-
-**关键设计决策：bitmap 存 DB，服务无状态**
-
-为支持横向扩容，bitmap 持久化在 subnets 表中，不再常驻内存：
-- 每次 IP 操作：`SELECT bitmap FOR UPDATE` → 反序列化 → ipam 运算 → 序列化写回
-- 并发控制通过 DB 行锁（`FOR UPDATE`）实现，多实例安全
-- lib/ipam 的 Pool/bitmap 逻辑完全复用，只是不再作为进程级单例
-- 无需服务启动恢复流程（无内存状态）
-
-**事务边界：**
-
-```
-BEGIN
-  SELECT bitmap FROM subnets WHERE id = ? FOR UPDATE   -- 行锁
-  → lib/ipam Pool 反序列化 + 操作 + 序列化
-  UPDATE subnets SET bitmap = ? WHERE id = ?
-  INSERT/DELETE ip_allocations (...)
-COMMIT
-```
-
-bitmap 更新和 ip_allocations 记录在同一事务中，保证一致性。
-
-## DB Schema
+## DB Schema（实际）
 
 ```sql
--- 网络（私有网络/VPC）
 CREATE TABLE networks (
     id           BIGSERIAL    PRIMARY KEY,
-    name         VARCHAR(255) NOT NULL,
-    workspace_id BIGINT       NOT NULL REFERENCES workspaces(id),
-    owner_id     BIGINT       NOT NULL REFERENCES users(id),
+    name         VARCHAR(255) NOT NULL UNIQUE,
+    display_name VARCHAR(255) NOT NULL DEFAULT '',
     description  TEXT         NOT NULL DEFAULT '',
+    cidr         VARCHAR(50)  NOT NULL DEFAULT '',      -- 可选，限制子网 CIDR 范围
+    max_subnets  INT          NOT NULL DEFAULT 10,      -- 子网上限 (1-50)
+    is_public    BOOLEAN      NOT NULL DEFAULT true,    -- 公开/私有
     status       VARCHAR(20)  NOT NULL DEFAULT 'active',
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    UNIQUE(workspace_id, name)
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_networks_workspace_id ON networks(workspace_id);
 
--- 子网
 CREATE TABLE subnets (
     id           BIGSERIAL    PRIMARY KEY,
     name         VARCHAR(255) NOT NULL,
+    display_name VARCHAR(255) NOT NULL DEFAULT '',
+    description  TEXT         NOT NULL DEFAULT '',
     network_id   BIGINT       NOT NULL REFERENCES networks(id),
     cidr         VARCHAR(50)  NOT NULL,
     gateway      VARCHAR(50)  NOT NULL DEFAULT '',
-    bitmap       BYTEA        NOT NULL DEFAULT '',
-    description  TEXT         NOT NULL DEFAULT '',
-    status       VARCHAR(20)  NOT NULL DEFAULT 'active',
+    bitmap       BYTEA        NOT NULL DEFAULT '',      -- ipam bitmap 持久化
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     UNIQUE(network_id, name),
     UNIQUE(network_id, cidr)
 );
-CREATE INDEX idx_subnets_network_id ON subnets(network_id);
 
--- IP 分配记录（hosts 与 subnets 的多对多关联表）
 CREATE TABLE ip_allocations (
     id           BIGSERIAL    PRIMARY KEY,
     subnet_id    BIGINT       NOT NULL REFERENCES subnets(id),
-    ip           VARCHAR(50)  NOT NULL,
-    host_id      BIGINT       REFERENCES hosts(id),
+    ip           VARCHAR(45)  NOT NULL,
     is_gateway   BOOLEAN      NOT NULL DEFAULT false,
     description  TEXT         NOT NULL DEFAULT '',
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     UNIQUE(subnet_id, ip)
 );
-CREATE INDEX idx_ip_allocations_subnet_id ON ip_allocations(subnet_id);
-CREATE INDEX idx_ip_allocations_host_id ON ip_allocations(host_id) WHERE host_id IS NOT NULL;
+-- 注意：Phase 1 无 host_id 字段，Phase 2 会加 host_id BIGINT REFERENCES hosts(id)
 ```
 
-## API 类型
+## API 类型（实际）
 
 ```go
-// Network 私有网络
-type Network struct {
-    runtime.TypeMeta `json:",inline"`
-    types.ObjectMeta `json:"metadata"`
-    Spec             NetworkSpec `json:"spec"`
-}
+// NetworkSpec
 type NetworkSpec struct {
-    WorkspaceID string `json:"workspaceId"`
-    OwnerID     string `json:"ownerId"`
+    DisplayName string `json:"displayName,omitempty"`
     Description string `json:"description,omitempty"`
-    Status      string `json:"status,omitempty"`
-    SubnetCount int    `json:"subnetCount,omitempty"`  // 只读，列表时计算
+    CIDR        string `json:"cidr,omitempty"`          // 可选，限制子网 CIDR
+    MaxSubnets  int32  `json:"maxSubnets,omitempty"`    // 1-50，默认 10
+    IsPublic    *bool  `json:"isPublic,omitempty"`      // 公开/私有，默认 true
+    Status      string `json:"status,omitempty"`        // active/inactive
+    SubnetCount int64  `json:"subnetCount,omitempty"`   // 只读
 }
 
-// Subnet 子网
-type Subnet struct {
-    runtime.TypeMeta `json:",inline"`
-    types.ObjectMeta `json:"metadata"`
-    Spec             SubnetSpec `json:"spec"`
-}
+// SubnetSpec
 type SubnetSpec struct {
-    NetworkID   string `json:"networkId"`
-    CIDR        string `json:"cidr"`
-    Gateway     string `json:"gateway,omitempty"`
+    DisplayName string `json:"displayName,omitempty"`
     Description string `json:"description,omitempty"`
-    Status      string `json:"status,omitempty"`
-    UsedIPs     int    `json:"usedIPs,omitempty"`   // 只读，从 ipam 计算
-    FreeIPs     int    `json:"freeIPs,omitempty"`   // 只读
-    TotalIPs    int    `json:"totalIPs,omitempty"`  // 只读
+    CIDR        string `json:"cidr"`                    // 必填
+    Gateway     string `json:"gateway,omitempty"`       // 可选
+    NetworkID   string `json:"networkId,omitempty"`     // 只读
+    FreeIPs     int    `json:"freeIPs,omitempty"`       // 只读，bitmap 计算
+    UsedIPs     int    `json:"usedIPs,omitempty"`       // 只读
+    TotalIPs    int    `json:"totalIPs,omitempty"`      // 只读
+    NextFreeIP  string `json:"nextFreeIP,omitempty"`    // 只读
 }
 
-// IPAllocation IP 分配记录
-type IPAllocation struct {
-    runtime.TypeMeta `json:",inline"`
-    types.ObjectMeta `json:"metadata"`
-    Spec             IPAllocationSpec `json:"spec"`
-}
+// IPAllocationSpec
 type IPAllocationSpec struct {
-    SubnetID    string `json:"subnetId"`
-    IP          string `json:"ip,omitempty"`          // 手动指定时填写，自动分配时留空
-    HostID      string `json:"hostId,omitempty"`      // 关联主机，gateway 时为空
-    IsGateway   bool   `json:"isGateway,omitempty"`   // 只读
-    CIDR        string `json:"cidr,omitempty"`        // 只读
+    IP          string `json:"ip"`                      // 必填
     Description string `json:"description,omitempty"`
+    IsGateway   bool   `json:"isGateway,omitempty"`     // 只读
+    SubnetID    string `json:"subnetId,omitempty"`      // 只读
 }
 ```
 
-## lib/ipam 需要新增
+## 核心业务流程
+
+### 创建子网（含网关预分配）
+
+```
+POST /api/network/v1/networks/{networkId}/subnets
+Body: { metadata: {name}, spec: {cidr, gateway?, displayName?, description?} }
+```
+
+1. 验证 name、CIDR 格式
+2. 检查 network 的子网数量是否达到 maxSubnets 上限 → 409
+3. 如果 network 有 CIDR，验证子网 CIDR 在 network CIDR 范围内
+4. 查询同 network 下已有 CIDR，检查重叠 → 409
+5. `ipam.NewCIDRRange(cidr)` 创建 Range
+6. 如有 gateway → `range.Allocate(gatewayIP)` 预分配
+7. `range.SaveToBytes()` 序列化 bitmap
+8. BEGIN 事务：INSERT subnet + INSERT gateway allocation（is_gateway=true）
+9. COMMIT，返回 Subnet 对象
+
+### 分配 IP
+
+```
+POST /api/network/v1/networks/{networkId}/subnets/{subnetId}/allocations
+Body: { spec: {ip, description?} }
+```
+
+```
+BEGIN TX
+  SELECT subnet FOR UPDATE                → 行锁 + 获取 bitmap
+  ipam.NewCIDRRange(cidr) + LoadFromBytes → 恢复 bitmap
+  Allocate(ip)                            → 标记分配（已分配返回 409）
+  SaveToBytes → UPDATE bitmap             → 写回
+  INSERT ip_allocation                    → 记录
+COMMIT
+```
+
+### 释放 IP
+
+```
+DELETE /api/network/v1/networks/{networkId}/subnets/{subnetId}/allocations/{allocationId}
+```
+
+- Gateway IP 不可直接释放 → 400
+- 同样的锁定路径：行锁 → 恢复 → Release → 写回 → 删除记录
+- 如释放的是 gateway IP（通过删除子网触发），同时清空 subnet 的 gateway 字段
+
+### 删除保护
+
+| 操作 | 保护条件 | 错误 |
+|------|---------|------|
+| 删除 Network | 有子网时 | 409 Conflict |
+| 删除 Subnet | 有非 gateway 的 allocation 时 | 409 Conflict |
+| 删除 Gateway IP | 直接删除 | 400 Bad Request |
+
+## lib/ipam 交互方式
 
 ```go
-// LoadFromBytes 从 DB 中的 []byte 恢复 Pool 的 bitmap 状态
-func (p *Pool) LoadFromBytes(bitmap []byte) error
+// 序列化：bitmap → DB
+func (r *Range) SaveToBytes() []byte
 
-// SaveToBytes 将 Pool 的 bitmap 序列化为 []byte，用于写回 DB
-func (p *Pool) SaveToBytes() []byte
+// 反序列化：DB → bitmap
+func (r *Range) LoadFromBytes(data []byte) error
 ```
 
-不再需要 `RestorePool` / `RestoreAllocation`，因为 bitmap 存 DB 后无启动恢复流程。
-
-## 模块文件结构
+基于 `AllocationBitmap.Snapshot()` 和 `Restore()` 实现。每次 IP 操作都是：
 
 ```
-pkg/apis/network/
-  types.go                         — API 类型 (Network, Subnet, IPAllocation)
-  store.go                         — Store 接口 (NetworkStore, SubnetStore, IPAllocationStore)
-  storage.go                       — REST 存储层 (networkStorage, subnetStorage, ipAllocationStorage)
-  validation.go                    — 校验函数
-  provider.go                      — Stores 聚合 + RESTStorageProvider
-  v1/
-    install.go                     — 路由注册 + 模块初始化
+DB 读 bitmap → NewCIDRRange + LoadFromBytes → 操作 → SaveToBytes → DB 写 bitmap
+```
 
-pkg/apis/network/store/
-  pg_network.go                    — PostgreSQL Network 存储实现
-  pg_subnet.go                     — PostgreSQL Subnet 存储实现（含 bitmap 读写）
-  pg_ip_allocation.go              — PostgreSQL IPAllocation 存储实现
-  stores.go                        — 工厂函数
+服务无状态，并发安全通过 DB 行锁（`SELECT ... FOR UPDATE`）保证。
 
+## 数据流
+
+```
+REST Client
+    │ HTTP
+    ▼
+REST Storage (pkg/apis/network/storage.go)
+  networkStorage  — 标准 CRUD，删除保护
+  subnetStorage   — CRUD + bitmap 交互，usage 排序
+  allocationStorage — Create/Delete 事务，行锁 bitmap
+    │
+    ▼
+DB Store (pkg/apis/network/store/pg_*.go)
+  networks / subnets / ip_allocations 表
+    │ bitmap 读写
+    ▼
+lib/ipam Range (临时构建，用完丢弃)
+  LoadFromBytes → 操作 → SaveToBytes
+```
+
+## 验证规则
+
+| 资源 | 字段 | 规则 |
+|------|------|------|
+| Network | name | 必填，`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$` |
+| Network | cidr | 可选，合法 CIDR 格式 |
+| Network | maxSubnets | 1-50 |
+| Network | description | 最长 1024 字符 |
+| Subnet | name | 同 Network |
+| Subnet | cidr | 必填，合法格式，在 network CIDR 范围内，不与已有子网重叠 |
+| Subnet | gateway | 可选，合法 IP，在 CIDR 范围内 |
+| IPAllocation | ip | 必填，合法 IPv4 格式 |
+| IPAllocation | description | 最长 512 字符 |
+
+## 前端实现
+
+### 页面
+
+| 页面 | 路由 | 功能 |
+|------|------|------|
+| 网络列表 | `/network/networks` | 搜索、排序（name/displayName/cidr/subnetCount/createdAt/updatedAt）、分页、创建/编辑/删除、批量删除 |
+| 网络详情 | `/network/networks/:networkId` | 基本信息卡片、子网列表（嵌入完整表格）、编辑/删除 |
+| 子网详情 | `/network/networks/:networkId/subnets/:subnetId` | 基本信息卡片、IP 分配列表、分配/释放 IP |
+
+### UI 特性
+
+- **子网数量进度条**：网络列表和详情页显示 `used/maxSubnets`，使用 `bg-primary` 三档透明度（20%/50%/100%）区分使用率
+- **IP 使用进度条**：子网列表和详情页显示 `usedIPs/totalIPs`，同样的颜色规则
+- **CIDR 可用范围**：网络/子网列表和详情页在 CIDR 下方显示可用 IP 范围（如 `10.0.0.1 - 10.0.0.254`）
+- **公开/私有 Badge**：网络列表和详情页显示 isPublic 状态
+- **网关自动填充**：创建子网时输入 CIDR 后自动推算并填充 gateway
+- **CIDR 范围校验**：前端创建子网时校验 CIDR 是否在 network CIDR 范围内
+- **保留 IP 提示**：分配 IP 时检测网络地址和广播地址并提示
+
+### 文件清单
+
+```
+ui/src/api/network/
+  client.ts              — API 客户端（前缀 /api/network/v1）
+  networks.ts            — Network CRUD API
+  subnets.ts             — Subnet CRUD API
+  allocations.ts         — IPAllocation API
+
+ui/src/pages/network/
+  routes.tsx             — 路由定义
+  networks/
+    list.tsx             — 网络列表页（含创建/编辑表单）
+    detail.tsx           — 网络详情页（含子网列表、子网表单）
+    subnet-detail.tsx    — 子网详情页（含 IP 分配列表）
+    utils.ts             — CIDR 可用范围计算
+
+ui/src/i18n/locales/{en-US,zh-CN}/
+  network.ts             — 网络模块 i18n（~100 key）
+```
+
+### 权限码
+
+```
+network:networks:list / get / create / update / patch / delete / deleteCollection
+network:subnets:list / get / create / update / patch / delete / deleteCollection
+network:allocations:list / get / create / delete
+```
+
+## 后端文件清单
+
+```
+lib/ipam/
+  range.go               — SaveToBytes / LoadFromBytes
+
+pkg/db/schema/schema.sql — networks / subnets / ip_allocations 表
 pkg/db/query/
-  network.sql                      — sqlc 查询
-  subnet.sql                       — 含 SELECT bitmap FOR UPDATE 查询
-  ip_allocation.sql
+  network.sql            — Network CRUD + 分页列表
+  subnet.sql             — Subnet CRUD + FOR UPDATE + bitmap 更新 + CIDR 列表
+  ip_allocation.sql      — IPAllocation 创建/删除/列表
 
-pkg/db/schema/schema.sql           — 追加建表语句
-pkg/apis/install.go                — 注册 network 模块
-lib/ipam/pool.go                   — 新增 LoadFromBytes / SaveToBytes
+pkg/apis/network/
+  types.go               — API 类型 + DB 类型别名
+  store.go               — Store 接口（NetworkStore / SubnetStore / IPAllocationStore）
+  storage.go             — REST Storage（含 ipam bitmap 交互逻辑）
+  validation.go          — 校验函数
+  provider.go            — Stores 聚合
+  v1/install.go          — 路由注册
+  store/
+    pg_network.go        — PostgreSQL Network Store
+    pg_subnet.go         — PostgreSQL Subnet Store（含事务、行锁）
+    pg_ip_allocation.go  — PostgreSQL IPAllocation Store
+    stores.go            — 工厂函数
+    helpers.go           — filterStr/filterInt64 辅助
+
+pkg/apis/install.go      — 注册 network 模块到全局
 ```
 
-## 实现阶段
+## Phase 2 待实现
 
-| Phase | 内容 | 验证 |
-|-------|------|------|
-| 1 | lib/ipam: 新增 Pool.LoadFromBytes/SaveToBytes + 测试 | `go test ./lib/ipam/...` |
-| 2 | DB schema + sqlc 查询 + `make sqlc-generate` | 检查生成代码 |
-| 3 | types.go + store.go + provider.go + validation.go | 编译通过 |
-| 4 | store/pg_*.go（PostgreSQL 实现，含 bitmap 事务操作） | 编译通过 |
-| 5 | storage.go（REST 层，含 ipam bitmap 交互） | 编译通过 |
-| 6 | v1/install.go + pkg/apis/install.go（装配） | `make vet && make test` |
-| 7 | 端到端验证 | curl 测试完整流程 |
+| 功能 | 说明 |
+|------|------|
+| Workspace 级网络 | Network 加 workspace_id FK，API 路由加 workspace 前缀 |
+| Host 关联 | ip_allocations 加 host_id FK → hosts 表 |
+| 自动分配 | 支持不指定 IP，调用 `AllocateNext()` 自动分配 |
+| 前端 Host-IP 绑定 | Host 详情页显示关联的 IP，支持从 Host 页面分配/释放 |
+| 网络分配到 Workspace | 平台管理员将公开网络分配给特定 Workspace |
