@@ -25,6 +25,12 @@ tags:
     description: 主机管理：物理机或虚拟机资源，支持三层创建（平台/租户/项目）和向下分配。
   - name: Environment
     description: 环境管理：按生命周期阶段（开发、测试、生产等）分组资源的管理维度。
+  - name: Region
+    description: 区域管理：可用域/地理区域，CMDB 顶层位置资源。
+  - name: Site
+    description: 站点管理：数据中心/物理站点，属于某个区域。
+  - name: Location
+    description: 机房管理：数据中心内的物理机房，属于某个站点。
 paths:
   /.well-known/jwks.json:
     get:
@@ -2504,6 +2510,535 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HostAssignmentList'
+  /api/infra/v1/locations:
+    get:
+      summary: 获取机房列表
+      operationId: listLocation
+      tags:
+        - Location
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationList'
+    post:
+      summary: 创建机房
+      operationId: createLocation
+      tags:
+        - Location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Location'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+    delete:
+      summary: 批量删除机房
+      operationId: deleteCollectionLocation
+      tags:
+        - Location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/locations/{locationId}:
+    get:
+      summary: 获取机房详情
+      operationId: getLocation
+      tags:
+        - Location
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+    put:
+      summary: 更新机房信息（全量）
+      operationId: updateLocation
+      tags:
+        - Location
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Location'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+    patch:
+      summary: 更新机房信息（部分）
+      operationId: patchLocation
+      tags:
+        - Location
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Location'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+    delete:
+      summary: 删除机房
+      operationId: deleteLocation
+      tags:
+        - Location
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/infra/v1/regions:
+    get:
+      summary: 获取区域列表
+      operationId: listRegion
+      tags:
+        - Region
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegionList'
+    post:
+      summary: 创建区域
+      operationId: createRegion
+      tags:
+        - Region
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Region'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Region'
+    delete:
+      summary: 批量删除区域
+      operationId: deleteCollectionRegion
+      tags:
+        - Region
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/regions/{regionId}:
+    get:
+      summary: 获取区域详情
+      operationId: getRegion
+      tags:
+        - Region
+      parameters:
+        - name: regionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Region'
+    put:
+      summary: 更新区域信息（全量）
+      operationId: updateRegion
+      tags:
+        - Region
+      parameters:
+        - name: regionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Region'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Region'
+    patch:
+      summary: 更新区域信息（部分）
+      operationId: patchRegion
+      tags:
+        - Region
+      parameters:
+        - name: regionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Region'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Region'
+    delete:
+      summary: 删除区域
+      operationId: deleteRegion
+      tags:
+        - Region
+      parameters:
+        - name: regionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/infra/v1/regions/{regionId}/sites:
+    get:
+      summary: 获取区域下的站点列表
+      operationId: listRegionSite
+      tags:
+        - Site
+      parameters:
+        - name: regionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteList'
+  /api/infra/v1/sites:
+    get:
+      summary: 获取站点列表
+      operationId: listSite
+      tags:
+        - Site
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteList'
+    post:
+      summary: 创建站点
+      operationId: createSite
+      tags:
+        - Site
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Site'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+    delete:
+      summary: 批量删除站点
+      operationId: deleteCollectionSite
+      tags:
+        - Site
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/infra/v1/sites/{siteId}:
+    get:
+      summary: 获取站点详情
+      operationId: getSite
+      tags:
+        - Site
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+    put:
+      summary: 更新站点信息（全量）
+      operationId: updateSite
+      tags:
+        - Site
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Site'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+    patch:
+      summary: 更新站点信息（部分）
+      operationId: patchSite
+      tags:
+        - Site
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Site'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+    delete:
+      summary: 删除站点
+      operationId: deleteSite
+      tags:
+        - Site
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/infra/v1/sites/{siteId}/locations:
+    get:
+      summary: 获取站点下的机房列表
+      operationId: listSiteLocation
+      tags:
+        - Location
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationList'
   /api/infra/v1/workspaces/{workspaceId}/environments:
     get:
       summary: 获取租户下的环境列表
@@ -3915,6 +4450,67 @@ components:
           description: 所属租户 ID（workspace scope 时必填）
       required:
         - scope
+    Location:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/LocationSpec'
+    LocationList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+        totalCount:
+          type: integer
+          format: int64
+    LocationSpec:
+      type: object
+      properties:
+        contactEmail:
+          type: string
+          format: email
+          description: 负责人邮箱
+        contactName:
+          type: string
+          description: 负责人姓名
+        contactPhone:
+          type: string
+          description: 负责人电话
+        description:
+          type: string
+          description: 描述
+        displayName:
+          type: string
+          description: 显示名称
+        floor:
+          type: string
+          description: 楼层
+        rackCapacity:
+          type: integer
+          format: int32
+          description: 机柜总容量
+        regionId:
+          type: string
+          description: 所属区域 ID（只读，通过站点关联）
+        regionName:
+          type: string
+          description: 所属区域名称（只读）
+        siteId:
+          type: string
+          description: 所属站点 ID
+        siteName:
+          type: string
+          description: 所属站点名称（只读）
+        status:
+          type: string
+          description: 状态
+          enum:
+            - active
+            - inactive
+      required:
+        - siteId
     Namespace:
       type: object
       properties:
@@ -4219,6 +4815,48 @@ components:
         - method
         - path
         - scope
+    Region:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/RegionSpec'
+    RegionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Region'
+        totalCount:
+          type: integer
+          format: int64
+    RegionSpec:
+      type: object
+      properties:
+        description:
+          type: string
+          description: 描述
+        displayName:
+          type: string
+          description: 显示名称
+        latitude:
+          type: number
+          format: double
+          description: 纬度
+        longitude:
+          type: number
+          format: double
+          description: 经度
+        siteCount:
+          type: integer
+          format: int64
+          description: 下属站点数量（只读）
+        status:
+          type: string
+          description: 状态
+          enum:
+            - active
+            - inactive
     Role:
       type: object
       properties:
@@ -4330,6 +4968,69 @@ components:
       required:
         - name
         - scope
+    Site:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/SiteSpec'
+    SiteList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Site'
+        totalCount:
+          type: integer
+          format: int64
+    SiteSpec:
+      type: object
+      properties:
+        address:
+          type: string
+          description: 物理地址
+        contactEmail:
+          type: string
+          format: email
+          description: 负责人邮箱
+        contactName:
+          type: string
+          description: 负责人姓名
+        contactPhone:
+          type: string
+          description: 负责人电话
+        description:
+          type: string
+          description: 描述
+        displayName:
+          type: string
+          description: 显示名称
+        latitude:
+          type: number
+          format: double
+          description: 纬度
+        locationCount:
+          type: integer
+          format: int64
+          description: 下属机房数量（只读）
+        longitude:
+          type: number
+          format: double
+          description: 经度
+        regionId:
+          type: string
+          description: 所属区域 ID
+        regionName:
+          type: string
+          description: 所属区域名称（只读）
+        status:
+          type: string
+          description: 状态
+          enum:
+            - active
+            - inactive
+      required:
+        - regionId
     User:
       type: object
       properties:
@@ -4503,3 +5204,6 @@ x-tagGroups:
     tags:
       - Host
       - Environment
+      - Region
+      - Site
+      - Location

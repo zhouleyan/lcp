@@ -7,58 +7,53 @@ import (
 )
 
 var (
-	nameRegexp      = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
-	validScopes     = map[string]bool{ScopePlatform: true, ScopeWorkspace: true, ScopeNamespace: true}
-	validStatuses   = map[string]bool{"active": true, "inactive": true}
-	validEnvTypes   = map[string]bool{"development": true, "testing": true, "staging": true, "production": true, "custom": true}
+	nameRegexp    = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
+	validScopes   = map[string]bool{ScopePlatform: true, ScopeWorkspace: true, ScopeNamespace: true}
+	validStatuses = map[string]bool{"active": true, "inactive": true}
+	validEnvTypes = map[string]bool{"development": true, "testing": true, "staging": true, "production": true, "custom": true}
 )
+
+// validateName checks the metadata.name field and appends errors.
+func validateName(errs *validation.ErrorList, name string) {
+	if name == "" {
+		*errs = append(*errs, validation.FieldError{Field: "metadata.name", Message: "is required"})
+	} else if !nameRegexp.MatchString(name) {
+		*errs = append(*errs, validation.FieldError{Field: "metadata.name", Message: "must be 3-50 lowercase alphanumeric characters or hyphens"})
+	}
+}
+
+// validateStatus checks the spec.status field and appends errors.
+func validateStatus(errs *validation.ErrorList, status string) {
+	if status != "" && !validStatuses[status] {
+		*errs = append(*errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
+	}
+}
 
 // ValidateHostCreate validates a HostSpec for creation.
 func ValidateHostCreate(name string, spec *HostSpec) validation.ErrorList {
 	var errs validation.ErrorList
-
-	if name == "" {
-		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "is required"})
-	} else if !nameRegexp.MatchString(name) {
-		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 3-50 lowercase alphanumeric characters or hyphens"})
-	}
-
-	if spec.Status != "" && !validStatuses[spec.Status] {
-		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
-	}
-
+	validateName(&errs, name)
+	validateStatus(&errs, spec.Status)
 	return errs
 }
 
 // ValidateHostUpdate validates a HostSpec for full update.
 func ValidateHostUpdate(spec *HostSpec) validation.ErrorList {
 	var errs validation.ErrorList
-
-	if spec.Status != "" && !validStatuses[spec.Status] {
-		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
-	}
-
+	validateStatus(&errs, spec.Status)
 	return errs
 }
 
 // ValidateEnvironmentCreate validates an EnvironmentSpec for creation.
 func ValidateEnvironmentCreate(name string, spec *EnvironmentSpec) validation.ErrorList {
 	var errs validation.ErrorList
-
-	if name == "" {
-		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "is required"})
-	} else if !nameRegexp.MatchString(name) {
-		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 3-50 lowercase alphanumeric characters or hyphens"})
-	}
+	validateName(&errs, name)
 
 	if spec.EnvType != "" && !validEnvTypes[spec.EnvType] {
 		errs = append(errs, validation.FieldError{Field: "spec.envType", Message: "must be development, testing, staging, production, or custom"})
 	}
 
-	if spec.Status != "" && !validStatuses[spec.Status] {
-		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
-	}
-
+	validateStatus(&errs, spec.Status)
 	return errs
 }
 
@@ -70,10 +65,7 @@ func ValidateEnvironmentUpdate(spec *EnvironmentSpec) validation.ErrorList {
 		errs = append(errs, validation.FieldError{Field: "spec.envType", Message: "must be development, testing, staging, production, or custom"})
 	}
 
-	if spec.Status != "" && !validStatuses[spec.Status] {
-		errs = append(errs, validation.FieldError{Field: "spec.status", Message: "must be 'active' or 'inactive'"})
-	}
-
+	validateStatus(&errs, spec.Status)
 	return errs
 }
 
@@ -100,6 +92,118 @@ func ValidateBindEnvironmentRequest(req *BindEnvironmentRequest) validation.Erro
 
 	if req.EnvironmentID == "" {
 		errs = append(errs, validation.FieldError{Field: "environmentId", Message: "is required"})
+	}
+
+	return errs
+}
+
+// ValidateRegionCreate validates a RegionSpec for creation.
+func ValidateRegionCreate(name string, spec *RegionSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	validateName(&errs, name)
+
+	if spec.DisplayName == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.displayName", Message: "is required"})
+	}
+
+	validateStatus(&errs, spec.Status)
+	return errs
+}
+
+// ValidateRegionUpdate validates a RegionSpec for full update.
+func ValidateRegionUpdate(spec *RegionSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	validateStatus(&errs, spec.Status)
+	return errs
+}
+
+// ValidateSiteCreate validates a SiteSpec for creation.
+func ValidateSiteCreate(name string, spec *SiteSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	validateName(&errs, name)
+
+	if spec.DisplayName == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.displayName", Message: "is required"})
+	}
+
+	if spec.RegionID == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.regionId", Message: "is required"})
+	}
+
+	validateStatus(&errs, spec.Status)
+	return errs
+}
+
+// ValidateSiteUpdate validates a SiteSpec for full update.
+func ValidateSiteUpdate(spec *SiteSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	validateStatus(&errs, spec.Status)
+	return errs
+}
+
+// ValidateLocationCreate validates a LocationSpec for creation.
+func ValidateLocationCreate(name string, spec *LocationSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	validateName(&errs, name)
+
+	if spec.DisplayName == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.displayName", Message: "is required"})
+	}
+
+	if spec.SiteID == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.siteId", Message: "is required"})
+	}
+
+	validateStatus(&errs, spec.Status)
+
+	if spec.RackCapacity < 0 {
+		errs = append(errs, validation.FieldError{Field: "spec.rackCapacity", Message: "must be >= 0"})
+	}
+
+	return errs
+}
+
+// ValidateLocationUpdate validates a LocationSpec for full update.
+func ValidateLocationUpdate(spec *LocationSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	validateStatus(&errs, spec.Status)
+
+	if spec.RackCapacity < 0 {
+		errs = append(errs, validation.FieldError{Field: "spec.rackCapacity", Message: "must be >= 0"})
+	}
+
+	return errs
+}
+
+// ValidateRackCreate validates a RackSpec for creation.
+func ValidateRackCreate(name string, spec *RackSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	validateName(&errs, name)
+
+	if spec.DisplayName == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.displayName", Message: "is required"})
+	}
+
+	if spec.LocationID == "" {
+		errs = append(errs, validation.FieldError{Field: "spec.locationId", Message: "is required"})
+	}
+
+	validateStatus(&errs, spec.Status)
+
+	if spec.UHeight < 0 {
+		errs = append(errs, validation.FieldError{Field: "spec.uHeight", Message: "must be >= 0"})
+	}
+
+	return errs
+}
+
+// ValidateRackUpdate validates a RackSpec for full update.
+func ValidateRackUpdate(spec *RackSpec) validation.ErrorList {
+	var errs validation.ErrorList
+	validateStatus(&errs, spec.Status)
+
+	if spec.UHeight < 0 {
+		errs = append(errs, validation.FieldError{Field: "spec.uHeight", Message: "must be >= 0"})
 	}
 
 	return errs

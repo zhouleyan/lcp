@@ -7,6 +7,9 @@ import {
   ShieldCheck,
   Server,
   Layers,
+  MapPin,
+  Warehouse,
+  Box,
   ScrollText,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
@@ -43,6 +46,10 @@ export const NAV_ITEMS: NavItemConfig[] = [
   { resource: "rolebindings", module: "iam", permission: "iam:rolebindings:list", labelKey: "nav.rolebindings", icon: ShieldCheck, group: "nav.iam", scopes: ["platform", "workspace", "namespace"] },
   { resource: "hosts", module: "infra", permission: "infra:hosts:list", labelKey: "nav.hosts", icon: Server, group: "nav.infra", scopes: ["platform", "workspace", "namespace"] },
   { resource: "environments", module: "infra", permission: "infra:environments:list", labelKey: "nav.environments", icon: Layers, group: "nav.infra", scopes: ["platform", "workspace", "namespace"] },
+  { resource: "regions", module: "infra", permission: "infra:regions:list", labelKey: "nav.regions", icon: MapPin, group: "nav.infra", scopes: ["platform"] },
+  { resource: "sites", module: "infra", permission: "infra:sites:list", labelKey: "nav.sites", icon: Building2, group: "nav.infra", scopes: ["platform"] },
+  { resource: "locations", module: "infra", permission: "infra:locations:list", labelKey: "nav.locations", icon: Warehouse, group: "nav.infra", scopes: ["platform"] },
+  { resource: "racks", module: "infra", permission: "infra:racks:list", labelKey: "nav.racks", icon: Box, group: "nav.infra", scopes: ["platform"] },
   { resource: "logs", module: "audit", permission: "audit:logs:list", labelKey: "nav.auditLogs", icon: ScrollText, group: "nav.audit", scopes: ["platform"] },
 ]
 

@@ -1712,6 +1712,1026 @@ func (s *envHostsVerbStorage) List(ctx context.Context, options *rest.ListOption
 	}, nil
 }
 
+// ===== regionStorage 平台级区域存储 =====
+
+// regionStorage 平台级区域资源的 REST 存储实现，支持 CRUD 和批量删除。
+type regionStorage struct {
+	regionStore RegionStore
+}
+
+// NewRegionStorage 创建平台级区域 REST 存储。
+func NewRegionStorage(regionStore RegionStore) rest.StandardStorage {
+	return &regionStorage{regionStore: regionStore}
+}
+
+func (s *regionStorage) NewObject() runtime.Object { return &Region{} }
+
+// Get 获取区域详情。
+// +openapi:summary=获取区域详情
+func (s *regionStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
+	id := options.PathParams["regionId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid region ID: %s", id), nil)
+	}
+
+	region, err := s.regionStore.GetByID(ctx, rid)
+	if err != nil {
+		return nil, err
+	}
+
+	return regionWithCountsToAPI(region), nil
+}
+
+// List 获取区域列表。
+// +openapi:summary=获取区域列表
+func (s *regionStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	query := restOptionsToListQuery(options)
+
+	result, err := s.regionStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Region, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = regionRowToAPI(&item)
+	}
+
+	return &RegionList{
+		TypeMeta:   runtime.TypeMeta{Kind: "RegionList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// Create 创建区域。
+// +openapi:summary=创建区域
+func (s *regionStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	region, ok := obj.(*Region)
+	if !ok {
+		return nil, fmt.Errorf("expected *Region, got %T", obj)
+	}
+
+	if errs := ValidateRegionCreate(region.ObjectMeta.Name, &region.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return region, nil
+	}
+
+	status := region.Spec.Status
+	if status == "" {
+		status = "active"
+	}
+
+	created, err := s.regionStore.Create(ctx, &DBRegion{
+		Name:        region.ObjectMeta.Name,
+		DisplayName: region.Spec.DisplayName,
+		Description: region.Spec.Description,
+		Status:      status,
+		Latitude:    region.Spec.Latitude,
+		Longitude:   region.Spec.Longitude,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return regionToAPI(created), nil
+}
+
+// Update 全量更新区域信息。
+// +openapi:summary=更新区域信息（全量）
+func (s *regionStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
+	region, ok := obj.(*Region)
+	if !ok {
+		return nil, fmt.Errorf("expected *Region, got %T", obj)
+	}
+
+	if errs := ValidateRegionUpdate(&region.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return region, nil
+	}
+
+	id := options.PathParams["regionId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid region ID: %s", id), nil)
+	}
+
+	updated, err := s.regionStore.Update(ctx, &DBRegion{
+		ID:          rid,
+		Name:        region.ObjectMeta.Name,
+		DisplayName: region.Spec.DisplayName,
+		Description: region.Spec.Description,
+		Status:      region.Spec.Status,
+		Latitude:    region.Spec.Latitude,
+		Longitude:   region.Spec.Longitude,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return regionToAPI(updated), nil
+}
+
+// Patch 部分更新区域信息。
+// +openapi:summary=更新区域信息（部分）
+func (s *regionStorage) Patch(ctx context.Context, obj runtime.Object, options *rest.PatchOptions) (runtime.Object, error) {
+	region, ok := obj.(*Region)
+	if !ok {
+		return nil, fmt.Errorf("expected *Region, got %T", obj)
+	}
+
+	id := options.PathParams["regionId"]
+
+	if options.DryRun {
+		existing, err := s.Get(ctx, &rest.GetOptions{PathParams: options.PathParams})
+		if err != nil {
+			return nil, err
+		}
+		return existing, nil
+	}
+
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid region ID: %s", id), nil)
+	}
+
+	fields := regionSpecToPatchFields(region)
+
+	patched, err := s.regionStore.Patch(ctx, rid, fields)
+	if err != nil {
+		return nil, err
+	}
+
+	return regionToAPI(patched), nil
+}
+
+// Delete 删除单个区域。
+// +openapi:summary=删除区域
+func (s *regionStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	if options.DryRun {
+		return nil
+	}
+
+	id := options.PathParams["regionId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid region ID: %s", id), nil)
+	}
+
+	return s.regionStore.Delete(ctx, rid)
+}
+
+// DeleteCollection 批量删除区域。
+// +openapi:summary=批量删除区域
+func (s *regionStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
+	if options.DryRun {
+		return &rest.DeletionResult{
+			SuccessCount: len(ids),
+			FailedCount:  0,
+		}, nil
+	}
+
+	int64IDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		rid, err := parseID(id)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid region ID: %s", id), nil)
+		}
+		int64IDs = append(int64IDs, rid)
+	}
+
+	count, err := s.regionStore.DeleteByIDs(ctx, int64IDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &rest.DeletionResult{
+		SuccessCount: int(count),
+		FailedCount:  len(ids) - int(count),
+	}, nil
+}
+
+// ===== regionSiteStorage 区域下站点列表 =====
+
+// regionSiteStorage 区域下站点资源的嵌套列表存储。
+// +openapi:path=/regions/{regionId}/sites
+type regionSiteStorage struct {
+	siteStore SiteStore
+}
+
+// NewRegionSiteStorage 创建区域下站点列表存储。
+func NewRegionSiteStorage(siteStore SiteStore) rest.Lister {
+	return &regionSiteStorage{siteStore: siteStore}
+}
+
+// List 获取区域下的站点列表。
+// +openapi:summary=获取站点列表
+// +openapi:summary.regions.sites=获取区域下的站点列表
+func (s *regionSiteStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	regionIDStr := options.PathParams["regionId"]
+	if _, err := parseID(regionIDStr); err != nil {
+		return nil, apierrors.NewBadRequest("invalid region ID", nil)
+	}
+
+	query := restOptionsToListQuery(options)
+	if query.Filters == nil {
+		query.Filters = map[string]any{}
+	}
+	query.Filters["regionId"] = regionIDStr
+
+	result, err := s.siteStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Site, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = siteRowToAPI(&item)
+	}
+
+	return &SiteList{
+		TypeMeta:   runtime.TypeMeta{Kind: "SiteList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// ===== siteStorage 平台级站点存储 =====
+
+// siteStorage 平台级站点资源的 REST 存储实现，支持 CRUD 和批量删除。
+type siteStorage struct {
+	siteStore SiteStore
+}
+
+// NewSiteStorage 创建平台级站点 REST 存储。
+func NewSiteStorage(siteStore SiteStore) rest.StandardStorage {
+	return &siteStorage{siteStore: siteStore}
+}
+
+func (s *siteStorage) NewObject() runtime.Object { return &Site{} }
+
+// Get 获取站点详情。
+// +openapi:summary=获取站点详情
+func (s *siteStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
+	id := options.PathParams["siteId"]
+	sid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid site ID: %s", id), nil)
+	}
+
+	site, err := s.siteStore.GetByID(ctx, sid)
+	if err != nil {
+		return nil, err
+	}
+
+	return siteWithDetailsToAPI(site), nil
+}
+
+// List 获取站点列表。
+// +openapi:summary=获取站点列表
+func (s *siteStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	query := restOptionsToListQuery(options)
+
+	result, err := s.siteStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Site, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = siteRowToAPI(&item)
+	}
+
+	return &SiteList{
+		TypeMeta:   runtime.TypeMeta{Kind: "SiteList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// Create 创建站点。
+// +openapi:summary=创建站点
+func (s *siteStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	site, ok := obj.(*Site)
+	if !ok {
+		return nil, fmt.Errorf("expected *Site, got %T", obj)
+	}
+
+	if errs := ValidateSiteCreate(site.ObjectMeta.Name, &site.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return site, nil
+	}
+
+	regionID, err := parseID(site.Spec.RegionID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid regionId: %s", site.Spec.RegionID), nil)
+	}
+
+	status := site.Spec.Status
+	if status == "" {
+		status = "active"
+	}
+
+	created, err := s.siteStore.Create(ctx, &DBSite{
+		Name:         site.ObjectMeta.Name,
+		DisplayName:  site.Spec.DisplayName,
+		Description:  site.Spec.Description,
+		RegionID:     regionID,
+		Status:       status,
+		Address:      site.Spec.Address,
+		Latitude:     site.Spec.Latitude,
+		Longitude:    site.Spec.Longitude,
+		ContactName:  site.Spec.ContactName,
+		ContactPhone: site.Spec.ContactPhone,
+		ContactEmail: site.Spec.ContactEmail,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return siteToAPI(created), nil
+}
+
+// Update 全量更新站点信息。
+// +openapi:summary=更新站点信息（全量）
+func (s *siteStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
+	site, ok := obj.(*Site)
+	if !ok {
+		return nil, fmt.Errorf("expected *Site, got %T", obj)
+	}
+
+	if errs := ValidateSiteUpdate(&site.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return site, nil
+	}
+
+	id := options.PathParams["siteId"]
+	sid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid site ID: %s", id), nil)
+	}
+
+	var regionID int64
+	if site.Spec.RegionID != "" {
+		regionID, err = parseID(site.Spec.RegionID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid regionId: %s", site.Spec.RegionID), nil)
+		}
+	}
+
+	updated, err := s.siteStore.Update(ctx, &DBSite{
+		ID:           sid,
+		Name:         site.ObjectMeta.Name,
+		DisplayName:  site.Spec.DisplayName,
+		Description:  site.Spec.Description,
+		RegionID:     regionID,
+		Status:       site.Spec.Status,
+		Address:      site.Spec.Address,
+		Latitude:     site.Spec.Latitude,
+		Longitude:    site.Spec.Longitude,
+		ContactName:  site.Spec.ContactName,
+		ContactPhone: site.Spec.ContactPhone,
+		ContactEmail: site.Spec.ContactEmail,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return siteToAPI(updated), nil
+}
+
+// Patch 部分更新站点信息。
+// +openapi:summary=更新站点信息（部分）
+func (s *siteStorage) Patch(ctx context.Context, obj runtime.Object, options *rest.PatchOptions) (runtime.Object, error) {
+	site, ok := obj.(*Site)
+	if !ok {
+		return nil, fmt.Errorf("expected *Site, got %T", obj)
+	}
+
+	id := options.PathParams["siteId"]
+
+	if options.DryRun {
+		existing, err := s.Get(ctx, &rest.GetOptions{PathParams: options.PathParams})
+		if err != nil {
+			return nil, err
+		}
+		return existing, nil
+	}
+
+	sid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid site ID: %s", id), nil)
+	}
+
+	fields := siteSpecToPatchFields(site)
+
+	patched, err := s.siteStore.Patch(ctx, sid, fields)
+	if err != nil {
+		return nil, err
+	}
+
+	return siteToAPI(patched), nil
+}
+
+// Delete 删除单个站点。
+// +openapi:summary=删除站点
+func (s *siteStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	if options.DryRun {
+		return nil
+	}
+
+	id := options.PathParams["siteId"]
+	sid, err := parseID(id)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid site ID: %s", id), nil)
+	}
+
+	return s.siteStore.Delete(ctx, sid)
+}
+
+// DeleteCollection 批量删除站点。
+// +openapi:summary=批量删除站点
+func (s *siteStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
+	if options.DryRun {
+		return &rest.DeletionResult{
+			SuccessCount: len(ids),
+			FailedCount:  0,
+		}, nil
+	}
+
+	int64IDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		sid, err := parseID(id)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid site ID: %s", id), nil)
+		}
+		int64IDs = append(int64IDs, sid)
+	}
+
+	count, err := s.siteStore.DeleteByIDs(ctx, int64IDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &rest.DeletionResult{
+		SuccessCount: int(count),
+		FailedCount:  len(ids) - int(count),
+	}, nil
+}
+
+// ===== siteLocationStorage 站点下机房列表 =====
+
+// siteLocationStorage 站点下机房资源的嵌套列表存储。
+// +openapi:path=/sites/{siteId}/locations
+type siteLocationStorage struct {
+	locationStore LocationStore
+}
+
+// NewSiteLocationStorage 创建站点下机房列表存储。
+func NewSiteLocationStorage(locationStore LocationStore) rest.Lister {
+	return &siteLocationStorage{locationStore: locationStore}
+}
+
+// List 获取站点下的机房列表。
+// +openapi:summary=获取机房列表
+// +openapi:summary.sites.locations=获取站点下的机房列表
+func (s *siteLocationStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	siteIDStr := options.PathParams["siteId"]
+	if _, err := parseID(siteIDStr); err != nil {
+		return nil, apierrors.NewBadRequest("invalid site ID", nil)
+	}
+
+	query := restOptionsToListQuery(options)
+	if query.Filters == nil {
+		query.Filters = map[string]any{}
+	}
+	query.Filters["siteId"] = siteIDStr
+
+	result, err := s.locationStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Location, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = locationRowToAPI(&item)
+	}
+
+	return &LocationList{
+		TypeMeta:   runtime.TypeMeta{Kind: "LocationList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// ===== locationRackStorage 机房下机柜列表 =====
+
+// locationRackStorage 机房下机柜资源的嵌套列表存储。
+// +openapi:path=/locations/{locationId}/racks
+type locationRackStorage struct {
+	rackStore RackStore
+}
+
+// NewLocationRackStorage 创建机房下机柜列表存储。
+func NewLocationRackStorage(rackStore RackStore) rest.Lister {
+	return &locationRackStorage{rackStore: rackStore}
+}
+
+// List 获取机房下的机柜列表。
+// +openapi:summary=获取机柜列表
+// +openapi:summary.locations.racks=获取机房下的机柜列表
+func (s *locationRackStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	locationIDStr := options.PathParams["locationId"]
+	if _, err := parseID(locationIDStr); err != nil {
+		return nil, apierrors.NewBadRequest("invalid location ID", nil)
+	}
+
+	query := restOptionsToListQuery(options)
+	if query.Filters == nil {
+		query.Filters = map[string]any{}
+	}
+	query.Filters["locationId"] = locationIDStr
+
+	result, err := s.rackStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Rack, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = rackRowToAPI(&item)
+	}
+
+	return &RackList{
+		TypeMeta:   runtime.TypeMeta{Kind: "RackList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// ===== rackStorage 平台级机柜存储 =====
+
+// rackStorage 平台级机柜资源的 REST 存储实现，支持 CRUD 和批量删除。
+type rackStorage struct {
+	rackStore RackStore
+}
+
+// NewRackStorage 创建平台级机柜 REST 存储。
+func NewRackStorage(rackStore RackStore) rest.StandardStorage {
+	return &rackStorage{rackStore: rackStore}
+}
+
+func (s *rackStorage) NewObject() runtime.Object { return &Rack{} }
+
+// Get 获取机柜详情。
+// +openapi:summary=获取机柜详情
+func (s *rackStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
+	id := options.PathParams["rackId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid rack ID: %s", id), nil)
+	}
+
+	rack, err := s.rackStore.GetByID(ctx, rid)
+	if err != nil {
+		return nil, err
+	}
+
+	return rackWithDetailsToAPI(rack), nil
+}
+
+// List 获取机柜列表。
+// +openapi:summary=获取机柜列表
+func (s *rackStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	query := restOptionsToListQuery(options)
+
+	result, err := s.rackStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Rack, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = rackRowToAPI(&item)
+	}
+
+	return &RackList{
+		TypeMeta:   runtime.TypeMeta{Kind: "RackList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// Create 创建机柜。
+// +openapi:summary=创建机柜
+func (s *rackStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	rack, ok := obj.(*Rack)
+	if !ok {
+		return nil, fmt.Errorf("expected *Rack, got %T", obj)
+	}
+
+	if errs := ValidateRackCreate(rack.ObjectMeta.Name, &rack.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return rack, nil
+	}
+
+	locationID, err := parseID(rack.Spec.LocationID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid locationId: %s", rack.Spec.LocationID), nil)
+	}
+
+	status := rack.Spec.Status
+	if status == "" {
+		status = "active"
+	}
+
+	created, err := s.rackStore.Create(ctx, &DBRack{
+		Name:          rack.ObjectMeta.Name,
+		DisplayName:   rack.Spec.DisplayName,
+		Description:   rack.Spec.Description,
+		LocationID:    locationID,
+		Status:        status,
+		UHeight:       rack.Spec.UHeight,
+		Position:      rack.Spec.Position,
+		PowerCapacity: rack.Spec.PowerCapacity,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return rackToAPI(created), nil
+}
+
+// Update 全量更新机柜信息。
+// +openapi:summary=更新机柜信息（全量）
+func (s *rackStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
+	rack, ok := obj.(*Rack)
+	if !ok {
+		return nil, fmt.Errorf("expected *Rack, got %T", obj)
+	}
+
+	if errs := ValidateRackUpdate(&rack.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return rack, nil
+	}
+
+	id := options.PathParams["rackId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid rack ID: %s", id), nil)
+	}
+
+	var locationID int64
+	if rack.Spec.LocationID != "" {
+		locationID, err = parseID(rack.Spec.LocationID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid locationId: %s", rack.Spec.LocationID), nil)
+		}
+	}
+
+	updated, err := s.rackStore.Update(ctx, &DBRack{
+		ID:            rid,
+		Name:          rack.ObjectMeta.Name,
+		DisplayName:   rack.Spec.DisplayName,
+		Description:   rack.Spec.Description,
+		LocationID:    locationID,
+		Status:        rack.Spec.Status,
+		UHeight:       rack.Spec.UHeight,
+		Position:      rack.Spec.Position,
+		PowerCapacity: rack.Spec.PowerCapacity,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return rackToAPI(updated), nil
+}
+
+// Patch 部分更新机柜信息。
+// +openapi:summary=更新机柜信息（部分）
+func (s *rackStorage) Patch(ctx context.Context, obj runtime.Object, options *rest.PatchOptions) (runtime.Object, error) {
+	rack, ok := obj.(*Rack)
+	if !ok {
+		return nil, fmt.Errorf("expected *Rack, got %T", obj)
+	}
+
+	id := options.PathParams["rackId"]
+
+	if options.DryRun {
+		existing, err := s.Get(ctx, &rest.GetOptions{PathParams: options.PathParams})
+		if err != nil {
+			return nil, err
+		}
+		return existing, nil
+	}
+
+	rid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid rack ID: %s", id), nil)
+	}
+
+	fields := rackSpecToPatchFields(rack)
+
+	patched, err := s.rackStore.Patch(ctx, rid, fields)
+	if err != nil {
+		return nil, err
+	}
+
+	return rackToAPI(patched), nil
+}
+
+// Delete 删除单个机柜。
+// +openapi:summary=删除机柜
+func (s *rackStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	if options.DryRun {
+		return nil
+	}
+
+	id := options.PathParams["rackId"]
+	rid, err := parseID(id)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid rack ID: %s", id), nil)
+	}
+
+	return s.rackStore.Delete(ctx, rid)
+}
+
+// DeleteCollection 批量删除机柜。
+// +openapi:summary=批量删除机柜
+func (s *rackStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
+	if options.DryRun {
+		return &rest.DeletionResult{
+			SuccessCount: len(ids),
+			FailedCount:  0,
+		}, nil
+	}
+
+	int64IDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		rid, err := parseID(id)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid rack ID: %s", id), nil)
+		}
+		int64IDs = append(int64IDs, rid)
+	}
+
+	count, err := s.rackStore.DeleteByIDs(ctx, int64IDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &rest.DeletionResult{
+		SuccessCount: int(count),
+		FailedCount:  len(ids) - int(count),
+	}, nil
+}
+
+// ===== locationStorage 平台级机房存储 =====
+
+// locationStorage 平台级机房资源的 REST 存储实现，支持 CRUD 和批量删除。
+type locationStorage struct {
+	locationStore LocationStore
+}
+
+// NewLocationStorage 创建平台级机房 REST 存储。
+func NewLocationStorage(locationStore LocationStore) rest.StandardStorage {
+	return &locationStorage{locationStore: locationStore}
+}
+
+func (s *locationStorage) NewObject() runtime.Object { return &Location{} }
+
+// Get 获取机房详情。
+// +openapi:summary=获取机房详情
+func (s *locationStorage) Get(ctx context.Context, options *rest.GetOptions) (runtime.Object, error) {
+	id := options.PathParams["locationId"]
+	lid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid location ID: %s", id), nil)
+	}
+
+	location, err := s.locationStore.GetByID(ctx, lid)
+	if err != nil {
+		return nil, err
+	}
+
+	return locationWithDetailsToAPI(location), nil
+}
+
+// List 获取机房列表。
+// +openapi:summary=获取机房列表
+func (s *locationStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
+	query := restOptionsToListQuery(options)
+
+	result, err := s.locationStore.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Location, len(result.Items))
+	for i, item := range result.Items {
+		items[i] = locationRowToAPI(&item)
+	}
+
+	return &LocationList{
+		TypeMeta:   runtime.TypeMeta{Kind: "LocationList"},
+		Items:      items,
+		TotalCount: result.TotalCount,
+	}, nil
+}
+
+// Create 创建机房。
+// +openapi:summary=创建机房
+func (s *locationStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	location, ok := obj.(*Location)
+	if !ok {
+		return nil, fmt.Errorf("expected *Location, got %T", obj)
+	}
+
+	if errs := ValidateLocationCreate(location.ObjectMeta.Name, &location.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return location, nil
+	}
+
+	siteID, err := parseID(location.Spec.SiteID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid siteId: %s", location.Spec.SiteID), nil)
+	}
+
+	status := location.Spec.Status
+	if status == "" {
+		status = "active"
+	}
+
+	created, err := s.locationStore.Create(ctx, &DBLocation{
+		Name:         location.ObjectMeta.Name,
+		DisplayName:  location.Spec.DisplayName,
+		Description:  location.Spec.Description,
+		SiteID:       siteID,
+		Status:       status,
+		Floor:        location.Spec.Floor,
+		RackCapacity: location.Spec.RackCapacity,
+		ContactName:  location.Spec.ContactName,
+		ContactPhone: location.Spec.ContactPhone,
+		ContactEmail: location.Spec.ContactEmail,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return locationToAPI(created), nil
+}
+
+// Update 全量更新机房信息。
+// +openapi:summary=更新机房信息（全量）
+func (s *locationStorage) Update(ctx context.Context, obj runtime.Object, options *rest.UpdateOptions) (runtime.Object, error) {
+	location, ok := obj.(*Location)
+	if !ok {
+		return nil, fmt.Errorf("expected *Location, got %T", obj)
+	}
+
+	if errs := ValidateLocationUpdate(&location.Spec); errs.HasErrors() {
+		return nil, apierrors.NewBadRequest("validation failed", errs)
+	}
+
+	if options.DryRun {
+		return location, nil
+	}
+
+	id := options.PathParams["locationId"]
+	lid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid location ID: %s", id), nil)
+	}
+
+	var siteID int64
+	if location.Spec.SiteID != "" {
+		siteID, err = parseID(location.Spec.SiteID)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid siteId: %s", location.Spec.SiteID), nil)
+		}
+	}
+
+	updated, err := s.locationStore.Update(ctx, &DBLocation{
+		ID:           lid,
+		Name:         location.ObjectMeta.Name,
+		DisplayName:  location.Spec.DisplayName,
+		Description:  location.Spec.Description,
+		SiteID:       siteID,
+		Status:       location.Spec.Status,
+		Floor:        location.Spec.Floor,
+		RackCapacity: location.Spec.RackCapacity,
+		ContactName:  location.Spec.ContactName,
+		ContactPhone: location.Spec.ContactPhone,
+		ContactEmail: location.Spec.ContactEmail,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return locationToAPI(updated), nil
+}
+
+// Patch 部分更新机房信息。
+// +openapi:summary=更新机房信息（部分）
+func (s *locationStorage) Patch(ctx context.Context, obj runtime.Object, options *rest.PatchOptions) (runtime.Object, error) {
+	location, ok := obj.(*Location)
+	if !ok {
+		return nil, fmt.Errorf("expected *Location, got %T", obj)
+	}
+
+	id := options.PathParams["locationId"]
+
+	if options.DryRun {
+		existing, err := s.Get(ctx, &rest.GetOptions{PathParams: options.PathParams})
+		if err != nil {
+			return nil, err
+		}
+		return existing, nil
+	}
+
+	lid, err := parseID(id)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid location ID: %s", id), nil)
+	}
+
+	fields := locationSpecToPatchFields(location)
+
+	patched, err := s.locationStore.Patch(ctx, lid, fields)
+	if err != nil {
+		return nil, err
+	}
+
+	return locationToAPI(patched), nil
+}
+
+// Delete 删除单个机房。
+// +openapi:summary=删除机房
+func (s *locationStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
+	if options.DryRun {
+		return nil
+	}
+
+	id := options.PathParams["locationId"]
+	lid, err := parseID(id)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid location ID: %s", id), nil)
+	}
+
+	return s.locationStore.Delete(ctx, lid)
+}
+
+// DeleteCollection 批量删除机房。
+// +openapi:summary=批量删除机房
+func (s *locationStorage) DeleteCollection(ctx context.Context, ids []string, options *rest.DeleteOptions) (*rest.DeletionResult, error) {
+	if options.DryRun {
+		return &rest.DeletionResult{
+			SuccessCount: len(ids),
+			FailedCount:  0,
+		}, nil
+	}
+
+	int64IDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		lid, err := parseID(id)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid location ID: %s", id), nil)
+		}
+		int64IDs = append(int64IDs, lid)
+	}
+
+	count, err := s.locationStore.DeleteByIDs(ctx, int64IDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &rest.DeletionResult{
+		SuccessCount: int(count),
+		FailedCount:  len(ids) - int(count),
+	}, nil
+}
+
 // ===== helpers =====
 
 // restOptionsToListQuery converts REST ListOptions to a db.ListQuery.
@@ -1789,6 +2809,109 @@ func envSpecToPatchFields(env *Environment) map[string]any {
 	}
 	if env.Spec.Status != "" {
 		fields["status"] = env.Spec.Status
+	}
+	return fields
+}
+
+// regionSpecToPatchFields extracts non-zero fields from a Region for patch operations.
+func regionSpecToPatchFields(r *Region) map[string]any {
+	fields := make(map[string]any)
+	if r.ObjectMeta.Name != "" {
+		fields["name"] = r.ObjectMeta.Name
+	}
+	if r.Spec.DisplayName != "" {
+		fields["displayName"] = r.Spec.DisplayName
+	}
+	if r.Spec.Description != "" {
+		fields["description"] = r.Spec.Description
+	}
+	if r.Spec.Status != "" {
+		fields["status"] = r.Spec.Status
+	}
+	if r.Spec.Latitude != nil {
+		fields["latitude"] = r.Spec.Latitude
+	}
+	if r.Spec.Longitude != nil {
+		fields["longitude"] = r.Spec.Longitude
+	}
+	return fields
+}
+
+// siteSpecToPatchFields extracts non-zero fields from a Site for patch operations.
+func siteSpecToPatchFields(s *Site) map[string]any {
+	fields := make(map[string]any)
+	if s.ObjectMeta.Name != "" {
+		fields["name"] = s.ObjectMeta.Name
+	}
+	if s.Spec.DisplayName != "" {
+		fields["displayName"] = s.Spec.DisplayName
+	}
+	if s.Spec.Description != "" {
+		fields["description"] = s.Spec.Description
+	}
+	if s.Spec.RegionID != "" {
+		if regionID, err := parseID(s.Spec.RegionID); err == nil {
+			fields["regionId"] = regionID
+		}
+	}
+	if s.Spec.Status != "" {
+		fields["status"] = s.Spec.Status
+	}
+	if s.Spec.Address != "" {
+		fields["address"] = s.Spec.Address
+	}
+	if s.Spec.Latitude != nil {
+		fields["latitude"] = s.Spec.Latitude
+	}
+	if s.Spec.Longitude != nil {
+		fields["longitude"] = s.Spec.Longitude
+	}
+	if s.Spec.ContactName != "" {
+		fields["contactName"] = s.Spec.ContactName
+	}
+	if s.Spec.ContactPhone != "" {
+		fields["contactPhone"] = s.Spec.ContactPhone
+	}
+	if s.Spec.ContactEmail != "" {
+		fields["contactEmail"] = s.Spec.ContactEmail
+	}
+	return fields
+}
+
+// locationSpecToPatchFields extracts non-zero fields from a Location for patch operations.
+func locationSpecToPatchFields(l *Location) map[string]any {
+	fields := make(map[string]any)
+	if l.ObjectMeta.Name != "" {
+		fields["name"] = l.ObjectMeta.Name
+	}
+	if l.Spec.DisplayName != "" {
+		fields["displayName"] = l.Spec.DisplayName
+	}
+	if l.Spec.Description != "" {
+		fields["description"] = l.Spec.Description
+	}
+	if l.Spec.SiteID != "" {
+		if siteID, err := parseID(l.Spec.SiteID); err == nil {
+			fields["siteId"] = siteID
+		}
+	}
+	if l.Spec.Status != "" {
+		fields["status"] = l.Spec.Status
+	}
+	if l.Spec.Floor != "" {
+		fields["floor"] = l.Spec.Floor
+	}
+	if l.Spec.RackCapacity != 0 {
+		fields["rackCapacity"] = l.Spec.RackCapacity
+	}
+	if l.Spec.ContactName != "" {
+		fields["contactName"] = l.Spec.ContactName
+	}
+	if l.Spec.ContactPhone != "" {
+		fields["contactPhone"] = l.Spec.ContactPhone
+	}
+	if l.Spec.ContactEmail != "" {
+		fields["contactEmail"] = l.Spec.ContactEmail
 	}
 	return fields
 }
@@ -2141,6 +3264,325 @@ func labelsToMap(raw json.RawMessage) map[string]string {
 		return nil
 	}
 	return m
+}
+
+// ===== Region DB → API conversion helpers =====
+
+// regionToAPI converts a DBRegion to an API Region.
+func regionToAPI(r *DBRegion) *Region {
+	return &Region{
+		TypeMeta: runtime.TypeMeta{Kind: "Region"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(r.ID, 10),
+			Name:      r.Name,
+			CreatedAt: new(r.CreatedAt),
+			UpdatedAt: new(r.UpdatedAt),
+		},
+		Spec: RegionSpec{
+			DisplayName: r.DisplayName,
+			Description: r.Description,
+			Status:      r.Status,
+			Latitude:    r.Latitude,
+			Longitude:   r.Longitude,
+		},
+	}
+}
+
+// regionWithCountsToAPI converts a DBRegionWithCounts (GetRegionByIDRow) to an API Region.
+func regionWithCountsToAPI(r *DBRegionWithCounts) *Region {
+	region := regionToAPI(&DBRegion{
+		ID:          r.ID,
+		Name:        r.Name,
+		DisplayName: r.DisplayName,
+		Description: r.Description,
+		Status:      r.Status,
+		Latitude:    r.Latitude,
+		Longitude:   r.Longitude,
+		CreatedAt:   r.CreatedAt,
+		UpdatedAt:   r.UpdatedAt,
+	})
+	region.Spec.SiteCount = r.SiteCount
+	return region
+}
+
+// regionRowToAPI converts a DBRegionListRow (ListRegionsRow) to an API Region.
+func regionRowToAPI(r *DBRegionListRow) Region {
+	return Region{
+		TypeMeta: runtime.TypeMeta{Kind: "Region"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(r.ID, 10),
+			Name:      r.Name,
+			CreatedAt: new(r.CreatedAt),
+			UpdatedAt: new(r.UpdatedAt),
+		},
+		Spec: RegionSpec{
+			DisplayName: r.DisplayName,
+			Description: r.Description,
+			Status:      r.Status,
+			Latitude:    r.Latitude,
+			Longitude:   r.Longitude,
+			SiteCount:   r.SiteCount,
+		},
+	}
+}
+
+// ===== Site DB → API conversion helpers =====
+
+// siteToAPI converts a DBSite to an API Site.
+func siteToAPI(s *DBSite) *Site {
+	return &Site{
+		TypeMeta: runtime.TypeMeta{Kind: "Site"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(s.ID, 10),
+			Name:      s.Name,
+			CreatedAt: new(s.CreatedAt),
+			UpdatedAt: new(s.UpdatedAt),
+		},
+		Spec: SiteSpec{
+			DisplayName:  s.DisplayName,
+			Description:  s.Description,
+			RegionID:     strconv.FormatInt(s.RegionID, 10),
+			Status:       s.Status,
+			Address:      s.Address,
+			Latitude:     s.Latitude,
+			Longitude:    s.Longitude,
+			ContactName:  s.ContactName,
+			ContactPhone: s.ContactPhone,
+			ContactEmail: s.ContactEmail,
+		},
+	}
+}
+
+// siteWithDetailsToAPI converts a DBSiteWithDetails (GetSiteByIDRow) to an API Site.
+func siteWithDetailsToAPI(s *DBSiteWithDetails) *Site {
+	site := siteToAPI(&DBSite{
+		ID:           s.ID,
+		Name:         s.Name,
+		DisplayName:  s.DisplayName,
+		Description:  s.Description,
+		RegionID:     s.RegionID,
+		Status:       s.Status,
+		Address:      s.Address,
+		Latitude:     s.Latitude,
+		Longitude:    s.Longitude,
+		ContactName:  s.ContactName,
+		ContactPhone: s.ContactPhone,
+		ContactEmail: s.ContactEmail,
+		CreatedAt:    s.CreatedAt,
+		UpdatedAt:    s.UpdatedAt,
+	})
+	site.Spec.RegionName = s.RegionName
+	site.Spec.LocationCount = s.LocationCount
+	return site
+}
+
+// siteRowToAPI converts a DBSiteListRow (ListSitesRow) to an API Site.
+func siteRowToAPI(s *DBSiteListRow) Site {
+	return Site{
+		TypeMeta: runtime.TypeMeta{Kind: "Site"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(s.ID, 10),
+			Name:      s.Name,
+			CreatedAt: new(s.CreatedAt),
+			UpdatedAt: new(s.UpdatedAt),
+		},
+		Spec: SiteSpec{
+			DisplayName:   s.DisplayName,
+			Description:   s.Description,
+			RegionID:      strconv.FormatInt(s.RegionID, 10),
+			RegionName:    s.RegionName,
+			Status:        s.Status,
+			Address:       s.Address,
+			Latitude:      s.Latitude,
+			Longitude:     s.Longitude,
+			ContactName:   s.ContactName,
+			ContactPhone:  s.ContactPhone,
+			ContactEmail:  s.ContactEmail,
+			LocationCount: s.LocationCount,
+		},
+	}
+}
+
+// ===== Location DB → API conversion helpers =====
+
+// locationToAPI converts a DBLocation to an API Location.
+func locationToAPI(l *DBLocation) *Location {
+	return &Location{
+		TypeMeta: runtime.TypeMeta{Kind: "Location"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(l.ID, 10),
+			Name:      l.Name,
+			CreatedAt: new(l.CreatedAt),
+			UpdatedAt: new(l.UpdatedAt),
+		},
+		Spec: LocationSpec{
+			DisplayName:  l.DisplayName,
+			Description:  l.Description,
+			SiteID:       strconv.FormatInt(l.SiteID, 10),
+			Status:       l.Status,
+			Floor:        l.Floor,
+			RackCapacity: l.RackCapacity,
+			ContactName:  l.ContactName,
+			ContactPhone: l.ContactPhone,
+			ContactEmail: l.ContactEmail,
+		},
+	}
+}
+
+// locationWithDetailsToAPI converts a DBLocationWithDetails (GetLocationByIDRow) to an API Location.
+func locationWithDetailsToAPI(l *DBLocationWithDetails) *Location {
+	location := locationToAPI(&DBLocation{
+		ID:           l.ID,
+		Name:         l.Name,
+		DisplayName:  l.DisplayName,
+		Description:  l.Description,
+		SiteID:       l.SiteID,
+		Status:       l.Status,
+		Floor:        l.Floor,
+		RackCapacity: l.RackCapacity,
+		ContactName:  l.ContactName,
+		ContactPhone: l.ContactPhone,
+		ContactEmail: l.ContactEmail,
+		CreatedAt:    l.CreatedAt,
+		UpdatedAt:    l.UpdatedAt,
+	})
+	location.Spec.SiteName = l.SiteName
+	location.Spec.RegionID = strconv.FormatInt(l.RegionID, 10)
+	location.Spec.RegionName = l.RegionName
+	location.Spec.RackCount = l.RackCount
+	return location
+}
+
+// locationRowToAPI converts a DBLocationListRow (ListLocationsRow) to an API Location.
+func locationRowToAPI(l *DBLocationListRow) Location {
+	return Location{
+		TypeMeta: runtime.TypeMeta{Kind: "Location"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(l.ID, 10),
+			Name:      l.Name,
+			CreatedAt: new(l.CreatedAt),
+			UpdatedAt: new(l.UpdatedAt),
+		},
+		Spec: LocationSpec{
+			DisplayName:  l.DisplayName,
+			Description:  l.Description,
+			SiteID:       strconv.FormatInt(l.SiteID, 10),
+			SiteName:     l.SiteName,
+			RegionID:     strconv.FormatInt(l.RegionID, 10),
+			RegionName:   l.RegionName,
+			Status:       l.Status,
+			Floor:        l.Floor,
+			RackCapacity: l.RackCapacity,
+			RackCount:    l.RackCount,
+			ContactName:  l.ContactName,
+			ContactPhone: l.ContactPhone,
+			ContactEmail: l.ContactEmail,
+		},
+	}
+}
+
+// rackSpecToPatchFields extracts non-zero fields from a Rack for patch operations.
+func rackSpecToPatchFields(r *Rack) map[string]any {
+	fields := make(map[string]any)
+	if r.ObjectMeta.Name != "" {
+		fields["name"] = r.ObjectMeta.Name
+	}
+	if r.Spec.DisplayName != "" {
+		fields["displayName"] = r.Spec.DisplayName
+	}
+	if r.Spec.Description != "" {
+		fields["description"] = r.Spec.Description
+	}
+	if r.Spec.LocationID != "" {
+		if locationID, err := parseID(r.Spec.LocationID); err == nil {
+			fields["locationId"] = locationID
+		}
+	}
+	if r.Spec.Status != "" {
+		fields["status"] = r.Spec.Status
+	}
+	if r.Spec.UHeight != 0 {
+		fields["uHeight"] = r.Spec.UHeight
+	}
+	if r.Spec.Position != "" {
+		fields["position"] = r.Spec.Position
+	}
+	if r.Spec.PowerCapacity != "" {
+		fields["powerCapacity"] = r.Spec.PowerCapacity
+	}
+	return fields
+}
+
+// rackToAPI converts a DBRack to an API Rack.
+func rackToAPI(r *DBRack) *Rack {
+	return &Rack{
+		TypeMeta: runtime.TypeMeta{Kind: "Rack"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(r.ID, 10),
+			Name:      r.Name,
+			CreatedAt: new(r.CreatedAt),
+			UpdatedAt: new(r.UpdatedAt),
+		},
+		Spec: RackSpec{
+			DisplayName:   r.DisplayName,
+			Description:   r.Description,
+			LocationID:    strconv.FormatInt(r.LocationID, 10),
+			Status:        r.Status,
+			UHeight:       r.UHeight,
+			Position:      r.Position,
+			PowerCapacity: r.PowerCapacity,
+		},
+	}
+}
+
+// rackWithDetailsToAPI converts a DBRackWithDetails (GetRackByIDRow) to an API Rack.
+func rackWithDetailsToAPI(r *DBRackWithDetails) *Rack {
+	rack := rackToAPI(&DBRack{
+		ID:            r.ID,
+		Name:          r.Name,
+		DisplayName:   r.DisplayName,
+		Description:   r.Description,
+		LocationID:    r.LocationID,
+		Status:        r.Status,
+		UHeight:       r.UHeight,
+		Position:      r.Position,
+		PowerCapacity: r.PowerCapacity,
+		CreatedAt:     r.CreatedAt,
+		UpdatedAt:     r.UpdatedAt,
+	})
+	rack.Spec.LocationName = r.LocationName
+	rack.Spec.SiteID = strconv.FormatInt(r.SiteID, 10)
+	rack.Spec.SiteName = r.SiteName
+	rack.Spec.RegionID = strconv.FormatInt(r.RegionID, 10)
+	rack.Spec.RegionName = r.RegionName
+	return rack
+}
+
+// rackRowToAPI converts a DBRackListRow (ListRacksRow) to an API Rack.
+func rackRowToAPI(r *DBRackListRow) Rack {
+	return Rack{
+		TypeMeta: runtime.TypeMeta{Kind: "Rack"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(r.ID, 10),
+			Name:      r.Name,
+			CreatedAt: new(r.CreatedAt),
+			UpdatedAt: new(r.UpdatedAt),
+		},
+		Spec: RackSpec{
+			DisplayName:   r.DisplayName,
+			Description:   r.Description,
+			LocationID:    strconv.FormatInt(r.LocationID, 10),
+			LocationName:  r.LocationName,
+			SiteID:        strconv.FormatInt(r.SiteID, 10),
+			SiteName:      r.SiteName,
+			RegionID:      strconv.FormatInt(r.RegionID, 10),
+			RegionName:    r.RegionName,
+			Status:        r.Status,
+			UHeight:       r.UHeight,
+			Position:      r.Position,
+			PowerCapacity: r.PowerCapacity,
+		},
+	}
 }
 
 var parseID = rest.ParseID

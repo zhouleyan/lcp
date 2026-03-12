@@ -55,6 +55,10 @@ const common: Messages = {
   "nav.infra": "基础设施",
   "nav.hosts": "主机",
   "nav.environments": "环境",
+  "nav.regions": "区域",
+  "nav.sites": "数据中心",
+  "nav.locations": "机房",
+  "nav.racks": "机柜",
   "nav.apiDocs": "API 文档",
 
   // overview
@@ -115,6 +119,7 @@ const common: Messages = {
   "api.error.memberLimitExceeded": "项目成员数已达上限",
   "api.error.cannotDeleteWorkspace": "无法删除租户：仍包含项目，请先删除所有项目",
   "api.error.cannotDeleteNamespace": "无法删除项目：仍包含成员，请先移除所有成员",
+  "api.error.cannotDeleteLocation": "无法删除机房：仍包含机柜，请先删除所有机柜",
   "api.error.cannotRemoveOwner": "无法移除所有者",
   "api.error.oldPasswordIncorrect": "当前密码不正确",
   "api.error.forbidden": "您没有权限执行此操作",
@@ -129,6 +134,8 @@ const common: Messages = {
   "api.validation.password.uppercase": "密码需包含至少一个大写字母",
   "api.validation.password.lowercase": "密码需包含至少一个小写字母",
   "api.validation.password.digit": "密码需包含至少一个数字",
+  "api.validation.name.format": "名称需为3-50位小写字母、数字或连字符",
+  "api.validation.rackCapacity.min": "机柜容量不能小于 0",
   "api.validation.status.format": "状态必须为「活跃」或「停用」",
   "api.validation.username.taken": "该用户名已被使用",
   "api.validation.email.taken": "该邮箱已被使用",

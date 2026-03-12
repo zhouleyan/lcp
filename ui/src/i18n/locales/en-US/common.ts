@@ -55,6 +55,10 @@ const common: Messages = {
   "nav.infra": "Infrastructure",
   "nav.hosts": "Hosts",
   "nav.environments": "Environments",
+  "nav.regions": "Regions",
+  "nav.sites": "Sites",
+  "nav.locations": "Locations",
+  "nav.racks": "Racks",
   "nav.apiDocs": "API Docs",
 
   // overview
@@ -115,6 +119,7 @@ const common: Messages = {
   "api.error.memberLimitExceeded": "Member limit exceeded for this namespace",
   "api.error.cannotDeleteWorkspace": "Cannot delete workspace: it still contains namespaces, please delete all namespaces first",
   "api.error.cannotDeleteNamespace": "Cannot delete namespace: it still contains members, please remove all members first",
+  "api.error.cannotDeleteLocation": "Cannot delete location: it still contains racks, please delete all racks first",
   "api.error.cannotRemoveOwner": "Cannot remove the owner from this resource",
   "api.error.oldPasswordIncorrect": "Current password is incorrect",
   "api.error.forbidden": "You do not have permission to perform this action",
@@ -129,6 +134,8 @@ const common: Messages = {
   "api.validation.password.uppercase": "Password must contain at least one uppercase letter",
   "api.validation.password.lowercase": "Password must contain at least one lowercase letter",
   "api.validation.password.digit": "Password must contain at least one digit",
+  "api.validation.name.format": "Name must be 3-50 lowercase letters, digits, or hyphens",
+  "api.validation.rackCapacity.min": "Rack capacity must be >= 0",
   "api.validation.status.format": "Status must be 'active' or 'inactive'",
   "api.validation.username.taken": "This username is already taken",
   "api.validation.email.taken": "This email is already taken",

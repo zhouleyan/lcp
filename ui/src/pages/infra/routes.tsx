@@ -3,6 +3,14 @@ import HostListPage from "./hosts/list"
 import HostDetailPage from "./hosts/detail"
 import EnvironmentListPage from "./environments/list"
 import EnvironmentDetailPage from "./environments/detail"
+import RegionListPage from "./regions/list"
+import RegionDetailPage from "./regions/detail"
+import SiteListPage from "./sites/list"
+import SiteDetailPage from "./sites/detail"
+import LocationListPage from "./locations/list"
+import LocationDetailPage from "./locations/detail"
+import RackListPage from "./racks/list"
+import RackDetailPage from "./racks/detail"
 
 export const infraRoutes: RouteObject[] = [
   { index: true, element: <Navigate to="/infra/hosts" replace /> },
@@ -21,4 +29,13 @@ export const infraRoutes: RouteObject[] = [
   { path: "workspaces/:workspaceId/namespaces/:namespaceId/hosts/:hostId", element: <HostDetailPage /> },
   { path: "workspaces/:workspaceId/namespaces/:namespaceId/environments", element: <EnvironmentListPage /> },
   { path: "workspaces/:workspaceId/namespaces/:namespaceId/environments/:environmentId", element: <EnvironmentDetailPage /> },
+  // CMDB - Platform-only
+  { path: "regions", element: <RegionListPage /> },
+  { path: "regions/:regionId", element: <RegionDetailPage /> },
+  { path: "sites", element: <SiteListPage /> },
+  { path: "sites/:siteId", element: <SiteDetailPage /> },
+  { path: "locations", element: <LocationListPage /> },
+  { path: "locations/:locationId", element: <LocationDetailPage /> },
+  { path: "racks", element: <RackListPage /> },
+  { path: "racks/:rackId", element: <RackDetailPage /> },
 ]

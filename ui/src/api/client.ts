@@ -121,6 +121,8 @@ const detailMessageMap: Record<string, string> = {
   "must contain at least one lowercase letter": "api.validation.password.lowercase",
   "must contain at least one digit": "api.validation.password.digit",
   "must be 'active' or 'inactive'": "api.validation.status.format",
+  "must be 3-50 lowercase alphanumeric characters or hyphens": "api.validation.name.format",
+  "must be >= 0": "api.validation.rackCapacity.min",
 }
 
 const messageMap: Record<string, string> = {
@@ -134,6 +136,7 @@ const messagePrefixMap: Record<string, string> = {
   "namespace member limit exceeded": "api.error.memberLimitExceeded",
   "cannot delete workspace": "api.error.cannotDeleteWorkspace",
   "cannot delete namespace": "api.error.cannotDeleteNamespace",
+  "cannot delete location": "api.error.cannotDeleteLocation",
 }
 
 const reasonMessageMap: Record<string, string> = {
@@ -170,3 +173,44 @@ export function showApiError(err: unknown, t: (key: string, params?: Record<stri
     toast.error(t("api.error.internalError"))
   }
 }
+
+/**
+ * Handle API errors in form submissions by mapping backend errors to form field errors.
+ * @param err - The caught error
+ * @param form - react-hook-form's form instance (must have setError)
+ * @param t - i18n translation function
+ * @param i18nPrefix - The i18n key prefix for field names (e.g., "region", "site", "location")
+ * @param resourceKey - The i18n key for the resource title (e.g., "region.title")
+ */
+export function handleFormApiError(
+  err: unknown,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  form: { setError: (name: any, error: { message: string }) => void },
+  t: (key: string, params?: Record<string, string | number>) => string,
+  i18nPrefix: string,
+  resourceKey: string,
+) {
+  if (err instanceof ApiError && err.details?.length) {
+    for (const d of err.details) {
+      const field = d.field.replace(/^(metadata|spec)\./, "")
+      const i18nKey = translateDetailMessage(d.message)
+      form.setError(field, {
+        message: i18nKey !== d.message
+          ? t(i18nKey, { field: t(`${i18nPrefix}.${field}`) || field })
+          : d.message,
+      })
+    }
+  } else if (err instanceof ApiError) {
+    const i18nKey = translateApiError(err)
+    form.setError("root", {
+      message: i18nKey !== err.message
+        ? t(i18nKey, { resource: t(resourceKey) })
+        : err.message,
+    })
+  } else {
+    form.setError("root", { message: t("api.error.internalError") })
+  }
+}
+
+/** Default page size for select/dropdown data fetches (e.g., loading all regions for a select). */
+export const SELECT_PAGE_SIZE = 200

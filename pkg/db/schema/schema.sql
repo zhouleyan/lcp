@@ -324,3 +324,101 @@ CREATE TABLE oidc_keys (
 COMMENT ON TABLE oidc_keys IS 'OIDC 签名密钥：自动生成，存储 PEM 编码的密钥对';
 COMMENT ON COLUMN oidc_keys.key_id IS 'RFC 7638 thumbprint，用于 JWK kid 字段';
 COMMENT ON COLUMN oidc_keys.algorithm IS '签名算法：EdDSA, ES256, RS256';
+
+-- regions table
+CREATE TABLE regions (
+    id            BIGSERIAL        PRIMARY KEY,
+    name          VARCHAR(100)     NOT NULL UNIQUE,
+    display_name  VARCHAR(200)     NOT NULL DEFAULT '',
+    description   TEXT             NOT NULL DEFAULT '',
+    status        VARCHAR(20)      NOT NULL DEFAULT 'active',
+    latitude      DOUBLE PRECISION,
+    longitude     DOUBLE PRECISION,
+    created_at    TIMESTAMPTZ      NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ      NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_regions_status     ON regions(status);
+CREATE INDEX idx_regions_created_at ON regions(created_at);
+
+COMMENT ON TABLE regions IS '区域表：可用域/地理区域，CMDB 顶层位置资源';
+
+-- sites table
+CREATE TABLE sites (
+    id            BIGSERIAL        PRIMARY KEY,
+    name          VARCHAR(100)     NOT NULL UNIQUE,
+    display_name  VARCHAR(200)     NOT NULL DEFAULT '',
+    description   TEXT             NOT NULL DEFAULT '',
+    region_id     BIGINT           NOT NULL REFERENCES regions(id),
+    status        VARCHAR(20)      NOT NULL DEFAULT 'active',
+    address       TEXT             NOT NULL DEFAULT '',
+    latitude      DOUBLE PRECISION,
+    longitude     DOUBLE PRECISION,
+    contact_name  VARCHAR(100)     NOT NULL DEFAULT '',
+    contact_phone VARCHAR(50)      NOT NULL DEFAULT '',
+    contact_email VARCHAR(200)     NOT NULL DEFAULT '',
+    created_at    TIMESTAMPTZ      NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ      NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_sites_region_id  ON sites(region_id);
+CREATE INDEX idx_sites_status     ON sites(status);
+CREATE INDEX idx_sites_created_at ON sites(created_at);
+
+COMMENT ON TABLE sites IS '站点表：数据中心/物理站点，属于某个区域';
+COMMENT ON COLUMN sites.region_id IS '所属区域 ID';
+
+-- locations table
+CREATE TABLE locations (
+    id            BIGSERIAL    PRIMARY KEY,
+    name          VARCHAR(100) NOT NULL,
+    display_name  VARCHAR(200) NOT NULL DEFAULT '',
+    description   TEXT         NOT NULL DEFAULT '',
+    site_id       BIGINT       NOT NULL REFERENCES sites(id),
+    status        VARCHAR(20)  NOT NULL DEFAULT 'active',
+    floor         VARCHAR(20)  NOT NULL DEFAULT '',
+    rack_capacity INT          NOT NULL DEFAULT 0,
+    contact_name  VARCHAR(100) NOT NULL DEFAULT '',
+    contact_phone VARCHAR(50)  NOT NULL DEFAULT '',
+    contact_email VARCHAR(200) NOT NULL DEFAULT '',
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+
+    CONSTRAINT uk_locations_name_site UNIQUE (name, site_id)
+);
+
+CREATE INDEX idx_locations_site_id    ON locations(site_id);
+CREATE INDEX idx_locations_status     ON locations(status);
+CREATE INDEX idx_locations_created_at ON locations(created_at);
+
+COMMENT ON TABLE locations IS '机房表：数据中心内的物理机房，属于某个站点';
+COMMENT ON COLUMN locations.site_id IS '所属站点 ID';
+COMMENT ON COLUMN locations.floor IS '楼层（支持 B1, M 等非数字值）';
+COMMENT ON COLUMN locations.rack_capacity IS '机柜总容量';
+
+-- racks table
+CREATE TABLE racks (
+    id              BIGSERIAL    PRIMARY KEY,
+    name            VARCHAR(100) NOT NULL,
+    display_name    VARCHAR(200) NOT NULL DEFAULT '',
+    description     TEXT         NOT NULL DEFAULT '',
+    location_id     BIGINT       NOT NULL REFERENCES locations(id),
+    status          VARCHAR(20)  NOT NULL DEFAULT 'active',
+    u_height        INT          NOT NULL DEFAULT 0,
+    position        VARCHAR(50)  NOT NULL DEFAULT '',
+    power_capacity  VARCHAR(100) NOT NULL DEFAULT '',
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+
+    CONSTRAINT uk_racks_name_location UNIQUE (name, location_id)
+);
+
+CREATE INDEX idx_racks_location_id ON racks(location_id);
+CREATE INDEX idx_racks_status      ON racks(status);
+CREATE INDEX idx_racks_created_at  ON racks(created_at);
+
+COMMENT ON TABLE racks IS '机柜表：数据中心机房内的物理机柜，属于某个机房';
+COMMENT ON COLUMN racks.location_id IS '所属机房 ID';
+COMMENT ON COLUMN racks.u_height IS '机柜 U 高度（如 42）';
+COMMENT ON COLUMN racks.position IS '物理位置编号（如 A-01）';
+COMMENT ON COLUMN racks.power_capacity IS '供电容量描述';
