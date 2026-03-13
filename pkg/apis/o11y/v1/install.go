@@ -25,6 +25,9 @@ func NewO11yModule(database *db.DB) ModuleResult {
 			{
 				Name:    "endpoints",
 				Storage: endpointStorage,
+				Actions: []rest.ActionInfo{
+					{Name: "probe", Method: "POST", Handler: o11y.NewEndpointProbeHandler(p.Endpoint)},
+				},
 			},
 		},
 	}
