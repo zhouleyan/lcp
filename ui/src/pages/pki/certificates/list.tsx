@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Plus, Trash2, Search, Download, ChevronDown } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -371,6 +371,32 @@ function CertificateCreateDialog({
   })
 
   const certType = form.watch("certType")
+  const caName = form.watch("caName")
+  const autoNameRef = useRef("")
+
+  // Auto-generate name from CA name + cert type
+  // e.g. CA "etcd-ca" + type "server" → "etcd-server"
+  useEffect(() => {
+    const currentName = form.getValues("name")
+    if (certType === "ca") {
+      // CA type: clear auto-name, let user fill manually
+      if (currentName === autoNameRef.current) {
+        form.setValue("name", "")
+        autoNameRef.current = ""
+      }
+      return
+    }
+    if (!caName) return
+    // Only auto-fill if name is empty or was previously auto-generated
+    if (currentName && currentName !== autoNameRef.current) return
+
+    const prefix = caName.replace(/-ca$/, "")
+    const suffixMap: Record<string, string> = { server: "server", client: "client", both: "peer" }
+    const suffix = suffixMap[certType] ?? certType
+    const generated = `${prefix}-${suffix}`
+    form.setValue("name", generated)
+    autoNameRef.current = generated
+  }, [certType, caName, form])
 
   // Update default validity when certType changes
   useEffect(() => {
@@ -394,6 +420,7 @@ function CertificateCreateDialog({
   useEffect(() => {
     if (open) {
       form.reset({ name: "", certType: "ca", commonName: "", dnsNames: "", caName: "", validityDays: 3650 })
+      autoNameRef.current = ""
     }
   }, [open, form])
 
@@ -450,7 +477,7 @@ function CertificateCreateDialog({
                   <FormItem>
                     <FormLabel required>{t("common.name")}</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="my-cert" />
+                      <Input {...field} placeholder={certType === "ca" ? "etcd-ca" : "etcd-server"} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
