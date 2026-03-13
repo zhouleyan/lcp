@@ -12,6 +12,7 @@ import {
   Box,
   ScrollText,
   Network,
+  Activity,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -41,6 +42,7 @@ export interface NavItemConfig {
 export const NAV_ITEMS: NavItemConfig[] = [
   { resource: "overview", module: "dashboard", permission: "dashboard:overview:list", labelKey: "nav.overview", icon: Home, scopes: ["platform", "workspace", "namespace"] },
   { resource: "networks", module: "network", permission: "network:networks:list", labelKey: "nav.networks", icon: Network, group: "nav.network", scopes: ["platform"] },
+  { resource: "endpoints", module: "o11y", permission: "o11y:endpoints:list", labelKey: "nav.endpoints", icon: Activity, group: "nav.o11y", scopes: ["platform"] },
   { resource: "hosts", module: "infra", permission: "infra:hosts:list", labelKey: "nav.hosts", icon: Server, group: "nav.infra", scopes: ["platform", "workspace", "namespace"] },
   { resource: "environments", module: "infra", permission: "infra:environments:list", labelKey: "nav.environments", icon: Layers, group: "nav.infra", scopes: ["platform", "workspace", "namespace"] },
   { resource: "regions", module: "infra", permission: "infra:regions:list", labelKey: "nav.regions", icon: MapPin, group: "nav.infra", scopes: ["platform"] },

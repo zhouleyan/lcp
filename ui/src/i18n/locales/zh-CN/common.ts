@@ -59,6 +59,8 @@ const common: Messages = {
   "nav.sites": "数据中心",
   "nav.locations": "机房",
   "nav.racks": "机柜",
+  "nav.o11y": "可观测性",
+  "nav.endpoints": "监控端点",
   "nav.apiDocs": "API 文档",
 
   // overview

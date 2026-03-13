@@ -59,6 +59,8 @@ const common: Messages = {
   "nav.sites": "Sites",
   "nav.locations": "Locations",
   "nav.racks": "Racks",
+  "nav.o11y": "Observability",
+  "nav.endpoints": "Endpoints",
   "nav.apiDocs": "API Docs",
 
   // overview

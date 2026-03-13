@@ -5,6 +5,7 @@ import dashboard from "./dashboard"
 import audit from "./audit"
 import infra from "./infra"
 import network from "./network"
+import o11y from "./o11y"
 
 const zhCN: Messages = {
   ...common,
@@ -13,6 +14,7 @@ const zhCN: Messages = {
   ...audit,
   ...infra,
   ...network,
+  ...o11y,
 }
 
 export default zhCN
