@@ -268,9 +268,11 @@ export default function CertificateListPage() {
                               <DropdownMenuItem onClick={() => handleExport(cert.metadata.id, "key.pem")}>
                                 {t("certificate.exportKey")}
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleExport(cert.metadata.id, "ca.pem")}>
-                                {t("certificate.exportCA")}
-                              </DropdownMenuItem>
+                              {cert.spec.certType !== "ca" && (
+                                <DropdownMenuItem onClick={() => handleExport(cert.metadata.id, "ca.pem")}>
+                                  {t("certificate.exportCA")}
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
