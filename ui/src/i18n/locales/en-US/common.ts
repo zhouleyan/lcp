@@ -133,6 +133,7 @@ const common: Messages = {
   "api.error.subnetAlreadyHasGateway": "This subnet already has a gateway address",
   "api.error.ipNotInRange": "IP address is not within the subnet CIDR range",
   "api.error.ipAlreadyAllocated": "This IP address is already allocated",
+  "api.error.cannotDeleteCA": "Cannot delete this CA certificate because other certificates depend on it.",
   "api.error.cannotRemoveOwner": "Cannot remove the owner from this resource",
   "api.error.oldPasswordIncorrect": "Current password is incorrect",
   "api.error.forbidden": "You do not have permission to perform this action",

@@ -133,6 +133,7 @@ const common: Messages = {
   "api.error.subnetAlreadyHasGateway": "该子网已设置网关地址",
   "api.error.ipNotInRange": "IP 地址不在子网 CIDR 范围内",
   "api.error.ipAlreadyAllocated": "该 IP 地址已被分配",
+  "api.error.cannotDeleteCA": "无法删除此 CA 证书，因为有其他证书依赖它。",
   "api.error.cannotRemoveOwner": "无法移除所有者",
   "api.error.oldPasswordIncorrect": "当前密码不正确",
   "api.error.forbidden": "您没有权限执行此操作",
