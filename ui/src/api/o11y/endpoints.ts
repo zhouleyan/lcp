@@ -31,5 +31,5 @@ export async function deleteEndpoints(ids: string[]): Promise<void> {
 }
 
 export async function probeEndpoint(id: string): Promise<ProbeResult> {
-  return apiRequest(o11yApi.post(`endpoints/${id}/probe`).json())
+  return apiRequest(o11yApi.post(`endpoints/${id}/probe`, { json: {} }).json())
 }
