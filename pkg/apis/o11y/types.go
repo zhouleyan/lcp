@@ -19,6 +19,8 @@ func (e *Endpoint) GetTypeMeta() *runtime.TypeMeta { return &e.TypeMeta }
 // EndpointSpec
 // +openapi:description=端点属性：包含监控系统连接 URL 和状态信息。
 type EndpointSpec struct {
+	// +openapi:description=端点描述
+	Description string `json:"description,omitempty"`
 	// +openapi:description=Metrics 查询地址（VictoriaMetrics）
 	// +openapi:required
 	MetricsURL string `json:"metricsUrl,omitempty"`
