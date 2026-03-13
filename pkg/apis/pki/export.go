@@ -66,7 +66,7 @@ func NewExportHandler(store CertificateStore, encryptionKey []byte) rest.Handler
 		}
 
 		return &rest.FileResponse{
-			FileName:    fileName,
+			FileName:    row.Name + "-" + fileName,
 			ContentType: "application/x-pem-file",
 			Data:        data,
 		}, nil

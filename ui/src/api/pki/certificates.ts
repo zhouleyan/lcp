@@ -42,10 +42,15 @@ export async function exportCertificateFile(id: string, file: string): Promise<v
     throw new Error(`Export failed: ${response.statusText}`)
   }
   const blob = await response.blob()
+  // Extract filename from Content-Disposition header, fallback to generic name
+  const disposition = response.headers.get("Content-Disposition") ?? ""
+  const match = disposition.match(/filename="(.+?)"/)
+  const downloadName = match?.[1] ?? file
+
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
-  a.download = file
+  a.download = downloadName
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)

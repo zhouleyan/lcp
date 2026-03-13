@@ -262,14 +262,20 @@ export default function CertificateListPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleExport(cert.metadata.id, "cert.crt")}>
+                                {t("certificate.exportCert")} (.crt)
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleExport(cert.metadata.id, "cert.pem")}>
-                                {t("certificate.exportCert")}
+                                {t("certificate.exportCert")} (.pem)
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleExport(cert.metadata.id, "key.key")}>
+                                {t("certificate.exportKey")} (.key)
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleExport(cert.metadata.id, "key.pem")}>
-                                {t("certificate.exportKey")}
+                                {t("certificate.exportKey")} (.pem)
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleExport(cert.metadata.id, "chain.pem")}>
-                                {t("certificate.exportChain")}
+                                {t("certificate.exportChain")} (.pem)
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
