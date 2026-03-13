@@ -8,8 +8,8 @@ func TestParseVersion(t *testing.T) {
 		want     int64
 		wantErr  bool
 	}{
-		{"000001_initial.up.sql", 1, false},
-		{"000012_add_hosts.up.sql", 12, false},
+		{"20260101000000_initial.up.sql", 20260101000000, false},
+		{"20260313100000_drop_host_assignments.up.sql", 20260313100000, false},
 		{"100_short.up.sql", 100, false},
 		{"bad.up.sql", 0, true},
 	}

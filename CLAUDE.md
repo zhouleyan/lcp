@@ -73,7 +73,7 @@ HTTP Request
 
 ### Adding a New Resource (Checklist)
 
-1. **Migration**: Create `pkg/db/migrations/NNNNNN_<description>.up.sql` with `CREATE TABLE` / `ALTER TABLE` statements
+1. **Migration**: Create `pkg/db/migrations/YYYYMMDDHHmmss_<description>.up.sql` with `CREATE TABLE` / `ALTER TABLE` statements
 2. **Queries**: Create `pkg/db/query/<resource>.sql` with sqlc annotations
 3. **Generate**: Run `make sqlc-generate`
 4. **Types**: Add API types + DB type aliases in `pkg/apis/iam/types.go`
@@ -234,12 +234,12 @@ OFFSET sqlc.arg('page_offset')::INT;
 
 ### Database Migrations
 
-Migrations live in `pkg/db/migrations/` as numbered `*.up.sql` files. They are embedded at compile time and executed automatically at server startup (before API module initialization).
+Migrations live in `pkg/db/migrations/` as timestamp-prefixed `*.up.sql` files. They are embedded at compile time and executed automatically at server startup (before API module initialization).
 
-**File naming**: `NNNNNN_description.up.sql` (6-digit zero-padded version prefix)
+**File naming**: `YYYYMMDDHHmmss_description.up.sql` (14-digit UTC timestamp prefix, e.g. `20260313110000_o11y_endpoints.up.sql`)
 
 **Adding a migration**:
-1. Create `pkg/db/migrations/NNNNNN_description.up.sql` with the incremental DDL
+1. Create `pkg/db/migrations/YYYYMMDDHHmmss_description.up.sql` with the incremental DDL
 2. Run `make sqlc-generate` (sqlc reads all `*.up.sql` files as the schema)
 3. Restart server — migration applies automatically
 

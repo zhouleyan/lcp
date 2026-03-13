@@ -71,14 +71,14 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, fsys embed.FS) error {
 			return fmt.Errorf("check existing schema: %w", err)
 		}
 		if exists {
-			// Pre-existing database — mark version 1 (initial schema) as already applied.
+			// Pre-existing database — mark initial migration as already applied.
 			if _, err := conn.Exec(ctx,
 				"INSERT INTO schema_migrations (version, filename) VALUES ($1, $2)",
-				1, "000001_initial.up.sql",
+				20260101000000, "20260101000000_initial.up.sql",
 			); err != nil {
 				return fmt.Errorf("baseline initial migration: %w", err)
 			}
-			applied[1] = true
+			applied[20260101000000] = true
 		}
 	}
 
