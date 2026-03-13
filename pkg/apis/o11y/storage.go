@@ -84,11 +84,19 @@ func (s *endpointStorage) Create(ctx context.Context, obj runtime.Object, option
 	if status == "" {
 		status = "active"
 	}
+	public := true
+	if ep.Spec.IsPublic != nil {
+		public = *ep.Spec.IsPublic
+	}
 
 	created, err := s.endpointStore.Create(ctx, &DBEndpoint{
 		Name:        ep.ObjectMeta.Name,
 		Description: ep.Spec.Description,
+		Public:      public,
 		MetricsUrl:  ep.Spec.MetricsURL,
+		LogsUrl:     ep.Spec.LogsURL,
+		TracesUrl:   ep.Spec.TracesURL,
+		ApmUrl:      ep.Spec.ApmURL,
 		Status:      status,
 	})
 	if err != nil {
@@ -107,7 +115,7 @@ func (s *endpointStorage) Update(ctx context.Context, obj runtime.Object, option
 		return nil, fmt.Errorf("expected *Endpoint, got %T", obj)
 	}
 
-	if errs := ValidateEndpointUpdate(&ep.Spec); errs.HasErrors() {
+	if errs := ValidateEndpointUpdate(ep.ObjectMeta.Name, &ep.Spec); errs.HasErrors() {
 		return nil, apierrors.NewBadRequest("validation failed", errs)
 	}
 
@@ -121,21 +129,20 @@ func (s *endpointStorage) Update(ctx context.Context, obj runtime.Object, option
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid endpoint ID: %s", id), nil)
 	}
 
-	// Get existing to preserve reserved fields
-	existing, err := s.endpointStore.GetByID(ctx, eid)
-	if err != nil {
-		return nil, err
+	public := true
+	if ep.Spec.IsPublic != nil {
+		public = *ep.Spec.IsPublic
 	}
 
 	updated, err := s.endpointStore.Update(ctx, &DBEndpoint{
 		ID:          eid,
 		Name:        ep.ObjectMeta.Name,
 		Description: ep.Spec.Description,
-		Public:      existing.Public,
+		Public:      public,
 		MetricsUrl:  ep.Spec.MetricsURL,
-		LogsUrl:     existing.LogsUrl,
-		TracesUrl:   existing.TracesUrl,
-		ApmUrl:      existing.ApmUrl,
+		LogsUrl:     ep.Spec.LogsURL,
+		TracesUrl:   ep.Spec.TracesURL,
+		ApmUrl:      ep.Spec.ApmURL,
 		Status:      ep.Spec.Status,
 	})
 	if err != nil {
@@ -259,7 +266,11 @@ func endpointToAPI(ep *DBEndpoint) Endpoint {
 		},
 		Spec: EndpointSpec{
 			Description: ep.Description,
+			IsPublic:    &ep.Public,
 			MetricsURL:  ep.MetricsUrl,
+			LogsURL:     ep.LogsUrl,
+			TracesURL:   ep.TracesUrl,
+			ApmURL:      ep.ApmUrl,
 			Status:      ep.Status,
 		},
 	}
@@ -270,12 +281,17 @@ func endpointSpecToPatchFields(ep *Endpoint) map[string]any {
 	if ep.ObjectMeta.Name != "" {
 		fields["name"] = ep.ObjectMeta.Name
 	}
-	if ep.Spec.Description != "" {
-		fields["description"] = ep.Spec.Description
+	if ep.Spec.IsPublic != nil {
+		fields["public"] = *ep.Spec.IsPublic
 	}
+	// Always include description and optional URLs so they can be cleared to empty.
+	fields["description"] = ep.Spec.Description
 	if ep.Spec.MetricsURL != "" {
 		fields["metricsUrl"] = ep.Spec.MetricsURL
 	}
+	fields["logsUrl"] = ep.Spec.LogsURL
+	fields["tracesUrl"] = ep.Spec.TracesURL
+	fields["apmUrl"] = ep.Spec.ApmURL
 	if ep.Spec.Status != "" {
 		fields["status"] = ep.Spec.Status
 	}

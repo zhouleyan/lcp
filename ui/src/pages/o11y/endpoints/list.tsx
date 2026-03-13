@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react"
+import { Plus, Pencil, Trash2, Search } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -13,12 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Switch } from "@/components/ui/switch"
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
@@ -50,7 +45,6 @@ export default function EndpointListPage() {
   const [endpoints, setEndpoints] = useState<Endpoint[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
-  const [statusFilter, setStatusFilter] = useState("all")
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Endpoint | null>(null)
@@ -64,7 +58,6 @@ export default function EndpointListPage() {
     try {
       const params: ListParams = { page, pageSize, sortBy, sortOrder }
       if (search) params.search = search
-      if (statusFilter !== "all") params.status = statusFilter
 
       const data = await listEndpoints(params)
       setEndpoints(data.items ?? [])
@@ -75,10 +68,10 @@ export default function EndpointListPage() {
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, sortBy, sortOrder, search, statusFilter])
+  }, [page, pageSize, sortBy, sortOrder, search])
 
   useEffect(() => { fetchData() }, [fetchData])
-  useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
+  useEffect(() => { setPage(1) }, [search, pageSize])
   useEffect(() => { clearSelection() }, [endpoints])
 
   const handleDelete = async () => {
@@ -160,24 +153,13 @@ export default function EndpointListPage() {
                 {t("common.name")}<SortIcon field="name" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead>{t("common.description")}</TableHead>
-              <TableHead>{t("endpoint.metricsUrl")}</TableHead>
-              <TableHead>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="inline-flex items-center gap-1 select-none">
-                      {t("common.status")}
-                      <Filter className={`h-3 w-3 ${statusFilter !== "all" ? "text-primary" : "opacity-40"}`} />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem onClick={() => setStatusFilter("all")}>{t("common.all")}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setStatusFilter("active")}>{t("common.active")}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>{t("common.inactive")}</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableHead>
+              <TableHead>{t("endpoint.endpoints")}</TableHead>
+              <TableHead>{t("endpoint.visibility")}</TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
                 {t("common.created")}<SortIcon field="created_at" sortBy={sortBy} sortOrder={sortOrder} />
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("updated_at")}>
+                {t("common.updated")}<SortIcon field="updated_at" sortBy={sortBy} sortOrder={sortOrder} />
               </TableHead>
               <TableHead className="w-24">{t("common.actions")}</TableHead>
             </TableRow>
@@ -186,14 +168,14 @@ export default function EndpointListPage() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((_, j) => (
+                  {Array.from({ length: 8 }).map((_, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : endpoints.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground py-8 text-center">
+                <TableCell colSpan={8} className="text-muted-foreground py-8 text-center">
                   {t("endpoint.noData")}
                 </TableCell>
               </TableRow>
@@ -212,16 +194,32 @@ export default function EndpointListPage() {
                   <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm" title={ep.spec.description}>
                     {ep.spec.description || "-"}
                   </TableCell>
-                  <TableCell className="max-w-[250px] truncate text-muted-foreground text-sm" title={ep.spec.metricsUrl}>
-                    {ep.spec.metricsUrl || "-"}
+                  <TableCell className="text-muted-foreground text-sm">
+                    <div className="space-y-0.5">
+                      {[
+                        { label: t("endpoint.metricsLabel"), url: ep.spec.metricsUrl },
+                        { label: t("endpoint.logsLabel"), url: ep.spec.logsUrl },
+                        { label: t("endpoint.tracesLabel"), url: ep.spec.tracesUrl },
+                        { label: t("endpoint.apmLabel"), url: ep.spec.apmUrl },
+                      ].filter((e) => e.url).map((e) => (
+                        <div key={e.label} className="flex items-center gap-1.5 max-w-[350px]">
+                          <span className="shrink-0 text-xs font-medium text-foreground w-12">{e.label}</span>
+                          <span className="truncate" title={e.url}>{e.url}</span>
+                        </div>
+                      ))}
+                      {!ep.spec.metricsUrl && !ep.spec.logsUrl && !ep.spec.tracesUrl && !ep.spec.apmUrl && "-"}
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={ep.spec.status === "active" ? "default" : "secondary"}>
-                      {ep.spec.status === "active" ? t("common.active") : t("common.inactive")}
+                    <Badge variant={ep.spec.isPublic !== false ? "default" : "secondary"}>
+                      {ep.spec.isPublic !== false ? t("endpoint.public") : t("endpoint.private")}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                     {new Date(ep.metadata.createdAt).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                    {new Date(ep.metadata.updatedAt).toLocaleString()}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
@@ -285,8 +283,11 @@ export default function EndpointListPage() {
 interface EndpointFormValues {
   name: string
   description: string
+  isPublic: boolean
   metricsUrl: string
-  status: "active" | "inactive"
+  logsUrl: string
+  tracesUrl: string
+  apmUrl: string
 }
 
 function EndpointFormDialog({
@@ -305,16 +306,21 @@ function EndpointFormDialog({
     name: z.string()
       .min(3, t("api.validation.name.format"))
       .max(50, t("api.validation.name.format"))
-      .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, t("api.validation.name.format")),
+      .regex(/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/, t("api.validation.name.format")),
     description: z.string().optional(),
-    metricsUrl: z.string().min(1, t("api.validation.required", { field: t("endpoint.metricsUrl") })),
-    status: z.enum(["active", "inactive"]),
+    isPublic: z.boolean(),
+    metricsUrl: z.string()
+      .min(1, t("api.validation.required", { field: t("endpoint.metricsUrl") }))
+      .url(t("endpoint.urlInvalid")),
+    logsUrl: z.string().refine((v) => !v || z.string().url().safeParse(v).success, t("endpoint.urlInvalid")).optional(),
+    tracesUrl: z.string().refine((v) => !v || z.string().url().safeParse(v).success, t("endpoint.urlInvalid")).optional(),
+    apmUrl: z.string().refine((v) => !v || z.string().url().safeParse(v).success, t("endpoint.urlInvalid")).optional(),
   })
 
   const form = useForm<EndpointFormValues>({
     resolver: zodResolver(schema) as never,
     mode: "onBlur",
-    defaultValues: { name: "", description: "", metricsUrl: "", status: "active" },
+    defaultValues: { name: "", description: "", isPublic: true, metricsUrl: "", logsUrl: "", tracesUrl: "", apmUrl: "" },
   })
 
   useEffect(() => {
@@ -323,11 +329,14 @@ function EndpointFormDialog({
         form.reset({
           name: endpoint.metadata.name,
           description: endpoint.spec.description ?? "",
+          isPublic: endpoint.spec.isPublic !== false,
           metricsUrl: endpoint.spec.metricsUrl ?? "",
-          status: (endpoint.spec.status as "active" | "inactive") ?? "active",
+          logsUrl: endpoint.spec.logsUrl ?? "",
+          tracesUrl: endpoint.spec.tracesUrl ?? "",
+          apmUrl: endpoint.spec.apmUrl ?? "",
         })
       } else {
-        form.reset({ name: "", description: "", metricsUrl: "", status: "active" })
+        form.reset({ name: "", description: "", isPublic: true, metricsUrl: "", logsUrl: "", tracesUrl: "", apmUrl: "" })
       }
     }
   }, [open, endpoint, form])
@@ -339,8 +348,11 @@ function EndpointFormDialog({
         metadata: { name: values.name } as Endpoint["metadata"],
         spec: {
           description: values.description,
+          isPublic: values.isPublic,
           metricsUrl: values.metricsUrl,
-          status: values.status,
+          logsUrl: values.logsUrl,
+          tracesUrl: values.tracesUrl,
+          apmUrl: values.apmUrl,
         } as Endpoint["spec"],
       }
 
@@ -414,20 +426,55 @@ function EndpointFormDialog({
             />
             <FormField
               control={form.control}
-              name="status"
+              name="logsUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("common.status")}</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="active">{t("common.active")}</SelectItem>
-                      <SelectItem value="inactive">{t("common.inactive")}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>{t("endpoint.logsUrl")}</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder={t("endpoint.urlPlaceholder")} />
+                  </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="tracesUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("endpoint.tracesUrl")}</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder={t("endpoint.urlPlaceholder")} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="apmUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("endpoint.apmUrl")}</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder={t("endpoint.urlPlaceholder")} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="isPublic"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between">
+                  <FormLabel className="cursor-pointer">{t("endpoint.visibility")}</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      {field.value ? t("endpoint.public") : t("endpoint.private")}
+                    </span>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </div>
                 </FormItem>
               )}
             />

@@ -497,7 +497,11 @@ export interface RackList extends TypeMeta {
 
 export interface EndpointSpec {
   description?: string
+  isPublic?: boolean
   metricsUrl?: string
+  logsUrl?: string
+  tracesUrl?: string
+  apmUrl?: string
   status?: "active" | "inactive"
 }
 

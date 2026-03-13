@@ -21,9 +21,17 @@ func (e *Endpoint) GetTypeMeta() *runtime.TypeMeta { return &e.TypeMeta }
 type EndpointSpec struct {
 	// +openapi:description=端点描述
 	Description string `json:"description,omitempty"`
+	// +openapi:description=是否公开（公开端点对所有工作空间可见）
+	IsPublic *bool `json:"isPublic,omitempty"`
 	// +openapi:description=Metrics 查询地址（VictoriaMetrics）
 	// +openapi:required
 	MetricsURL string `json:"metricsUrl,omitempty"`
+	// +openapi:description=Logs 查询地址
+	LogsURL string `json:"logsUrl,omitempty"`
+	// +openapi:description=Traces 查询地址
+	TracesURL string `json:"tracesUrl,omitempty"`
+	// +openapi:description=APM 查询地址
+	ApmURL string `json:"apmUrl,omitempty"`
 	// +openapi:description=端点状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`

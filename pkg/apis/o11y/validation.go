@@ -1,6 +1,7 @@
 package o11y
 
 import (
+	"net/url"
 	"regexp"
 
 	"lcp.io/lcp/lib/api/validation"
@@ -25,25 +26,45 @@ func validateStatus(errs *validation.ErrorList, status string) {
 	}
 }
 
-func validateMetricsURL(errs *validation.ErrorList, url string) {
-	if url == "" {
-		*errs = append(*errs, validation.FieldError{Field: "spec.metricsUrl", Message: "is required"})
+// validateURL checks that a URL is valid http/https. If required is true, empty is an error.
+func validateURL(errs *validation.ErrorList, field string, rawURL string, required bool) {
+	if rawURL == "" {
+		if required {
+			*errs = append(*errs, validation.FieldError{Field: field, Message: "is required"})
+		}
+		return
 	}
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		*errs = append(*errs, validation.FieldError{Field: field, Message: "must be a valid URL (e.g. http://host:port)"})
+		return
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		*errs = append(*errs, validation.FieldError{Field: field, Message: "must use http or https scheme"})
+	}
+}
+
+func validateEndpointURLs(errs *validation.ErrorList, spec *EndpointSpec) {
+	validateURL(errs, "spec.metricsUrl", spec.MetricsURL, true)
+	validateURL(errs, "spec.logsUrl", spec.LogsURL, false)
+	validateURL(errs, "spec.tracesUrl", spec.TracesURL, false)
+	validateURL(errs, "spec.apmUrl", spec.ApmURL, false)
 }
 
 // ValidateEndpointCreate validates an EndpointSpec for creation.
 func ValidateEndpointCreate(name string, spec *EndpointSpec) validation.ErrorList {
 	var errs validation.ErrorList
 	validateName(&errs, name)
-	validateMetricsURL(&errs, spec.MetricsURL)
+	validateEndpointURLs(&errs, spec)
 	validateStatus(&errs, spec.Status)
 	return errs
 }
 
-// ValidateEndpointUpdate validates an EndpointSpec for full update.
-func ValidateEndpointUpdate(spec *EndpointSpec) validation.ErrorList {
+// ValidateEndpointUpdate validates name and EndpointSpec for full update.
+func ValidateEndpointUpdate(name string, spec *EndpointSpec) validation.ErrorList {
 	var errs validation.ErrorList
-	validateMetricsURL(&errs, spec.MetricsURL)
+	validateName(&errs, name)
+	validateEndpointURLs(&errs, spec)
 	validateStatus(&errs, spec.Status)
 	return errs
 }

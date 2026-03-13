@@ -14,7 +14,8 @@ SELECT count(*) FROM o11y_endpoints
 WHERE ($1::VARCHAR IS NULL OR status = $1)
   AND ($2::VARCHAR IS NULL
        OR name ILIKE '%' || $2 || '%'
-       OR description ILIKE '%' || $2 || '%')
+       OR description ILIKE '%' || $2 || '%'
+       OR metrics_url ILIKE '%' || $2 || '%')
 `
 
 type CountEndpointsParams struct {
@@ -123,12 +124,19 @@ SELECT id, name, description, public, metrics_url, logs_url, traces_url, apm_url
 WHERE ($1::VARCHAR IS NULL OR status = $1)
   AND ($2::VARCHAR IS NULL
        OR name ILIKE '%' || $2 || '%'
-       OR description ILIKE '%' || $2 || '%')
+       OR description ILIKE '%' || $2 || '%'
+       OR metrics_url ILIKE '%' || $2 || '%')
 ORDER BY
     CASE WHEN $3::VARCHAR = 'name' AND $4::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $3::VARCHAR = 'name' AND $4::VARCHAR = 'desc' THEN name END DESC,
     CASE WHEN $3::VARCHAR = 'status' AND $4::VARCHAR = 'asc' THEN status END ASC,
     CASE WHEN $3::VARCHAR = 'status' AND $4::VARCHAR = 'desc' THEN status END DESC,
+    CASE WHEN $3::VARCHAR = 'metrics_url' AND $4::VARCHAR = 'asc' THEN metrics_url END ASC,
+    CASE WHEN $3::VARCHAR = 'metrics_url' AND $4::VARCHAR = 'desc' THEN metrics_url END DESC,
+    CASE WHEN $3::VARCHAR = 'updated_at' AND $4::VARCHAR = 'asc' THEN updated_at END ASC,
+    CASE WHEN $3::VARCHAR = 'updated_at' AND $4::VARCHAR = 'desc' THEN updated_at END DESC,
+    CASE WHEN $3::VARCHAR = 'created_at' AND $4::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN $3::VARCHAR = 'created_at' AND $4::VARCHAR = 'desc' THEN created_at END DESC,
     created_at DESC
 LIMIT $6::INT
 OFFSET $5::INT
