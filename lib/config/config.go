@@ -16,12 +16,6 @@ type Config struct {
 	Logger   LoggerConfig   `yaml:"logger"`
 	OIDC     OIDCConfig     `yaml:"oidc"`
 	Admin    AdminConfig    `yaml:"admin"`
-	PKI      PKIConfig      `yaml:"pki"`
-}
-
-// PKIConfig holds PKI module configuration.
-type PKIConfig struct {
-	EncryptionKey string `yaml:"encryptionKey"`
 }
 
 // AdminConfig holds the initial admin user configuration.
@@ -239,8 +233,5 @@ func ApplyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("ADMIN_DISPLAY_NAME"); v != "" {
 		cfg.Admin.DisplayName = v
-	}
-	if v := os.Getenv("PKI_ENCRYPTION_KEY"); v != "" {
-		cfg.PKI.EncryptionKey = v
 	}
 }

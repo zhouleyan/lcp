@@ -200,6 +200,13 @@ type Permission struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// PKI 加密密钥：AES-256 密钥，用于加密证书私钥
+type PkiEncryptionKey struct {
+	ID            int64     `json:"id"`
+	EncryptionKey []byte    `json:"encryption_key"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
 // 机柜表：数据中心机房内的物理机柜，属于某个机房
 type Rack struct {
 	ID          int64  `json:"id"`
