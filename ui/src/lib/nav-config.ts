@@ -84,6 +84,19 @@ export function getResourcePermission(resource: string): string | undefined {
   return RESOURCE_PERMISSION_MAP[resource]
 }
 
+/** Determine the scope level from workspace/namespace IDs. */
+export function getScopeLevel(wsId: string | null, nsId: string | null): ScopeLevel {
+  if (wsId && nsId) return "namespace"
+  if (wsId) return "workspace"
+  return "platform"
+}
+
+/** Check whether a resource has a route at the given scope level. */
+export function isResourceAtScope(resource: string, scopeLevel: ScopeLevel): boolean {
+  const item = NAV_ITEMS.find((i) => i.resource === resource)
+  return item?.scopes.includes(scopeLevel) ?? false
+}
+
 /** Extract the resource name the user is currently viewing from the URL path. */
 export function detectResource(pathname: string): string | null {
   const segments = pathname.split("/").filter(Boolean)

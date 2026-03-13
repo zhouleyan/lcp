@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useNavigate, Link } from "react-router"
-import { Pencil, Trash2, ArrowLeft, Search, Filter } from "lucide-react"
+import { Pencil, Trash2, Search, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -20,7 +20,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -34,6 +34,7 @@ import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { usePermission } from "@/hooks/use-permission"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 
 export default function UserDetailPage() {
   const { userId } = useParams()
@@ -92,9 +93,6 @@ export default function UserDetailPage() {
       {/* header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/iam/users")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
           <h1 className="text-2xl font-bold">{user.spec.username}</h1>
           <Badge variant={user.spec.status === "active" ? "default" : "secondary"}>
             {user.spec.status === "active" ? t("common.active") : t("common.inactive")}
@@ -116,8 +114,9 @@ export default function UserDetailPage() {
         </div>
       </div>
 
+      <div className="space-y-6">
       {/* user info card */}
-      <Card className="mb-6">
+      <Card>
         <CardHeader>
           <CardTitle>{t("user.details")}</CardTitle>
         </CardHeader>
@@ -167,6 +166,7 @@ export default function UserDetailPage() {
 
       {/* role bindings */}
       <UserRoleBindingsCard userId={user.metadata.id} />
+      </div>
 
       {/* edit dialog */}
       <EditUserDialog
@@ -177,20 +177,14 @@ export default function UserDetailPage() {
       />
 
       {/* delete confirm */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("common.delete")}</DialogTitle>
-            <DialogDescription>
-              {t("user.deleteConfirm", { name: user.spec.username })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>{t("common.cancel")}</Button>
-            <Button variant="destructive" onClick={handleDelete}>{t("common.delete")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={t("common.delete")}
+        description={t("user.deleteConfirm", { name: user.spec.username })}
+        onConfirm={handleDelete}
+        confirmText={t("common.delete")}
+      />
     </div>
   )
 }
@@ -229,13 +223,13 @@ function UserWorkspacesCard({ userId }: { userId: string }) {
   useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
 
   return (
-    <Card className="mb-6">
+    <Card>
       <CardHeader>
         <CardTitle>{t("user.workspaces")}</CardTitle>
       </CardHeader>
       <CardContent>
         {/* toolbar */}
-        <div className="mb-4 flex items-center gap-4">
+        <div className="mb-4 flex items-center gap-3">
           <div className="relative max-w-xs">
             <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
             <Input
@@ -248,7 +242,7 @@ function UserWorkspacesCard({ userId }: { userId: string }) {
         </div>
 
         {/* table */}
-        <div className="border rounded-md">
+        <div className="border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -392,13 +386,13 @@ function UserNamespacesCard({ userId }: { userId: string }) {
   useEffect(() => { setPage(1) }, [search, statusFilter, pageSize])
 
   return (
-    <Card className="mb-6">
+    <Card>
       <CardHeader>
         <CardTitle>{t("user.namespaceRefs")}</CardTitle>
       </CardHeader>
       <CardContent>
         {/* toolbar */}
-        <div className="mb-4 flex items-center gap-4">
+        <div className="mb-4 flex items-center gap-3">
           <div className="relative max-w-xs">
             <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
             <Input
@@ -411,7 +405,7 @@ function UserNamespacesCard({ userId }: { userId: string }) {
         </div>
 
         {/* table */}
-        <div className="border rounded-md">
+        <div className="border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -571,12 +565,12 @@ function UserRoleBindingsCard({ userId }: { userId: string }) {
   }
 
   return (
-    <Card className="mb-6">
+    <Card>
       <CardHeader>
         <CardTitle>{t("user.rolebindings")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="mb-4 flex items-center gap-4">
+        <div className="mb-4 flex items-center gap-3">
           <div className="relative max-w-xs">
             <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
             <Input
@@ -587,7 +581,7 @@ function UserRoleBindingsCard({ userId }: { userId: string }) {
             />
           </div>
         </div>
-        <div className="border rounded-md">
+        <div className="border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -765,12 +759,13 @@ function EditUserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
+      <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{t("user.edit")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
             {form.formState.errors.root && (
               <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {form.formState.errors.root.message}
@@ -835,7 +830,8 @@ function EditUserDialog({
                 <FormMessage />
               </FormItem>
             )} />
-            <DialogFooter className="mt-6 pt-4 border-t">
+            </div>
+            <DialogFooter className="mt-6 pt-4 border-t shrink-0">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
               <Button type="submit" disabled={loading}>{loading ? "..." : t("common.save")}</Button>
             </DialogFooter>

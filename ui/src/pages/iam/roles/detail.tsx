@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useNavigate } from "react-router"
-import { Pencil, Trash2, ArrowLeft } from "lucide-react"
+import { Pencil, Trash2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -12,8 +12,9 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
@@ -101,9 +102,6 @@ export default function RoleDetailPage() {
       {/* header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/iam/roles")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
           <h1 className="text-2xl font-bold">{role.spec.name}</h1>
           <Badge variant={SCOPE_VARIANT[role.spec.scope] ?? "outline"}>
             {t(`role.scope.${role.spec.scope}`)}
@@ -222,20 +220,14 @@ export default function RoleDetailPage() {
       )}
 
       {/* delete confirm */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("common.delete")}</DialogTitle>
-            <DialogDescription>
-              {t("role.deleteConfirm", { name: role.spec.name })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>{t("common.cancel")}</Button>
-            <Button variant="destructive" onClick={handleDelete}>{t("common.delete")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={t("common.delete")}
+        description={t("role.deleteConfirm", { name: role.metadata.name })}
+        onConfirm={handleDelete}
+        confirmText={t("common.delete")}
+      />
     </div>
   )
 }

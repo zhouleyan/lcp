@@ -509,12 +509,13 @@ export function RackFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
+      <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t("rack.edit") : t("rack.create")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
             {form.formState.errors.root && (
               <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {form.formState.errors.root.message}
@@ -638,7 +639,8 @@ export function RackFormDialog({
                 </FormItem>
               )}
             />
-            <DialogFooter className="mt-6 pt-4 border-t">
+            </div>
+            <DialogFooter className="mt-6 pt-4 border-t shrink-0">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
               <Button type="submit" disabled={loading}>{loading ? "..." : t("common.save")}</Button>
             </DialogFooter>

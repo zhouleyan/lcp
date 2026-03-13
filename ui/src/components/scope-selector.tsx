@@ -11,7 +11,7 @@ import {
 import { useScopeStore } from "@/stores/scope-store"
 import { usePermissionStore } from "@/stores/permission-store"
 import { checkPermission, getFirstPermittedPath } from "@/hooks/use-permission"
-import { detectResource, buildScopedPath, getResourcePermission } from "@/lib/nav-config"
+import { detectResource, buildScopedPath, getResourcePermission, getScopeLevel, isResourceAtScope } from "@/lib/nav-config"
 import { listWorkspaces } from "@/api/iam/workspaces"
 import { listNamespaces, listWorkspaceNamespaces } from "@/api/iam/namespaces"
 import { useTranslation } from "@/i18n"
@@ -154,11 +154,13 @@ export function ScopeSelector() {
         onValueChange={(v) => {
           const wsId = v === ALL ? null : v
           const resource = detectResource(location.pathname)
-          const permCode = resource ? getResourcePermission(resource) : undefined
+          const targetScope = getScopeLevel(wsId, null)
+          const available = resource ? isResourceAtScope(resource, targetScope) : false
+          const permCode = available && resource ? getResourcePermission(resource) : undefined
           const scope = wsId ? { workspaceId: wsId } : undefined
           // Navigate only; root-layout's useLayoutEffect syncs scope store from URL,
           // avoiding stale requests from the old page seeing the new scope before unmounting.
-          if (permCode && permissions && checkPermission(permissions, permCode, scope)) {
+          if (available && permCode && permissions && checkPermission(permissions, permCode, scope)) {
             navigate(buildScopedPath(resource, wsId, null))
           } else if (permissions) {
             navigate(getFirstPermittedPath(permissions, wsId, null))
@@ -189,11 +191,13 @@ export function ScopeSelector() {
         onValueChange={(v) => {
           const nsId = v === ALL ? null : v
           const resource = detectResource(location.pathname)
-          const permCode = resource ? getResourcePermission(resource) : undefined
+          const targetScope = getScopeLevel(workspaceId, nsId)
+          const available = resource ? isResourceAtScope(resource, targetScope) : false
+          const permCode = available && resource ? getResourcePermission(resource) : undefined
           const scope = nsId && workspaceId
             ? { workspaceId, namespaceId: nsId }
             : workspaceId ? { workspaceId } : undefined
-          if (permCode && permissions && checkPermission(permissions, permCode, scope)) {
+          if (available && permCode && permissions && checkPermission(permissions, permCode, scope)) {
             navigate(buildScopedPath(resource, workspaceId, nsId))
           } else if (permissions) {
             navigate(getFirstPermittedPath(permissions, workspaceId, nsId))

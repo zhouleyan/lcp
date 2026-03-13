@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { useParams, useNavigate } from "react-router"
-import { ArrowLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useParams } from "react-router"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,15 +9,9 @@ import { useTranslation } from "@/i18n"
 
 export default function ScopedUserDetailPage() {
   const { workspaceId, namespaceId, userId } = useParams()
-  const navigate = useNavigate()
   const { t } = useTranslation()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-
-  // Build base path for back navigation
-  const basePath = namespaceId
-    ? `/iam/workspaces/${workspaceId}/namespaces/${namespaceId}/users`
-    : `/iam/workspaces/${workspaceId}/users`
 
   const fetchUser = useCallback(async () => {
     if (!userId) return
@@ -58,9 +50,6 @@ export default function ScopedUserDetailPage() {
     <div className="p-6">
       {/* header */}
       <div className="mb-6 flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(basePath)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
         <h1 className="text-2xl font-bold">{user.spec.username}</h1>
         <Badge variant={user.spec.status === "active" ? "default" : "secondary"}>
           {user.spec.status === "active" ? t("common.active") : t("common.inactive")}

@@ -25,6 +25,7 @@ import {
 import { getWorkspace, updateWorkspace, deleteWorkspace } from "@/api/iam/workspaces"
 import { ApiError, translateApiError } from "@/api/client"
 import type { Workspace } from "@/api/types"
+import { OverviewCard } from "@/components/overview-card"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
 import { useWorkspaceStore } from "@/stores/workspace-store"
@@ -115,50 +116,11 @@ export default function WorkspaceDetailPage() {
       </div>
 
       {/* Overview content */}
-      <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-4">
-          <Card
-            className="cursor-pointer transition-colors hover:bg-muted/50"
-            onClick={() => navigate("namespaces")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-                <FolderKanban className="text-primary h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{workspace.spec.namespaceCount ?? 0}</p>
-                <p className="text-muted-foreground text-sm">{t("workspace.namespaces")}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card
-            className="cursor-pointer transition-colors hover:bg-muted/50"
-            onClick={() => navigate("users")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-                <Users className="text-primary h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{workspace.spec.memberCount ?? 0}</p>
-                <p className="text-muted-foreground text-sm">{t("workspace.members")}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card
-            className="cursor-pointer transition-colors hover:bg-muted/50"
-            onClick={() => navigate("rolebindings")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-                <ShieldCheck className="text-primary h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{workspace.spec.roleBindingCount ?? 0}</p>
-                <p className="text-muted-foreground text-sm">{t("rolebinding.title")}</p>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          <OverviewCard label={t("workspace.namespaces")} icon={FolderKanban} value={workspace.spec.namespaceCount ?? 0} onClick={() => navigate("namespaces")} />
+          <OverviewCard label={t("workspace.members")} icon={Users} value={workspace.spec.memberCount ?? 0} onClick={() => navigate("users")} />
+          <OverviewCard label={t("rolebinding.title")} icon={ShieldCheck} value={workspace.spec.roleBindingCount ?? 0} onClick={() => navigate("rolebindings")} />
         </div>
         <Card>
           <CardHeader>
@@ -288,41 +250,43 @@ function EditWorkspaceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
+      <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{t("workspace.edit")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {form.formState.errors.root && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {form.formState.errors.root.message}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
+              {form.formState.errors.root && (
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {form.formState.errors.root.message}
+                </div>
+              )}
+              <div>
+                <label className="text-sm font-medium">{t("common.name")}</label>
+                <Input value={workspace.metadata.name} disabled className="mt-1" />
               </div>
-            )}
-            <div>
-              <label className="text-sm font-medium">{t("common.name")}</label>
-              <Input value={workspace.metadata.name} disabled className="mt-1" />
+              <FormField control={form.control} name="displayName" render={({ field }) => (
+                <FormItem><FormLabel>{t("common.displayName")}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="description" render={({ field }) => (
+                <FormItem><FormLabel>{t("common.description")}</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="status" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("common.status")}</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl><SelectTrigger className="w-full"><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="active">{t("common.active")}</SelectItem>
+                      <SelectItem value="inactive">{t("common.inactive")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
             </div>
-            <FormField control={form.control} name="displayName" render={({ field }) => (
-              <FormItem><FormLabel>{t("common.displayName")}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem><FormLabel>{t("common.description")}</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="status" render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("common.status")}</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl><SelectTrigger className="w-full"><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="active">{t("common.active")}</SelectItem>
-                    <SelectItem value="inactive">{t("common.inactive")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <DialogFooter className="mt-6 pt-4 border-t">
+            <DialogFooter className="mt-6 pt-4 border-t shrink-0">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
               <Button type="submit" disabled={loading}>{loading ? "..." : t("common.save")}</Button>
             </DialogFooter>

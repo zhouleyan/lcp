@@ -6,8 +6,7 @@ import {
   Users,
   Shield,
 } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+import { OverviewCard } from "@/components/overview-card"
 import { useTranslation } from "@/i18n"
 import type { OverviewSpec } from "@/api/types"
 import { getPlatformOverview, getWorkspaceOverview, getNamespaceOverview } from "@/api/dashboard/overview"
@@ -54,7 +53,7 @@ export function PlatformOverviewPage() {
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {cards.map((card) => (
-          <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
+          <OverviewCard key={card.to} label={t(card.labelKey)} icon={card.icon} value={card.value} loading={loading} onClick={() => navigate(card.to)} />
         ))}
       </div>
     </div>
@@ -98,7 +97,7 @@ export function WorkspaceOverviewPage() {
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         {cards.map((card) => (
-          <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
+          <OverviewCard key={card.to} label={t(card.labelKey)} icon={card.icon} value={card.value} loading={loading} onClick={() => navigate(card.to)} />
         ))}
       </div>
     </div>
@@ -141,44 +140,9 @@ export function NamespaceOverviewPage() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         {cards.map((card) => (
-          <OverviewCard key={card.to} card={card} loading={loading} onClick={() => navigate(card.to)} t={t} />
+          <OverviewCard key={card.to} label={t(card.labelKey)} icon={card.icon} value={card.value} loading={loading} onClick={() => navigate(card.to)} />
         ))}
       </div>
     </div>
-  )
-}
-
-// ===== Shared Card =====
-
-function OverviewCard({
-  card,
-  loading,
-  onClick,
-  t,
-}: {
-  card: StatCard
-  loading: boolean
-  onClick: () => void
-  t: (key: string) => string
-}) {
-  return (
-    <Card
-      className="cursor-pointer transition-colors hover:bg-muted/50"
-      onClick={onClick}
-    >
-      <CardContent className="flex items-center gap-4 p-4">
-        <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-          <card.icon className="text-primary h-5 w-5" />
-        </div>
-        <div>
-          {loading ? (
-            <Skeleton className="mb-1 h-7 w-12" />
-          ) : (
-            <p className="text-2xl font-bold">{card.value ?? "-"}</p>
-          )}
-          <p className="text-muted-foreground text-sm">{t(card.labelKey)}</p>
-        </div>
-      </CardContent>
-    </Card>
   )
 }

@@ -144,8 +144,8 @@ export default function RootLayout() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen">
-        <aside className="bg-sidebar text-sidebar-foreground flex w-60 flex-col border-r">
+      <div className="fixed inset-0 flex">
+        <aside className="bg-sidebar text-sidebar-foreground flex w-60 shrink-0 flex-col overflow-hidden border-r">
           <div className="flex h-14 items-center border-b px-4">
             <Link to={homePath} className="flex items-center gap-2 font-semibold">
               <LayoutDashboard className="h-5 w-5" />
@@ -155,7 +155,7 @@ export default function RootLayout() {
           <div className="border-b px-1 py-1.5">
             <ScopeSelector />
           </div>
-          <nav className="flex-1 space-y-3 p-2">
+          <nav className="min-h-0 flex-1 overflow-y-auto space-y-3 p-2">
             {navGroups.map((group, gi) => {
               const visibleItems = group.items.filter(
                 (item) => !item.permission || hasPermission(item.permission, item.permissionScope),

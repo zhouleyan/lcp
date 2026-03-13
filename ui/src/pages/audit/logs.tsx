@@ -335,13 +335,13 @@ export default function AuditLogListPage() {
 
       {/* detail dialog */}
       <Dialog open={!!selectedLog} onOpenChange={(v) => { if (!v) setSelectedLog(null) }}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
+        <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{t("audit.detail")}</DialogTitle>
             <DialogDescription>ID: {selectedLog?.spec.id}</DialogDescription>
           </DialogHeader>
           {selectedLog && (
-            <div className="space-y-5">
+            <div className="space-y-5 overflow-y-auto flex-1 min-h-0">
               {/* Two-column: Basic + Resource */}
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 {/* Basic */}

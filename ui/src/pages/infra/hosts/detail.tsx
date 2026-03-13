@@ -28,6 +28,7 @@ import {
 } from "@/api/infra/hosts"
 import { showApiError } from "@/api/client"
 import type { Host } from "@/api/types"
+import { OverviewCard } from "@/components/overview-card"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
 import { buildPermScope, scopedApiCall } from "@/lib/nav-config"
@@ -128,42 +129,12 @@ export default function HostDetailPage() {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {/* Hardware overview */}
-        <div className="grid grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-                <Cpu className="text-primary h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{host.spec.cpuCores || 0}</p>
-                <p className="text-muted-foreground text-sm">{t("host.cpuCores")}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-                <MemoryStick className="text-primary h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{host.spec.memoryMb || 0}</p>
-                <p className="text-muted-foreground text-sm">{t("host.memoryMb")}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-                <HardDrive className="text-primary h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{host.spec.diskGb || 0}</p>
-                <p className="text-muted-foreground text-sm">{t("host.diskGb")}</p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          <OverviewCard label={t("host.cpuCores")} icon={Cpu} value={host.spec.cpuCores || 0} />
+          <OverviewCard label={t("host.memoryMb")} icon={MemoryStick} value={host.spec.memoryMb || 0} />
+          <OverviewCard label={t("host.diskGb")} icon={HardDrive} value={host.spec.diskGb || 0} />
         </div>
 
         {/* Basic info */}

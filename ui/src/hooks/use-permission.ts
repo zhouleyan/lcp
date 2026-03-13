@@ -1,6 +1,6 @@
 import { useCallback } from "react"
 import { usePermissionStore } from "@/stores/permission-store"
-import { NAV_ITEMS, buildScopedPath } from "@/lib/nav-config"
+import { NAV_ITEMS, buildScopedPath, getScopeLevel } from "@/lib/nav-config"
 import type { UserPermissionsSpec } from "@/api/types"
 
 /**
@@ -90,7 +90,9 @@ export function getFirstPermittedPath(
     : wsId
       ? { workspaceId: wsId }
       : undefined
+  const scopeLevel = getScopeLevel(wsId, nsId)
   for (const item of NAV_ITEMS) {
+    if (!item.scopes.includes(scopeLevel)) continue
     if (checkPermission(perms, item.permission, scope)) {
       return buildScopedPath(item.resource, wsId, nsId)
     }

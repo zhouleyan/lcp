@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 import { getRegion, deleteRegion, getRegionSites } from "@/api/infra/regions"
 import { showApiError } from "@/api/client"
 import type { Region, Site, ListParams } from "@/api/types"
+import { OverviewCard } from "@/components/overview-card"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
 import { Pagination } from "@/components/pagination"
@@ -121,20 +122,10 @@ export default function RegionDetailPage() {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {/* Overview cards */}
-        <div className="grid grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-                <MapPin className="text-primary h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{region.spec.siteCount ?? 0}</p>
-                <p className="text-muted-foreground text-sm">{t("region.siteCount")}</p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          <OverviewCard label={t("region.siteCount")} icon={MapPin} value={region.spec.siteCount ?? 0} />
         </div>
 
         {/* Details card */}
