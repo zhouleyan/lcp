@@ -54,6 +54,10 @@ func Handle(ns runtime.NegotiatedSerializer, statusCode int, fn HandlerFunc) htt
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		if fr, ok := result.(*FileResponse); ok {
+			writeFileResponse(w, statusCode, fr)
+			return
+		}
 		transformResponseObject(ns, req, w, statusCode, result)
 	}
 }
@@ -85,6 +89,10 @@ func HandleWithAPIVersion(ns runtime.NegotiatedSerializer, statusCode int, fn Ha
 		}
 		if result == nil {
 			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if fr, ok := result.(*FileResponse); ok {
+			writeFileResponse(w, statusCode, fr)
 			return
 		}
 		if tm := result.GetTypeMeta(); tm != nil {
