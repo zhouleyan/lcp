@@ -75,6 +75,7 @@ export default function HostListPage() {
   const [unbindTarget, setUnbindTarget] = useState<Host | null>(null)
 
   const permPrefix = "infra:hosts"
+  const isPlatformScope = !scopeWorkspaceId
 
   const permScope = buildPermScope(scopeWorkspaceId, scopeNamespaceId)
 
@@ -213,6 +214,12 @@ export default function HostListPage() {
               <TableHead>{t("host.ipAddress")}</TableHead>
               <TableHead>{t("host.os")}</TableHead>
               <TableHead>{t("host.environment")}</TableHead>
+              {isPlatformScope && (
+                <>
+                  <TableHead>{t("workspace.title")}</TableHead>
+                  <TableHead>{t("namespace.title")}</TableHead>
+                </>
+              )}
               <TableHead>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -238,14 +245,14 @@ export default function HostListPage() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((_, j) => (
+                  {Array.from({ length: isPlatformScope ? 10 : 8 }).map((_, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : hosts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-muted-foreground py-8 text-center">
+                <TableCell colSpan={isPlatformScope ? 10 : 8} className="text-muted-foreground py-8 text-center">
                   {t("host.noData")}
                 </TableCell>
               </TableRow>
@@ -274,6 +281,12 @@ export default function HostListPage() {
                       <span className="text-muted-foreground text-sm">{t("host.environmentNone")}</span>
                     )}
                   </TableCell>
+                  {isPlatformScope && (
+                    <>
+                      <TableCell className="text-sm">{host.spec.workspaceName || "-"}</TableCell>
+                      <TableCell className="text-sm">{host.spec.namespaceName || "-"}</TableCell>
+                    </>
+                  )}
                   <TableCell>
                     <Badge variant={host.spec.status === "active" ? "default" : "secondary"}>
                       {host.spec.status === "active" ? t("common.active") : t("common.inactive")}
