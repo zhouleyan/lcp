@@ -65,8 +65,19 @@ func NewExportHandler(store CertificateStore, encryptionKey []byte) rest.Handler
 			}
 		}
 
+		// Build download filename: cert → {name}.ext, key → {name}.key, chain → {name}-chain.ext
+		var downloadName string
+		switch base {
+		case "cert":
+			downloadName = row.Name + ext
+		case "key":
+			downloadName = row.Name + ext
+		case "chain":
+			downloadName = row.Name + "-chain" + ext
+		}
+
 		return &rest.FileResponse{
-			FileName:    row.Name + "-" + fileName,
+			FileName:    downloadName,
 			ContentType: "application/x-pem-file",
 			Data:        data,
 		}, nil
