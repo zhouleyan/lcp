@@ -272,10 +272,17 @@ func (s *pgHostStore) ListByNamespaceID(ctx context.Context, nsID int64, q db.Li
 }
 
 func (s *pgHostStore) BindEnvironment(ctx context.Context, hostID, envID int64) error {
-	return s.queries.BindHostEnvironment(ctx, generated.BindHostEnvironmentParams{
+	n, err := s.queries.BindHostEnvironment(ctx, generated.BindHostEnvironmentParams{
 		ID:            hostID,
 		EnvironmentID: &envID,
 	})
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return apierrors.NewConflict("host", fmt.Sprintf("%d", hostID))
+	}
+	return nil
 }
 
 func (s *pgHostStore) UnbindEnvironment(ctx context.Context, hostID int64) error {

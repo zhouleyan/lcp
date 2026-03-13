@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const bindHostEnvironment = `-- name: BindHostEnvironment :exec
+const bindHostEnvironment = `-- name: BindHostEnvironment :execrows
 UPDATE hosts SET environment_id = $1, updated_at = now()
 WHERE id = $2 AND environment_id IS NULL
 `
@@ -21,9 +21,12 @@ type BindHostEnvironmentParams struct {
 	ID            int64  `json:"id"`
 }
 
-func (q *Queries) BindHostEnvironment(ctx context.Context, arg BindHostEnvironmentParams) error {
-	_, err := q.db.Exec(ctx, bindHostEnvironment, arg.EnvironmentID, arg.ID)
-	return err
+func (q *Queries) BindHostEnvironment(ctx context.Context, arg BindHostEnvironmentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bindHostEnvironment, arg.EnvironmentID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const countHostsByNamespaceID = `-- name: CountHostsByNamespaceID :one

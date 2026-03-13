@@ -3175,7 +3175,6 @@ func envNamespaceInheritRowToAPI(e *DBEnvNamespaceInheritRow) Environment {
 	}
 }
 
-// optionalIDToStr converts a *int64 to a string, returning empty string if nil.
 // isEnvScopeCompatible checks whether the environment scope is on the host's
 // inheritance chain. The environment scope must be the same level or higher
 // than the host scope, and share the same workspace/namespace lineage.
@@ -3213,6 +3212,7 @@ func isEnvScopeCompatible(host *DBHostWithEnv, env *DBEnvWithCounts, nsParentWsI
 	}
 }
 
+// optionalIDToStr converts a *int64 to a string, returning empty string if nil.
 func optionalIDToStr(id *int64) string {
 	if id == nil {
 		return ""

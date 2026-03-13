@@ -61,7 +61,7 @@ RETURNING id;
 -- name: GetWorkspaceIDByNamespaceID :one
 SELECT workspace_id FROM namespaces WHERE id = @id;
 
--- name: BindHostEnvironment :exec
+-- name: BindHostEnvironment :execrows
 UPDATE hosts SET environment_id = @environment_id, updated_at = now()
 WHERE id = @id AND environment_id IS NULL;
 
