@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	nameRegexp     = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
+	nameRegexp     = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$`)
 	validCertTypes = map[string]bool{
 		CertTypeCA: true, CertTypeServer: true,
 		CertTypeClient: true, CertTypeBoth: true,
@@ -23,7 +23,7 @@ func ValidateCertificateCreate(name string, spec *CertificateSpec) validation.Er
 	if name == "" {
 		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "is required"})
 	} else if !nameRegexp.MatchString(name) {
-		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 3-50 lowercase alphanumeric characters or hyphens"})
+		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 2-50 lowercase alphanumeric characters or hyphens"})
 	}
 
 	// certType

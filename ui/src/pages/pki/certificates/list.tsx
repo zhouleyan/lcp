@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router"
 import { Plus, Trash2, Search, Download, ChevronDown } from "lucide-react"
 import { useForm } from "react-hook-form"
@@ -278,6 +278,9 @@ export default function CertificateListPage() {
                                   {t("certificate.exportCA")}
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuItem onClick={() => handleExport(cert.metadata.id, "all.zip")}>
+                                {t("certificate.exportAll")}
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -350,10 +353,7 @@ function CertificateCreateDialog({
   const [caList, setCaList] = useState<Certificate[]>([])
 
   const schema = z.object({
-    name: z.string()
-      .min(3, t("api.validation.name.format"))
-      .max(50, t("api.validation.name.format"))
-      .regex(/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/, t("api.validation.name.format")),
+    name: z.string().max(50),
     certType: z.enum(["ca", "server", "client", "both"]),
     commonName: z.string().optional(),
     dnsNames: z.string().optional(),
@@ -361,6 +361,15 @@ function CertificateCreateDialog({
     caName: z.string().optional(),
     validityDays: z.coerce.number().int().min(1).max(36500),
   }).refine((data) => {
+    // CA: name is optional (defaults to "ca"); if provided, validate as prefix
+    if (data.certType === "ca") {
+      if (!data.name) return true
+      return /^[a-z0-9][a-z0-9-]{0,46}[a-z0-9]$/.test(data.name)
+    }
+    // Non-CA: name is required
+    return /^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$/.test(data.name)
+  }, { message: t("api.validation.name.format"), path: ["name"] })
+  .refine((data) => {
     if (data.certType === "ca" && !data.commonName) return false
     return true
   }, { message: t("api.validation.required", { field: t("certificate.commonName") }), path: ["commonName"] })
@@ -380,32 +389,6 @@ function CertificateCreateDialog({
   })
 
   const certType = form.watch("certType")
-  const caName = form.watch("caName")
-  const autoNameRef = useRef("")
-
-  // Auto-generate name from CA name + cert type
-  // e.g. CA "etcd-ca" + type "server" → "etcd-server"
-  useEffect(() => {
-    const currentName = form.getValues("name")
-    if (certType === "ca") {
-      // CA type: clear auto-name, let user fill manually
-      if (currentName === autoNameRef.current) {
-        form.setValue("name", "")
-        autoNameRef.current = ""
-      }
-      return
-    }
-    if (!caName) return
-    // Only auto-fill if name is empty or was previously auto-generated
-    if (currentName && currentName !== autoNameRef.current) return
-
-    const prefix = caName.replace(/-ca$/, "")
-    const suffixMap: Record<string, string> = { server: "server", client: "client", both: "peer" }
-    const suffix = suffixMap[certType] ?? certType
-    const generated = `${prefix}-${suffix}`
-    form.setValue("name", generated)
-    autoNameRef.current = generated
-  }, [certType, caName, form])
 
   // Update default validity when certType changes
   useEffect(() => {
@@ -417,25 +400,35 @@ function CertificateCreateDialog({
     }
   }, [certType, form])
 
-  // Fetch CA list when dialog opens
+  // Fetch CA list when dialog opens, auto-select first CA
   useEffect(() => {
     if (open) {
       listCertificates({ page: 1, pageSize: SELECT_PAGE_SIZE, certType: "ca" })
-        .then((data) => setCaList(data.items ?? []))
+        .then((data) => {
+          const items = data.items ?? []
+          setCaList(items)
+          if (items.length > 0 && !form.getValues("caName")) {
+            form.setValue("caName", items[0].metadata.name)
+          }
+        })
         .catch(() => setCaList([]))
     }
-  }, [open])
+  }, [open, form])
 
   useEffect(() => {
     if (open) {
       form.reset({ name: "", certType: "ca", commonName: "", dnsNames: "", ipAddresses: "", caName: "", validityDays: 3650 })
-      autoNameRef.current = ""
     }
   }, [open, form])
 
   const onSubmit = async (values: CertificateFormValues) => {
     setLoading(true)
     try {
+      // CA type: auto-append "-ca" suffix; empty name defaults to "ca"
+      const finalName = values.certType === "ca"
+        ? (values.name ? `${values.name}-ca` : "ca")
+        : values.name
+
       const spec: Certificate["spec"] = {
         certType: values.certType,
         validityDays: values.validityDays,
@@ -452,7 +445,7 @@ function CertificateCreateDialog({
       }
 
       await createCertificate({
-        metadata: { name: values.name } as Certificate["metadata"],
+        metadata: { name: finalName } as Certificate["metadata"],
         spec,
       })
       toast.success(t("action.createSuccess"))
@@ -485,10 +478,13 @@ function CertificateCreateDialog({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>{t("common.name")}</FormLabel>
+                    <FormLabel required={certType !== "ca"}>{t("common.name")}</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder={certType === "ca" ? "etcd-ca" : "etcd-server"} />
+                      <Input {...field} placeholder={t("certificate.namePlaceholder")} />
                     </FormControl>
+                    {certType === "ca" && (
+                      <FormDescription>{t("certificate.caNameAutoSuffix", { result: field.value ? `${field.value}-ca` : "ca" })}</FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -542,26 +538,31 @@ function CertificateCreateDialog({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel required>{t("certificate.caName")}</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={t("certificate.caNamePlaceholder")} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {caList.length === 0 ? (
-                            <div className="text-muted-foreground px-2 py-4 text-center text-sm">
-                              {t("certificate.noCaAvailable")}
-                            </div>
-                          ) : (
-                            caList.map((ca) => (
+                      <div className="flex items-center gap-2">
+                        <Select value={field.value} onValueChange={field.onChange} disabled={caList.length === 0}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t("certificate.caNamePlaceholder")} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {caList.map((ca) => (
                               <SelectItem key={ca.metadata.name} value={ca.metadata.name}>
                                 {ca.metadata.name} ({ca.spec.commonName})
                               </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {caList.length === 0 && (
+                          <button
+                            type="button"
+                            className="text-primary hover:underline text-sm whitespace-nowrap"
+                            onClick={() => form.setValue("certType", "ca")}
+                          >
+                            {t("certificate.createCAFirst")}
+                          </button>
+                        )}
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}

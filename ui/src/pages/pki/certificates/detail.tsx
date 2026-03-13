@@ -153,6 +153,9 @@ export default function CertificateDetailPage() {
                     {t("certificate.exportCA")}
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onClick={() => handleExport("all.zip")}>
+                  {t("certificate.exportAll")}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
