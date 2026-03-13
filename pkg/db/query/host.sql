@@ -58,6 +58,9 @@ DELETE FROM hosts WHERE id = @id;
 DELETE FROM hosts WHERE id = ANY(@ids::BIGINT[])
 RETURNING id;
 
+-- name: GetWorkspaceIDByNamespaceID :one
+SELECT workspace_id FROM namespaces WHERE id = @id;
+
 -- name: BindHostEnvironment :exec
 UPDATE hosts SET environment_id = @environment_id, updated_at = now()
 WHERE id = @id AND environment_id IS NULL;

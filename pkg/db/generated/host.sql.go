@@ -287,6 +287,17 @@ func (q *Queries) GetHostByID(ctx context.Context, id int64) (GetHostByIDRow, er
 	return i, err
 }
 
+const getWorkspaceIDByNamespaceID = `-- name: GetWorkspaceIDByNamespaceID :one
+SELECT workspace_id FROM namespaces WHERE id = $1
+`
+
+func (q *Queries) GetWorkspaceIDByNamespaceID(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceIDByNamespaceID, id)
+	var workspace_id int64
+	err := row.Scan(&workspace_id)
+	return workspace_id, err
+}
+
 const listHostsByNamespaceID = `-- name: ListHostsByNamespaceID :many
 WITH host_data AS (
     SELECT

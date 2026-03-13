@@ -364,8 +364,14 @@ type DBEnvPlatformRow = generated.ListEnvironmentsPlatformRow
 // DBEnvWorkspaceRow is an alias for ListEnvironmentsByWorkspaceID row.
 type DBEnvWorkspaceRow = generated.ListEnvironmentsByWorkspaceIDRow
 
+// DBEnvWorkspaceInheritRow is an alias for ListEnvironmentsByWorkspaceIDInherit row.
+type DBEnvWorkspaceInheritRow = generated.ListEnvironmentsByWorkspaceIDInheritRow
+
 // DBEnvNamespaceRow is an alias for ListEnvironmentsByNamespaceID row.
 type DBEnvNamespaceRow = generated.ListEnvironmentsByNamespaceIDRow
+
+// DBEnvNamespaceInheritRow is an alias for ListEnvironmentsByNamespaceIDInherit row.
+type DBEnvNamespaceInheritRow = generated.ListEnvironmentsByNamespaceIDInheritRow
 
 // DBHostByEnvRow is an alias for ListHostsByEnvironmentID row.
 type DBHostByEnvRow = generated.ListHostsByEnvironmentIDRow

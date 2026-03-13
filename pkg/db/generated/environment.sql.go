@@ -41,6 +41,40 @@ func (q *Queries) CountEnvironmentsByNamespaceID(ctx context.Context, arg CountE
 	return count, err
 }
 
+const countEnvironmentsByNamespaceIDInherit = `-- name: CountEnvironmentsByNamespaceIDInherit :one
+SELECT count(*)
+FROM environments e
+WHERE (
+        (e.scope = 'namespace' AND e.namespace_id = $1)
+        OR (e.scope = 'workspace' AND e.workspace_id = (SELECT n.workspace_id FROM namespaces n WHERE n.id = $1))
+        OR e.scope = 'platform'
+    )
+    AND ($2::VARCHAR IS NULL OR e.status = $2)
+    AND ($3::VARCHAR IS NULL OR e.env_type = $3)
+    AND ($4::VARCHAR IS NULL
+         OR e.name ILIKE '%' || $4 || '%'
+         OR e.display_name ILIKE '%' || $4 || '%')
+`
+
+type CountEnvironmentsByNamespaceIDInheritParams struct {
+	NamespaceID *int64  `json:"namespace_id"`
+	Status      *string `json:"status"`
+	EnvType     *string `json:"env_type"`
+	Search      *string `json:"search"`
+}
+
+func (q *Queries) CountEnvironmentsByNamespaceIDInherit(ctx context.Context, arg CountEnvironmentsByNamespaceIDInheritParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countEnvironmentsByNamespaceIDInherit,
+		arg.NamespaceID,
+		arg.Status,
+		arg.EnvType,
+		arg.Search,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countEnvironmentsByWorkspaceID = `-- name: CountEnvironmentsByWorkspaceID :one
 SELECT count(*)
 FROM environments e
@@ -64,6 +98,39 @@ type CountEnvironmentsByWorkspaceIDParams struct {
 
 func (q *Queries) CountEnvironmentsByWorkspaceID(ctx context.Context, arg CountEnvironmentsByWorkspaceIDParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countEnvironmentsByWorkspaceID,
+		arg.WorkspaceID,
+		arg.Status,
+		arg.EnvType,
+		arg.Search,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countEnvironmentsByWorkspaceIDInherit = `-- name: CountEnvironmentsByWorkspaceIDInherit :one
+SELECT count(*)
+FROM environments e
+WHERE (
+        (e.scope = 'workspace' AND e.workspace_id = $1)
+        OR e.scope = 'platform'
+    )
+    AND ($2::VARCHAR IS NULL OR e.status = $2)
+    AND ($3::VARCHAR IS NULL OR e.env_type = $3)
+    AND ($4::VARCHAR IS NULL
+         OR e.name ILIKE '%' || $4 || '%'
+         OR e.display_name ILIKE '%' || $4 || '%')
+`
+
+type CountEnvironmentsByWorkspaceIDInheritParams struct {
+	WorkspaceID *int64  `json:"workspace_id"`
+	Status      *string `json:"status"`
+	EnvType     *string `json:"env_type"`
+	Search      *string `json:"search"`
+}
+
+func (q *Queries) CountEnvironmentsByWorkspaceIDInherit(ctx context.Context, arg CountEnvironmentsByWorkspaceIDInheritParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countEnvironmentsByWorkspaceIDInherit,
 		arg.WorkspaceID,
 		arg.Status,
 		arg.EnvType,
@@ -338,6 +405,106 @@ func (q *Queries) ListEnvironmentsByNamespaceID(ctx context.Context, arg ListEnv
 	return items, nil
 }
 
+const listEnvironmentsByNamespaceIDInherit = `-- name: ListEnvironmentsByNamespaceIDInherit :many
+WITH env_data AS (
+    SELECT
+        e.id, e.name, e.display_name, e.description, e.env_type, e.scope, e.workspace_id, e.namespace_id, e.status, e.created_at, e.updated_at,
+        (SELECT count(*) FROM hosts h WHERE h.environment_id = e.id) AS host_count
+    FROM environments e
+    WHERE (
+            (e.scope = 'namespace' AND e.namespace_id = $5)
+            OR (e.scope = 'workspace' AND e.workspace_id = (SELECT n.workspace_id FROM namespaces n WHERE n.id = $5))
+            OR e.scope = 'platform'
+        )
+        AND ($6::VARCHAR IS NULL OR e.status = $6)
+        AND ($7::VARCHAR IS NULL OR e.env_type = $7)
+        AND ($8::VARCHAR IS NULL
+             OR e.name ILIKE '%' || $8 || '%'
+             OR e.display_name ILIKE '%' || $8 || '%')
+)
+SELECT id, name, display_name, description, env_type, scope, workspace_id, namespace_id, status, created_at, updated_at, host_count FROM env_data
+ORDER BY
+    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
+    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
+    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN $1::VARCHAR = 'env_type' AND $2::VARCHAR = 'asc' THEN env_type END ASC,
+    CASE WHEN $1::VARCHAR = 'env_type' AND $2::VARCHAR = 'desc' THEN env_type END DESC,
+    CASE WHEN $1::VARCHAR = 'status' AND $2::VARCHAR = 'asc' THEN status END ASC,
+    CASE WHEN $1::VARCHAR = 'status' AND $2::VARCHAR = 'desc' THEN status END DESC,
+    created_at DESC
+LIMIT $4::INT
+OFFSET $3::INT
+`
+
+type ListEnvironmentsByNamespaceIDInheritParams struct {
+	SortField   string  `json:"sort_field"`
+	SortOrder   string  `json:"sort_order"`
+	PageOffset  int32   `json:"page_offset"`
+	PageSize    int32   `json:"page_size"`
+	NamespaceID *int64  `json:"namespace_id"`
+	Status      *string `json:"status"`
+	EnvType     *string `json:"env_type"`
+	Search      *string `json:"search"`
+}
+
+type ListEnvironmentsByNamespaceIDInheritRow struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	EnvType     string    `json:"env_type"`
+	Scope       string    `json:"scope"`
+	WorkspaceID *int64    `json:"workspace_id"`
+	NamespaceID *int64    `json:"namespace_id"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	HostCount   int64     `json:"host_count"`
+}
+
+func (q *Queries) ListEnvironmentsByNamespaceIDInherit(ctx context.Context, arg ListEnvironmentsByNamespaceIDInheritParams) ([]ListEnvironmentsByNamespaceIDInheritRow, error) {
+	rows, err := q.db.Query(ctx, listEnvironmentsByNamespaceIDInherit,
+		arg.SortField,
+		arg.SortOrder,
+		arg.PageOffset,
+		arg.PageSize,
+		arg.NamespaceID,
+		arg.Status,
+		arg.EnvType,
+		arg.Search,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListEnvironmentsByNamespaceIDInheritRow{}
+	for rows.Next() {
+		var i ListEnvironmentsByNamespaceIDInheritRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DisplayName,
+			&i.Description,
+			&i.EnvType,
+			&i.Scope,
+			&i.WorkspaceID,
+			&i.NamespaceID,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.HostCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEnvironmentsByWorkspaceID = `-- name: ListEnvironmentsByWorkspaceID :many
 WITH env_data AS (
     SELECT
@@ -413,6 +580,105 @@ func (q *Queries) ListEnvironmentsByWorkspaceID(ctx context.Context, arg ListEnv
 	items := []ListEnvironmentsByWorkspaceIDRow{}
 	for rows.Next() {
 		var i ListEnvironmentsByWorkspaceIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DisplayName,
+			&i.Description,
+			&i.EnvType,
+			&i.Scope,
+			&i.WorkspaceID,
+			&i.NamespaceID,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.HostCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEnvironmentsByWorkspaceIDInherit = `-- name: ListEnvironmentsByWorkspaceIDInherit :many
+WITH env_data AS (
+    SELECT
+        e.id, e.name, e.display_name, e.description, e.env_type, e.scope, e.workspace_id, e.namespace_id, e.status, e.created_at, e.updated_at,
+        (SELECT count(*) FROM hosts h WHERE h.environment_id = e.id) AS host_count
+    FROM environments e
+    WHERE (
+            (e.scope = 'workspace' AND e.workspace_id = $5)
+            OR e.scope = 'platform'
+        )
+        AND ($6::VARCHAR IS NULL OR e.status = $6)
+        AND ($7::VARCHAR IS NULL OR e.env_type = $7)
+        AND ($8::VARCHAR IS NULL
+             OR e.name ILIKE '%' || $8 || '%'
+             OR e.display_name ILIKE '%' || $8 || '%')
+)
+SELECT id, name, display_name, description, env_type, scope, workspace_id, namespace_id, status, created_at, updated_at, host_count FROM env_data
+ORDER BY
+    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
+    CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
+    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN $1::VARCHAR = 'created_at' AND $2::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN $1::VARCHAR = 'env_type' AND $2::VARCHAR = 'asc' THEN env_type END ASC,
+    CASE WHEN $1::VARCHAR = 'env_type' AND $2::VARCHAR = 'desc' THEN env_type END DESC,
+    CASE WHEN $1::VARCHAR = 'status' AND $2::VARCHAR = 'asc' THEN status END ASC,
+    CASE WHEN $1::VARCHAR = 'status' AND $2::VARCHAR = 'desc' THEN status END DESC,
+    created_at DESC
+LIMIT $4::INT
+OFFSET $3::INT
+`
+
+type ListEnvironmentsByWorkspaceIDInheritParams struct {
+	SortField   string  `json:"sort_field"`
+	SortOrder   string  `json:"sort_order"`
+	PageOffset  int32   `json:"page_offset"`
+	PageSize    int32   `json:"page_size"`
+	WorkspaceID *int64  `json:"workspace_id"`
+	Status      *string `json:"status"`
+	EnvType     *string `json:"env_type"`
+	Search      *string `json:"search"`
+}
+
+type ListEnvironmentsByWorkspaceIDInheritRow struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
+	EnvType     string    `json:"env_type"`
+	Scope       string    `json:"scope"`
+	WorkspaceID *int64    `json:"workspace_id"`
+	NamespaceID *int64    `json:"namespace_id"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	HostCount   int64     `json:"host_count"`
+}
+
+func (q *Queries) ListEnvironmentsByWorkspaceIDInherit(ctx context.Context, arg ListEnvironmentsByWorkspaceIDInheritParams) ([]ListEnvironmentsByWorkspaceIDInheritRow, error) {
+	rows, err := q.db.Query(ctx, listEnvironmentsByWorkspaceIDInherit,
+		arg.SortField,
+		arg.SortOrder,
+		arg.PageOffset,
+		arg.PageSize,
+		arg.WorkspaceID,
+		arg.Status,
+		arg.EnvType,
+		arg.Search,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListEnvironmentsByWorkspaceIDInheritRow{}
+	for rows.Next() {
+		var i ListEnvironmentsByWorkspaceIDInheritRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,

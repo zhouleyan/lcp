@@ -281,3 +281,7 @@ func (s *pgHostStore) BindEnvironment(ctx context.Context, hostID, envID int64) 
 func (s *pgHostStore) UnbindEnvironment(ctx context.Context, hostID int64) error {
 	return s.queries.UnbindHostEnvironment(ctx, hostID)
 }
+
+func (s *pgHostStore) GetWorkspaceIDByNamespaceID(ctx context.Context, nsID int64) (int64, error) {
+	return s.queries.GetWorkspaceIDByNamespaceID(ctx, nsID)
+}

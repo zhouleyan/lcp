@@ -195,6 +195,40 @@ func (s *pgEnvironmentStore) ListByWorkspaceID(ctx context.Context, wsID int64, 
 	return &db.ListResult[infra.DBEnvWorkspaceRow]{Items: rows, TotalCount: count}, nil
 }
 
+func (s *pgEnvironmentStore) ListByWorkspaceIDInherit(ctx context.Context, wsID int64, q db.ListQuery) (*db.ListResult[infra.DBEnvWorkspaceInheritRow], error) {
+	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	count, err := s.queries.CountEnvironmentsByWorkspaceIDInherit(ctx, generated.CountEnvironmentsByWorkspaceIDInheritParams{
+		WorkspaceID: &wsID,
+		Status:      filterStr(q.Filters, "status"),
+		EnvType:     filterStr(q.Filters, "envType"),
+		Search:      filterStr(q.Filters, "search"),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("count workspace environments (inherit): %w", err)
+	}
+
+	rows, err := s.queries.ListEnvironmentsByWorkspaceIDInherit(ctx, generated.ListEnvironmentsByWorkspaceIDInheritParams{
+		WorkspaceID: &wsID,
+		Status:      filterStr(q.Filters, "status"),
+		EnvType:     filterStr(q.Filters, "envType"),
+		Search:      filterStr(q.Filters, "search"),
+		SortField:   q.SortBy,
+		SortOrder:   sortOrder,
+		PageOffset:  offset,
+		PageSize:    limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list workspace environments (inherit): %w", err)
+	}
+
+	return &db.ListResult[infra.DBEnvWorkspaceInheritRow]{Items: rows, TotalCount: count}, nil
+}
+
 func (s *pgEnvironmentStore) ListByNamespaceID(ctx context.Context, nsID int64, q db.ListQuery) (*db.ListResult[infra.DBEnvNamespaceRow], error) {
 	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
 	sortOrder := q.SortOrder
@@ -227,6 +261,40 @@ func (s *pgEnvironmentStore) ListByNamespaceID(ctx context.Context, nsID int64, 
 	}
 
 	return &db.ListResult[infra.DBEnvNamespaceRow]{Items: rows, TotalCount: count}, nil
+}
+
+func (s *pgEnvironmentStore) ListByNamespaceIDInherit(ctx context.Context, nsID int64, q db.ListQuery) (*db.ListResult[infra.DBEnvNamespaceInheritRow], error) {
+	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
+	sortOrder := q.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	count, err := s.queries.CountEnvironmentsByNamespaceIDInherit(ctx, generated.CountEnvironmentsByNamespaceIDInheritParams{
+		NamespaceID: &nsID,
+		Status:      filterStr(q.Filters, "status"),
+		EnvType:     filterStr(q.Filters, "envType"),
+		Search:      filterStr(q.Filters, "search"),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("count namespace environments (inherit): %w", err)
+	}
+
+	rows, err := s.queries.ListEnvironmentsByNamespaceIDInherit(ctx, generated.ListEnvironmentsByNamespaceIDInheritParams{
+		NamespaceID: &nsID,
+		Status:      filterStr(q.Filters, "status"),
+		EnvType:     filterStr(q.Filters, "envType"),
+		Search:      filterStr(q.Filters, "search"),
+		SortField:   q.SortBy,
+		SortOrder:   sortOrder,
+		PageOffset:  offset,
+		PageSize:    limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list namespace environments (inherit): %w", err)
+	}
+
+	return &db.ListResult[infra.DBEnvNamespaceInheritRow]{Items: rows, TotalCount: count}, nil
 }
 
 func (s *pgEnvironmentStore) ListHostsByEnvID(ctx context.Context, envID int64, q db.ListQuery) (*db.ListResult[infra.DBHostByEnvRow], error) {

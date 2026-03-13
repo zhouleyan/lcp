@@ -19,6 +19,7 @@ type HostStore interface {
 	ListByNamespaceID(ctx context.Context, nsID int64, query db.ListQuery) (*db.ListResult[DBHostNamespaceRow], error)
 	BindEnvironment(ctx context.Context, hostID, envID int64) error
 	UnbindEnvironment(ctx context.Context, hostID int64) error
+	GetWorkspaceIDByNamespaceID(ctx context.Context, nsID int64) (int64, error)
 }
 
 // EnvironmentStore defines database operations on environments.
@@ -31,7 +32,9 @@ type EnvironmentStore interface {
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	ListPlatform(ctx context.Context, query db.ListQuery) (*db.ListResult[DBEnvPlatformRow], error)
 	ListByWorkspaceID(ctx context.Context, wsID int64, query db.ListQuery) (*db.ListResult[DBEnvWorkspaceRow], error)
+	ListByWorkspaceIDInherit(ctx context.Context, wsID int64, query db.ListQuery) (*db.ListResult[DBEnvWorkspaceInheritRow], error)
 	ListByNamespaceID(ctx context.Context, nsID int64, query db.ListQuery) (*db.ListResult[DBEnvNamespaceRow], error)
+	ListByNamespaceIDInherit(ctx context.Context, nsID int64, query db.ListQuery) (*db.ListResult[DBEnvNamespaceInheritRow], error)
 	ListHostsByEnvID(ctx context.Context, envID int64, query db.ListQuery) (*db.ListResult[DBHostByEnvRow], error)
 }
 

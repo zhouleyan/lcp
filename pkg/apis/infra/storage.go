@@ -1029,6 +1029,23 @@ func (s *workspaceEnvironmentStorage) List(ctx context.Context, options *rest.Li
 	}
 
 	query := restOptionsToListQuery(options)
+	delete(query.Filters, "inherit")
+
+	if options.Filters["inherit"] == "true" {
+		result, err := s.envStore.ListByWorkspaceIDInherit(ctx, wsID, query)
+		if err != nil {
+			return nil, err
+		}
+		items := make([]Environment, len(result.Items))
+		for i, item := range result.Items {
+			items[i] = envWorkspaceInheritRowToAPI(&item)
+		}
+		return &EnvironmentList{
+			TypeMeta:   runtime.TypeMeta{Kind: "EnvironmentList"},
+			Items:      items,
+			TotalCount: result.TotalCount,
+		}, nil
+	}
 
 	result, err := s.envStore.ListByWorkspaceID(ctx, wsID, query)
 	if err != nil {
@@ -1259,6 +1276,23 @@ func (s *namespaceEnvironmentStorage) List(ctx context.Context, options *rest.Li
 	}
 
 	query := restOptionsToListQuery(options)
+	delete(query.Filters, "inherit")
+
+	if options.Filters["inherit"] == "true" {
+		result, err := s.envStore.ListByNamespaceIDInherit(ctx, nsID, query)
+		if err != nil {
+			return nil, err
+		}
+		items := make([]Environment, len(result.Items))
+		for i, item := range result.Items {
+			items[i] = envNamespaceInheritRowToAPI(&item)
+		}
+		return &EnvironmentList{
+			TypeMeta:   runtime.TypeMeta{Kind: "EnvironmentList"},
+			Items:      items,
+			TotalCount: result.TotalCount,
+		}, nil
+	}
 
 	result, err := s.envStore.ListByNamespaceID(ctx, nsID, query)
 	if err != nil {
@@ -1452,7 +1486,7 @@ func (s *namespaceEnvironmentStorage) DeleteCollection(ctx context.Context, ids 
 // +openapi:action=bind-environment
 // +openapi:resource=Host
 // +openapi:summary=绑定主机到环境
-func NewBindEnvironmentHandler(hostStore HostStore) rest.HandlerFunc {
+func NewBindEnvironmentHandler(hostStore HostStore, envStore EnvironmentStore) rest.HandlerFunc {
 	return func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
 		hostIDStr := params["hostId"]
 		hostID, err := parseID(hostIDStr)
@@ -1472,6 +1506,28 @@ func NewBindEnvironmentHandler(hostStore HostStore) rest.HandlerFunc {
 		envID, err := parseID(req.EnvironmentID)
 		if err != nil {
 			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid environmentId: %s", req.EnvironmentID), nil)
+		}
+
+		// Validate environment scope is compatible with host scope.
+		// Environment must be at the same level or higher than the host in the
+		// scope hierarchy (platform → workspace → namespace).
+		env, err := envStore.GetByID(ctx, envID)
+		if err != nil {
+			return nil, err
+		}
+		host, err := hostStore.GetByID(ctx, hostID)
+		if err != nil {
+			return nil, err
+		}
+		var nsParentWsID int64
+		if host.Scope == "namespace" && host.NamespaceID != nil && env.Scope == "workspace" {
+			nsParentWsID, err = hostStore.GetWorkspaceIDByNamespaceID(ctx, *host.NamespaceID)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if !isEnvScopeCompatible(host, env, nsParentWsID) {
+			return nil, apierrors.NewBadRequest("environment scope is not compatible with host scope", nil)
 		}
 
 		if err := hostStore.BindEnvironment(ctx, hostID, envID); err != nil {
@@ -3050,6 +3106,29 @@ func envWorkspaceRowToAPI(e *DBEnvWorkspaceRow) Environment {
 	}
 }
 
+// envWorkspaceInheritRowToAPI converts a DBEnvWorkspaceInheritRow to an API Environment.
+func envWorkspaceInheritRowToAPI(e *DBEnvWorkspaceInheritRow) Environment {
+	return Environment{
+		TypeMeta: runtime.TypeMeta{Kind: "Environment"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(e.ID, 10),
+			Name:      e.Name,
+			CreatedAt: new(e.CreatedAt),
+			UpdatedAt: new(e.UpdatedAt),
+		},
+		Spec: EnvironmentSpec{
+			DisplayName: e.DisplayName,
+			Description: e.Description,
+			EnvType:     e.EnvType,
+			Scope:       e.Scope,
+			WorkspaceID: optionalIDToStr(e.WorkspaceID),
+			NamespaceID: optionalIDToStr(e.NamespaceID),
+			HostCount:   e.HostCount,
+			Status:      e.Status,
+		},
+	}
+}
+
 // envNamespaceRowToAPI converts a DBEnvNamespaceRow to an API Environment.
 func envNamespaceRowToAPI(e *DBEnvNamespaceRow) Environment {
 	return Environment{
@@ -3073,7 +3152,67 @@ func envNamespaceRowToAPI(e *DBEnvNamespaceRow) Environment {
 	}
 }
 
+// envNamespaceInheritRowToAPI converts a DBEnvNamespaceInheritRow to an API Environment.
+func envNamespaceInheritRowToAPI(e *DBEnvNamespaceInheritRow) Environment {
+	return Environment{
+		TypeMeta: runtime.TypeMeta{Kind: "Environment"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(e.ID, 10),
+			Name:      e.Name,
+			CreatedAt: new(e.CreatedAt),
+			UpdatedAt: new(e.UpdatedAt),
+		},
+		Spec: EnvironmentSpec{
+			DisplayName: e.DisplayName,
+			Description: e.Description,
+			EnvType:     e.EnvType,
+			Scope:       e.Scope,
+			WorkspaceID: optionalIDToStr(e.WorkspaceID),
+			NamespaceID: optionalIDToStr(e.NamespaceID),
+			HostCount:   e.HostCount,
+			Status:      e.Status,
+		},
+	}
+}
+
 // optionalIDToStr converts a *int64 to a string, returning empty string if nil.
+// isEnvScopeCompatible checks whether the environment scope is on the host's
+// inheritance chain. The environment scope must be the same level or higher
+// than the host scope, and share the same workspace/namespace lineage.
+//
+// nsParentWsID is the workspace_id of the host's namespace (only needed when
+// host.Scope == "namespace" and env.Scope == "workspace"); pass 0 otherwise.
+//
+// Rules:
+//   - platform env → compatible with any host
+//   - workspace env → compatible with workspace host (same ws) or namespace host (parent ws matches)
+//   - namespace env → compatible only with namespace host (same ns)
+func isEnvScopeCompatible(host *DBHostWithEnv, env *DBEnvWithCounts, nsParentWsID int64) bool {
+	switch env.Scope {
+	case "platform":
+		return true
+	case "workspace":
+		if env.WorkspaceID == nil {
+			return false
+		}
+		switch host.Scope {
+		case "workspace":
+			return host.WorkspaceID != nil && *host.WorkspaceID == *env.WorkspaceID
+		case "namespace":
+			return nsParentWsID > 0 && nsParentWsID == *env.WorkspaceID
+		default:
+			return false
+		}
+	case "namespace":
+		if env.NamespaceID == nil {
+			return false
+		}
+		return host.Scope == "namespace" && host.NamespaceID != nil && *host.NamespaceID == *env.NamespaceID
+	default:
+		return false
+	}
+}
+
 func optionalIDToStr(id *int64) string {
 	if id == nil {
 		return ""

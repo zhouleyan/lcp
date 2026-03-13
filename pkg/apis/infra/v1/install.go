@@ -38,7 +38,7 @@ func NewInfraModule(database *db.DB) ModuleResult {
 	locationRackStorage := infra.NewLocationRackStorage(p.Rack)
 
 	// Action handlers
-	bindEnvHandler := infra.NewBindEnvironmentHandler(p.Host)
+	bindEnvHandler := infra.NewBindEnvironmentHandler(p.Host, p.Environment)
 	unbindEnvHandler := infra.NewUnbindEnvironmentHandler(p.Host)
 
 	// Custom verb handlers
