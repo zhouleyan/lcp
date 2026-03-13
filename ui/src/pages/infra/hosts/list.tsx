@@ -418,7 +418,6 @@ interface HostFormValues {
   displayName: string
   description: string
   hostname: string
-  ipAddress: string
   os: string
   arch: string
   cpuCores: string
@@ -460,7 +459,6 @@ function HostFormDialog({
     displayName: z.string().optional(),
     description: z.string().optional(),
     hostname: z.string().optional(),
-    ipAddress: z.string().optional(),
     os: z.string().optional(),
     arch: z.string().optional(),
     cpuCores: z.string().optional(),
@@ -473,7 +471,7 @@ function HostFormDialog({
   const form = useForm<HostFormValues>({
     resolver: zodResolver(schema) as never,
     mode: "onBlur",
-    defaultValues: { name: "", displayName: "", description: "", hostname: "", ipAddress: "", os: "", arch: "", cpuCores: "", memoryMb: "", diskGb: "", status: "active", ips: [] },
+    defaultValues: { name: "", displayName: "", description: "", hostname: "", os: "", arch: "", cpuCores: "", memoryMb: "", diskGb: "", status: "active", ips: [] },
   })
 
   const { fields, append, remove } = useFieldArray({
@@ -489,7 +487,6 @@ function HostFormDialog({
           displayName: host.spec.displayName ?? "",
           description: host.spec.description ?? "",
           hostname: host.spec.hostname ?? "",
-          ipAddress: host.spec.ipAddress ?? "",
           os: host.spec.os ?? "",
           arch: host.spec.arch ?? "",
           cpuCores: host.spec.cpuCores ? String(host.spec.cpuCores) : "",
@@ -500,7 +497,7 @@ function HostFormDialog({
         })
         setIpsOpen(false)
       } else {
-        form.reset({ name: "", displayName: "", description: "", hostname: "", ipAddress: "", os: "", arch: "", cpuCores: "", memoryMb: "", diskGb: "", status: "active", ips: [] })
+        form.reset({ name: "", displayName: "", description: "", hostname: "", os: "", arch: "", cpuCores: "", memoryMb: "", diskGb: "", status: "active", ips: [] })
         setIpsOpen(false)
       }
       // Fetch available networks for IP configuration (create mode only)
@@ -533,7 +530,6 @@ function HostFormDialog({
 
       const spec: Host["spec"] = {
         hostname: values.hostname,
-        ipAddress: values.ipAddress,
         ...(ips && ips.length > 0 ? { ips } : {}),
         os: values.os,
         arch: values.arch,
@@ -603,14 +599,9 @@ function HostFormDialog({
             <FormField control={form.control} name="description" render={({ field }) => (
               <FormItem><FormLabel>{t("host.description")}</FormLabel><FormControl><Textarea rows={2} {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="hostname" render={({ field }) => (
-                <FormItem><FormLabel>{t("host.hostname")}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="ipAddress" render={({ field }) => (
-                <FormItem><FormLabel>{t("host.ipAddress")}</FormLabel><FormControl><Input {...field} placeholder="192.168.1.1" /></FormControl><FormMessage /></FormItem>
-              )} />
-            </div>
+            <FormField control={form.control} name="hostname" render={({ field }) => (
+              <FormItem><FormLabel>{t("host.hostname")}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="os" render={({ field }) => (
                 <FormItem><FormLabel>{t("host.os")}</FormLabel><FormControl><Input {...field} placeholder="Linux" /></FormControl><FormMessage /></FormItem>
