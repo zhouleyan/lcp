@@ -289,8 +289,9 @@ func dbToAPI(row *DBCertificate) *Certificate {
 			UpdatedAt: row.UpdatedAt,
 		},
 		Spec: CertificateSpec{
-			CertType:   row.CertType,
-			CommonName: row.CommonName,
+			CertType:     row.CertType,
+			CommonName:   row.CommonName,
+			ValidityDays: int(row.NotAfter.Sub(row.NotBefore).Hours() / 24),
 		},
 		Status: CertificateStatus{
 			SerialNumber: row.SerialNumber,
