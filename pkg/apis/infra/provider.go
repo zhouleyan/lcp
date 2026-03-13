@@ -8,6 +8,7 @@ type Stores struct {
 	Site           SiteStore
 	Location       LocationStore
 	Rack           RackStore
+	IPBinder       IPBinder
 }
 
 // RESTStorageProvider centralizes all Infra Store instances.

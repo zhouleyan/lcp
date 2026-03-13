@@ -32,6 +32,8 @@ type HostSpec struct {
 	Hostname string `json:"hostname,omitempty"`
 	// +openapi:description=IP 地址
 	IPAddress string `json:"ipAddress,omitempty"`
+	// +openapi:description=IP 配置列表（创建时可选，自动或手动分配子网 IP）
+	IPs []IPConfig `json:"ips,omitempty"`
 	// +openapi:description=操作系统
 	OS string `json:"os,omitempty"`
 	// +openapi:description=CPU 架构
@@ -419,4 +421,28 @@ type DBRackWithDetails = generated.GetRackByIDRow
 
 // DBRackListRow is an alias for ListRacks row.
 type DBRackListRow = generated.ListRacksRow
+
+// --- IP allocation types ---
+
+// IPConfig represents an IP configuration in the host creation request.
+// +openapi:description=IP 配置：创建主机时指定子网 ID 和可选 IP 地址。
+type IPConfig struct {
+	// +openapi:required
+	// +openapi:description=子网 ID
+	SubnetID string `json:"subnetId"`
+	// +openapi:description=IP 地址（为空时自动分配）
+	IP string `json:"ip,omitempty"`
+}
+
+// DBIPConfig is the internal representation of IPConfig with parsed IDs.
+type DBIPConfig struct {
+	SubnetID int64
+	IP       string
+}
+
+// DBSubnetRow is an alias for GetSubnetByIDForUpdateACL result (same as Subnet model).
+type DBSubnetRow = generated.Subnet
+
+// DBIPAllocationWithHost is an alias for CreateIPAllocationWithHost result.
+type DBIPAllocationWithHost = generated.CreateIPAllocationWithHostRow
 

@@ -105,6 +105,11 @@ func (s *hostStorage) Create(ctx context.Context, obj runtime.Object, options *r
 		labels = raw
 	}
 
+	dbIPs, err := convertIPConfigs(host.Spec.IPs)
+	if err != nil {
+		return nil, err
+	}
+
 	created, err := s.hostStore.Create(ctx, &DBHost{
 		Name:     host.ObjectMeta.Name,
 		Hostname: host.Spec.Hostname,
@@ -117,7 +122,7 @@ func (s *hostStorage) Create(ctx context.Context, obj runtime.Object, options *r
 		Labels:   labels,
 		Scope:    ScopePlatform,
 		Status:   status,
-	})
+	}, dbIPs)
 	if err != nil {
 		return nil, err
 	}
@@ -352,6 +357,11 @@ func (s *workspaceHostStorage) Create(ctx context.Context, obj runtime.Object, o
 		labels = raw
 	}
 
+	dbIPs, err := convertIPConfigs(host.Spec.IPs)
+	if err != nil {
+		return nil, err
+	}
+
 	created, err := s.hostStore.Create(ctx, &DBHost{
 		Name:        host.ObjectMeta.Name,
 		Hostname:    host.Spec.Hostname,
@@ -365,7 +375,7 @@ func (s *workspaceHostStorage) Create(ctx context.Context, obj runtime.Object, o
 		Scope:       ScopeWorkspace,
 		WorkspaceID: &wsID,
 		Status:      status,
-	})
+	}, dbIPs)
 	if err != nil {
 		return nil, err
 	}
@@ -604,6 +614,11 @@ func (s *namespaceHostStorage) Create(ctx context.Context, obj runtime.Object, o
 		labels = raw
 	}
 
+	dbIPs, err := convertIPConfigs(host.Spec.IPs)
+	if err != nil {
+		return nil, err
+	}
+
 	created, err := s.hostStore.Create(ctx, &DBHost{
 		Name:        host.ObjectMeta.Name,
 		Hostname:    host.Spec.Hostname,
@@ -617,7 +632,7 @@ func (s *namespaceHostStorage) Create(ctx context.Context, obj runtime.Object, o
 		Scope:       ScopeNamespace,
 		NamespaceID: &nsID,
 		Status:      status,
-	})
+	}, dbIPs)
 	if err != nil {
 		return nil, err
 	}
@@ -2631,6 +2646,22 @@ func (s *locationStorage) DeleteCollection(ctx context.Context, ids []string, op
 }
 
 // ===== helpers =====
+
+// convertIPConfigs converts API IPConfig slice to DB IPConfig slice with parsed IDs.
+func convertIPConfigs(ips []IPConfig) ([]DBIPConfig, error) {
+	if len(ips) == 0 {
+		return nil, nil
+	}
+	dbIPs := make([]DBIPConfig, 0, len(ips))
+	for _, cfg := range ips {
+		sid, err := strconv.ParseInt(cfg.SubnetID, 10, 64)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid subnet ID: %s", cfg.SubnetID), nil)
+		}
+		dbIPs = append(dbIPs, DBIPConfig{SubnetID: sid, IP: cfg.IP})
+	}
+	return dbIPs, nil
+}
 
 // restOptionsToListQuery converts REST ListOptions to a db.ListQuery.
 func restOptionsToListQuery(options *rest.ListOptions) db.ListQuery {

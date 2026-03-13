@@ -5,28 +5,31 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	apierrors "lcp.io/lcp/lib/api/errors"
+	"lcp.io/lcp/lib/ipam"
 	"lcp.io/lcp/pkg/apis/infra"
 	"lcp.io/lcp/pkg/db"
 	"lcp.io/lcp/pkg/db/generated"
 )
 
 type pgHostStore struct {
-	pool    *pgxpool.Pool
-	queries *generated.Queries
+	pool     *pgxpool.Pool
+	queries  *generated.Queries
+	ipBinder infra.IPBinder
 }
 
 // NewPGHostStore creates a new PostgreSQL-backed HostStore.
-func NewPGHostStore(pool *pgxpool.Pool, queries *generated.Queries) infra.HostStore {
-	return &pgHostStore{pool: pool, queries: queries}
+func NewPGHostStore(pool *pgxpool.Pool, queries *generated.Queries, ipBinder infra.IPBinder) infra.HostStore {
+	return &pgHostStore{pool: pool, queries: queries, ipBinder: ipBinder}
 }
 
-func (s *pgHostStore) Create(ctx context.Context, host *infra.DBHost) (*infra.DBHost, error) {
-	row, err := s.queries.CreateHost(ctx, generated.CreateHostParams{
+func (s *pgHostStore) Create(ctx context.Context, host *infra.DBHost, ipConfigs []infra.DBIPConfig) (*infra.DBHost, error) {
+	params := generated.CreateHostParams{
 		Name:        host.Name,
 		DisplayName: host.DisplayName,
 		Description: host.Description,
@@ -42,14 +45,108 @@ func (s *pgHostStore) Create(ctx context.Context, host *infra.DBHost) (*infra.DB
 		WorkspaceID: host.WorkspaceID,
 		NamespaceID: host.NamespaceID,
 		Status:      host.Status,
-	})
+	}
+
+	// No IP configs — simple INSERT without transaction.
+	if len(ipConfigs) == 0 {
+		row, err := s.queries.CreateHost(ctx, params)
+		if err != nil {
+			if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
+				return nil, apierrors.NewConflict("host", host.Name)
+			}
+			return nil, fmt.Errorf("create host: %w", err)
+		}
+		return &row, nil
+	}
+
+	// With IP configs — transactional: INSERT host + allocate IPs.
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	row, err := s.queries.WithTx(tx).CreateHost(ctx, params)
 	if err != nil {
 		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
 			return nil, apierrors.NewConflict("host", host.Name)
 		}
 		return nil, fmt.Errorf("create host: %w", err)
 	}
+
+	for _, cfg := range ipConfigs {
+		if err := s.allocateIP(ctx, tx, row.ID, cfg.SubnetID, cfg.IP); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
+	}
 	return &row, nil
+}
+
+// allocateIP locks a subnet, allocates an IP (manual or auto), updates the bitmap,
+// and creates an ip_allocation record — all within the provided transaction.
+func (s *pgHostStore) allocateIP(ctx context.Context, tx pgx.Tx, hostID, subnetID int64, requestedIP string) error {
+	subnet, err := s.ipBinder.GetSubnetForUpdate(ctx, tx, subnetID)
+	if err != nil {
+		return err
+	}
+
+	_, cidr, err := net.ParseCIDR(subnet.Cidr)
+	if err != nil {
+		return fmt.Errorf("parse subnet CIDR %s: %w", subnet.Cidr, err)
+	}
+
+	r, err := ipam.NewCIDRRange(cidr)
+	if err != nil {
+		return fmt.Errorf("create CIDR range: %w", err)
+	}
+
+	if len(subnet.Bitmap) > 0 {
+		if err := r.LoadFromBytes(subnet.Bitmap); err != nil {
+			return fmt.Errorf("load bitmap: %w", err)
+		}
+	}
+
+	var allocatedIP net.IP
+	if requestedIP != "" {
+		ip := net.ParseIP(requestedIP)
+		if ip == nil {
+			return apierrors.NewBadRequest(fmt.Sprintf("invalid IP address: %s", requestedIP), nil)
+		}
+		if err := r.Allocate(ip); err != nil {
+			if errors.Is(err, ipam.ErrAllocated) {
+				return apierrors.NewConflict("ip_allocation", requestedIP)
+			}
+			if errors.Is(err, ipam.ErrNotInRange) {
+				return apierrors.NewBadRequest(fmt.Sprintf("IP %s not in subnet CIDR range %s", requestedIP, subnet.Cidr), nil)
+			}
+			return fmt.Errorf("allocate IP: %w", err)
+		}
+		allocatedIP = ip
+	} else {
+		ip, err := r.AllocateNext()
+		if err != nil {
+			if errors.Is(err, ipam.ErrFull) {
+				return apierrors.NewConflict("subnet", subnet.Cidr)
+			}
+			return fmt.Errorf("allocate next IP: %w", err)
+		}
+		allocatedIP = ip
+	}
+
+	if err := s.ipBinder.UpdateSubnetBitmap(ctx, tx, subnetID, r.SaveToBytes()); err != nil {
+		return err
+	}
+
+	_, err = s.ipBinder.CreateIPAllocation(ctx, tx, &infra.DBIPAllocationWithHost{
+		SubnetID: subnetID,
+		Ip:       allocatedIP.String(),
+		HostID:   &hostID,
+	})
+	return err
 }
 
 func (s *pgHostStore) GetByID(ctx context.Context, id int64) (*infra.DBHostWithEnv, error) {
