@@ -2817,6 +2817,12 @@ func hostWithEnvToAPI(h *DBHostWithEnv) *Host {
 	if h.EnvironmentName != nil {
 		host.Spec.EnvironmentName = *h.EnvironmentName
 	}
+	if h.WorkspaceName != nil {
+		host.Spec.WorkspaceName = *h.WorkspaceName
+	}
+	if h.NamespaceName != nil {
+		host.Spec.NamespaceName = *h.NamespaceName
+	}
 	return host
 }
 
@@ -2848,6 +2854,12 @@ func hostPlatformRowToAPI(h *DBHostPlatformRow) Host {
 	}
 	if h.EnvironmentName != nil {
 		host.Spec.EnvironmentName = *h.EnvironmentName
+	}
+	if h.WorkspaceName != nil {
+		host.Spec.WorkspaceName = *h.WorkspaceName
+	}
+	if h.NamespaceName != nil {
+		host.Spec.NamespaceName = *h.NamespaceName
 	}
 	return host
 }

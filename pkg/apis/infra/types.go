@@ -50,8 +50,12 @@ type HostSpec struct {
 	Scope string `json:"scope"`
 	// +openapi:description=所属租户 ID（workspace scope 时必填）
 	WorkspaceID string `json:"workspaceId,omitempty"`
+	// +openapi:description=所属租户名称（只读）
+	WorkspaceName string `json:"workspaceName,omitempty"`
 	// +openapi:description=所属项目 ID（namespace scope 时必填）
 	NamespaceID string `json:"namespaceId,omitempty"`
+	// +openapi:description=所属项目名称（只读）
+	NamespaceName string `json:"namespaceName,omitempty"`
 	// +openapi:description=绑定的环境 ID（只读）
 	EnvironmentID string `json:"environmentId,omitempty"`
 	// +openapi:description=绑定的环境名称（只读）

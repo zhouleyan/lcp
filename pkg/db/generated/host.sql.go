@@ -228,9 +228,13 @@ func (q *Queries) DeleteHostsByIDs(ctx context.Context, ids []int64) ([]int64, e
 const getHostByID = `-- name: GetHostByID :one
 SELECT
     h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
-    e.name AS environment_name
+    e.name AS environment_name,
+    w.name AS workspace_name,
+    n.name AS namespace_name
 FROM hosts h
 LEFT JOIN environments e ON h.environment_id = e.id
+LEFT JOIN workspaces w ON h.workspace_id = w.id
+LEFT JOIN namespaces n ON h.namespace_id = n.id
 WHERE h.id = $1
 `
 
@@ -255,6 +259,8 @@ type GetHostByIDRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	EnvironmentName *string         `json:"environment_name"`
+	WorkspaceName   *string         `json:"workspace_name"`
+	NamespaceName   *string         `json:"namespace_name"`
 }
 
 func (q *Queries) GetHostByID(ctx context.Context, id int64) (GetHostByIDRow, error) {
@@ -281,6 +287,8 @@ func (q *Queries) GetHostByID(ctx context.Context, id int64) (GetHostByIDRow, er
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EnvironmentName,
+		&i.WorkspaceName,
+		&i.NamespaceName,
 	)
 	return i, err
 }
@@ -536,9 +544,13 @@ const listHostsPlatform = `-- name: ListHostsPlatform :many
 WITH host_data AS (
     SELECT
         h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
-        e.name AS environment_name
+        e.name AS environment_name,
+        w.name AS workspace_name,
+        n.name AS namespace_name
     FROM hosts h
     LEFT JOIN environments e ON h.environment_id = e.id
+    LEFT JOIN workspaces w ON h.workspace_id = w.id
+    LEFT JOIN namespaces n ON h.namespace_id = n.id
     WHERE ($5::VARCHAR IS NULL OR h.status = $5)
         AND ($6::BIGINT IS NULL
              OR ($6::BIGINT = 0 AND h.environment_id IS NULL)
@@ -547,7 +559,7 @@ WITH host_data AS (
              OR h.name ILIKE '%' || $7 || '%'
              OR h.display_name ILIKE '%' || $7 || '%')
 )
-SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name FROM host_data
+SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, workspace_name, namespace_name FROM host_data
 ORDER BY
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
@@ -593,6 +605,8 @@ type ListHostsPlatformRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	EnvironmentName *string         `json:"environment_name"`
+	WorkspaceName   *string         `json:"workspace_name"`
+	NamespaceName   *string         `json:"namespace_name"`
 }
 
 func (q *Queries) ListHostsPlatform(ctx context.Context, arg ListHostsPlatformParams) ([]ListHostsPlatformRow, error) {
@@ -633,6 +647,8 @@ func (q *Queries) ListHostsPlatform(ctx context.Context, arg ListHostsPlatformPa
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EnvironmentName,
+			&i.WorkspaceName,
+			&i.NamespaceName,
 		); err != nil {
 			return nil, err
 		}

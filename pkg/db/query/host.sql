@@ -6,9 +6,13 @@ RETURNING *;
 -- name: GetHostByID :one
 SELECT
     h.*,
-    e.name AS environment_name
+    e.name AS environment_name,
+    w.name AS workspace_name,
+    n.name AS namespace_name
 FROM hosts h
 LEFT JOIN environments e ON h.environment_id = e.id
+LEFT JOIN workspaces w ON h.workspace_id = w.id
+LEFT JOIN namespaces n ON h.namespace_id = n.id
 WHERE h.id = @id;
 
 -- name: UpdateHost :one
@@ -77,9 +81,13 @@ WHERE (sqlc.narg('status')::VARCHAR IS NULL OR status = sqlc.narg('status'))
 WITH host_data AS (
     SELECT
         h.*,
-        e.name AS environment_name
+        e.name AS environment_name,
+        w.name AS workspace_name,
+        n.name AS namespace_name
     FROM hosts h
     LEFT JOIN environments e ON h.environment_id = e.id
+    LEFT JOIN workspaces w ON h.workspace_id = w.id
+    LEFT JOIN namespaces n ON h.namespace_id = n.id
     WHERE (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
         AND (sqlc.narg('environment_id')::BIGINT IS NULL
              OR (sqlc.narg('environment_id')::BIGINT = 0 AND h.environment_id IS NULL)
