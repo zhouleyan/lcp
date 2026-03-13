@@ -658,7 +658,7 @@ function HostFormDialog({
                         </Button>
                       </div>
                       {selectedSubnet && (
-                        <p className="text-muted-foreground mt-0.5 mb-0 text-xs pl-0.5">
+                        <p className="text-muted-foreground -mt-1 text-xs pl-0.5">
                           {selectedSubnet.cidr} · {t("host.ips.subnet.free", { free: selectedSubnet.freeIPs, total: selectedSubnet.totalIPs })}
                         </p>
                       )}
