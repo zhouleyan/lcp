@@ -6,6 +6,7 @@ import audit from "./audit"
 import infra from "./infra"
 import network from "./network"
 import o11y from "./o11y"
+import pki from "./pki"
 
 const enUS: Messages = {
   ...common,
@@ -15,6 +16,7 @@ const enUS: Messages = {
   ...infra,
   ...network,
   ...o11y,
+  ...pki,
 }
 
 export default enUS
