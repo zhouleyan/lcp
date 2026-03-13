@@ -629,8 +629,8 @@ function BindEnvironmentDialog({
           const data = await scopedApiCall(
             scopeWorkspaceId, scopeNamespaceId,
             () => listEnvironments({ pageSize: 100 }),
-            (wsId) => listWorkspaceEnvironments(wsId, { pageSize: 100 }),
-            (wsId, nsId) => listNamespaceEnvironments(wsId, nsId, { pageSize: 100 }),
+            (wsId) => listWorkspaceEnvironments(wsId, { pageSize: 100, inherit: "true" }),
+            (wsId, nsId) => listNamespaceEnvironments(wsId, nsId, { pageSize: 100, inherit: "true" }),
           )
           setEnvironments(data.items ?? [])
         } catch {
