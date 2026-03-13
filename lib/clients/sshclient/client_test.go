@@ -249,6 +249,30 @@ func TestBuildAuthMethods_PasswordAndKeyContent(t *testing.T) {
 	}
 }
 
+func TestNewWithProxyJump(t *testing.T) {
+	c := New(Config{
+		Host:     "target.example.com",
+		Password: "target-pass",
+		ProxyJump: &Config{
+			Host:     "bastion.example.com",
+			Password: "bastion-pass",
+		},
+	})
+	if c.config.ProxyJump == nil {
+		t.Fatal("expected ProxyJump config to be set")
+	}
+	if c.config.ProxyJump.Host != "bastion.example.com" {
+		t.Errorf("expected bastion host, got %q", c.config.ProxyJump.Host)
+	}
+	// ProxyJump config should also have defaults applied
+	if c.config.ProxyJump.Port != 22 {
+		t.Errorf("expected default port 22 on ProxyJump, got %d", c.config.ProxyJump.Port)
+	}
+	if c.config.ProxyJump.User != "root" {
+		t.Errorf("expected default user on ProxyJump, got %q", c.config.ProxyJump.User)
+	}
+}
+
 func TestBuildAuthMethods_InvalidKeyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	keyPath := filepath.Join(tmpDir, "bad_key")

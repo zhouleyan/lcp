@@ -3,6 +3,7 @@ package sshclient
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -45,6 +46,11 @@ type Config struct {
 	PrivateKeyContent string
 	// Timeout for the SSH connection. Defaults to 30s.
 	Timeout time.Duration
+	// ProxyJump is the bastion/jump host config. When set, the client
+	// connects to Host through the proxy via SSH tunnel. Supports
+	// multi-level chaining (ProxyJump can itself have a ProxyJump).
+	// Nil means direct connection.
+	ProxyJump *Config
 }
 
 // applyDefaults fills in zero-value fields with sensible defaults.
@@ -62,15 +68,20 @@ func (c *Config) applyDefaults() {
 
 // Client wraps an SSH connection with managed lifecycle.
 type Client struct {
-	config Config
-	client *ssh.Client
-	mu     sync.Mutex
+	config      Config
+	client      *ssh.Client
+	proxyClient *Client  // bastion client (auto-managed lifecycle)
+	proxyConn   net.Conn // tunnel connection through bastion
+	mu          sync.Mutex
 }
 
 // New creates a new Client with the given config. It does not establish
 // a connection; call Connect to do so.
 func New(config Config) *Client {
 	config.applyDefaults()
+	if config.ProxyJump != nil {
+		config.ProxyJump.applyDefaults()
+	}
 	return &Client{
 		config: config,
 	}
