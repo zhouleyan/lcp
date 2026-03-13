@@ -28,12 +28,9 @@ func (q *Queries) BindHostEnvironment(ctx context.Context, arg BindHostEnvironme
 
 const countHostsByNamespaceID = `-- name: CountHostsByNamespaceID :one
 SELECT count(*)
-FROM (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id = $1
-) AS visible
-JOIN hosts h ON h.id = visible.id
-WHERE ($2::VARCHAR IS NULL OR h.status = $2)
+FROM hosts h
+WHERE h.scope = 'namespace' AND h.namespace_id = $1
+    AND ($2::VARCHAR IS NULL OR h.status = $2)
     AND ($3::BIGINT IS NULL
          OR ($3::BIGINT = 0 AND h.environment_id IS NULL)
          OR h.environment_id = $3)
@@ -63,15 +60,12 @@ func (q *Queries) CountHostsByNamespaceID(ctx context.Context, arg CountHostsByN
 
 const countHostsByWorkspaceID = `-- name: CountHostsByWorkspaceID :one
 SELECT count(*)
-FROM (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'workspace' AND h.workspace_id = $1
-    UNION
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = $1)
-) AS visible
-JOIN hosts h ON h.id = visible.id
-WHERE ($2::VARCHAR IS NULL OR h.status = $2)
+FROM hosts h
+WHERE (
+    (h.scope = 'workspace' AND h.workspace_id = $1)
+    OR (h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = $1))
+)
+    AND ($2::VARCHAR IS NULL OR h.status = $2)
     AND ($3::BIGINT IS NULL
          OR ($3::BIGINT = 0 AND h.environment_id IS NULL)
          OR h.environment_id = $3)
@@ -294,19 +288,14 @@ func (q *Queries) GetHostByID(ctx context.Context, id int64) (GetHostByIDRow, er
 }
 
 const listHostsByNamespaceID = `-- name: ListHostsByNamespaceID :many
-WITH visible_hosts AS (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id = $5
-),
-host_data AS (
+WITH host_data AS (
     SELECT
         h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
-        e.name AS environment_name,
-        'owned' AS origin
+        e.name AS environment_name
     FROM hosts h
-    JOIN visible_hosts vh ON vh.id = h.id
     LEFT JOIN environments e ON h.environment_id = e.id
-    WHERE ($6::VARCHAR IS NULL OR h.status = $6)
+    WHERE h.scope = 'namespace' AND h.namespace_id = $5
+        AND ($6::VARCHAR IS NULL OR h.status = $6)
         AND ($7::BIGINT IS NULL
              OR ($7::BIGINT = 0 AND h.environment_id IS NULL)
              OR h.environment_id = $7)
@@ -314,7 +303,7 @@ host_data AS (
              OR h.name ILIKE '%' || $8 || '%'
              OR h.display_name ILIKE '%' || $8 || '%')
 )
-SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, origin FROM host_data
+SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name FROM host_data
 ORDER BY
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
@@ -361,7 +350,6 @@ type ListHostsByNamespaceIDRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	EnvironmentName *string         `json:"environment_name"`
-	Origin          string          `json:"origin"`
 }
 
 func (q *Queries) ListHostsByNamespaceID(ctx context.Context, arg ListHostsByNamespaceIDParams) ([]ListHostsByNamespaceIDRow, error) {
@@ -403,7 +391,6 @@ func (q *Queries) ListHostsByNamespaceID(ctx context.Context, arg ListHostsByNam
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EnvironmentName,
-			&i.Origin,
 		); err != nil {
 			return nil, err
 		}
@@ -416,22 +403,19 @@ func (q *Queries) ListHostsByNamespaceID(ctx context.Context, arg ListHostsByNam
 }
 
 const listHostsByWorkspaceID = `-- name: ListHostsByWorkspaceID :many
-WITH visible_hosts AS (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'workspace' AND h.workspace_id = $5
-    UNION
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = $5)
-),
-host_data AS (
+WITH host_data AS (
     SELECT
         h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
         e.name AS environment_name,
-        'owned' AS origin
+        n.name AS namespace_name
     FROM hosts h
-    JOIN visible_hosts vh ON vh.id = h.id
     LEFT JOIN environments e ON h.environment_id = e.id
-    WHERE ($6::VARCHAR IS NULL OR h.status = $6)
+    LEFT JOIN namespaces n ON h.namespace_id = n.id
+    WHERE (
+        (h.scope = 'workspace' AND h.workspace_id = $5)
+        OR (h.scope = 'namespace' AND h.namespace_id IN (SELECT n2.id FROM namespaces n2 WHERE n2.workspace_id = $5))
+    )
+        AND ($6::VARCHAR IS NULL OR h.status = $6)
         AND ($7::BIGINT IS NULL
              OR ($7::BIGINT = 0 AND h.environment_id IS NULL)
              OR h.environment_id = $7)
@@ -439,7 +423,7 @@ host_data AS (
              OR h.name ILIKE '%' || $8 || '%'
              OR h.display_name ILIKE '%' || $8 || '%')
 )
-SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, origin FROM host_data
+SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, namespace_name FROM host_data
 ORDER BY
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
@@ -486,7 +470,7 @@ type ListHostsByWorkspaceIDRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	EnvironmentName *string         `json:"environment_name"`
-	Origin          string          `json:"origin"`
+	NamespaceName   *string         `json:"namespace_name"`
 }
 
 func (q *Queries) ListHostsByWorkspaceID(ctx context.Context, arg ListHostsByWorkspaceIDParams) ([]ListHostsByWorkspaceIDRow, error) {
@@ -528,7 +512,7 @@ func (q *Queries) ListHostsByWorkspaceID(ctx context.Context, arg ListHostsByWor
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EnvironmentName,
-			&i.Origin,
+			&i.NamespaceName,
 		); err != nil {
 			return nil, err
 		}

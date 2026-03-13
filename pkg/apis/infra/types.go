@@ -60,9 +60,6 @@ type HostSpec struct {
 	EnvironmentID string `json:"environmentId,omitempty"`
 	// +openapi:description=绑定的环境名称（只读）
 	EnvironmentName string `json:"environmentName,omitempty"`
-	// +openapi:description=主机来源：owned 表示自有，assigned 表示被分配（只读，仅 workspace/namespace 列表返回）
-	// +openapi:enum=owned,assigned
-	Origin string `json:"origin,omitempty"`
 	// +openapi:description=主机状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
@@ -355,10 +352,10 @@ type DBEnvWithCounts = generated.GetEnvironmentByIDRow
 // DBHostPlatformRow is an alias for ListHostsPlatform row (no origin field).
 type DBHostPlatformRow = generated.ListHostsPlatformRow
 
-// DBHostWorkspaceRow is an alias for ListHostsByWorkspaceID row (with origin field).
+// DBHostWorkspaceRow is an alias for ListHostsByWorkspaceID row.
 type DBHostWorkspaceRow = generated.ListHostsByWorkspaceIDRow
 
-// DBHostNamespaceRow is an alias for ListHostsByNamespaceID row (with origin field).
+// DBHostNamespaceRow is an alias for ListHostsByNamespaceID row.
 type DBHostNamespaceRow = generated.ListHostsByNamespaceIDRow
 
 // DBEnvPlatformRow is an alias for ListEnvironmentsPlatform row.

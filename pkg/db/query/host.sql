@@ -112,15 +112,12 @@ OFFSET sqlc.arg('page_offset')::INT;
 
 -- name: CountHostsByWorkspaceID :one
 SELECT count(*)
-FROM (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'workspace' AND h.workspace_id = @workspace_id
-    UNION
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = @workspace_id)
-) AS visible
-JOIN hosts h ON h.id = visible.id
-WHERE (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
+FROM hosts h
+WHERE (
+    (h.scope = 'workspace' AND h.workspace_id = @workspace_id)
+    OR (h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = @workspace_id))
+)
+    AND (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
     AND (sqlc.narg('environment_id')::BIGINT IS NULL
          OR (sqlc.narg('environment_id')::BIGINT = 0 AND h.environment_id IS NULL)
          OR h.environment_id = sqlc.narg('environment_id'))
@@ -129,22 +126,19 @@ WHERE (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
          OR h.display_name ILIKE '%' || sqlc.narg('search') || '%');
 
 -- name: ListHostsByWorkspaceID :many
-WITH visible_hosts AS (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'workspace' AND h.workspace_id = @workspace_id
-    UNION
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = @workspace_id)
-),
-host_data AS (
+WITH host_data AS (
     SELECT
         h.*,
         e.name AS environment_name,
-        'owned' AS origin
+        n.name AS namespace_name
     FROM hosts h
-    JOIN visible_hosts vh ON vh.id = h.id
     LEFT JOIN environments e ON h.environment_id = e.id
-    WHERE (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
+    LEFT JOIN namespaces n ON h.namespace_id = n.id
+    WHERE (
+        (h.scope = 'workspace' AND h.workspace_id = @workspace_id)
+        OR (h.scope = 'namespace' AND h.namespace_id IN (SELECT n2.id FROM namespaces n2 WHERE n2.workspace_id = @workspace_id))
+    )
+        AND (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
         AND (sqlc.narg('environment_id')::BIGINT IS NULL
              OR (sqlc.narg('environment_id')::BIGINT = 0 AND h.environment_id IS NULL)
              OR h.environment_id = sqlc.narg('environment_id'))
@@ -168,12 +162,9 @@ OFFSET sqlc.arg('page_offset')::INT;
 
 -- name: CountHostsByNamespaceID :one
 SELECT count(*)
-FROM (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id = @namespace_id
-) AS visible
-JOIN hosts h ON h.id = visible.id
-WHERE (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
+FROM hosts h
+WHERE h.scope = 'namespace' AND h.namespace_id = @namespace_id
+    AND (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
     AND (sqlc.narg('environment_id')::BIGINT IS NULL
          OR (sqlc.narg('environment_id')::BIGINT = 0 AND h.environment_id IS NULL)
          OR h.environment_id = sqlc.narg('environment_id'))
@@ -182,19 +173,14 @@ WHERE (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
          OR h.display_name ILIKE '%' || sqlc.narg('search') || '%');
 
 -- name: ListHostsByNamespaceID :many
-WITH visible_hosts AS (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id = @namespace_id
-),
-host_data AS (
+WITH host_data AS (
     SELECT
         h.*,
-        e.name AS environment_name,
-        'owned' AS origin
+        e.name AS environment_name
     FROM hosts h
-    JOIN visible_hosts vh ON vh.id = h.id
     LEFT JOIN environments e ON h.environment_id = e.id
-    WHERE (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
+    WHERE h.scope = 'namespace' AND h.namespace_id = @namespace_id
+        AND (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
         AND (sqlc.narg('environment_id')::BIGINT IS NULL
              OR (sqlc.narg('environment_id')::BIGINT = 0 AND h.environment_id IS NULL)
              OR h.environment_id = sqlc.narg('environment_id'))

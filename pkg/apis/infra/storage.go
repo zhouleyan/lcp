@@ -2864,7 +2864,7 @@ func hostPlatformRowToAPI(h *DBHostPlatformRow) Host {
 	return host
 }
 
-// hostWorkspaceRowToAPI converts a DBHostWorkspaceRow to an API Host (includes Origin).
+// hostWorkspaceRowToAPI converts a DBHostWorkspaceRow to an API Host.
 func hostWorkspaceRowToAPI(h *DBHostWorkspaceRow) Host {
 	host := Host{
 		TypeMeta: runtime.TypeMeta{Kind: "Host"},
@@ -2887,17 +2887,19 @@ func hostWorkspaceRowToAPI(h *DBHostWorkspaceRow) Host {
 			WorkspaceID:   optionalIDToStr(h.WorkspaceID),
 			NamespaceID:   optionalIDToStr(h.NamespaceID),
 			EnvironmentID: optionalIDToStr(h.EnvironmentID),
-			Origin:        h.Origin,
 			Status:        h.Status,
 		},
 	}
 	if h.EnvironmentName != nil {
 		host.Spec.EnvironmentName = *h.EnvironmentName
 	}
+	if h.NamespaceName != nil {
+		host.Spec.NamespaceName = *h.NamespaceName
+	}
 	return host
 }
 
-// hostNamespaceRowToAPI converts a DBHostNamespaceRow to an API Host (includes Origin).
+// hostNamespaceRowToAPI converts a DBHostNamespaceRow to an API Host.
 func hostNamespaceRowToAPI(h *DBHostNamespaceRow) Host {
 	host := Host{
 		TypeMeta: runtime.TypeMeta{Kind: "Host"},
@@ -2920,7 +2922,6 @@ func hostNamespaceRowToAPI(h *DBHostNamespaceRow) Host {
 			WorkspaceID:   optionalIDToStr(h.WorkspaceID),
 			NamespaceID:   optionalIDToStr(h.NamespaceID),
 			EnvironmentID: optionalIDToStr(h.EnvironmentID),
-			Origin:        h.Origin,
 			Status:        h.Status,
 		},
 	}
