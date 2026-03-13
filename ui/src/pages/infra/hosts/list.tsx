@@ -406,6 +406,22 @@ export default function HostListPage() {
   )
 }
 
+// ===== CIDR helper =====
+
+function isIPInCIDR(ip: string, cidr: string): boolean {
+  const parts = ip.split(".").map(Number)
+  if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) return false
+  const [net, bits] = cidr.split("/")
+  const prefix = Number(bits)
+  if (isNaN(prefix) || prefix < 0 || prefix > 32) return false
+  const netParts = net.split(".").map(Number)
+  if (netParts.length !== 4) return false
+  const ipNum = ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0
+  const netNum = ((netParts[0] << 24) | (netParts[1] << 16) | (netParts[2] << 8) | netParts[3]) >>> 0
+  const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0
+  return (ipNum & mask) === (netNum & mask)
+}
+
 // ===== Host Form Dialog =====
 
 interface IPConfigFormValues {
@@ -441,13 +457,25 @@ function HostFormDialog({
   const isEdit = !!host
   const [loading, setLoading] = useState(false)
   const [networks, setNetworks] = useState<AvailableNetwork[]>([])
+  const [specifyIpRows, setSpecifyIpRows] = useState<Set<number>>(new Set())
+
+  const allSubnets = networks.flatMap((n) => n.spec.subnets)
 
   const ipConfigSchema = z.object({
     subnetId: z.string().min(1, t("api.validation.required", { field: t("host.ips.subnetId") })),
-    ip: z.string().optional().refine(
-      (v) => !v || /^(\d{1,3}\.){3}\d{1,3}$/.test(v),
-      { message: t("api.validation.ip.format") },
-    ),
+    ip: z.string().optional(),
+  }).superRefine((data, ctx) => {
+    if (!data.ip) return
+    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(data.ip)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("api.validation.ip.format"), path: ["ip"] })
+      return
+    }
+    if (data.subnetId) {
+      const subnet = allSubnets.find((s) => s.id === data.subnetId)
+      if (subnet && !isIPInCIDR(data.ip, subnet.cidr)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("host.ips.ip.outOfRange"), path: ["ip"] })
+      }
+    }
   })
 
   const schema = z.object({
@@ -480,6 +508,7 @@ function HostFormDialog({
 
   useEffect(() => {
     if (open) {
+      setSpecifyIpRows(new Set())
       if (host) {
         form.reset({
           name: host.metadata.name,
@@ -612,52 +641,67 @@ function HostFormDialog({
                   return (
                     <div key={field.id}>
                       <div className="flex items-start gap-2">
-                        <div className="grid grid-cols-2 gap-2 flex-1 min-w-0">
-                          <FormField control={form.control} name={`ips.${index}.subnetId`} render={({ field: f }) => (
-                            <FormItem>
-                              <Select value={f.value} onValueChange={f.onChange}>
-                                <FormControl>
-                                  <SelectTrigger className="w-full truncate">
-                                    <SelectValue placeholder={t("host.ips.subnet.select")} />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {networks.map((net) => (
-                                    <SelectGroup key={net.metadata.id}>
-                                      <SelectLabel>{net.spec.displayName || net.metadata.name}{net.spec.cidr ? ` (${net.spec.cidr})` : ""}</SelectLabel>
-                                      {net.spec.subnets.map((sub) => (
-                                        <SelectItem key={sub.id} value={sub.id} disabled={sub.freeIPs === 0}>
-                                          {sub.displayName || sub.name} — {sub.cidr}
-                                          <span className="text-muted-foreground ml-2 text-xs">
-                                            ({t("host.ips.subnet.free", { free: sub.freeIPs, total: sub.totalIPs })})
-                                          </span>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectGroup>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              {selectedSubnet && (
-                                <p className="text-muted-foreground text-xs">
-                                  {selectedSubnet.cidr} · {t("host.ips.subnet.free", { free: selectedSubnet.freeIPs, total: selectedSubnet.totalIPs })}
-                                </p>
-                              )}
-                              <FormMessage />
-                            </FormItem>
-                          )} />
+                        <FormField control={form.control} name={`ips.${index}.subnetId`} render={({ field: f }) => (
+                          <FormItem className="flex-1 min-w-0">
+                            <Select value={f.value} onValueChange={f.onChange}>
+                              <FormControl>
+                                <SelectTrigger className="w-full truncate">
+                                  <SelectValue placeholder={t("host.ips.subnet.select")} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {networks.map((net) => (
+                                  <SelectGroup key={net.metadata.id}>
+                                    <SelectLabel>{net.spec.displayName || net.metadata.name}{net.spec.cidr ? ` (${net.spec.cidr})` : ""}</SelectLabel>
+                                    {net.spec.subnets.map((sub) => (
+                                      <SelectItem key={sub.id} value={sub.id} disabled={sub.freeIPs === 0}>
+                                        {sub.displayName || sub.name} — {sub.cidr}
+                                        <span className="text-muted-foreground ml-2 text-xs">
+                                          ({t("host.ips.subnet.free", { free: sub.freeIPs, total: sub.totalIPs })})
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {selectedSubnet && (
+                              <p className="text-muted-foreground text-xs">
+                                {selectedSubnet.cidr} · {t("host.ips.subnet.free", { free: selectedSubnet.freeIPs, total: selectedSubnet.totalIPs })}
+                              </p>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        {specifyIpRows.has(index) ? (
                           <FormField control={form.control} name={`ips.${index}.ip`} render={({ field: f }) => (
-                            <FormItem>
+                            <FormItem className="w-40 shrink-0">
                               <FormControl><Input {...f} placeholder={t("host.ips.ip")} /></FormControl>
                               <FormMessage />
                             </FormItem>
                           )} />
-                        </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-primary text-sm h-9 shrink-0 hover:underline"
+                            onClick={() => setSpecifyIpRows((prev) => new Set(prev).add(index))}
+                          >
+                            {t("host.ips.ip.specify")}
+                          </button>
+                        )}
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           className="h-9 w-9 shrink-0"
-                          onClick={() => remove(index)}
+                          onClick={() => {
+                            remove(index)
+                            setSpecifyIpRows((prev) => {
+                              const next = new Set<number>()
+                              prev.forEach((i) => { if (i < index) next.add(i); else if (i > index) next.add(i - 1) })
+                              return next
+                            })
+                          }}
                         >
                           <X className="h-4 w-4" />
                         </Button>
