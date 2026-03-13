@@ -152,6 +152,20 @@ type Network struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type O11yEndpoint struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Public      bool      `json:"public"`
+	MetricsUrl  string    `json:"metrics_url"`
+	LogsUrl     string    `json:"logs_url"`
+	TracesUrl   string    `json:"traces_url"`
+	ApmUrl      string    `json:"apm_url"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 // OIDC 签名密钥：自动生成，存储 PEM 编码的密钥对
 type OidcKey struct {
 	ID int64 `json:"id"`
