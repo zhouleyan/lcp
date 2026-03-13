@@ -8,6 +8,6 @@ import (
 // NewStores creates all PKI store implementations.
 func NewStores(database *db.DB) pki.Stores {
 	return pki.Stores{
-		Certificate: NewPGCertificateStore(database.Queries),
+		Certificate: NewPGCertificateStore(database.Pool, database.Queries),
 	}
 }

@@ -253,7 +253,7 @@ export default function CertificateListPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {hasPermission(`${permPrefix}:get`) && (
+                        {hasPermission(`${permPrefix}:export`) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 px-2">

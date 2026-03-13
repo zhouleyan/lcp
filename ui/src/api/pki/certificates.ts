@@ -25,6 +25,11 @@ export async function deleteCertificates(ids: string[]): Promise<void> {
 
 /**
  * Download a certificate file via blob. Triggers browser file download.
+ *
+ * Uses native fetch instead of ky because ky doesn't support blob downloads
+ * natively and we need direct access to the response for createObjectURL.
+ * Note: this bypasses the centralized 401 token refresh in api/client.ts.
+ *
  * @param id - Certificate ID
  * @param file - File type: "cert.pem", "cert.crt", "key.pem", "key.key", "chain.pem", "chain.crt"
  */

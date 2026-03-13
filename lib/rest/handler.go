@@ -22,14 +22,14 @@ type HandlerFunc func(ctx context.Context, params map[string]string, body []byte
 const maxRequestBodySize = 1 << 20
 
 // Handle returns an http.HandlerFunc that:
-//  1. Extracts path params and query params from the request
+//  1. Extracts path params from the request
 //  2. Reads request body (if present)
 //  3. Calls fn
 //  4. Writes the response with the given statusCode (or 204 if result is nil)
 func Handle(ns runtime.NegotiatedSerializer, statusCode int, fn HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		params := mergeQueryParams(PathParams(req), req)
+		params := PathParams(req)
 
 		var body []byte
 		if req.Body != nil && req.ContentLength != 0 {
@@ -64,6 +64,48 @@ func Handle(ns runtime.NegotiatedSerializer, statusCode int, fn HandlerFunc) htt
 
 // HandleWithAPIVersion is like Handle but also sets the APIVersion on the result object.
 func HandleWithAPIVersion(ns runtime.NegotiatedSerializer, statusCode int, fn HandlerFunc, apiVersion string) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		params := PathParams(req)
+
+		var body []byte
+		if req.Body != nil && req.ContentLength != 0 {
+			req.Body = http.MaxBytesReader(w, req.Body, maxRequestBodySize)
+			var err error
+			body, err = io.ReadAll(req.Body)
+			if err != nil {
+				handleError(ns, err, w, req)
+				return
+			}
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(req.Body)
+		}
+
+		result, err := fn(ctx, params, body)
+		if err != nil {
+			handleError(ns, err, w, req)
+			return
+		}
+		if result == nil {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if fr, ok := result.(*FileResponse); ok {
+			writeFileResponse(w, statusCode, fr)
+			return
+		}
+		if tm := result.GetTypeMeta(); tm != nil {
+			tm.APIVersion = apiVersion
+		}
+		transformResponseObject(ns, req, w, statusCode, result)
+	}
+}
+
+// HandleAction is like HandleWithAPIVersion but also merges query params
+// into the params map (path params take priority). This is used for action
+// handlers that may need query parameters (e.g. ?file=cert.pem).
+func HandleAction(ns runtime.NegotiatedSerializer, statusCode int, fn HandlerFunc, apiVersion string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		params := mergeQueryParams(PathParams(req), req)

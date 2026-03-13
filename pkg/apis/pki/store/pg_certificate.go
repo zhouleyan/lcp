@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/pkg/apis/pki"
 	"lcp.io/lcp/pkg/db"
@@ -14,12 +15,13 @@ import (
 )
 
 type pgCertificateStore struct {
+	db      *pgxpool.Pool
 	queries *generated.Queries
 }
 
 // NewPGCertificateStore creates a PostgreSQL-backed CertificateStore.
-func NewPGCertificateStore(queries *generated.Queries) pki.CertificateStore {
-	return &pgCertificateStore{queries: queries}
+func NewPGCertificateStore(pool *pgxpool.Pool, queries *generated.Queries) pki.CertificateStore {
+	return &pgCertificateStore{db: pool, queries: queries}
 }
 
 func (s *pgCertificateStore) Create(ctx context.Context, cert *pki.DBCertificate) (*pki.DBCertificate, error) {
@@ -109,10 +111,47 @@ func (s *pgCertificateStore) DeleteByIDs(ctx context.Context, ids []int64) (int6
 	if len(ids) == 0 {
 		return 0, nil
 	}
-	deletedIDs, err := s.queries.DeleteCertificates(ctx, ids)
+
+	// Use a transaction to atomically check CA dependencies and delete
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	qtx := s.queries.WithTx(tx)
+
+	// Check each certificate for CA dependencies before deleting
+	for _, id := range ids {
+		row, err := qtx.GetCertificateByID(ctx, id)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue // already deleted
+			}
+			return 0, fmt.Errorf("get certificate %d: %w", id, err)
+		}
+		if row.CertType == "ca" {
+			cn := row.Name
+			count, err := qtx.CountCertificatesByCAName(ctx, &cn)
+			if err != nil {
+				return 0, fmt.Errorf("count dependents of CA %q: %w", row.Name, err)
+			}
+			if count > 0 {
+				return 0, apierrors.NewBadRequest(
+					fmt.Sprintf("cannot delete CA %q: %d certificate(s) depend on it", row.Name, count), nil)
+			}
+		}
+	}
+
+	deletedIDs, err := qtx.DeleteCertificates(ctx, ids)
 	if err != nil {
 		return 0, fmt.Errorf("delete certificates: %w", err)
 	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("commit transaction: %w", err)
+	}
+
 	return int64(len(deletedIDs)), nil
 }
 

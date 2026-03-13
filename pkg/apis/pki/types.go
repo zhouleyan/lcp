@@ -44,7 +44,7 @@ type CertificateSpec struct {
 	// +openapi:description=签发 CA 名称（非 CA 类型必填）
 	CAName string `json:"caName,omitempty"`
 
-	// +openapi:description=有效期天数，默认 365，CA 默认 3650
+	// +openapi:description=有效期天数（0 或省略表示使用默认值：CA 为 3650 天，其他为 365 天）
 	ValidityDays int `json:"validityDays,omitempty"`
 }
 

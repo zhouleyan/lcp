@@ -219,27 +219,6 @@ func (s *certificateStorage) DeleteCollection(ctx context.Context, ids []string,
 		int64IDs = append(int64IDs, parsed)
 	}
 
-	// Check CA dependency for each certificate before batch delete
-	for _, id := range int64IDs {
-		row, err := s.store.GetByID(ctx, id)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				continue // already deleted, skip
-			}
-			return nil, err
-		}
-		if row.CertType == CertTypeCA {
-			depCount, err := s.store.CountByCAName(ctx, row.Name)
-			if err != nil {
-				return nil, err
-			}
-			if depCount > 0 {
-				return nil, apierrors.NewBadRequest(
-					fmt.Sprintf("cannot delete CA %q: %d certificate(s) depend on it", row.Name, depCount), nil)
-			}
-		}
-	}
-
 	count, err := s.store.DeleteByIDs(ctx, int64IDs)
 	if err != nil {
 		return nil, err
@@ -285,7 +264,6 @@ func dbToAPI(row *DBCertificate) *Certificate {
 		Spec: CertificateSpec{
 			CertType:   row.CertType,
 			CommonName: row.CommonName,
-			DNSNames:   row.DnsNames,
 		},
 		Status: CertificateStatus{
 			SerialNumber: row.SerialNumber,
@@ -293,6 +271,9 @@ func dbToAPI(row *DBCertificate) *Certificate {
 			NotAfter:     row.NotAfter.Format(time.RFC3339),
 			Certificate:  string(row.Certificate),
 		},
+	}
+	if len(row.DnsNames) > 0 {
+		cert.Spec.DNSNames = row.DnsNames
 	}
 	if row.CaName != nil {
 		cert.Spec.CAName = *row.CaName
