@@ -29,7 +29,7 @@ const pki: Messages = {
   "certificate.export": "导出",
   "certificate.exportCert": "证书 (.pem)",
   "certificate.exportKey": "私钥 (.pem)",
-  "certificate.exportChain": "证书链 (.pem)",
+  "certificate.exportCA": "CA 证书 (.pem)",
   "certificate.expired": "已过期",
   "certificate.valid": "有效",
   "certificate.expiringSoon": "即将过期",

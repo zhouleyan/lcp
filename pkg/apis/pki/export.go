@@ -12,7 +12,7 @@ import (
 )
 
 // NewExportHandler creates a GET handler for downloading certificate files.
-// Supports: cert.pem, cert.crt, key.pem, key.key, chain.pem, chain.crt
+// Supports: cert.pem, key.pem, ca.pem
 //
 // +openapi:action=export
 // +openapi:resource=Certificate
@@ -35,7 +35,7 @@ func NewExportHandler(store CertificateStore, encryptionKey []byte) rest.Handler
 		ext := filepath.Ext(fileName)
 		if !isValidFilePrefix(base) || !isValidFileExt(ext) {
 			return nil, apierrors.NewBadRequest(
-				fmt.Sprintf("unsupported file: %s (use cert/key/chain with .pem/.crt/.key)", fileName), nil)
+				fmt.Sprintf("unsupported file: %s (use cert.pem, key.pem, or ca.pem)", fileName), nil)
 		}
 
 		row, err := store.GetByID(ctx, id)
@@ -52,28 +52,32 @@ func NewExportHandler(store CertificateStore, encryptionKey []byte) rest.Handler
 			if err != nil {
 				return nil, apierrors.NewInternalError(fmt.Errorf("decrypt private key: %w", err))
 			}
-		case "chain":
+		case "ca":
 			if row.CaName != nil {
 				caCert, caErr := store.GetByName(ctx, *row.CaName)
 				if caErr != nil {
 					return nil, apierrors.NewInternalError(fmt.Errorf("load CA certificate: %w", caErr))
 				}
-				data = append(row.Certificate, caCert.Certificate...)
+				data = caCert.Certificate
 			} else {
-				// CA cert: chain is just itself
+				// CA cert itself: ca file is just itself
 				data = row.Certificate
 			}
 		}
 
-		// Build download filename: cert → {name}.ext, key → {name}.key, chain → {name}-chain.ext
+		// Build download filename: cert → {name}.pem, key → {name}-key.pem, ca → {caName}.pem
 		var downloadName string
 		switch base {
 		case "cert":
 			downloadName = row.Name + ext
 		case "key":
-			downloadName = row.Name + ext
-		case "chain":
-			downloadName = row.Name + "-chain" + ext
+			downloadName = row.Name + "-key" + ext
+		case "ca":
+			if row.CaName != nil {
+				downloadName = *row.CaName + ext
+			} else {
+				downloadName = row.Name + ext
+			}
 		}
 
 		return &rest.FileResponse{
@@ -86,16 +90,12 @@ func NewExportHandler(store CertificateStore, encryptionKey []byte) rest.Handler
 
 func isValidFilePrefix(prefix string) bool {
 	switch prefix {
-	case "cert", "key", "chain":
+	case "cert", "key", "ca":
 		return true
 	}
 	return false
 }
 
 func isValidFileExt(ext string) bool {
-	switch ext {
-	case ".pem", ".crt", ".key":
-		return true
-	}
-	return false
+	return ext == ".pem"
 }
