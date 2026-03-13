@@ -109,15 +109,7 @@ FROM (
     WHERE h.scope = 'workspace' AND h.workspace_id = @workspace_id
     UNION
     SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.workspace_id = @workspace_id
-    UNION
-    SELECT h.id FROM hosts h
     WHERE h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = @workspace_id)
-    UNION
-    SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = @workspace_id)
 ) AS visible
 JOIN hosts h ON h.id = visible.id
 WHERE (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
@@ -134,25 +126,13 @@ WITH visible_hosts AS (
     WHERE h.scope = 'workspace' AND h.workspace_id = @workspace_id
     UNION
     SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.workspace_id = @workspace_id
-    UNION
-    SELECT h.id FROM hosts h
     WHERE h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = @workspace_id)
-    UNION
-    SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = @workspace_id)
 ),
 host_data AS (
     SELECT
         h.*,
         e.name AS environment_name,
-        CASE
-            WHEN h.scope = 'workspace' AND h.workspace_id = @workspace_id THEN 'owned'
-            WHEN h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = @workspace_id) THEN 'owned'
-            ELSE 'assigned'
-        END AS origin
+        'owned' AS origin
     FROM hosts h
     JOIN visible_hosts vh ON vh.id = h.id
     LEFT JOIN environments e ON h.environment_id = e.id
@@ -183,10 +163,6 @@ SELECT count(*)
 FROM (
     SELECT h.id FROM hosts h
     WHERE h.scope = 'namespace' AND h.namespace_id = @namespace_id
-    UNION
-    SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.namespace_id = @namespace_id
 ) AS visible
 JOIN hosts h ON h.id = visible.id
 WHERE (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
@@ -201,16 +177,12 @@ WHERE (sqlc.narg('status')::VARCHAR IS NULL OR h.status = sqlc.narg('status'))
 WITH visible_hosts AS (
     SELECT h.id FROM hosts h
     WHERE h.scope = 'namespace' AND h.namespace_id = @namespace_id
-    UNION
-    SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.namespace_id = @namespace_id
 ),
 host_data AS (
     SELECT
         h.*,
         e.name AS environment_name,
-        CASE WHEN h.scope = 'namespace' AND h.namespace_id = @namespace_id THEN 'owned' ELSE 'assigned' END AS origin
+        'owned' AS origin
     FROM hosts h
     JOIN visible_hosts vh ON vh.id = h.id
     LEFT JOIN environments e ON h.environment_id = e.id

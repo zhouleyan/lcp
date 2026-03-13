@@ -2,9 +2,8 @@ package infra
 
 // Stores holds all Infra Store instances.
 type Stores struct {
-	Host           HostStore
-	HostAssignment HostAssignmentStore
-	Environment    EnvironmentStore
+	Host        HostStore
+	Environment EnvironmentStore
 	Region         RegionStore
 	Site           SiteStore
 	Location       LocationStore

@@ -121,56 +121,7 @@ type EnvironmentList struct {
 
 func (e *EnvironmentList) GetTypeMeta() *runtime.TypeMeta { return &e.TypeMeta }
 
-// --- HostAssignment types ---
-
-// HostAssignment
-// +openapi:schema
-// +openapi:description=主机分配记录：表示上层主机被授权给下层使用。
-type HostAssignment struct {
-	runtime.TypeMeta `json:",inline"`
-	types.ObjectMeta `json:"metadata"`
-	Spec             HostAssignmentSpec `json:"spec"`
-}
-
-func (ha *HostAssignment) GetTypeMeta() *runtime.TypeMeta { return &ha.TypeMeta }
-
-// HostAssignmentSpec
-// +openapi:description=主机分配属性：包含主机 ID、目标租户或项目 ID。
-type HostAssignmentSpec struct {
-	// +openapi:required
-	// +openapi:description=被分配的主机 ID
-	HostID string `json:"hostId"`
-	// +openapi:description=主机名称（只读）
-	HostName string `json:"hostName,omitempty"`
-	// +openapi:description=目标租户 ID
-	WorkspaceID string `json:"workspaceId,omitempty"`
-	// +openapi:description=目标租户名称（只读）
-	WorkspaceName string `json:"workspaceName,omitempty"`
-	// +openapi:description=目标项目 ID
-	NamespaceID string `json:"namespaceId,omitempty"`
-	// +openapi:description=目标项目名称（只读）
-	NamespaceName string `json:"namespaceName,omitempty"`
-}
-
-// HostAssignmentList
-// +openapi:description=主机分配列表。
-type HostAssignmentList struct {
-	runtime.TypeMeta `json:",inline"`
-	Items            []HostAssignment `json:"items"`
-}
-
-func (hal *HostAssignmentList) GetTypeMeta() *runtime.TypeMeta { return &hal.TypeMeta }
-
 // --- Action request types ---
-
-// AssignRequest is the request body for host assign/unassign actions.
-type AssignRequest struct {
-	runtime.TypeMeta `json:",inline"`
-	WorkspaceID      string `json:"workspaceId,omitempty"`
-	NamespaceID      string `json:"namespaceId,omitempty"`
-}
-
-func (ar *AssignRequest) GetTypeMeta() *runtime.TypeMeta { return &ar.TypeMeta }
 
 // BindEnvironmentRequest is the request body for host bind-environment action.
 type BindEnvironmentRequest struct {
@@ -391,9 +342,6 @@ type DBHost = generated.Host
 // DBEnvironment is an alias for the sqlc-generated Environment model.
 type DBEnvironment = generated.Environment
 
-// DBHostAssignment is an alias for the sqlc-generated HostAssignment model.
-type DBHostAssignment = generated.HostAssignment
-
 // DBHostWithEnv extends Host with environment_name from GetHostByID.
 type DBHostWithEnv = generated.GetHostByIDRow
 
@@ -420,9 +368,6 @@ type DBEnvNamespaceRow = generated.ListEnvironmentsByNamespaceIDRow
 
 // DBHostByEnvRow is an alias for ListHostsByEnvironmentID row.
 type DBHostByEnvRow = generated.ListHostsByEnvironmentIDRow
-
-// DBAssignmentRow is an alias for ListAssignmentsByHostID row.
-type DBAssignmentRow = generated.ListAssignmentsByHostIDRow
 
 // --- Region DB type aliases ---
 

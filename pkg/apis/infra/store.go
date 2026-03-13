@@ -21,14 +21,6 @@ type HostStore interface {
 	UnbindEnvironment(ctx context.Context, hostID int64) error
 }
 
-// HostAssignmentStore defines database operations on host assignments.
-type HostAssignmentStore interface {
-	Assign(ctx context.Context, hostID int64, wsID, nsID *int64) (*DBHostAssignment, error)
-	UnassignWorkspace(ctx context.Context, hostID int64, wsID int64) error
-	UnassignNamespace(ctx context.Context, hostID int64, nsID int64) error
-	ListByHostID(ctx context.Context, hostID int64) ([]DBAssignmentRow, error)
-}
-
 // EnvironmentStore defines database operations on environments.
 type EnvironmentStore interface {
 	Create(ctx context.Context, env *DBEnvironment) (*DBEnvironment, error)

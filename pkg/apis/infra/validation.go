@@ -69,23 +69,6 @@ func ValidateEnvironmentUpdate(spec *EnvironmentSpec) validation.ErrorList {
 	return errs
 }
 
-// ValidateAssignRequest validates an assign/unassign request.
-func ValidateAssignRequest(req *AssignRequest) validation.ErrorList {
-	var errs validation.ErrorList
-
-	hasWS := req.WorkspaceID != ""
-	hasNS := req.NamespaceID != ""
-
-	if !hasWS && !hasNS {
-		errs = append(errs, validation.FieldError{Field: "workspaceId/namespaceId", Message: "one of workspaceId or namespaceId is required"})
-	}
-	if hasWS && hasNS {
-		errs = append(errs, validation.FieldError{Field: "workspaceId/namespaceId", Message: "only one of workspaceId or namespaceId can be specified"})
-	}
-
-	return errs
-}
-
 // ValidateBindEnvironmentRequest validates a bind-environment request.
 func ValidateBindEnvironmentRequest(req *BindEnvironmentRequest) validation.ErrorList {
 	var errs validation.ErrorList
