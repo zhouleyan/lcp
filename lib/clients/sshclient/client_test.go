@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -449,6 +450,61 @@ func TestClose_ProxyJumpCascade(t *testing.T) {
 	// Close again should be safe (idempotent).
 	if err := c.Close(); err != nil {
 		t.Fatalf("second Close should not error: %v", err)
+	}
+}
+
+func TestConnect_ProxyJumpBastionFails(t *testing.T) {
+	c := New(Config{
+		Host:     "127.0.0.1",
+		Port:     1,
+		Password: "target-pass",
+		ProxyJump: &Config{
+			Host:     "127.0.0.1",
+			Port:     1, // nothing listening
+			Password: "bastion-pass",
+		},
+	})
+
+	err := c.Connect(context.Background())
+	if err == nil {
+		c.Close()
+		t.Fatal("expected error when bastion is unreachable")
+	}
+	if !strings.Contains(err.Error(), "proxy") {
+		t.Errorf("expected proxy-related error, got: %v", err)
+	}
+}
+
+func TestConnect_ProxyJumpBadTargetPassword(t *testing.T) {
+	targetAddr, targetCleanup := startTestSSHServer(t, "correct-pass", false)
+	defer targetCleanup()
+
+	bastionAddr, bastionCleanup := startTestSSHServer(t, "bastion-pass", true)
+	defer bastionCleanup()
+
+	bastionHost, bastionPortStr, _ := net.SplitHostPort(bastionAddr)
+	bastionPort := 0
+	fmt.Sscanf(bastionPortStr, "%d", &bastionPort)
+
+	targetHost, targetPortStr, _ := net.SplitHostPort(targetAddr)
+	targetPort := 0
+	fmt.Sscanf(targetPortStr, "%d", &targetPort)
+
+	c := New(Config{
+		Host:     targetHost,
+		Port:     targetPort,
+		Password: "wrong-pass",
+		ProxyJump: &Config{
+			Host:     bastionHost,
+			Port:     bastionPort,
+			Password: "bastion-pass",
+		},
+	})
+
+	err := c.Connect(context.Background())
+	if err == nil {
+		c.Close()
+		t.Fatal("expected error when target auth fails")
 	}
 }
 
