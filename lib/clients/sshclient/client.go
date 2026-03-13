@@ -161,17 +161,30 @@ func (c *Client) Connect(ctx context.Context) error {
 	return nil
 }
 
-// Close closes the underlying SSH connection. It is safe to call
-// multiple times.
+// Close closes the underlying SSH connection and any proxy resources.
+// It is safe to call multiple times.
 func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Close target SSH connection.
 	if c.client != nil {
-		err := c.client.Close()
+		c.client.Close()
 		c.client = nil
-		return err
 	}
+
+	// Close tunnel connection.
+	if c.proxyConn != nil {
+		c.proxyConn.Close()
+		c.proxyConn = nil
+	}
+
+	// Cascade close to bastion client.
+	if c.proxyClient != nil {
+		c.proxyClient.Close()
+		c.proxyClient = nil
+	}
+
 	return nil
 }
 

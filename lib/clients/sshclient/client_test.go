@@ -401,6 +401,57 @@ func handleTestSSHConn(conn net.Conn, config *ssh.ServerConfig, allowTunnel bool
 	}
 }
 
+func TestClose_ProxyJumpCascade(t *testing.T) {
+	targetAddr, targetCleanup := startTestSSHServer(t, "target-pass", false)
+	defer targetCleanup()
+
+	bastionAddr, bastionCleanup := startTestSSHServer(t, "bastion-pass", true)
+	defer bastionCleanup()
+
+	bastionHost, bastionPortStr, _ := net.SplitHostPort(bastionAddr)
+	bastionPort := 0
+	fmt.Sscanf(bastionPortStr, "%d", &bastionPort)
+
+	targetHost, targetPortStr, _ := net.SplitHostPort(targetAddr)
+	targetPort := 0
+	fmt.Sscanf(targetPortStr, "%d", &targetPort)
+
+	c := New(Config{
+		Host:     targetHost,
+		Port:     targetPort,
+		Password: "target-pass",
+		ProxyJump: &Config{
+			Host:     bastionHost,
+			Port:     bastionPort,
+			Password: "bastion-pass",
+		},
+	})
+
+	if err := c.Connect(context.Background()); err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
+
+	if err := c.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+
+	// Verify all resources are nil after close.
+	if c.SSHClient() != nil {
+		t.Error("expected client to be nil after Close")
+	}
+	if c.proxyClient != nil {
+		t.Error("expected proxyClient to be nil after Close")
+	}
+	if c.proxyConn != nil {
+		t.Error("expected proxyConn to be nil after Close")
+	}
+
+	// Close again should be safe (idempotent).
+	if err := c.Close(); err != nil {
+		t.Fatalf("second Close should not error: %v", err)
+	}
+}
+
 func TestConnect_ProxyJump(t *testing.T) {
 	targetAddr, targetCleanup := startTestSSHServer(t, "target-pass", false)
 	defer targetCleanup()
