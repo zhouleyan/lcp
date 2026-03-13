@@ -48,7 +48,8 @@ export default function CertificateDetailPage() {
   const [loading, setLoading] = useState(true)
   const { hasPermission } = usePermission()
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [copiedCert, setCopiedCert] = useState(false)
+  const [copiedKey, setCopiedKey] = useState(false)
 
   const permPrefix = "pki:certificates"
 
@@ -86,11 +87,15 @@ export default function CertificateDetailPage() {
     }
   }
 
-  const handleCopyPEM = async () => {
-    if (!cert?.status?.certificate) return
-    await navigator.clipboard.writeText(cert.status.certificate)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const handleCopy = async (text: string, type: "cert" | "key") => {
+    await navigator.clipboard.writeText(text)
+    if (type === "cert") {
+      setCopiedCert(true)
+      setTimeout(() => setCopiedCert(false), 2000)
+    } else {
+      setCopiedKey(true)
+      setTimeout(() => setCopiedKey(false), 2000)
+    }
   }
 
   if (loading) {
@@ -240,21 +245,41 @@ export default function CertificateDetailPage() {
           </CardContent>
         </Card>
 
-        {/* PEM content card */}
+        {/* Certificate PEM */}
         {cert.status?.certificate && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>{t("certificate.pemContent")}</CardTitle>
-                <Button variant="ghost" size="sm" onClick={handleCopyPEM}>
-                  {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
-                  {copied ? t("common.copied") : t("common.copy")}
+                <CardTitle>{t("certificate.pemCert")}</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => handleCopy(cert.status!.certificate, "cert")}>
+                  {copiedCert ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
+                  {copiedCert ? t("common.copied") : t("common.copy")}
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               <pre className="bg-muted overflow-x-auto rounded-md p-4 text-xs leading-relaxed font-mono">
                 {cert.status.certificate}
+              </pre>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Private Key PEM */}
+        {cert.status?.privateKey && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>{t("certificate.pemKey")}</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => handleCopy(cert.status!.privateKey!, "key")}>
+                  {copiedKey ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
+                  {copiedKey ? t("common.copied") : t("common.copy")}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <pre className="bg-muted overflow-x-auto rounded-md p-4 text-xs leading-relaxed font-mono">
+                {cert.status.privateKey}
               </pre>
             </CardContent>
           </Card>

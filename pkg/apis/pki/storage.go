@@ -46,7 +46,16 @@ func (s *certificateStorage) Get(ctx context.Context, options *rest.GetOptions) 
 		return nil, err
 	}
 
-	return dbToAPI(row), nil
+	cert := dbToAPI(row)
+
+	// Decrypt private key for detail view
+	keyPEM, err := Decrypt(row.PrivateKey, s.encryptionKey)
+	if err != nil {
+		return nil, apierrors.NewInternalError(fmt.Errorf("decrypt private key: %w", err))
+	}
+	cert.Status.PrivateKey = string(keyPEM)
+
+	return cert, nil
 }
 
 // +openapi:summary=获取证书列表

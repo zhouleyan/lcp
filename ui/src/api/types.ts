@@ -545,6 +545,7 @@ export interface CertificateStatus {
   notBefore: string
   notAfter: string
   certificate: string
+  privateKey?: string
 }
 
 export interface Certificate extends TypeMeta {
