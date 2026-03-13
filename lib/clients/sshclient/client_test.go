@@ -376,7 +376,7 @@ func handleTestSSHConn(conn net.Conn, config *ssh.ServerConfig, allowTunnel bool
 				continue
 			}
 
-			targetAddr := fmt.Sprintf("%s:%d", payload.DestHost, payload.DestPort)
+			targetAddr := net.JoinHostPort(payload.DestHost, fmt.Sprintf("%d", payload.DestPort))
 			targetConn, err := net.Dial("tcp", targetAddr)
 			if err != nil {
 				newChan.Reject(ssh.ConnectionFailed, err.Error())
