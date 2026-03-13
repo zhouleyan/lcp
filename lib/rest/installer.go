@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -89,6 +90,9 @@ func (i *APIInstaller) registerRoutes(basePath, itemPath string, res ResourceInf
 // installAction registers a custom action route on a resource item.
 // Action handlers receive both path params and query params (via HandleAction).
 func (i *APIInstaller) installAction(parentItemPath string, action ActionInfo) {
+	if action.Handler != nil && action.WebSocketHandler != nil {
+		panic(fmt.Sprintf("action %q: Handler and WebSocketHandler are mutually exclusive", action.Name))
+	}
 	actionPath := parentItemPath + "/" + action.Name
 	if action.WebSocketHandler != nil {
 		handler := HandleWebSocket(action.WebSocketHandler)

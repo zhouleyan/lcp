@@ -8,9 +8,6 @@ import (
 	"time"
 )
 
-// sessionCounter is an atomic counter used to generate unique session IDs.
-var sessionCounter atomic.Int64
-
 // Session represents an active WebSocket session.
 type Session struct {
 	ID         string
@@ -30,6 +27,7 @@ type SessionManager struct {
 	byID        map[string]*Session   // key: sessionID
 	maxPerUser  int
 	idleTimeout time.Duration
+	counter     atomic.Int64 // per-instance counter for unique session IDs
 }
 
 // NewSessionManager creates a SessionManager that allows at most maxPerUser
@@ -59,7 +57,7 @@ func (m *SessionManager) Acquire(userID, resource, resourceID, label string, can
 		return nil, fmt.Errorf("user %s has reached the maximum number of concurrent sessions (%d)", userID, m.maxPerUser)
 	}
 
-	id := fmt.Sprintf("sess-%d", sessionCounter.Add(1))
+	id := fmt.Sprintf("sess-%d", m.counter.Add(1))
 	sess := &Session{
 		ID:         id,
 		UserID:     userID,

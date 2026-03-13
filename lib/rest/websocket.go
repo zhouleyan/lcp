@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/websocket"
 )
 
@@ -18,9 +19,14 @@ type WebSocketHandler func(ctx context.Context, params map[string]string, conn *
 func HandleWebSocket(handler WebSocketHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+			// TODO: Origin checking is currently skipped because WebSocket
+			// endpoints use Bearer token authentication (not cookie-based),
+			// so CSRF is not a concern. If cookie-based auth is added in
+			// the future, replace this with an explicit list of allowed origins.
 			InsecureSkipVerify: true,
 		})
 		if err != nil {
+			logger.Warnf("websocket upgrade failed for %s %s: %v", r.Method, r.URL.Path, err)
 			return
 		}
 
