@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strconv"
 
 	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/lib/api/types"
+	"lcp.io/lcp/lib/ipam"
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/lib/runtime"
 	"lcp.io/lcp/pkg/db"
@@ -2628,6 +2630,121 @@ func (s *locationStorage) DeleteCollection(ctx context.Context, ids []string, op
 		SuccessCount: int(count),
 		FailedCount:  len(ids) - int(count),
 	}, nil
+}
+
+// ===== availableNetworkStorage 可用网络列表（ACL，只读） =====
+
+// availableNetworkStorage 主机 IP 分配时的网络查询接口，读取 network 模块数据（ACL 层）。
+// 注册在三个层级：/networks（平台）、/workspaces/{id}/networks（租户）、/workspaces/{id}/namespaces/{id}/networks（项目）。
+// 使用 PermissionTargets: ["infra:hosts:*"] 复用主机权限，不产生新权限。
+//
+// +openapi:path=/workspaces/{workspaceId}/networks
+// +openapi:path=/workspaces/{workspaceId}/namespaces/{namespaceId}/networks
+type availableNetworkStorage struct {
+	reader NetworkReader
+}
+
+// NewAvailableNetworkStorage creates a read-only Lister for available networks.
+func NewAvailableNetworkStorage(reader NetworkReader) rest.Lister {
+	return &availableNetworkStorage{reader: reader}
+}
+
+func (s *availableNetworkStorage) NewObject() runtime.Object { return &AvailableNetwork{} }
+
+// List 获取可用网络列表（含子网摘要）。
+// +openapi:summary=获取可用网络列表
+// +openapi:summary.workspaces.networks=获取租户下的可用网络列表
+// +openapi:summary.workspaces.namespaces.networks=获取项目下的可用网络列表
+func (s *availableNetworkStorage) List(ctx context.Context, _ *rest.ListOptions) (runtime.Object, error) {
+	// 1. Load all active networks
+	networks, err := s.reader.ListActiveNetworks(ctx)
+	if err != nil {
+		return nil, apierrors.NewInternalError(err)
+	}
+
+	if len(networks) == 0 {
+		return &AvailableNetworkList{
+			TypeMeta: runtime.TypeMeta{Kind: "AvailableNetworkList"},
+			Items:    []AvailableNetwork{},
+		}, nil
+	}
+
+	// 2. Collect network IDs and load all subnets in one query
+	networkIDs := make([]int64, len(networks))
+	for i, n := range networks {
+		networkIDs[i] = n.ID
+	}
+
+	subnets, err := s.reader.ListSubnetsByNetworkIDs(ctx, networkIDs)
+	if err != nil {
+		return nil, apierrors.NewInternalError(err)
+	}
+
+	// 3. Group subnets by network ID
+	subnetsByNetwork := make(map[int64][]SubnetSummary)
+	for _, sub := range subnets {
+		summary := subnetToSummary(&sub)
+		subnetsByNetwork[sub.NetworkID] = append(subnetsByNetwork[sub.NetworkID], summary)
+	}
+
+	// 4. Build response
+	items := make([]AvailableNetwork, len(networks))
+	for i, n := range networks {
+		subs := subnetsByNetwork[n.ID]
+		if subs == nil {
+			subs = []SubnetSummary{}
+		}
+		items[i] = AvailableNetwork{
+			TypeMeta: runtime.TypeMeta{Kind: "AvailableNetwork"},
+			ObjectMeta: types.ObjectMeta{
+				ID:        strconv.FormatInt(n.ID, 10),
+				Name:      n.Name,
+				CreatedAt: &n.CreatedAt,
+				UpdatedAt: &n.UpdatedAt,
+			},
+			Spec: AvailableNetworkSpec{
+				DisplayName: n.DisplayName,
+				Description: n.Description,
+				CIDR:        n.Cidr,
+				IsPublic:    n.IsPublic,
+				SubnetCount: n.SubnetCount,
+				Subnets:     subs,
+			},
+		}
+	}
+
+	return &AvailableNetworkList{
+		TypeMeta:   runtime.TypeMeta{Kind: "AvailableNetworkList"},
+		Items:      items,
+		TotalCount: int64(len(items)),
+	}, nil
+}
+
+// subnetToSummary converts a DB subnet row to a SubnetSummary with IP usage stats from bitmap.
+func subnetToSummary(s *DBSubnet) SubnetSummary {
+	summary := SubnetSummary{
+		ID:          strconv.FormatInt(s.ID, 10),
+		Name:        s.Name,
+		DisplayName: s.DisplayName,
+		CIDR:        s.Cidr,
+		Gateway:     s.Gateway,
+	}
+
+	// Calculate IP usage from bitmap
+	_, cidrNet, err := net.ParseCIDR(s.Cidr)
+	if err == nil {
+		r, err := ipam.NewCIDRRange(cidrNet)
+		if err == nil {
+			if len(s.Bitmap) > 0 {
+				_ = r.LoadFromBytes(s.Bitmap)
+			}
+			summary.FreeIPs = r.Free()
+			summary.UsedIPs = r.Used()
+			summary.TotalIPs = r.Free() + r.Used()
+		}
+	}
+
+	return summary
 }
 
 // ===== helpers =====

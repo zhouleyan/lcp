@@ -74,6 +74,13 @@ type LocationStore interface {
 	CountChildRacks(ctx context.Context, locationID int64) (int64, error)
 }
 
+// NetworkReader provides read-only access to networks and subnets for host IP allocation (ACL layer).
+// This is a cross-domain reader: infra module queries network tables directly.
+type NetworkReader interface {
+	ListActiveNetworks(ctx context.Context) ([]DBNetworkACLRow, error)
+	ListSubnetsByNetworkIDs(ctx context.Context, networkIDs []int64) ([]DBSubnet, error)
+}
+
 // RackStore defines database operations on racks.
 type RackStore interface {
 	Create(ctx context.Context, rack *DBRack) (*DBRack, error)

@@ -335,6 +335,66 @@ type RackList struct {
 
 func (r *RackList) GetTypeMeta() *runtime.TypeMeta { return &r.TypeMeta }
 
+// --- Network ACL types (read-only, for host IP allocation) ---
+
+// AvailableNetwork
+// +openapi:description=可用网络：主机 IP 分配时的网络选择视图，包含网络及其子网的摘要信息。
+type AvailableNetwork struct {
+	runtime.TypeMeta `json:",inline"`
+	types.ObjectMeta `json:"metadata"`
+	Spec             AvailableNetworkSpec `json:"spec"`
+}
+
+func (n *AvailableNetwork) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
+
+// AvailableNetworkSpec
+// +openapi:description=可用网络属性：网络基本信息及下属子网摘要列表。
+type AvailableNetworkSpec struct {
+	// +openapi:description=网络显示名称
+	DisplayName string `json:"displayName,omitempty"`
+	// +openapi:description=网络描述
+	Description string `json:"description,omitempty"`
+	// +openapi:description=网络 CIDR 地址段
+	CIDR string `json:"cidr,omitempty"`
+	// +openapi:description=是否公开网络
+	IsPublic bool `json:"isPublic"`
+	// +openapi:description=子网数量
+	SubnetCount int64 `json:"subnetCount"`
+	// +openapi:description=子网列表
+	Subnets []SubnetSummary `json:"subnets"`
+}
+
+// SubnetSummary
+// +openapi:description=子网摘要：子网基本信息和 IP 使用统计。
+type SubnetSummary struct {
+	// +openapi:description=子网 ID
+	ID string `json:"id"`
+	// +openapi:description=子网名称
+	Name string `json:"name"`
+	// +openapi:description=子网显示名称
+	DisplayName string `json:"displayName,omitempty"`
+	// +openapi:description=CIDR 地址段
+	CIDR string `json:"cidr"`
+	// +openapi:description=网关 IP 地址
+	Gateway string `json:"gateway,omitempty"`
+	// +openapi:description=可用 IP 数量
+	FreeIPs int `json:"freeIPs"`
+	// +openapi:description=已用 IP 数量
+	UsedIPs int `json:"usedIPs"`
+	// +openapi:description=总可用 IP 数量
+	TotalIPs int `json:"totalIPs"`
+}
+
+// AvailableNetworkList
+// +openapi:description=可用网络列表：主机 IP 分配时可选的网络集合。
+type AvailableNetworkList struct {
+	runtime.TypeMeta `json:",inline"`
+	Items            []AvailableNetwork `json:"items"`
+	TotalCount       int64              `json:"totalCount"`
+}
+
+func (nl *AvailableNetworkList) GetTypeMeta() *runtime.TypeMeta { return &nl.TypeMeta }
+
 // --- DB type aliases ---
 
 // DBHost is an alias for the sqlc-generated Host model.
@@ -419,4 +479,12 @@ type DBRackWithDetails = generated.GetRackByIDRow
 
 // DBRackListRow is an alias for ListRacks row.
 type DBRackListRow = generated.ListRacksRow
+
+// --- Network reader DB type aliases (ACL) ---
+
+// DBNetworkACLRow is an alias for ListActiveNetworksWithSubnetCount row.
+type DBNetworkACLRow = generated.ListActiveNetworksWithSubnetCountRow
+
+// DBSubnet is an alias for the sqlc-generated Subnet model (for bitmap parsing).
+type DBSubnet = generated.Subnet
 

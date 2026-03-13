@@ -2,12 +2,13 @@ package infra
 
 // Stores holds all Infra Store instances.
 type Stores struct {
-	Host        HostStore
-	Environment EnvironmentStore
+	Host           HostStore
+	Environment    EnvironmentStore
 	Region         RegionStore
 	Site           SiteStore
 	Location       LocationStore
 	Rack           RackStore
+	NetworkReader  NetworkReader
 }
 
 // RESTStorageProvider centralizes all Infra Store instances.

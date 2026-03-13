@@ -37,6 +37,9 @@ func NewInfraModule(database *db.DB) ModuleResult {
 	siteLocationStorage := infra.NewSiteLocationStorage(p.Location)
 	locationRackStorage := infra.NewLocationRackStorage(p.Rack)
 
+	// Network ACL storage (read-only, for host IP allocation)
+	networkACLStorage := infra.NewAvailableNetworkStorage(p.NetworkReader)
+
 	// Action handlers
 	bindEnvHandler := infra.NewBindEnvironmentHandler(p.Host, p.Environment)
 	unbindEnvHandler := infra.NewUnbindEnvironmentHandler(p.Host)
@@ -64,6 +67,11 @@ func NewInfraModule(database *db.DB) ModuleResult {
 				},
 			},
 			{
+				Name:              "networks",
+				Storage:           networkACLStorage,
+				PermissionTargets: []string{"infra:hosts:*"},
+			},
+			{
 				Name: "workspaces",
 				SubResources: []rest.ResourceInfo{
 					{
@@ -82,6 +90,11 @@ func NewInfraModule(database *db.DB) ModuleResult {
 						},
 					},
 					{
+						Name:              "networks",
+						Storage:           networkACLStorage,
+						PermissionTargets: []string{"infra:hosts:*"},
+					},
+					{
 						Name: "namespaces",
 						SubResources: []rest.ResourceInfo{
 							{
@@ -98,6 +111,11 @@ func NewInfraModule(database *db.DB) ModuleResult {
 								CustomVerbs: []rest.CustomVerbInfo{
 									{Name: "hosts", Storage: envHostsVerb},
 								},
+							},
+							{
+								Name:              "networks",
+								Storage:           networkACLStorage,
+								PermissionTargets: []string{"infra:hosts:*"},
 							},
 						},
 					},
