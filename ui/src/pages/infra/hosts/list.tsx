@@ -637,6 +637,11 @@ function HostFormDialog({
                                   ))}
                                 </SelectContent>
                               </Select>
+                              {selectedSubnet && (
+                                <p className="text-muted-foreground text-xs">
+                                  {selectedSubnet.cidr} · {t("host.ips.subnet.free", { free: selectedSubnet.freeIPs, total: selectedSubnet.totalIPs })}
+                                </p>
+                              )}
                               <FormMessage />
                             </FormItem>
                           )} />
@@ -657,11 +662,6 @@ function HostFormDialog({
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
-                      {selectedSubnet && (
-                        <p className="text-muted-foreground -mt-1 text-xs pl-0.5">
-                          {selectedSubnet.cidr} · {t("host.ips.subnet.free", { free: selectedSubnet.freeIPs, total: selectedSubnet.totalIPs })}
-                        </p>
-                      )}
                     </div>
                   )
                 })}
