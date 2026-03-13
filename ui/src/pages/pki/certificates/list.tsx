@@ -328,6 +328,7 @@ interface CertificateFormValues {
   certType: "ca" | "server" | "client" | "both"
   commonName: string
   dnsNames: string
+  ipAddresses: string
   caName: string
   validityDays: number
 }
@@ -351,6 +352,7 @@ function CertificateCreateDialog({
     certType: z.enum(["ca", "server", "client", "both"]),
     commonName: z.string().optional(),
     dnsNames: z.string().optional(),
+    ipAddresses: z.string().optional(),
     caName: z.string().optional(),
     validityDays: z.coerce.number().int().min(1).max(36500),
   }).refine((data) => {
@@ -358,9 +360,9 @@ function CertificateCreateDialog({
     return true
   }, { message: t("api.validation.required", { field: t("certificate.commonName") }), path: ["commonName"] })
   .refine((data) => {
-    if ((data.certType === "server" || data.certType === "both") && !data.dnsNames?.trim()) return false
+    if ((data.certType === "server" || data.certType === "both") && !data.dnsNames?.trim() && !data.ipAddresses?.trim()) return false
     return true
-  }, { message: t("api.validation.required", { field: t("certificate.dnsNames") }), path: ["dnsNames"] })
+  }, { message: t("certificate.dnsOrIpRequired"), path: ["dnsNames"] })
   .refine((data) => {
     if (data.certType !== "ca" && !data.caName) return false
     return true
@@ -369,7 +371,7 @@ function CertificateCreateDialog({
   const form = useForm<CertificateFormValues>({
     resolver: zodResolver(schema) as never,
     mode: "onBlur",
-    defaultValues: { name: "", certType: "ca", commonName: "", dnsNames: "", caName: "", validityDays: 3650 },
+    defaultValues: { name: "", certType: "ca", commonName: "", dnsNames: "", ipAddresses: "", caName: "", validityDays: 3650 },
   })
 
   const certType = form.watch("certType")
@@ -421,7 +423,7 @@ function CertificateCreateDialog({
 
   useEffect(() => {
     if (open) {
-      form.reset({ name: "", certType: "ca", commonName: "", dnsNames: "", caName: "", validityDays: 3650 })
+      form.reset({ name: "", certType: "ca", commonName: "", dnsNames: "", ipAddresses: "", caName: "", validityDays: 3650 })
       autoNameRef.current = ""
     }
   }, [open, form])
@@ -437,9 +439,10 @@ function CertificateCreateDialog({
         spec.commonName = values.commonName
       } else {
         spec.caName = values.caName
-        if (values.certType === "server" || values.certType === "both") {
-          spec.dnsNames = values.dnsNames.split(",").map((s) => s.trim()).filter(Boolean)
-        }
+        const dns = values.dnsNames.split(",").map((s) => s.trim()).filter(Boolean)
+        if (dns.length > 0) spec.dnsNames = dns
+        const ips = values.ipAddresses.split(",").map((s) => s.trim()).filter(Boolean)
+        if (ips.length > 0) spec.ipAddresses = ips
         if (values.commonName) spec.commonName = values.commonName
       }
 
@@ -560,18 +563,36 @@ function CertificateCreateDialog({
                 />
               )}
 
-              {/* DNS Names (server/both types only) */}
-              {(certType === "server" || certType === "both") && (
+              {/* DNS Names (non-CA types) */}
+              {certType !== "ca" && (
                 <FormField
                   control={form.control}
                   name="dnsNames"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>{t("certificate.dnsNames")}</FormLabel>
+                      <FormLabel>{t("certificate.dnsNames")}</FormLabel>
                       <FormControl>
                         <Input {...field} placeholder={t("certificate.dnsNamesPlaceholder")} />
                       </FormControl>
                       <FormDescription>{t("certificate.dnsNamesHint")}</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* IP Addresses (non-CA types) */}
+              {certType !== "ca" && (
+                <FormField
+                  control={form.control}
+                  name="ipAddresses"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("certificate.ipAddresses")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder={t("certificate.ipAddressesPlaceholder")} />
+                      </FormControl>
+                      <FormDescription>{t("certificate.ipAddressesHint")}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

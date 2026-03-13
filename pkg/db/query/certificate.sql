@@ -1,7 +1,7 @@
 -- name: CreateCertificate :one
-INSERT INTO certificates (name, cert_type, common_name, dns_names, ca_name,
+INSERT INTO certificates (name, cert_type, common_name, dns_names, ip_addresses, ca_name,
     serial_number, certificate, private_key, not_before, not_after)
-VALUES (@name, @cert_type, @common_name, @dns_names, @ca_name,
+VALUES (@name, @cert_type, @common_name, @dns_names, @ip_addresses, @ca_name,
     @serial_number, @certificate, @private_key, @not_before, @not_after)
 RETURNING *;
 

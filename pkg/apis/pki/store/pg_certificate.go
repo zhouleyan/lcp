@@ -30,6 +30,7 @@ func (s *pgCertificateStore) Create(ctx context.Context, cert *pki.DBCertificate
 		CertType:     cert.CertType,
 		CommonName:   cert.CommonName,
 		DnsNames:     cert.DnsNames,
+		IpAddresses:  cert.IpAddresses,
 		CaName:       cert.CaName,
 		SerialNumber: cert.SerialNumber,
 		Certificate:  cert.Certificate,

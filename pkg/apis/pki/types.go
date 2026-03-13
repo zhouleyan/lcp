@@ -38,8 +38,11 @@ type CertificateSpec struct {
 	// +openapi:description=通用名称（CA 类型必填）
 	CommonName string `json:"commonName,omitempty"`
 
-	// +openapi:description=SAN 域名列表（server/both 类型必填）
+	// +openapi:description=SAN 域名列表
 	DNSNames []string `json:"dnsNames,omitempty"`
+
+	// +openapi:description=SAN IP 地址列表
+	IPAddresses []string `json:"ipAddresses,omitempty"`
 
 	// +openapi:description=签发 CA 名称（非 CA 类型必填）
 	CAName string `json:"caName,omitempty"`

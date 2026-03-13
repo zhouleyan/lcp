@@ -535,6 +535,7 @@ export interface CertificateSpec {
   certType: "ca" | "server" | "client" | "both"
   commonName?: string
   dnsNames?: string[]
+  ipAddresses?: string[]
   caName?: string
   validityDays?: number
 }

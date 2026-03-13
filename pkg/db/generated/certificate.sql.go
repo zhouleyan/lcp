@@ -44,11 +44,11 @@ func (q *Queries) CountCertificatesByCAName(ctx context.Context, caName *string)
 }
 
 const createCertificate = `-- name: CreateCertificate :one
-INSERT INTO certificates (name, cert_type, common_name, dns_names, ca_name,
+INSERT INTO certificates (name, cert_type, common_name, dns_names, ip_addresses, ca_name,
     serial_number, certificate, private_key, not_before, not_after)
-VALUES ($1, $2, $3, $4, $5,
-    $6, $7, $8, $9, $10)
-RETURNING id, name, cert_type, common_name, dns_names, ca_name, serial_number, certificate, private_key, not_before, not_after, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6,
+    $7, $8, $9, $10, $11)
+RETURNING id, name, cert_type, common_name, dns_names, ca_name, serial_number, certificate, private_key, not_before, not_after, created_at, updated_at, ip_addresses
 `
 
 type CreateCertificateParams struct {
@@ -56,6 +56,7 @@ type CreateCertificateParams struct {
 	CertType     string    `json:"cert_type"`
 	CommonName   string    `json:"common_name"`
 	DnsNames     []string  `json:"dns_names"`
+	IpAddresses  []string  `json:"ip_addresses"`
 	CaName       *string   `json:"ca_name"`
 	SerialNumber string    `json:"serial_number"`
 	Certificate  []byte    `json:"certificate"`
@@ -70,6 +71,7 @@ func (q *Queries) CreateCertificate(ctx context.Context, arg CreateCertificatePa
 		arg.CertType,
 		arg.CommonName,
 		arg.DnsNames,
+		arg.IpAddresses,
 		arg.CaName,
 		arg.SerialNumber,
 		arg.Certificate,
@@ -92,6 +94,7 @@ func (q *Queries) CreateCertificate(ctx context.Context, arg CreateCertificatePa
 		&i.NotAfter,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IpAddresses,
 	)
 	return i, err
 }
@@ -131,7 +134,7 @@ func (q *Queries) DeleteCertificates(ctx context.Context, ids []int64) ([]int64,
 }
 
 const getCertificateByID = `-- name: GetCertificateByID :one
-SELECT id, name, cert_type, common_name, dns_names, ca_name, serial_number, certificate, private_key, not_before, not_after, created_at, updated_at FROM certificates WHERE id = $1
+SELECT id, name, cert_type, common_name, dns_names, ca_name, serial_number, certificate, private_key, not_before, not_after, created_at, updated_at, ip_addresses FROM certificates WHERE id = $1
 `
 
 func (q *Queries) GetCertificateByID(ctx context.Context, id int64) (Certificate, error) {
@@ -151,12 +154,13 @@ func (q *Queries) GetCertificateByID(ctx context.Context, id int64) (Certificate
 		&i.NotAfter,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IpAddresses,
 	)
 	return i, err
 }
 
 const getCertificateByName = `-- name: GetCertificateByName :one
-SELECT id, name, cert_type, common_name, dns_names, ca_name, serial_number, certificate, private_key, not_before, not_after, created_at, updated_at FROM certificates WHERE name = $1
+SELECT id, name, cert_type, common_name, dns_names, ca_name, serial_number, certificate, private_key, not_before, not_after, created_at, updated_at, ip_addresses FROM certificates WHERE name = $1
 `
 
 func (q *Queries) GetCertificateByName(ctx context.Context, name string) (Certificate, error) {
@@ -176,12 +180,13 @@ func (q *Queries) GetCertificateByName(ctx context.Context, name string) (Certif
 		&i.NotAfter,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IpAddresses,
 	)
 	return i, err
 }
 
 const listCertificates = `-- name: ListCertificates :many
-SELECT id, name, cert_type, common_name, dns_names, ca_name, serial_number, certificate, private_key, not_before, not_after, created_at, updated_at FROM certificates
+SELECT id, name, cert_type, common_name, dns_names, ca_name, serial_number, certificate, private_key, not_before, not_after, created_at, updated_at, ip_addresses FROM certificates
 WHERE ($1::VARCHAR IS NULL OR cert_type = $1)
   AND ($2::VARCHAR IS NULL OR ca_name = $2)
   AND ($3::VARCHAR IS NULL
@@ -238,6 +243,7 @@ func (q *Queries) ListCertificates(ctx context.Context, arg ListCertificatesPara
 			&i.NotAfter,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IpAddresses,
 		); err != nil {
 			return nil, err
 		}

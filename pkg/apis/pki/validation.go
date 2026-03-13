@@ -1,6 +1,7 @@
 package pki
 
 import (
+	"net"
 	"regexp"
 
 	"lcp.io/lcp/lib/api/validation"
@@ -51,12 +52,19 @@ func ValidateCertificateCreate(name string, spec *CertificateSpec) validation.Er
 		if spec.CAName == "" {
 			errs = append(errs, validation.FieldError{Field: "spec.caName", Message: "is required for non-CA type"})
 		}
-		if len(spec.DNSNames) == 0 {
-			errs = append(errs, validation.FieldError{Field: "spec.dnsNames", Message: "is required for server/both type"})
+		if len(spec.DNSNames) == 0 && len(spec.IPAddresses) == 0 {
+			errs = append(errs, validation.FieldError{Field: "spec.dnsNames", Message: "dnsNames or ipAddresses is required for server/both type"})
 		}
 	case CertTypeClient:
 		if spec.CAName == "" {
 			errs = append(errs, validation.FieldError{Field: "spec.caName", Message: "is required for non-CA type"})
+		}
+	}
+
+	// Validate IP address format
+	for _, ip := range spec.IPAddresses {
+		if net.ParseIP(ip) == nil {
+			errs = append(errs, validation.FieldError{Field: "spec.ipAddresses", Message: "invalid IP address: " + ip})
 		}
 	}
 

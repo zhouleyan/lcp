@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net"
 	"strconv"
 	"time"
 
@@ -127,10 +128,17 @@ func (s *certificateStorage) Create(ctx context.Context, obj runtime.Object, opt
 			return nil, apierrors.NewInternalError(fmt.Errorf("decrypt CA key: %w", err))
 		}
 
+		// Parse IP strings to net.IP
+		var ips []net.IP
+		for _, s := range cert.Spec.IPAddresses {
+			ips = append(ips, net.ParseIP(s))
+		}
+
 		certPEM, keyPEM, serialNumber, err = IssueCertificate(IssueRequest{
 			CACertPEM:    caCert.Certificate,
 			CAKeyPEM:     caKeyPEM,
 			DNSNames:     cert.Spec.DNSNames,
+			IPAddresses:  ips,
 			CertType:     cert.Spec.CertType,
 			ValidityDays: validityDays,
 		})
@@ -159,12 +167,17 @@ func (s *certificateStorage) Create(ctx context.Context, obj runtime.Object, opt
 	if dnsNames == nil {
 		dnsNames = []string{}
 	}
+	ipAddresses := cert.Spec.IPAddresses
+	if ipAddresses == nil {
+		ipAddresses = []string{}
+	}
 
 	row, err := s.store.Create(ctx, &DBCertificate{
 		Name:         cert.ObjectMeta.Name,
 		CertType:     cert.Spec.CertType,
 		CommonName:   cert.Spec.CommonName,
 		DnsNames:     dnsNames,
+		IpAddresses:  ipAddresses,
 		CaName:       caNamePtr,
 		SerialNumber: serialNumber,
 		Certificate:  certPEM,
@@ -279,6 +292,9 @@ func dbToAPI(row *DBCertificate) *Certificate {
 	}
 	if len(row.DnsNames) > 0 {
 		cert.Spec.DNSNames = row.DnsNames
+	}
+	if len(row.IpAddresses) > 0 {
+		cert.Spec.IPAddresses = row.IpAddresses
 	}
 	if row.CaName != nil {
 		cert.Spec.CAName = *row.CaName

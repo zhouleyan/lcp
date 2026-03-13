@@ -47,6 +47,7 @@ type Certificate struct {
 	NotAfter     time.Time  `json:"not_after"`
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at"`
+	IpAddresses  []string   `json:"ip_addresses"`
 }
 
 // 环境表：管理维度，用于按生命周期阶段分组资源
