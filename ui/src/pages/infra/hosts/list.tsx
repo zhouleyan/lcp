@@ -571,7 +571,7 @@ function HostFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t("host.edit") : t("host.create")}</DialogTitle>
         </DialogHeader>
@@ -599,6 +599,84 @@ function HostFormDialog({
             <FormField control={form.control} name="hostname" render={({ field }) => (
               <FormItem><FormLabel>{t("host.hostname")}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )} />
+
+            {/* IP Configuration (create mode only) — right after hostname */}
+            {!isEdit && (
+              <div className="space-y-3">
+                <div className="text-sm font-medium">{t("host.ips.section")}</div>
+                {fields.map((field, index) => {
+                  const selectedSubnetId = form.watch(`ips.${index}.subnetId`)
+                  const selectedSubnet = selectedSubnetId
+                    ? networks.flatMap((n) => n.spec.subnets).find((s) => s.id === selectedSubnetId)
+                    : null
+                  return (
+                    <div key={field.id}>
+                      <div className="flex items-start gap-2">
+                        <div className="grid grid-cols-2 gap-2 flex-1 min-w-0">
+                          <FormField control={form.control} name={`ips.${index}.subnetId`} render={({ field: f }) => (
+                            <FormItem>
+                              <Select value={f.value} onValueChange={f.onChange}>
+                                <FormControl>
+                                  <SelectTrigger className="w-full truncate">
+                                    <SelectValue placeholder={t("host.ips.subnet.select")} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {networks.map((net) => (
+                                    <SelectGroup key={net.metadata.id}>
+                                      <SelectLabel>{net.spec.displayName || net.metadata.name}{net.spec.cidr ? ` (${net.spec.cidr})` : ""}</SelectLabel>
+                                      {net.spec.subnets.map((sub) => (
+                                        <SelectItem key={sub.id} value={sub.id} disabled={sub.freeIPs === 0}>
+                                          {sub.displayName || sub.name} — {sub.cidr}
+                                          <span className="text-muted-foreground ml-2 text-xs">
+                                            ({t("host.ips.subnet.free", { free: sub.freeIPs, total: sub.totalIPs })})
+                                          </span>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+                          <FormField control={form.control} name={`ips.${index}.ip`} render={({ field: f }) => (
+                            <FormItem>
+                              <FormControl><Input {...f} placeholder={t("host.ips.ip")} /></FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 shrink-0"
+                          onClick={() => remove(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {selectedSubnet && (
+                        <p className="text-muted-foreground mt-0.5 mb-0 text-xs pl-0.5">
+                          {selectedSubnet.cidr} · {t("host.ips.subnet.free", { free: selectedSubnet.freeIPs, total: selectedSubnet.totalIPs })}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append({ subnetId: "", ip: "" })}
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  {t("host.ips.add")}
+                </Button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="os" render={({ field }) => (
                 <FormItem><FormLabel>{t("host.os")}</FormLabel><FormControl><Input {...field} placeholder="Linux" /></FormControl><FormMessage /></FormItem>
@@ -631,81 +709,6 @@ function HostFormDialog({
                 <FormMessage />
               </FormItem>
             )} />
-
-            {/* IP Configuration (create mode only) */}
-            {!isEdit && (
-              <div className="space-y-2">
-                <div className="text-sm font-medium">{t("host.ips.section")}</div>
-                {fields.map((field, index) => {
-                  const selectedSubnetId = form.watch(`ips.${index}.subnetId`)
-                  const selectedSubnet = selectedSubnetId
-                    ? networks.flatMap((n) => n.spec.subnets).find((s) => s.id === selectedSubnetId)
-                    : null
-                  return (
-                    <div key={field.id}>
-                      <div className="flex items-start gap-2">
-                        <FormField control={form.control} name={`ips.${index}.subnetId`} render={({ field: f }) => (
-                          <FormItem className="flex-1 min-w-0">
-                            <Select value={f.value} onValueChange={f.onChange}>
-                              <FormControl>
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder={t("host.ips.subnet.select")} />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {networks.map((net) => (
-                                  <SelectGroup key={net.metadata.id}>
-                                    <SelectLabel>{net.spec.displayName || net.metadata.name}{net.spec.cidr ? ` (${net.spec.cidr})` : ""}</SelectLabel>
-                                    {net.spec.subnets.map((sub) => (
-                                      <SelectItem key={sub.id} value={sub.id} disabled={sub.freeIPs === 0}>
-                                        {sub.displayName || sub.name} — {sub.cidr}
-                                        <span className="text-muted-foreground ml-2 text-xs">
-                                          ({t("host.ips.subnet.free", { free: sub.freeIPs, total: sub.totalIPs })})
-                                        </span>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectGroup>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
-                        <FormField control={form.control} name={`ips.${index}.ip`} render={({ field: f }) => (
-                          <FormItem className="w-40">
-                            <FormControl><Input {...f} placeholder={t("host.ips.ip")} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 shrink-0"
-                          onClick={() => remove(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      {selectedSubnet && (
-                        <p className="text-muted-foreground mt-1 text-xs pl-0.5">
-                          {selectedSubnet.cidr} · {t("host.ips.subnet.free", { free: selectedSubnet.freeIPs, total: selectedSubnet.totalIPs })}
-                        </p>
-                      )}
-                    </div>
-                  )
-                })}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => append({ subnetId: "", ip: "" })}
-                >
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  {t("host.ips.add")}
-                </Button>
-              </div>
-            )}
 
             </div>
             <DialogFooter className="mt-6 pt-4 border-t shrink-0">
