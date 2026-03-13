@@ -103,6 +103,7 @@ type IpAllocation struct {
 	// 是否为网关地址（自动分配，不可手动删除）
 	IsGateway bool      `json:"is_gateway"`
 	CreatedAt time.Time `json:"created_at"`
+	HostID    *int64    `json:"host_id"`
 }
 
 // 机房表：数据中心内的物理机房，属于某个站点

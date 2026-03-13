@@ -1,15 +1,15 @@
 -- name: CreateIPAllocation :one
 INSERT INTO ip_allocations (subnet_id, ip, description, is_gateway)
 VALUES (@subnet_id, @ip, @description, @is_gateway)
-RETURNING id, subnet_id, ip, description, is_gateway, created_at;
+RETURNING id, subnet_id, ip, description, is_gateway, created_at, host_id;
 
 -- name: GetIPAllocationByID :one
-SELECT id, subnet_id, ip, description, is_gateway, created_at
+SELECT id, subnet_id, ip, description, is_gateway, created_at, host_id
 FROM ip_allocations
 WHERE id = @id;
 
 -- name: GetIPAllocationBySubnetAndIP :one
-SELECT id, subnet_id, ip, description, is_gateway, created_at
+SELECT id, subnet_id, ip, description, is_gateway, created_at, host_id
 FROM ip_allocations
 WHERE subnet_id = @subnet_id AND ip = @ip;
 
@@ -29,7 +29,7 @@ WHERE subnet_id = @subnet_id
          OR description ILIKE '%' || sqlc.narg('search') || '%');
 
 -- name: ListIPAllocations :many
-SELECT id, subnet_id, ip, description, is_gateway, created_at
+SELECT id, subnet_id, ip, description, is_gateway, created_at, host_id
 FROM ip_allocations
 WHERE subnet_id = @subnet_id
     AND (sqlc.narg('is_gateway')::BOOLEAN IS NULL OR is_gateway = sqlc.narg('is_gateway'))
