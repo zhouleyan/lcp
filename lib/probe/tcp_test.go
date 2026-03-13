@@ -77,6 +77,9 @@ func TestTCP_Timeout(t *testing.T) {
 	if result.Duration < 150*time.Millisecond {
 		t.Errorf("expected duration near timeout, got %v", result.Duration)
 	}
+	if result.Phase != PhaseTCP {
+		t.Errorf("expected phase %q, got %q", PhaseTCP, result.Phase)
+	}
 }
 
 func TestTCP_ContextCanceled(t *testing.T) {
