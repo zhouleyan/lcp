@@ -518,6 +518,24 @@ export interface RackList extends TypeMeta {
   totalCount: number
 }
 
+// --- O11y Endpoint ---
+
+export interface EndpointSpec {
+  description?: string
+  metricsUrl?: string
+  status?: "active" | "inactive"
+}
+
+export interface Endpoint extends TypeMeta {
+  metadata: ObjectMeta
+  spec: EndpointSpec
+}
+
+export interface EndpointList extends TypeMeta {
+  items: Endpoint[]
+  totalCount: number
+}
+
 export interface StatusResponseDetail {
   field: string
   message: string

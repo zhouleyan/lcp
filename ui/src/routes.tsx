@@ -9,6 +9,7 @@ import { iamRoutes } from "@/pages/iam/routes"
 import { auditRoutes } from "@/pages/audit/routes"
 import { infraRoutes } from "@/pages/infra/routes"
 import { networkRoutes } from "@/pages/network/routes"
+import { o11yRoutes } from "@/pages/o11y/routes"
 import { usePermissionStore } from "@/stores/permission-store"
 import { getDefaultPath } from "@/hooks/use-permission"
 
@@ -65,6 +66,10 @@ export const routes: RouteObject[] = [
       {
         path: "network",
         children: networkRoutes,
+      },
+      {
+        path: "o11y",
+        children: o11yRoutes,
       },
     ],
   },
