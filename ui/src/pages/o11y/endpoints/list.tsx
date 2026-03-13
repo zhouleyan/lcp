@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Plus, Pencil, Trash2, Search } from "lucide-react"
+import { Plus, Pencil, Trash2, Search, Activity, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -21,11 +21,14 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
 import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover"
+import {
   listEndpoints, createEndpoint, updateEndpoint,
-  deleteEndpoint, deleteEndpoints,
+  deleteEndpoint, deleteEndpoints, probeEndpoint,
 } from "@/api/o11y/endpoints"
 import { showApiError } from "@/api/client"
-import type { Endpoint, ListParams } from "@/api/types"
+import type { Endpoint, ListParams, ProbeResultItem } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
 import { useListState } from "@/hooks/use-list-state"
@@ -223,6 +226,9 @@ export default function EndpointListPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
+                      {hasPermission(`${permPrefix}:probe`) && (
+                        <ProbeButton endpointId={ep.metadata.id} />
+                      )}
                       {hasPermission(`${permPrefix}:update`) && (
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(ep)} title={t("common.edit")}>
                           <Pencil className="h-3.5 w-3.5" />
@@ -487,5 +493,79 @@ function EndpointFormDialog({
         </Form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ===== Probe Button =====
+
+const fieldLabelKeys: Record<string, string> = {
+  metricsUrl: "endpoint.metricsLabel",
+  logsUrl: "endpoint.logsLabel",
+  tracesUrl: "endpoint.tracesLabel",
+  apmUrl: "endpoint.apmLabel",
+}
+
+function ProbeButton({ endpointId }: { endpointId: string }) {
+  const { t } = useTranslation()
+  const [loading, setLoading] = useState(false)
+  const [results, setResults] = useState<ProbeResultItem[] | null>(null)
+  const [open, setOpen] = useState(false)
+
+  const handleProbe = async () => {
+    setLoading(true)
+    setResults(null)
+    setOpen(true)
+    try {
+      const data = await probeEndpoint(endpointId)
+      setResults(data.results)
+    } catch (err) {
+      showApiError(err, t, "endpoint.title")
+      setOpen(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleProbe} title={t("endpoint.probe")}>
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80" align="end">
+        <div className="space-y-2">
+          <p className="text-sm font-medium">{t("endpoint.probeResult")}</p>
+          {loading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {t("endpoint.probing")}
+            </div>
+          )}
+          {results?.map((item) => (
+            <div key={item.field} className="flex items-start gap-2 text-sm">
+              {item.success
+                ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500 mt-0.5" />
+                : <XCircle className="h-4 w-4 shrink-0 text-destructive mt-0.5" />
+              }
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">{t(fieldLabelKeys[item.field] ?? item.field)}</span>
+                  {item.success
+                    ? <span className="text-green-600">{item.statusCode} · {item.duration}</span>
+                    : <span className="text-destructive">{item.phase} · {item.duration}</span>
+                  }
+                </div>
+                <div className="truncate text-muted-foreground" title={item.url}>{item.url}</div>
+                {item.message && <div className="text-destructive text-xs">{item.message}</div>}
+              </div>
+            </div>
+          ))}
+          {results?.length === 0 && (
+            <p className="text-sm text-muted-foreground">{t("endpoint.probeNoUrls")}</p>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }

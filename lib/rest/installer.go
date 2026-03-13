@@ -87,13 +87,14 @@ func (i *APIInstaller) registerRoutes(basePath, itemPath string, res ResourceInf
 }
 
 // installAction registers a custom action route on a resource item.
+// Action handlers receive both path params and query params (via HandleAction).
 func (i *APIInstaller) installAction(parentItemPath string, action ActionInfo) {
 	actionPath := parentItemPath + "/" + action.Name
 	statusCode := action.StatusCode
 	if statusCode == 0 {
 		statusCode = http.StatusOK
 	}
-	handler := HandleWithAPIVersion(i.serializer, statusCode, action.Handler, i.group.APIVersion())
+	handler := HandleAction(i.serializer, statusCode, action.Handler, i.group.APIVersion())
 	i.ws.Route(i.ws.METHOD(action.Method, actionPath).To(handler))
 }
 

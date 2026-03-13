@@ -3,12 +3,22 @@ package infra
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5"
 	"lcp.io/lcp/pkg/db"
 )
 
+// IPBinder is the Anti-Corruption Layer store for IP allocation.
+// It allows the infra module to allocate IPs from network subnets
+// without importing the network package.
+type IPBinder interface {
+	GetSubnetForUpdate(ctx context.Context, tx pgx.Tx, subnetID int64) (*DBSubnetRow, error)
+	UpdateSubnetBitmap(ctx context.Context, tx pgx.Tx, subnetID int64, bitmap []byte) error
+	CreateIPAllocation(ctx context.Context, tx pgx.Tx, alloc *DBIPAllocationWithHost) (*DBIPAllocationWithHost, error)
+}
+
 // HostStore defines database operations on hosts.
 type HostStore interface {
-	Create(ctx context.Context, host *DBHost) (*DBHost, error)
+	Create(ctx context.Context, host *DBHost, ipConfigs []DBIPConfig) (*DBHost, error)
 	GetByID(ctx context.Context, id int64) (*DBHostWithEnv, error)
 	Update(ctx context.Context, host *DBHost) (*DBHost, error)
 	Patch(ctx context.Context, id int64, fields map[string]any) (*DBHost, error)

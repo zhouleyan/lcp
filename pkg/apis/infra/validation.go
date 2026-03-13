@@ -1,6 +1,8 @@
 package infra
 
 import (
+	"fmt"
+	"net"
 	"regexp"
 
 	"lcp.io/lcp/lib/api/validation"
@@ -34,6 +36,37 @@ func ValidateHostCreate(name string, spec *HostSpec) validation.ErrorList {
 	var errs validation.ErrorList
 	validateName(&errs, name)
 	validateStatus(&errs, spec.Status)
+	if len(spec.IPs) > 0 {
+		errs = append(errs, ValidateIPConfigs(spec.IPs)...)
+	}
+	return errs
+}
+
+// ValidateIPConfigs validates IP configuration entries.
+func ValidateIPConfigs(ips []IPConfig) validation.ErrorList {
+	var errs validation.ErrorList
+
+	seen := make(map[string]bool)
+	for i, cfg := range ips {
+		field := fmt.Sprintf("spec.ips[%d]", i)
+
+		if cfg.SubnetID == "" {
+			errs = append(errs, validation.FieldError{Field: field + ".subnetId", Message: "is required"})
+		}
+
+		if cfg.IP != "" {
+			if net.ParseIP(cfg.IP) == nil {
+				errs = append(errs, validation.FieldError{Field: field + ".ip", Message: "must be a valid IP address"})
+			}
+		}
+
+		key := cfg.SubnetID + ":" + cfg.IP
+		if seen[key] {
+			errs = append(errs, validation.FieldError{Field: field, Message: "duplicate subnetId + ip combination"})
+		}
+		seen[key] = true
+	}
+
 	return errs
 }
 

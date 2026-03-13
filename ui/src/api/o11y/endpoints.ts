@@ -1,6 +1,6 @@
 import { o11yApi } from "./client"
 import { apiRequest } from "../client"
-import type { Endpoint, EndpointList, ListParams } from "../types"
+import type { Endpoint, EndpointList, ListParams, ProbeResult } from "../types"
 
 export async function listEndpoints(params?: ListParams): Promise<EndpointList> {
   return apiRequest(o11yApi.get("endpoints", { searchParams: params as Record<string, string> }).json())
@@ -28,4 +28,8 @@ export async function deleteEndpoint(id: string): Promise<void> {
 
 export async function deleteEndpoints(ids: string[]): Promise<void> {
   await apiRequest(o11yApi.delete("endpoints", { json: { ids } }).json())
+}
+
+export async function probeEndpoint(id: string): Promise<ProbeResult> {
+  return apiRequest(o11yApi.post(`endpoints/${id}/probe`, { json: {} }).json())
 }

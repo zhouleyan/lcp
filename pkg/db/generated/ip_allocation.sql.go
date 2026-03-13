@@ -35,7 +35,7 @@ func (q *Queries) CountIPAllocations(ctx context.Context, arg CountIPAllocations
 const createIPAllocation = `-- name: CreateIPAllocation :one
 INSERT INTO ip_allocations (subnet_id, ip, description, is_gateway)
 VALUES ($1, $2, $3, $4)
-RETURNING id, subnet_id, ip, description, is_gateway, created_at
+RETURNING id, subnet_id, ip, description, is_gateway, created_at, host_id
 `
 
 type CreateIPAllocationParams struct {
@@ -60,6 +60,7 @@ func (q *Queries) CreateIPAllocation(ctx context.Context, arg CreateIPAllocation
 		&i.Description,
 		&i.IsGateway,
 		&i.CreatedAt,
+		&i.HostID,
 	)
 	return i, err
 }
@@ -83,7 +84,7 @@ func (q *Queries) DeleteIPAllocationsBySubnetID(ctx context.Context, subnetID in
 }
 
 const getIPAllocationByID = `-- name: GetIPAllocationByID :one
-SELECT id, subnet_id, ip, description, is_gateway, created_at
+SELECT id, subnet_id, ip, description, is_gateway, created_at, host_id
 FROM ip_allocations
 WHERE id = $1
 `
@@ -98,12 +99,13 @@ func (q *Queries) GetIPAllocationByID(ctx context.Context, id int64) (IpAllocati
 		&i.Description,
 		&i.IsGateway,
 		&i.CreatedAt,
+		&i.HostID,
 	)
 	return i, err
 }
 
 const getIPAllocationBySubnetAndIP = `-- name: GetIPAllocationBySubnetAndIP :one
-SELECT id, subnet_id, ip, description, is_gateway, created_at
+SELECT id, subnet_id, ip, description, is_gateway, created_at, host_id
 FROM ip_allocations
 WHERE subnet_id = $1 AND ip = $2
 `
@@ -123,12 +125,13 @@ func (q *Queries) GetIPAllocationBySubnetAndIP(ctx context.Context, arg GetIPAll
 		&i.Description,
 		&i.IsGateway,
 		&i.CreatedAt,
+		&i.HostID,
 	)
 	return i, err
 }
 
 const listIPAllocations = `-- name: ListIPAllocations :many
-SELECT id, subnet_id, ip, description, is_gateway, created_at
+SELECT id, subnet_id, ip, description, is_gateway, created_at, host_id
 FROM ip_allocations
 WHERE subnet_id = $1
     AND ($2::BOOLEAN IS NULL OR is_gateway = $2)
@@ -179,6 +182,7 @@ func (q *Queries) ListIPAllocations(ctx context.Context, arg ListIPAllocationsPa
 			&i.Description,
 			&i.IsGateway,
 			&i.CreatedAt,
+			&i.HostID,
 		); err != nil {
 			return nil, err
 		}
