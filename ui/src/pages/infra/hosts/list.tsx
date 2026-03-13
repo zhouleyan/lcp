@@ -677,6 +677,11 @@ function BindEnvironmentDialog({
               {environments.map((env) => (
                 <SelectItem key={env.metadata.id} value={env.metadata.id}>
                   {env.spec.displayName || env.metadata.name}
+                  {env.spec.scope && (
+                    <span className="text-muted-foreground ml-2 text-xs">
+                      ({t(`scope.${env.spec.scope}`)})
+                    </span>
+                  )}
                 </SelectItem>
               ))}
             </SelectContent>

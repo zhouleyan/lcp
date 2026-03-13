@@ -71,6 +71,9 @@ const common: Messages = {
   "overview.forbidden": "You don't have permission to view overview statistics. Please use the sidebar to navigate to pages you have access to.",
 
   // scope selector
+  "scope.platform": "Platform",
+  "scope.workspace": "Workspace",
+  "scope.namespace": "Namespace",
   "scope.allWorkspaces": "All Workspaces",
   "scope.allNamespaces": "All Namespaces",
   "scope.selectWorkspace": "Select workspace",
