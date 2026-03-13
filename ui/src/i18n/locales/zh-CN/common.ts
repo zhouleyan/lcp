@@ -73,6 +73,9 @@ const common: Messages = {
   "overview.forbidden": "您没有查看概览统计的权限，请通过侧边栏导航到您有权限的页面。",
 
   // scope selector
+  "scope.platform": "平台",
+  "scope.workspace": "租户",
+  "scope.namespace": "项目",
   "scope.allWorkspaces": "所有租户",
   "scope.allNamespaces": "所有项目",
   "scope.selectWorkspace": "选择租户",

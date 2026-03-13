@@ -76,18 +76,6 @@ type Host struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
-// 主机分配表：引用语义，上层主机授权给下层使用
-type HostAssignment struct {
-	ID int64 `json:"id"`
-	// 被分配的主机 ID
-	HostID int64 `json:"host_id"`
-	// 目标租户（平台主机 → 租户）
-	WorkspaceID *int64 `json:"workspace_id"`
-	// 目标项目（平台/租户主机 → 项目）
-	NamespaceID *int64    `json:"namespace_id"`
-	CreatedAt   time.Time `json:"created_at"`
-}
-
 // IP 分配记录表：记录每个已分配的 IP
 type IpAllocation struct {
 	ID int64 `json:"id"`

@@ -50,15 +50,16 @@ type HostSpec struct {
 	Scope string `json:"scope"`
 	// +openapi:description=所属租户 ID（workspace scope 时必填）
 	WorkspaceID string `json:"workspaceId,omitempty"`
+	// +openapi:description=所属租户名称（只读）
+	WorkspaceName string `json:"workspaceName,omitempty"`
 	// +openapi:description=所属项目 ID（namespace scope 时必填）
 	NamespaceID string `json:"namespaceId,omitempty"`
+	// +openapi:description=所属项目名称（只读）
+	NamespaceName string `json:"namespaceName,omitempty"`
 	// +openapi:description=绑定的环境 ID（只读）
 	EnvironmentID string `json:"environmentId,omitempty"`
 	// +openapi:description=绑定的环境名称（只读）
 	EnvironmentName string `json:"environmentName,omitempty"`
-	// +openapi:description=主机来源：owned 表示自有，assigned 表示被分配（只读，仅 workspace/namespace 列表返回）
-	// +openapi:enum=owned,assigned
-	Origin string `json:"origin,omitempty"`
 	// +openapi:description=主机状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
@@ -121,56 +122,7 @@ type EnvironmentList struct {
 
 func (e *EnvironmentList) GetTypeMeta() *runtime.TypeMeta { return &e.TypeMeta }
 
-// --- HostAssignment types ---
-
-// HostAssignment
-// +openapi:schema
-// +openapi:description=主机分配记录：表示上层主机被授权给下层使用。
-type HostAssignment struct {
-	runtime.TypeMeta `json:",inline"`
-	types.ObjectMeta `json:"metadata"`
-	Spec             HostAssignmentSpec `json:"spec"`
-}
-
-func (ha *HostAssignment) GetTypeMeta() *runtime.TypeMeta { return &ha.TypeMeta }
-
-// HostAssignmentSpec
-// +openapi:description=主机分配属性：包含主机 ID、目标租户或项目 ID。
-type HostAssignmentSpec struct {
-	// +openapi:required
-	// +openapi:description=被分配的主机 ID
-	HostID string `json:"hostId"`
-	// +openapi:description=主机名称（只读）
-	HostName string `json:"hostName,omitempty"`
-	// +openapi:description=目标租户 ID
-	WorkspaceID string `json:"workspaceId,omitempty"`
-	// +openapi:description=目标租户名称（只读）
-	WorkspaceName string `json:"workspaceName,omitempty"`
-	// +openapi:description=目标项目 ID
-	NamespaceID string `json:"namespaceId,omitempty"`
-	// +openapi:description=目标项目名称（只读）
-	NamespaceName string `json:"namespaceName,omitempty"`
-}
-
-// HostAssignmentList
-// +openapi:description=主机分配列表。
-type HostAssignmentList struct {
-	runtime.TypeMeta `json:",inline"`
-	Items            []HostAssignment `json:"items"`
-}
-
-func (hal *HostAssignmentList) GetTypeMeta() *runtime.TypeMeta { return &hal.TypeMeta }
-
 // --- Action request types ---
-
-// AssignRequest is the request body for host assign/unassign actions.
-type AssignRequest struct {
-	runtime.TypeMeta `json:",inline"`
-	WorkspaceID      string `json:"workspaceId,omitempty"`
-	NamespaceID      string `json:"namespaceId,omitempty"`
-}
-
-func (ar *AssignRequest) GetTypeMeta() *runtime.TypeMeta { return &ar.TypeMeta }
 
 // BindEnvironmentRequest is the request body for host bind-environment action.
 type BindEnvironmentRequest struct {
@@ -391,9 +343,6 @@ type DBHost = generated.Host
 // DBEnvironment is an alias for the sqlc-generated Environment model.
 type DBEnvironment = generated.Environment
 
-// DBHostAssignment is an alias for the sqlc-generated HostAssignment model.
-type DBHostAssignment = generated.HostAssignment
-
 // DBHostWithEnv extends Host with environment_name from GetHostByID.
 type DBHostWithEnv = generated.GetHostByIDRow
 
@@ -403,10 +352,10 @@ type DBEnvWithCounts = generated.GetEnvironmentByIDRow
 // DBHostPlatformRow is an alias for ListHostsPlatform row (no origin field).
 type DBHostPlatformRow = generated.ListHostsPlatformRow
 
-// DBHostWorkspaceRow is an alias for ListHostsByWorkspaceID row (with origin field).
+// DBHostWorkspaceRow is an alias for ListHostsByWorkspaceID row.
 type DBHostWorkspaceRow = generated.ListHostsByWorkspaceIDRow
 
-// DBHostNamespaceRow is an alias for ListHostsByNamespaceID row (with origin field).
+// DBHostNamespaceRow is an alias for ListHostsByNamespaceID row.
 type DBHostNamespaceRow = generated.ListHostsByNamespaceIDRow
 
 // DBEnvPlatformRow is an alias for ListEnvironmentsPlatform row.
@@ -415,14 +364,17 @@ type DBEnvPlatformRow = generated.ListEnvironmentsPlatformRow
 // DBEnvWorkspaceRow is an alias for ListEnvironmentsByWorkspaceID row.
 type DBEnvWorkspaceRow = generated.ListEnvironmentsByWorkspaceIDRow
 
+// DBEnvWorkspaceInheritRow is an alias for ListEnvironmentsByWorkspaceIDInherit row.
+type DBEnvWorkspaceInheritRow = generated.ListEnvironmentsByWorkspaceIDInheritRow
+
 // DBEnvNamespaceRow is an alias for ListEnvironmentsByNamespaceID row.
 type DBEnvNamespaceRow = generated.ListEnvironmentsByNamespaceIDRow
 
+// DBEnvNamespaceInheritRow is an alias for ListEnvironmentsByNamespaceIDInherit row.
+type DBEnvNamespaceInheritRow = generated.ListEnvironmentsByNamespaceIDInheritRow
+
 // DBHostByEnvRow is an alias for ListHostsByEnvironmentID row.
 type DBHostByEnvRow = generated.ListHostsByEnvironmentIDRow
-
-// DBAssignmentRow is an alias for ListAssignmentsByHostID row.
-type DBAssignmentRow = generated.ListAssignmentsByHostIDRow
 
 // --- Region DB type aliases ---
 

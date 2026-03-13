@@ -3,6 +3,7 @@ package sshclient
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -45,6 +46,11 @@ type Config struct {
 	PrivateKeyContent string
 	// Timeout for the SSH connection. Defaults to 30s.
 	Timeout time.Duration
+	// ProxyJump is the bastion/jump host config. When set, the client
+	// connects to Host through the proxy via SSH tunnel. Supports
+	// multi-level chaining (ProxyJump can itself have a ProxyJump).
+	// Nil means direct connection.
+	ProxyJump *Config
 }
 
 // applyDefaults fills in zero-value fields with sensible defaults.
@@ -62,15 +68,20 @@ func (c *Config) applyDefaults() {
 
 // Client wraps an SSH connection with managed lifecycle.
 type Client struct {
-	config Config
-	client *ssh.Client
-	mu     sync.Mutex
+	config      Config
+	client      *ssh.Client
+	proxyClient *Client  // bastion client (auto-managed lifecycle)
+	proxyConn   net.Conn // tunnel connection through bastion
+	mu          sync.Mutex
 }
 
 // New creates a new Client with the given config. It does not establish
 // a connection; call Connect to do so.
 func New(config Config) *Client {
 	config.applyDefaults()
+	if config.ProxyJump != nil {
+		config.ProxyJump.applyDefaults()
+	}
 	return &Client{
 		config: config,
 	}
@@ -116,26 +127,64 @@ func (c *Client) Connect(ctx context.Context) error {
 		}
 	}
 
-	sshClient, err := ssh.Dial("tcp", addr, sshConfig)
-	if err != nil {
-		return fmt.Errorf("sshclient: failed to dial %s: %w", addr, err)
+	if c.config.ProxyJump != nil {
+		proxy := New(*c.config.ProxyJump)
+		if err := proxy.Connect(ctx); err != nil {
+			return fmt.Errorf("sshclient: failed to connect proxy %s:%d: %w",
+				c.config.ProxyJump.Host, c.config.ProxyJump.Port, err)
+		}
+
+		tunnelConn, err := proxy.client.Dial("tcp", addr)
+		if err != nil {
+			proxy.Close()
+			return fmt.Errorf("sshclient: failed to tunnel to %s: %w", addr, err)
+		}
+
+		ncc, chans, reqs, err := ssh.NewClientConn(tunnelConn, addr, sshConfig)
+		if err != nil {
+			tunnelConn.Close()
+			proxy.Close()
+			return fmt.Errorf("sshclient: failed to dial %s via proxy: %w", addr, err)
+		}
+
+		c.client = ssh.NewClient(ncc, chans, reqs)
+		c.proxyClient = proxy
+		c.proxyConn = tunnelConn
+	} else {
+		sshClient, err := ssh.Dial("tcp", addr, sshConfig)
+		if err != nil {
+			return fmt.Errorf("sshclient: failed to dial %s: %w", addr, err)
+		}
+		c.client = sshClient
 	}
-	c.client = sshClient
 
 	return nil
 }
 
-// Close closes the underlying SSH connection. It is safe to call
-// multiple times.
+// Close closes the underlying SSH connection and any proxy resources.
+// It is safe to call multiple times.
 func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Close target SSH connection.
 	if c.client != nil {
-		err := c.client.Close()
+		c.client.Close()
 		c.client = nil
-		return err
 	}
+
+	// Close tunnel connection.
+	if c.proxyConn != nil {
+		c.proxyConn.Close()
+		c.proxyConn = nil
+	}
+
+	// Cascade close to bastion client.
+	if c.proxyClient != nil {
+		c.proxyClient.Close()
+		c.proxyClient = nil
+	}
+
 	return nil
 }
 

@@ -38,13 +38,10 @@ func NewInfraModule(database *db.DB) ModuleResult {
 	locationRackStorage := infra.NewLocationRackStorage(p.Rack)
 
 	// Action handlers
-	assignHandler := infra.NewAssignHandler(p.Host, p.HostAssignment)
-	unassignHandler := infra.NewUnassignHandler(p.HostAssignment)
-	bindEnvHandler := infra.NewBindEnvironmentHandler(p.Host)
+	bindEnvHandler := infra.NewBindEnvironmentHandler(p.Host, p.Environment)
 	unbindEnvHandler := infra.NewUnbindEnvironmentHandler(p.Host)
 
 	// Custom verb handlers
-	hostAssignmentsVerb := infra.NewHostAssignmentsVerb(p.HostAssignment)
 	envHostsVerb := infra.NewEnvHostsVerb(p.Environment)
 
 	group := &rest.APIGroupInfo{
@@ -55,13 +52,8 @@ func NewInfraModule(database *db.DB) ModuleResult {
 				Name:    "hosts",
 				Storage: platformHostStorage,
 				Actions: []rest.ActionInfo{
-					{Name: "assign", Method: "POST", Handler: assignHandler},
-					{Name: "unassign", Method: "POST", Handler: unassignHandler},
 					{Name: "bind-environment", Method: "POST", Handler: bindEnvHandler},
 					{Name: "unbind-environment", Method: "POST", Handler: unbindEnvHandler},
-				},
-				CustomVerbs: []rest.CustomVerbInfo{
-					{Name: "assignments", Storage: hostAssignmentsVerb},
 				},
 			},
 			{
@@ -78,8 +70,6 @@ func NewInfraModule(database *db.DB) ModuleResult {
 						Name:    "hosts",
 						Storage: wsHostStorage,
 						Actions: []rest.ActionInfo{
-							{Name: "assign", Method: "POST", Handler: assignHandler},
-							{Name: "unassign", Method: "POST", Handler: unassignHandler},
 							{Name: "bind-environment", Method: "POST", Handler: bindEnvHandler},
 							{Name: "unbind-environment", Method: "POST", Handler: unbindEnvHandler},
 						},

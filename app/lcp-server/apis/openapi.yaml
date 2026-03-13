@@ -2398,52 +2398,10 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/infra/v1/hosts/{hostId}/assign:
-    post:
-      summary: 分配主机到租户或项目
-      operationId: assignHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
   /api/infra/v1/hosts/{hostId}/bind-environment:
     post:
       summary: 绑定主机到环境
       operationId: bindEnvironmentHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api/infra/v1/hosts/{hostId}/unassign:
-    post:
-      summary: 取消主机分配
-      operationId: unassignHost
       tags:
         - Host
       parameters:
@@ -2482,44 +2440,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/infra/v1/hosts/{hostId}:assignments:
-    get:
-      summary: 获取主机的分配记录列表
-      operationId: listAssignmentsHost
-      tags:
-        - Host
-      parameters:
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostAssignmentList'
   /api/infra/v1/locations:
     get:
       summary: 获取机房列表
@@ -3614,62 +3534,10 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/infra/v1/workspaces/{workspaceId}/hosts/{hostId}/assign:
-    post:
-      summary: 分配主机到租户或项目
-      operationId: assignWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
   /api/infra/v1/workspaces/{workspaceId}/hosts/{hostId}/bind-environment:
     post:
       summary: 绑定主机到环境
       operationId: bindEnvironmentWorkspaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api/infra/v1/workspaces/{workspaceId}/hosts/{hostId}/unassign:
-    post:
-      summary: 取消主机分配
-      operationId: unassignWorkspaceHost
       tags:
         - Host
       parameters:
@@ -4164,72 +4032,10 @@ paths:
       responses:
         "204":
           description: No Content
-  /api/infra/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}/assign:
-    post:
-      summary: 分配主机到租户或项目
-      operationId: assignWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
   /api/infra/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}/bind-environment:
     post:
       summary: 绑定主机到环境
       operationId: bindEnvironmentWorkspaceNamespaceHost
-      tags:
-        - Host
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: namespaceId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: hostId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: OK
-  /api/infra/v1/workspaces/{workspaceId}/namespaces/{namespaceId}/hosts/{hostId}/unassign:
-    post:
-      summary: 取消主机分配
-      operationId: unassignWorkspaceNamespaceHost
       tags:
         - Host
       parameters:
@@ -5163,41 +4969,6 @@ components:
       properties:
         spec:
           $ref: '#/components/schemas/HostSpec'
-    HostAssignment:
-      type: object
-      properties:
-        spec:
-          $ref: '#/components/schemas/HostAssignmentSpec'
-    HostAssignmentList:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/HostAssignment'
-    HostAssignmentSpec:
-      type: object
-      properties:
-        hostId:
-          type: string
-          description: 被分配的主机 ID
-        hostName:
-          type: string
-          description: 主机名称（只读）
-        namespaceId:
-          type: string
-          description: 目标项目 ID
-        namespaceName:
-          type: string
-          description: 目标项目名称（只读）
-        workspaceId:
-          type: string
-          description: 目标租户 ID
-        workspaceName:
-          type: string
-          description: 目标租户名称（只读）
-      required:
-        - hostId
     HostList:
       type: object
       properties:
@@ -5244,12 +5015,9 @@ components:
         namespaceId:
           type: string
           description: 所属项目 ID（namespace scope 时必填）
-        origin:
+        namespaceName:
           type: string
-          description: 主机来源：owned 表示自有，assigned 表示被分配（只读，仅 workspace/namespace 列表返回）
-          enum:
-            - owned
-            - assigned
+          description: 所属项目名称（只读）
         os:
           type: string
           description: 操作系统
@@ -5269,6 +5037,9 @@ components:
         workspaceId:
           type: string
           description: 所属租户 ID（workspace scope 时必填）
+        workspaceName:
+          type: string
+          description: 所属租户名称（只读）
       required:
         - scope
     IPAllocation:

@@ -1029,6 +1029,23 @@ func (s *workspaceEnvironmentStorage) List(ctx context.Context, options *rest.Li
 	}
 
 	query := restOptionsToListQuery(options)
+	delete(query.Filters, "inherit")
+
+	if options.Filters["inherit"] == "true" {
+		result, err := s.envStore.ListByWorkspaceIDInherit(ctx, wsID, query)
+		if err != nil {
+			return nil, err
+		}
+		items := make([]Environment, len(result.Items))
+		for i, item := range result.Items {
+			items[i] = envWorkspaceInheritRowToAPI(&item)
+		}
+		return &EnvironmentList{
+			TypeMeta:   runtime.TypeMeta{Kind: "EnvironmentList"},
+			Items:      items,
+			TotalCount: result.TotalCount,
+		}, nil
+	}
 
 	result, err := s.envStore.ListByWorkspaceID(ctx, wsID, query)
 	if err != nil {
@@ -1259,6 +1276,23 @@ func (s *namespaceEnvironmentStorage) List(ctx context.Context, options *rest.Li
 	}
 
 	query := restOptionsToListQuery(options)
+	delete(query.Filters, "inherit")
+
+	if options.Filters["inherit"] == "true" {
+		result, err := s.envStore.ListByNamespaceIDInherit(ctx, nsID, query)
+		if err != nil {
+			return nil, err
+		}
+		items := make([]Environment, len(result.Items))
+		for i, item := range result.Items {
+			items[i] = envNamespaceInheritRowToAPI(&item)
+		}
+		return &EnvironmentList{
+			TypeMeta:   runtime.TypeMeta{Kind: "EnvironmentList"},
+			Items:      items,
+			TotalCount: result.TotalCount,
+		}, nil
+	}
 
 	result, err := s.envStore.ListByNamespaceID(ctx, nsID, query)
 	if err != nil {
@@ -1446,132 +1480,13 @@ func (s *namespaceEnvironmentStorage) DeleteCollection(ctx context.Context, ids 
 	}, nil
 }
 
-// ===== assign 主机分配操作 =====
-
-// NewAssignHandler 创建主机分配操作处理器。将平台级或租户级主机分配给下层使用。
-// +openapi:action=assign
-// +openapi:resource=Host
-// +openapi:summary=分配主机到租户或项目
-func NewAssignHandler(hostStore HostStore, assignStore HostAssignmentStore) rest.HandlerFunc {
-	return func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
-		hostIDStr := params["hostId"]
-		hostID, err := parseID(hostIDStr)
-		if err != nil {
-			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid host ID: %s", hostIDStr), nil)
-		}
-
-		var req AssignRequest
-		if err := json.Unmarshal(body, &req); err != nil {
-			return nil, apierrors.NewBadRequest("invalid request body", nil)
-		}
-
-		if errs := ValidateAssignRequest(&req); errs.HasErrors() {
-			return nil, apierrors.NewBadRequest("validation failed", errs)
-		}
-
-		// Check the host's scope: namespace hosts cannot be assigned
-		host, err := hostStore.GetByID(ctx, hostID)
-		if err != nil {
-			return nil, err
-		}
-		if host.Scope == ScopeNamespace {
-			return nil, apierrors.NewBadRequest("namespace-scoped hosts cannot be assigned", nil)
-		}
-
-		// Workspace hosts can only be assigned to namespaces in the same workspace
-		if host.Scope == ScopeWorkspace && req.NamespaceID != "" {
-			// Allowed: workspace host → namespace assignment
-		} else if host.Scope == ScopeWorkspace && req.WorkspaceID != "" {
-			return nil, apierrors.NewBadRequest("workspace-scoped hosts cannot be assigned to another workspace", nil)
-		}
-
-		var wsID, nsID *int64
-		if req.WorkspaceID != "" {
-			wid, err := parseID(req.WorkspaceID)
-			if err != nil {
-				return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspaceId: %s", req.WorkspaceID), nil)
-			}
-			wsID = &wid
-		}
-		if req.NamespaceID != "" {
-			nid, err := parseID(req.NamespaceID)
-			if err != nil {
-				return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid namespaceId: %s", req.NamespaceID), nil)
-			}
-			nsID = &nid
-		}
-
-		_, err = assignStore.Assign(ctx, hostID, wsID, nsID)
-		if err != nil {
-			return nil, err
-		}
-
-		return &StatusResponse{
-			TypeMeta: runtime.TypeMeta{Kind: "Status"},
-			Status:   "Success",
-			Message:  "host assigned successfully",
-		}, nil
-	}
-}
-
-// ===== unassign 主机取消分配操作 =====
-
-// NewUnassignHandler 创建主机取消分配操作处理器。
-// +openapi:action=unassign
-// +openapi:resource=Host
-// +openapi:summary=取消主机分配
-func NewUnassignHandler(assignStore HostAssignmentStore) rest.HandlerFunc {
-	return func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
-		hostIDStr := params["hostId"]
-		hostID, err := parseID(hostIDStr)
-		if err != nil {
-			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid host ID: %s", hostIDStr), nil)
-		}
-
-		var req AssignRequest
-		if err := json.Unmarshal(body, &req); err != nil {
-			return nil, apierrors.NewBadRequest("invalid request body", nil)
-		}
-
-		if errs := ValidateAssignRequest(&req); errs.HasErrors() {
-			return nil, apierrors.NewBadRequest("validation failed", errs)
-		}
-
-		if req.WorkspaceID != "" {
-			wsID, err := parseID(req.WorkspaceID)
-			if err != nil {
-				return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid workspaceId: %s", req.WorkspaceID), nil)
-			}
-			if err := assignStore.UnassignWorkspace(ctx, hostID, wsID); err != nil {
-				return nil, err
-			}
-		}
-
-		if req.NamespaceID != "" {
-			nsID, err := parseID(req.NamespaceID)
-			if err != nil {
-				return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid namespaceId: %s", req.NamespaceID), nil)
-			}
-			if err := assignStore.UnassignNamespace(ctx, hostID, nsID); err != nil {
-				return nil, err
-			}
-		}
-
-		return &StatusResponse{
-			TypeMeta: runtime.TypeMeta{Kind: "Status"},
-			Status:   "Success",
-			Message:  "host unassigned successfully",
-		}, nil
-	}
-}
-
 // ===== bind-environment 绑定环境操作 =====
 
 // NewBindEnvironmentHandler 创建主机绑定环境操作处理器。
 // +openapi:action=bind-environment
 // +openapi:resource=Host
 // +openapi:summary=绑定主机到环境
-func NewBindEnvironmentHandler(hostStore HostStore) rest.HandlerFunc {
+func NewBindEnvironmentHandler(hostStore HostStore, envStore EnvironmentStore) rest.HandlerFunc {
 	return func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
 		hostIDStr := params["hostId"]
 		hostID, err := parseID(hostIDStr)
@@ -1591,6 +1506,28 @@ func NewBindEnvironmentHandler(hostStore HostStore) rest.HandlerFunc {
 		envID, err := parseID(req.EnvironmentID)
 		if err != nil {
 			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid environmentId: %s", req.EnvironmentID), nil)
+		}
+
+		// Validate environment scope is compatible with host scope.
+		// Environment must be at the same level or higher than the host in the
+		// scope hierarchy (platform → workspace → namespace).
+		env, err := envStore.GetByID(ctx, envID)
+		if err != nil {
+			return nil, err
+		}
+		host, err := hostStore.GetByID(ctx, hostID)
+		if err != nil {
+			return nil, err
+		}
+		var nsParentWsID int64
+		if host.Scope == "namespace" && host.NamespaceID != nil && env.Scope == "workspace" {
+			nsParentWsID, err = hostStore.GetWorkspaceIDByNamespaceID(ctx, *host.NamespaceID)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if !isEnvScopeCompatible(host, env, nsParentWsID) {
+			return nil, apierrors.NewBadRequest("environment scope is not compatible with host scope", nil)
 		}
 
 		if err := hostStore.BindEnvironment(ctx, hostID, envID); err != nil {
@@ -1629,45 +1566,6 @@ func NewUnbindEnvironmentHandler(hostStore HostStore) rest.HandlerFunc {
 			Message:  "host unbound from environment successfully",
 		}, nil
 	}
-}
-
-// ===== hostAssignmentsVerbStorage 主机分配记录视图 =====
-
-// hostAssignmentsVerbStorage 主机分配记录的 custom verb 存储。
-// 注册为 GET /hosts/{hostId}:assignments
-type hostAssignmentsVerbStorage struct {
-	assignStore HostAssignmentStore
-}
-
-// NewHostAssignmentsVerb 创建主机分配记录视图存储。
-// +openapi:customverb=assignments
-// +openapi:resource=Host
-// +openapi:response=HostAssignmentList
-// +openapi:summary=获取主机的分配记录列表
-func NewHostAssignmentsVerb(assignStore HostAssignmentStore) rest.Lister {
-	return &hostAssignmentsVerbStorage{assignStore: assignStore}
-}
-
-func (s *hostAssignmentsVerbStorage) List(ctx context.Context, options *rest.ListOptions) (runtime.Object, error) {
-	hostID, err := parseID(options.PathParams["hostId"])
-	if err != nil {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid host ID: %s", options.PathParams["hostId"]), nil)
-	}
-
-	rows, err := s.assignStore.ListByHostID(ctx, hostID)
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]HostAssignment, len(rows))
-	for i, row := range rows {
-		items[i] = assignmentRowToAPI(&row)
-	}
-
-	return &HostAssignmentList{
-		TypeMeta: runtime.TypeMeta{Kind: "HostAssignmentList"},
-		Items:    items,
-	}, nil
 }
 
 // ===== envHostsVerbStorage 环境下主机视图 =====
@@ -2975,6 +2873,12 @@ func hostWithEnvToAPI(h *DBHostWithEnv) *Host {
 	if h.EnvironmentName != nil {
 		host.Spec.EnvironmentName = *h.EnvironmentName
 	}
+	if h.WorkspaceName != nil {
+		host.Spec.WorkspaceName = *h.WorkspaceName
+	}
+	if h.NamespaceName != nil {
+		host.Spec.NamespaceName = *h.NamespaceName
+	}
 	return host
 }
 
@@ -3007,10 +2911,16 @@ func hostPlatformRowToAPI(h *DBHostPlatformRow) Host {
 	if h.EnvironmentName != nil {
 		host.Spec.EnvironmentName = *h.EnvironmentName
 	}
+	if h.WorkspaceName != nil {
+		host.Spec.WorkspaceName = *h.WorkspaceName
+	}
+	if h.NamespaceName != nil {
+		host.Spec.NamespaceName = *h.NamespaceName
+	}
 	return host
 }
 
-// hostWorkspaceRowToAPI converts a DBHostWorkspaceRow to an API Host (includes Origin).
+// hostWorkspaceRowToAPI converts a DBHostWorkspaceRow to an API Host.
 func hostWorkspaceRowToAPI(h *DBHostWorkspaceRow) Host {
 	host := Host{
 		TypeMeta: runtime.TypeMeta{Kind: "Host"},
@@ -3033,17 +2943,19 @@ func hostWorkspaceRowToAPI(h *DBHostWorkspaceRow) Host {
 			WorkspaceID:   optionalIDToStr(h.WorkspaceID),
 			NamespaceID:   optionalIDToStr(h.NamespaceID),
 			EnvironmentID: optionalIDToStr(h.EnvironmentID),
-			Origin:        h.Origin,
 			Status:        h.Status,
 		},
 	}
 	if h.EnvironmentName != nil {
 		host.Spec.EnvironmentName = *h.EnvironmentName
 	}
+	if h.NamespaceName != nil {
+		host.Spec.NamespaceName = *h.NamespaceName
+	}
 	return host
 }
 
-// hostNamespaceRowToAPI converts a DBHostNamespaceRow to an API Host (includes Origin).
+// hostNamespaceRowToAPI converts a DBHostNamespaceRow to an API Host.
 func hostNamespaceRowToAPI(h *DBHostNamespaceRow) Host {
 	host := Host{
 		TypeMeta: runtime.TypeMeta{Kind: "Host"},
@@ -3066,7 +2978,6 @@ func hostNamespaceRowToAPI(h *DBHostNamespaceRow) Host {
 			WorkspaceID:   optionalIDToStr(h.WorkspaceID),
 			NamespaceID:   optionalIDToStr(h.NamespaceID),
 			EnvironmentID: optionalIDToStr(h.EnvironmentID),
-			Origin:        h.Origin,
 			Status:        h.Status,
 		},
 	}
@@ -3195,6 +3106,29 @@ func envWorkspaceRowToAPI(e *DBEnvWorkspaceRow) Environment {
 	}
 }
 
+// envWorkspaceInheritRowToAPI converts a DBEnvWorkspaceInheritRow to an API Environment.
+func envWorkspaceInheritRowToAPI(e *DBEnvWorkspaceInheritRow) Environment {
+	return Environment{
+		TypeMeta: runtime.TypeMeta{Kind: "Environment"},
+		ObjectMeta: types.ObjectMeta{
+			ID:        strconv.FormatInt(e.ID, 10),
+			Name:      e.Name,
+			CreatedAt: new(e.CreatedAt),
+			UpdatedAt: new(e.UpdatedAt),
+		},
+		Spec: EnvironmentSpec{
+			DisplayName: e.DisplayName,
+			Description: e.Description,
+			EnvType:     e.EnvType,
+			Scope:       e.Scope,
+			WorkspaceID: optionalIDToStr(e.WorkspaceID),
+			NamespaceID: optionalIDToStr(e.NamespaceID),
+			HostCount:   e.HostCount,
+			Status:      e.Status,
+		},
+	}
+}
+
 // envNamespaceRowToAPI converts a DBEnvNamespaceRow to an API Environment.
 func envNamespaceRowToAPI(e *DBEnvNamespaceRow) Environment {
 	return Environment{
@@ -3218,32 +3152,64 @@ func envNamespaceRowToAPI(e *DBEnvNamespaceRow) Environment {
 	}
 }
 
-// assignmentRowToAPI converts a DBAssignmentRow to an API HostAssignment.
-func assignmentRowToAPI(a *DBAssignmentRow) HostAssignment {
-	ha := HostAssignment{
-		TypeMeta: runtime.TypeMeta{Kind: "HostAssignment"},
+// envNamespaceInheritRowToAPI converts a DBEnvNamespaceInheritRow to an API Environment.
+func envNamespaceInheritRowToAPI(e *DBEnvNamespaceInheritRow) Environment {
+	return Environment{
+		TypeMeta: runtime.TypeMeta{Kind: "Environment"},
 		ObjectMeta: types.ObjectMeta{
-			ID:        strconv.FormatInt(a.ID, 10),
-			CreatedAt: new(a.CreatedAt),
+			ID:        strconv.FormatInt(e.ID, 10),
+			Name:      e.Name,
+			CreatedAt: new(e.CreatedAt),
+			UpdatedAt: new(e.UpdatedAt),
 		},
-		Spec: HostAssignmentSpec{
-			HostID:   strconv.FormatInt(a.HostID, 10),
-			HostName: a.HostName,
+		Spec: EnvironmentSpec{
+			DisplayName: e.DisplayName,
+			Description: e.Description,
+			EnvType:     e.EnvType,
+			Scope:       e.Scope,
+			WorkspaceID: optionalIDToStr(e.WorkspaceID),
+			NamespaceID: optionalIDToStr(e.NamespaceID),
+			HostCount:   e.HostCount,
+			Status:      e.Status,
 		},
 	}
-	if a.WorkspaceID != nil {
-		ha.Spec.WorkspaceID = strconv.FormatInt(*a.WorkspaceID, 10)
+}
+
+// isEnvScopeCompatible checks whether the environment scope is on the host's
+// inheritance chain. The environment scope must be the same level or higher
+// than the host scope, and share the same workspace/namespace lineage.
+//
+// nsParentWsID is the workspace_id of the host's namespace (only needed when
+// host.Scope == "namespace" and env.Scope == "workspace"); pass 0 otherwise.
+//
+// Rules:
+//   - platform env → compatible with any host
+//   - workspace env → compatible with workspace host (same ws) or namespace host (parent ws matches)
+//   - namespace env → compatible only with namespace host (same ns)
+func isEnvScopeCompatible(host *DBHostWithEnv, env *DBEnvWithCounts, nsParentWsID int64) bool {
+	switch env.Scope {
+	case "platform":
+		return true
+	case "workspace":
+		if env.WorkspaceID == nil {
+			return false
+		}
+		switch host.Scope {
+		case "workspace":
+			return host.WorkspaceID != nil && *host.WorkspaceID == *env.WorkspaceID
+		case "namespace":
+			return nsParentWsID > 0 && nsParentWsID == *env.WorkspaceID
+		default:
+			return false
+		}
+	case "namespace":
+		if env.NamespaceID == nil {
+			return false
+		}
+		return host.Scope == "namespace" && host.NamespaceID != nil && *host.NamespaceID == *env.NamespaceID
+	default:
+		return false
 	}
-	if a.WorkspaceName != nil {
-		ha.Spec.WorkspaceName = *a.WorkspaceName
-	}
-	if a.NamespaceID != nil {
-		ha.Spec.NamespaceID = strconv.FormatInt(*a.NamespaceID, 10)
-	}
-	if a.NamespaceName != nil {
-		ha.Spec.NamespaceName = *a.NamespaceName
-	}
-	return ha
 }
 
 // optionalIDToStr converts a *int64 to a string, returning empty string if nil.

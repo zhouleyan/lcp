@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const bindHostEnvironment = `-- name: BindHostEnvironment :exec
+const bindHostEnvironment = `-- name: BindHostEnvironment :execrows
 UPDATE hosts SET environment_id = $1, updated_at = now()
 WHERE id = $2 AND environment_id IS NULL
 `
@@ -21,23 +21,19 @@ type BindHostEnvironmentParams struct {
 	ID            int64  `json:"id"`
 }
 
-func (q *Queries) BindHostEnvironment(ctx context.Context, arg BindHostEnvironmentParams) error {
-	_, err := q.db.Exec(ctx, bindHostEnvironment, arg.EnvironmentID, arg.ID)
-	return err
+func (q *Queries) BindHostEnvironment(ctx context.Context, arg BindHostEnvironmentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bindHostEnvironment, arg.EnvironmentID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const countHostsByNamespaceID = `-- name: CountHostsByNamespaceID :one
 SELECT count(*)
-FROM (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id = $1
-    UNION
-    SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.namespace_id = $1
-) AS visible
-JOIN hosts h ON h.id = visible.id
-WHERE ($2::VARCHAR IS NULL OR h.status = $2)
+FROM hosts h
+WHERE h.scope = 'namespace' AND h.namespace_id = $1
+    AND ($2::VARCHAR IS NULL OR h.status = $2)
     AND ($3::BIGINT IS NULL
          OR ($3::BIGINT = 0 AND h.environment_id IS NULL)
          OR h.environment_id = $3)
@@ -67,23 +63,12 @@ func (q *Queries) CountHostsByNamespaceID(ctx context.Context, arg CountHostsByN
 
 const countHostsByWorkspaceID = `-- name: CountHostsByWorkspaceID :one
 SELECT count(*)
-FROM (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'workspace' AND h.workspace_id = $1
-    UNION
-    SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.workspace_id = $1
-    UNION
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = $1)
-    UNION
-    SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = $1)
-) AS visible
-JOIN hosts h ON h.id = visible.id
-WHERE ($2::VARCHAR IS NULL OR h.status = $2)
+FROM hosts h
+WHERE (
+    (h.scope = 'workspace' AND h.workspace_id = $1)
+    OR (h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = $1))
+)
+    AND ($2::VARCHAR IS NULL OR h.status = $2)
     AND ($3::BIGINT IS NULL
          OR ($3::BIGINT = 0 AND h.environment_id IS NULL)
          OR h.environment_id = $3)
@@ -240,9 +225,13 @@ func (q *Queries) DeleteHostsByIDs(ctx context.Context, ids []int64) ([]int64, e
 const getHostByID = `-- name: GetHostByID :one
 SELECT
     h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
-    e.name AS environment_name
+    e.name AS environment_name,
+    w.name AS workspace_name,
+    n.name AS namespace_name
 FROM hosts h
 LEFT JOIN environments e ON h.environment_id = e.id
+LEFT JOIN workspaces w ON h.workspace_id = w.id
+LEFT JOIN namespaces n ON h.namespace_id = n.id
 WHERE h.id = $1
 `
 
@@ -267,6 +256,8 @@ type GetHostByIDRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	EnvironmentName *string         `json:"environment_name"`
+	WorkspaceName   *string         `json:"workspace_name"`
+	NamespaceName   *string         `json:"namespace_name"`
 }
 
 func (q *Queries) GetHostByID(ctx context.Context, id int64) (GetHostByIDRow, error) {
@@ -293,28 +284,32 @@ func (q *Queries) GetHostByID(ctx context.Context, id int64) (GetHostByIDRow, er
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EnvironmentName,
+		&i.WorkspaceName,
+		&i.NamespaceName,
 	)
 	return i, err
 }
 
+const getWorkspaceIDByNamespaceID = `-- name: GetWorkspaceIDByNamespaceID :one
+SELECT workspace_id FROM namespaces WHERE id = $1
+`
+
+func (q *Queries) GetWorkspaceIDByNamespaceID(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceIDByNamespaceID, id)
+	var workspace_id int64
+	err := row.Scan(&workspace_id)
+	return workspace_id, err
+}
+
 const listHostsByNamespaceID = `-- name: ListHostsByNamespaceID :many
-WITH visible_hosts AS (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id = $5
-    UNION
-    SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.namespace_id = $5
-),
-host_data AS (
+WITH host_data AS (
     SELECT
         h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
-        e.name AS environment_name,
-        CASE WHEN h.scope = 'namespace' AND h.namespace_id = $5 THEN 'owned' ELSE 'assigned' END AS origin
+        e.name AS environment_name
     FROM hosts h
-    JOIN visible_hosts vh ON vh.id = h.id
     LEFT JOIN environments e ON h.environment_id = e.id
-    WHERE ($6::VARCHAR IS NULL OR h.status = $6)
+    WHERE h.scope = 'namespace' AND h.namespace_id = $5
+        AND ($6::VARCHAR IS NULL OR h.status = $6)
         AND ($7::BIGINT IS NULL
              OR ($7::BIGINT = 0 AND h.environment_id IS NULL)
              OR h.environment_id = $7)
@@ -322,7 +317,7 @@ host_data AS (
              OR h.name ILIKE '%' || $8 || '%'
              OR h.display_name ILIKE '%' || $8 || '%')
 )
-SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, origin FROM host_data
+SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name FROM host_data
 ORDER BY
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
@@ -369,7 +364,6 @@ type ListHostsByNamespaceIDRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	EnvironmentName *string         `json:"environment_name"`
-	Origin          string          `json:"origin"`
 }
 
 func (q *Queries) ListHostsByNamespaceID(ctx context.Context, arg ListHostsByNamespaceIDParams) ([]ListHostsByNamespaceIDRow, error) {
@@ -411,7 +405,6 @@ func (q *Queries) ListHostsByNamespaceID(ctx context.Context, arg ListHostsByNam
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EnvironmentName,
-			&i.Origin,
 		); err != nil {
 			return nil, err
 		}
@@ -424,34 +417,19 @@ func (q *Queries) ListHostsByNamespaceID(ctx context.Context, arg ListHostsByNam
 }
 
 const listHostsByWorkspaceID = `-- name: ListHostsByWorkspaceID :many
-WITH visible_hosts AS (
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'workspace' AND h.workspace_id = $5
-    UNION
-    SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.workspace_id = $5
-    UNION
-    SELECT h.id FROM hosts h
-    WHERE h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = $5)
-    UNION
-    SELECT h.id FROM hosts h
-    JOIN host_assignments ha ON ha.host_id = h.id
-    WHERE ha.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = $5)
-),
-host_data AS (
+WITH host_data AS (
     SELECT
         h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
         e.name AS environment_name,
-        CASE
-            WHEN h.scope = 'workspace' AND h.workspace_id = $5 THEN 'owned'
-            WHEN h.scope = 'namespace' AND h.namespace_id IN (SELECT n.id FROM namespaces n WHERE n.workspace_id = $5) THEN 'owned'
-            ELSE 'assigned'
-        END AS origin
+        n.name AS namespace_name
     FROM hosts h
-    JOIN visible_hosts vh ON vh.id = h.id
     LEFT JOIN environments e ON h.environment_id = e.id
-    WHERE ($6::VARCHAR IS NULL OR h.status = $6)
+    LEFT JOIN namespaces n ON h.namespace_id = n.id
+    WHERE (
+        (h.scope = 'workspace' AND h.workspace_id = $5)
+        OR (h.scope = 'namespace' AND h.namespace_id IN (SELECT n2.id FROM namespaces n2 WHERE n2.workspace_id = $5))
+    )
+        AND ($6::VARCHAR IS NULL OR h.status = $6)
         AND ($7::BIGINT IS NULL
              OR ($7::BIGINT = 0 AND h.environment_id IS NULL)
              OR h.environment_id = $7)
@@ -459,7 +437,7 @@ host_data AS (
              OR h.name ILIKE '%' || $8 || '%'
              OR h.display_name ILIKE '%' || $8 || '%')
 )
-SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, origin FROM host_data
+SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, namespace_name FROM host_data
 ORDER BY
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
@@ -506,7 +484,7 @@ type ListHostsByWorkspaceIDRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	EnvironmentName *string         `json:"environment_name"`
-	Origin          string          `json:"origin"`
+	NamespaceName   *string         `json:"namespace_name"`
 }
 
 func (q *Queries) ListHostsByWorkspaceID(ctx context.Context, arg ListHostsByWorkspaceIDParams) ([]ListHostsByWorkspaceIDRow, error) {
@@ -548,7 +526,7 @@ func (q *Queries) ListHostsByWorkspaceID(ctx context.Context, arg ListHostsByWor
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EnvironmentName,
-			&i.Origin,
+			&i.NamespaceName,
 		); err != nil {
 			return nil, err
 		}
@@ -564,9 +542,13 @@ const listHostsPlatform = `-- name: ListHostsPlatform :many
 WITH host_data AS (
     SELECT
         h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
-        e.name AS environment_name
+        e.name AS environment_name,
+        w.name AS workspace_name,
+        n.name AS namespace_name
     FROM hosts h
     LEFT JOIN environments e ON h.environment_id = e.id
+    LEFT JOIN workspaces w ON h.workspace_id = w.id
+    LEFT JOIN namespaces n ON h.namespace_id = n.id
     WHERE ($5::VARCHAR IS NULL OR h.status = $5)
         AND ($6::BIGINT IS NULL
              OR ($6::BIGINT = 0 AND h.environment_id IS NULL)
@@ -575,7 +557,7 @@ WITH host_data AS (
              OR h.name ILIKE '%' || $7 || '%'
              OR h.display_name ILIKE '%' || $7 || '%')
 )
-SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name FROM host_data
+SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, workspace_name, namespace_name FROM host_data
 ORDER BY
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
@@ -621,6 +603,8 @@ type ListHostsPlatformRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	EnvironmentName *string         `json:"environment_name"`
+	WorkspaceName   *string         `json:"workspace_name"`
+	NamespaceName   *string         `json:"namespace_name"`
 }
 
 func (q *Queries) ListHostsPlatform(ctx context.Context, arg ListHostsPlatformParams) ([]ListHostsPlatformRow, error) {
@@ -661,6 +645,8 @@ func (q *Queries) ListHostsPlatform(ctx context.Context, arg ListHostsPlatformPa
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EnvironmentName,
+			&i.WorkspaceName,
+			&i.NamespaceName,
 		); err != nil {
 			return nil, err
 		}

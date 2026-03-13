@@ -117,6 +117,49 @@ ORDER BY
 LIMIT sqlc.arg('page_size')::INT
 OFFSET sqlc.arg('page_offset')::INT;
 
+-- name: CountEnvironmentsByWorkspaceIDInherit :one
+SELECT count(*)
+FROM environments e
+WHERE (
+        (e.scope = 'workspace' AND e.workspace_id = @workspace_id)
+        OR e.scope = 'platform'
+    )
+    AND (sqlc.narg('status')::VARCHAR IS NULL OR e.status = sqlc.narg('status'))
+    AND (sqlc.narg('env_type')::VARCHAR IS NULL OR e.env_type = sqlc.narg('env_type'))
+    AND (sqlc.narg('search')::VARCHAR IS NULL
+         OR e.name ILIKE '%' || sqlc.narg('search') || '%'
+         OR e.display_name ILIKE '%' || sqlc.narg('search') || '%');
+
+-- name: ListEnvironmentsByWorkspaceIDInherit :many
+WITH env_data AS (
+    SELECT
+        e.*,
+        (SELECT count(*) FROM hosts h WHERE h.environment_id = e.id) AS host_count
+    FROM environments e
+    WHERE (
+            (e.scope = 'workspace' AND e.workspace_id = @workspace_id)
+            OR e.scope = 'platform'
+        )
+        AND (sqlc.narg('status')::VARCHAR IS NULL OR e.status = sqlc.narg('status'))
+        AND (sqlc.narg('env_type')::VARCHAR IS NULL OR e.env_type = sqlc.narg('env_type'))
+        AND (sqlc.narg('search')::VARCHAR IS NULL
+             OR e.name ILIKE '%' || sqlc.narg('search') || '%'
+             OR e.display_name ILIKE '%' || sqlc.narg('search') || '%')
+)
+SELECT * FROM env_data
+ORDER BY
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN name END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN name END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'env_type' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN env_type END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'env_type' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN env_type END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'status' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN status END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'status' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN status END DESC,
+    created_at DESC
+LIMIT sqlc.arg('page_size')::INT
+OFFSET sqlc.arg('page_offset')::INT;
+
 -- name: CountEnvironmentsByNamespaceID :one
 SELECT count(*)
 FROM environments
@@ -182,3 +225,48 @@ WHERE environment_id = @environment_id
     AND (sqlc.narg('search')::VARCHAR IS NULL
          OR name ILIKE '%' || sqlc.narg('search') || '%'
          OR display_name ILIKE '%' || sqlc.narg('search') || '%');
+
+-- name: CountEnvironmentsByNamespaceIDInherit :one
+SELECT count(*)
+FROM environments e
+WHERE (
+        (e.scope = 'namespace' AND e.namespace_id = @namespace_id)
+        OR (e.scope = 'workspace' AND e.workspace_id = (SELECT n.workspace_id FROM namespaces n WHERE n.id = @namespace_id))
+        OR e.scope = 'platform'
+    )
+    AND (sqlc.narg('status')::VARCHAR IS NULL OR e.status = sqlc.narg('status'))
+    AND (sqlc.narg('env_type')::VARCHAR IS NULL OR e.env_type = sqlc.narg('env_type'))
+    AND (sqlc.narg('search')::VARCHAR IS NULL
+         OR e.name ILIKE '%' || sqlc.narg('search') || '%'
+         OR e.display_name ILIKE '%' || sqlc.narg('search') || '%');
+
+-- name: ListEnvironmentsByNamespaceIDInherit :many
+WITH env_data AS (
+    SELECT
+        e.*,
+        (SELECT count(*) FROM hosts h WHERE h.environment_id = e.id) AS host_count
+    FROM environments e
+    WHERE (
+            (e.scope = 'namespace' AND e.namespace_id = @namespace_id)
+            OR (e.scope = 'workspace' AND e.workspace_id = (SELECT n.workspace_id FROM namespaces n WHERE n.id = @namespace_id))
+            OR e.scope = 'platform'
+        )
+        AND (sqlc.narg('status')::VARCHAR IS NULL OR e.status = sqlc.narg('status'))
+        AND (sqlc.narg('env_type')::VARCHAR IS NULL OR e.env_type = sqlc.narg('env_type'))
+        AND (sqlc.narg('search')::VARCHAR IS NULL
+             OR e.name ILIKE '%' || sqlc.narg('search') || '%'
+             OR e.display_name ILIKE '%' || sqlc.narg('search') || '%')
+)
+SELECT * FROM env_data
+ORDER BY
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN name END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'name' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN name END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN created_at END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN created_at END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'env_type' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN env_type END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'env_type' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN env_type END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'status' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN status END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'status' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN status END DESC,
+    created_at DESC
+LIMIT sqlc.arg('page_size')::INT
+OFFSET sqlc.arg('page_offset')::INT;
