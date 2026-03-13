@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { Link } from "react-router"
 import { Plus, Trash2, Search, Download, ChevronDown } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -220,7 +221,11 @@ export default function CertificateListPage() {
                         />
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">{cert.metadata.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link to={`/pki/certificates/${cert.metadata.id}`} className="text-primary hover:underline">
+                        {cert.metadata.name}
+                      </Link>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={certTypeBadgeVariant[cert.spec.certType] ?? "secondary"}>
                         {t(`certificate.certType.${cert.spec.certType}`)}

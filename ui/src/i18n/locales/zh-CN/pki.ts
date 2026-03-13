@@ -37,6 +37,9 @@ const pki: Messages = {
   "certificate.expired": "已过期",
   "certificate.valid": "有效",
   "certificate.expiringSoon": "即将过期",
+  "certificate.details": "证书详情",
+  "certificate.pemContent": "证书 PEM 内容",
+  "certificate.notFound": "证书不存在。",
   "perm.group.pki": "PKI",
   "perm.group.pki.certificates": "证书管理",
 }

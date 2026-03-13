@@ -8,6 +8,8 @@ const common: Messages = {
   "common.created": "Created",
   "common.total": "{count} total",
   "common.delete": "Delete",
+  "common.copy": "Copy",
+  "common.copied": "Copied",
   "common.description": "Description",
   "common.edit": "Edit",
   "common.cancel": "Cancel",

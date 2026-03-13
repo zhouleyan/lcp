@@ -8,6 +8,8 @@ const common: Messages = {
   "common.created": "创建时间",
   "common.total": "共 {count} 个",
   "common.delete": "删除",
+  "common.copy": "复制",
+  "common.copied": "已复制",
   "common.description": "描述",
   "common.edit": "编辑",
   "common.cancel": "取消",

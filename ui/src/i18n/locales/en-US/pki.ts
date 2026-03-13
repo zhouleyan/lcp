@@ -37,6 +37,9 @@ const pki: Messages = {
   "certificate.expired": "Expired",
   "certificate.valid": "Valid",
   "certificate.expiringSoon": "Expiring Soon",
+  "certificate.details": "Certificate Details",
+  "certificate.pemContent": "Certificate PEM",
+  "certificate.notFound": "Certificate not found.",
   "perm.group.pki": "PKI",
   "perm.group.pki.certificates": "Certificates",
 }
