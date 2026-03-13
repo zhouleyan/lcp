@@ -2,6 +2,7 @@ package probe
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"testing"
 )
@@ -38,5 +39,20 @@ func TestClassifyError_FallbackTCP(t *testing.T) {
 	err := &net.AddrError{Err: "some error"}
 	if got := classifyError(err); got != PhaseTCP {
 		t.Errorf("classifyError(unknown) = %q, want %q", got, PhaseTCP)
+	}
+}
+
+func TestClassifyError_TLSWrappedInOpError(t *testing.T) {
+	inner := &tls.CertificateVerificationError{Err: fmt.Errorf("x509: certificate signed by unknown authority")}
+	err := &net.OpError{Op: "remote error", Err: inner}
+	if got := classifyError(err); got != PhaseTLS {
+		t.Errorf("classifyError(OpError wrapping TLS) = %q, want %q", got, PhaseTLS)
+	}
+}
+
+func TestClassifyError_TLSStringFallback(t *testing.T) {
+	err := fmt.Errorf("tls: handshake failure")
+	if got := classifyError(err); got != PhaseTLS {
+		t.Errorf("classifyError(tls string) = %q, want %q", got, PhaseTLS)
 	}
 }

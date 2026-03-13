@@ -49,17 +49,17 @@ func classifyError(err error) Phase {
 		return PhaseDNS
 	}
 
-	var opErr *net.OpError
-	if errors.As(err, &opErr) {
-		return PhaseTCP
-	}
-
 	var certErr *tls.CertificateVerificationError
 	if errors.As(err, &certErr) {
 		return PhaseTLS
 	}
 	if strings.Contains(err.Error(), "tls:") {
 		return PhaseTLS
+	}
+
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return PhaseTCP
 	}
 
 	return PhaseTCP
