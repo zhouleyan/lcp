@@ -42,7 +42,7 @@ export async function bindHostEnvironment(id: string, body: BindEnvironmentReque
 }
 
 export async function unbindHostEnvironment(id: string): Promise<void> {
-  await apiRequest(infraApi.post(`hosts/${id}/unbind-environment`).json())
+  await apiRequest(infraApi.post(`hosts/${id}/unbind-environment`, { json: {} }).json())
 }
 
 // --- Workspace-level ---
@@ -86,7 +86,7 @@ export async function bindWorkspaceHostEnvironment(
 }
 
 export async function unbindWorkspaceHostEnvironment(wsId: string, hostId: string): Promise<void> {
-  await apiRequest(infraApi.post(`workspaces/${wsId}/hosts/${hostId}/unbind-environment`).json())
+  await apiRequest(infraApi.post(`workspaces/${wsId}/hosts/${hostId}/unbind-environment`, { json: {} }).json())
 }
 
 // --- Namespace-level ---
@@ -141,6 +141,6 @@ export async function bindNamespaceHostEnvironment(
 
 export async function unbindNamespaceHostEnvironment(wsId: string, nsId: string, hostId: string): Promise<void> {
   await apiRequest(
-    infraApi.post(`workspaces/${wsId}/namespaces/${nsId}/hosts/${hostId}/unbind-environment`).json(),
+    infraApi.post(`workspaces/${wsId}/namespaces/${nsId}/hosts/${hostId}/unbind-environment`, { json: {} }).json(),
   )
 }
