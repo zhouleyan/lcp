@@ -90,6 +90,15 @@ func (i *APIInstaller) registerRoutes(basePath, itemPath string, res ResourceInf
 // Action handlers receive both path params and query params (via HandleAction).
 func (i *APIInstaller) installAction(parentItemPath string, action ActionInfo) {
 	actionPath := parentItemPath + "/" + action.Name
+	if action.WebSocketHandler != nil {
+		handler := HandleWebSocket(action.WebSocketHandler)
+		method := action.Method
+		if method == "" {
+			method = "GET"
+		}
+		i.ws.Route(i.ws.METHOD(method, actionPath).To(handler))
+		return
+	}
 	statusCode := action.StatusCode
 	if statusCode == 0 {
 		statusCode = http.StatusOK
