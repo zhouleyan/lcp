@@ -27,10 +27,11 @@ func (g *APIGroupInfo) APIVersion() string {
 
 // ActionInfo describes a custom action on a resource.
 type ActionInfo struct {
-	Name       string      // action name, e.g. "start", "restart"
-	Method     string      // HTTP method, e.g. "POST"
-	StatusCode int         // 0 defaults to 200
-	Handler    HandlerFunc // the handler function
+	Name             string           // action name, e.g. "start", "restart", "exec"
+	Method           string           // HTTP method, e.g. "POST", "GET"
+	StatusCode       int              // 0 defaults to 200 (ignored for WebSocket)
+	Handler          HandlerFunc      // JSON request/response handler (mutually exclusive with WebSocketHandler)
+	WebSocketHandler WebSocketHandler // WebSocket connection handler (mutually exclusive with Handler)
 }
 
 // CustomVerbInfo describes a custom verb (read-only view) on a resource item.
