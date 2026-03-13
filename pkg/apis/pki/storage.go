@@ -155,11 +155,16 @@ func (s *certificateStorage) Create(ctx context.Context, obj runtime.Object, opt
 		caNamePtr = &caName
 	}
 
+	dnsNames := cert.Spec.DNSNames
+	if dnsNames == nil {
+		dnsNames = []string{}
+	}
+
 	row, err := s.store.Create(ctx, &DBCertificate{
 		Name:         cert.ObjectMeta.Name,
 		CertType:     cert.Spec.CertType,
 		CommonName:   cert.Spec.CommonName,
-		DnsNames:     cert.Spec.DNSNames,
+		DnsNames:     dnsNames,
 		CaName:       caNamePtr,
 		SerialNumber: serialNumber,
 		Certificate:  certPEM,
