@@ -281,7 +281,8 @@ export interface HostSpec {
   namespaceId?: string
   environmentId?: string
   environmentName?: string
-  origin?: "owned" | "assigned"
+  workspaceName?: string
+  namespaceName?: string
   status?: string
 }
 
@@ -315,27 +316,6 @@ export interface Environment extends TypeMeta {
 
 export interface EnvironmentList extends TypeMeta {
   items: Environment[]
-  totalCount: number
-}
-
-// --- HostAssignment ---
-
-export interface HostAssignmentSpec {
-  hostId: string
-  hostName?: string
-  workspaceId?: string
-  workspaceName?: string
-  namespaceId?: string
-  namespaceName?: string
-}
-
-export interface HostAssignment extends TypeMeta {
-  metadata: ObjectMeta
-  spec: HostAssignmentSpec
-}
-
-export interface HostAssignmentList extends TypeMeta {
-  items: HostAssignment[]
   totalCount: number
 }
 
@@ -405,11 +385,6 @@ export interface IPAllocationList extends TypeMeta {
 }
 
 // --- Infra Requests ---
-
-export interface AssignHostRequest {
-  workspaceId?: string
-  namespaceId?: string
-}
 
 export interface BindEnvironmentRequest {
   environmentId: string

@@ -12,9 +12,6 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table"
-import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import {
@@ -28,10 +25,9 @@ import {
   getHost, getWorkspaceHost, getNamespaceHost,
   updateHost, updateWorkspaceHost, updateNamespaceHost,
   deleteHost, deleteWorkspaceHost, deleteNamespaceHost,
-  getHostAssignments,
 } from "@/api/infra/hosts"
 import { showApiError } from "@/api/client"
-import type { Host, HostAssignment } from "@/api/types"
+import type { Host } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
 import { buildPermScope, scopedApiCall } from "@/lib/nav-config"
@@ -46,12 +42,6 @@ export default function HostDetailPage() {
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-
-  // Assignments (only for platform-level hosts)
-  const [assignments, setAssignments] = useState<HostAssignment[]>([])
-  const [assignmentsLoading, setAssignmentsLoading] = useState(false)
-
-  const isPlatformScope = !scopeWorkspaceId
 
   const permPrefix = "infra:hosts"
 
@@ -75,22 +65,7 @@ export default function HostDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hostId, scopeWorkspaceId, scopeNamespaceId])
 
-  const fetchAssignments = useCallback(async () => {
-    if (!hostId || !isPlatformScope) return
-    setAssignmentsLoading(true)
-    try {
-      const data = await getHostAssignments(hostId)
-      setAssignments(data.items ?? [])
-    } catch {
-      setAssignments([])
-    } finally {
-      setAssignmentsLoading(false)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hostId, isPlatformScope])
-
   useEffect(() => { fetchHost() }, [fetchHost])
-  useEffect(() => { fetchAssignments() }, [fetchAssignments])
 
   const handleDelete = async () => {
     if (!host) return
@@ -250,54 +225,6 @@ export default function HostDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Assignments table (platform level only) */}
-        {isPlatformScope && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("host.assignments")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("host.selectWorkspace")}</TableHead>
-                      <TableHead>{t("host.selectNamespace")}</TableHead>
-                      <TableHead>{t("common.created")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {assignmentsLoading ? (
-                      Array.from({ length: 2 }).map((_, i) => (
-                        <TableRow key={i}>
-                          {Array.from({ length: 3 }).map((_, j) => (
-                            <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
-                          ))}
-                        </TableRow>
-                      ))
-                    ) : assignments.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-muted-foreground py-8 text-center">
-                          {t("host.assignmentsEmpty")}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      assignments.map((a) => (
-                        <TableRow key={a.metadata.id}>
-                          <TableCell>{a.spec.workspaceName || a.spec.workspaceId || "-"}</TableCell>
-                          <TableCell>{a.spec.namespaceName || a.spec.namespaceId || "-"}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                            {new Date(a.metadata.createdAt).toLocaleString()}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {/* Edit dialog */}

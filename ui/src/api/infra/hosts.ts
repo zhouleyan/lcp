@@ -3,8 +3,6 @@ import { apiRequest } from "../client"
 import type {
   Host,
   HostList,
-  HostAssignmentList,
-  AssignHostRequest,
   BindEnvironmentRequest,
   ListParams,
 } from "../types"
@@ -39,24 +37,12 @@ export async function deleteHosts(ids: string[]): Promise<void> {
   await apiRequest(infraApi.delete("hosts", { json: { ids } }).json())
 }
 
-export async function assignHost(id: string, body: AssignHostRequest): Promise<void> {
-  await apiRequest(infraApi.post(`hosts/${id}/assign`, { json: body }).json())
-}
-
-export async function unassignHost(id: string, body: AssignHostRequest): Promise<void> {
-  await apiRequest(infraApi.post(`hosts/${id}/unassign`, { json: body }).json())
-}
-
 export async function bindHostEnvironment(id: string, body: BindEnvironmentRequest): Promise<void> {
   await apiRequest(infraApi.post(`hosts/${id}/bind-environment`, { json: body }).json())
 }
 
 export async function unbindHostEnvironment(id: string): Promise<void> {
   await apiRequest(infraApi.post(`hosts/${id}/unbind-environment`).json())
-}
-
-export async function getHostAssignments(id: string): Promise<HostAssignmentList> {
-  return apiRequest(infraApi.get(`hosts/${id}:assignments`).json())
 }
 
 // --- Workspace-level ---
@@ -89,14 +75,6 @@ export async function deleteWorkspaceHost(wsId: string, hostId: string): Promise
 
 export async function deleteWorkspaceHosts(wsId: string, ids: string[]): Promise<void> {
   await apiRequest(infraApi.delete(`workspaces/${wsId}/hosts`, { json: { ids } }).json())
-}
-
-export async function assignWorkspaceHost(wsId: string, hostId: string, body: AssignHostRequest): Promise<void> {
-  await apiRequest(infraApi.post(`workspaces/${wsId}/hosts/${hostId}/assign`, { json: body }).json())
-}
-
-export async function unassignWorkspaceHost(wsId: string, hostId: string, body: AssignHostRequest): Promise<void> {
-  await apiRequest(infraApi.post(`workspaces/${wsId}/hosts/${hostId}/unassign`, { json: body }).json())
 }
 
 export async function bindWorkspaceHostEnvironment(
