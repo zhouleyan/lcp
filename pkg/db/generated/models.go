@@ -33,6 +33,22 @@ type AuditLog struct {
 	CreatedAt      time.Time       `json:"created_at"`
 }
 
+type Certificate struct {
+	ID           int64      `json:"id"`
+	Name         string     `json:"name"`
+	CertType     string     `json:"cert_type"`
+	CommonName   string     `json:"common_name"`
+	DnsNames     []string   `json:"dns_names"`
+	CaName       *string    `json:"ca_name"`
+	SerialNumber string     `json:"serial_number"`
+	Certificate  []byte     `json:"certificate"`
+	PrivateKey   []byte     `json:"private_key"`
+	NotBefore    time.Time  `json:"not_before"`
+	NotAfter     time.Time  `json:"not_after"`
+	CreatedAt    *time.Time `json:"created_at"`
+	UpdatedAt    *time.Time `json:"updated_at"`
+}
+
 // 环境表：管理维度，用于按生命周期阶段分组资源
 type Environment struct {
 	ID          int64  `json:"id"`

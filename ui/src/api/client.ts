@@ -152,6 +152,7 @@ const messagePrefixMap: Record<string, string> = {
   "network has reached the maximum number of subnets": "api.error.maxSubnetsReached",
   "subnet already has gateway": "api.error.subnetAlreadyHasGateway",
   "IP ": "api.error.ipNotInRange",
+  "cannot delete CA": "api.error.cannotDeleteCA",
 }
 
 const reasonMessageMap: Record<string, string> = {

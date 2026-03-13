@@ -41,6 +41,8 @@ tags:
     description: IP 分配记录：子网中已分配的 IP 地址信息。
   - name: Endpoint
     description: 可观测性端点：配置 VictoriaMetrics 等监控系统的连接信息。
+  - name: Certificate
+    description: 证书资源，支持 CA、服务端、客户端等类型
 paths:
   /.well-known/jwks.json:
     get:
@@ -4681,6 +4683,130 @@ paths:
       responses:
         "204":
           description: No Content
+  /api/pki/v1/certificates:
+    get:
+      summary: 获取证书列表
+      operationId: listCertificate
+      tags:
+        - Certificate
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateList'
+    post:
+      summary: 创建证书
+      operationId: createCertificate
+      tags:
+        - Certificate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Certificate'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certificate'
+    delete:
+      summary: 批量删除证书
+      operationId: deleteCollectionCertificate
+      tags:
+        - Certificate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: OK
+  /api/pki/v1/certificates/{certificateId}:
+    get:
+      summary: 获取证书详情
+      operationId: getCertificate
+      tags:
+        - Certificate
+      parameters:
+        - name: certificateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certificate'
+    delete:
+      summary: 删除证书
+      operationId: deleteCertificate
+      tags:
+        - Certificate
+      parameters:
+        - name: certificateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /api/pki/v1/certificates/{certificateId}/export:
+    post:
+      summary: 下载证书文件
+      operationId: exportCertificate
+      tags:
+        - Certificate
+      parameters:
+        - name: certificateId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
   /oidc/authorize:
     get:
       summary: 授权端点
@@ -4874,6 +5000,13 @@ components:
         workspaceId:
           type: string
           description: 租户 ID
+    Certificate:
+      type: object
+      properties:
+        spec:
+          $ref: '#/components/schemas/CertificateSpec'
+        status:
+          $ref: '#/components/schemas/CertificateStatus'
     Endpoint:
       type: object
       properties:
@@ -4892,9 +5025,18 @@ components:
     EndpointSpec:
       type: object
       properties:
+        apmUrl:
+          type: string
+          description: APM 查询地址
         description:
           type: string
           description: 端点描述
+        isPublic:
+          type: boolean
+          description: 是否公开（公开端点对所有工作空间可见）
+        logsUrl:
+          type: string
+          description: Logs 查询地址
         metricsUrl:
           type: string
           description: Metrics 查询地址（VictoriaMetrics）
@@ -4904,6 +5046,9 @@ components:
           enum:
             - active
             - inactive
+        tracesUrl:
+          type: string
+          description: Traces 查询地址
       required:
         - metricsUrl
     Environment:
@@ -5998,3 +6143,6 @@ x-tagGroups:
   - name: o11y
     tags:
       - Endpoint
+  - name: pki
+    tags:
+      - Certificate
