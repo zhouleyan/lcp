@@ -21,6 +21,7 @@ const pki: Messages = {
   "certificate.dnsNamesHint": "用逗号分隔的域名列表",
   "certificate.caName": "签发 CA",
   "certificate.caNamePlaceholder": "选择 CA 证书",
+  "certificate.noCaAvailable": "暂无可用的 CA 证书，请先创建 CA。",
   "certificate.validityDays": "有效期（天）",
   "certificate.serialNumber": "序列号",
   "certificate.notBefore": "生效时间",

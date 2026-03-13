@@ -66,6 +66,5 @@ func resolveEncryptionKey() []byte {
 	if _, err := rand.Read(key); err != nil {
 		logger.Fatalf("cannot generate encryption key: %v", err)
 	}
-	logger.Infof("generated PKI encryption key: %s (add to config.yaml to persist)", base64.StdEncoding.EncodeToString(key))
 	return key
 }

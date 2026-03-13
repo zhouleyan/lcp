@@ -512,11 +512,17 @@ function CertificateCreateDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {caList.map((ca) => (
-                            <SelectItem key={ca.metadata.name} value={ca.metadata.name}>
-                              {ca.metadata.name} ({ca.spec.commonName})
-                            </SelectItem>
-                          ))}
+                          {caList.length === 0 ? (
+                            <div className="text-muted-foreground px-2 py-4 text-center text-sm">
+                              {t("certificate.noCaAvailable")}
+                            </div>
+                          ) : (
+                            caList.map((ca) => (
+                              <SelectItem key={ca.metadata.name} value={ca.metadata.name}>
+                                {ca.metadata.name} ({ca.spec.commonName})
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />

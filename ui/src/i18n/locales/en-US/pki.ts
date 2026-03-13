@@ -21,6 +21,7 @@ const pki: Messages = {
   "certificate.dnsNamesHint": "Comma-separated list of domain names",
   "certificate.caName": "Signing CA",
   "certificate.caNamePlaceholder": "Select a CA certificate",
+  "certificate.noCaAvailable": "No CA certificates available. Please create a CA first.",
   "certificate.validityDays": "Validity (days)",
   "certificate.serialNumber": "Serial Number",
   "certificate.notBefore": "Valid From",

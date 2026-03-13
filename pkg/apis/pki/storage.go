@@ -100,7 +100,10 @@ func (s *certificateStorage) Create(ctx context.Context, obj runtime.Object, opt
 		if err != nil {
 			return nil, apierrors.NewInternalError(fmt.Errorf("generate CA: %w", err))
 		}
-		serialNumber, notBefore, notAfter = parseCertMeta(certPEM)
+		serialNumber, notBefore, notAfter, err = parseCertMeta(certPEM)
+		if err != nil {
+			return nil, apierrors.NewInternalError(fmt.Errorf("parse generated CA cert: %w", err))
+		}
 
 	default:
 		if validityDays == 0 {
@@ -109,7 +112,10 @@ func (s *certificateStorage) Create(ctx context.Context, obj runtime.Object, opt
 		// Load CA
 		caCert, err := s.store.GetByName(ctx, cert.Spec.CAName)
 		if err != nil {
-			return nil, apierrors.NewBadRequest(fmt.Sprintf("CA %q not found", cert.Spec.CAName), nil)
+			if apierrors.IsNotFound(err) {
+				return nil, apierrors.NewBadRequest(fmt.Sprintf("CA %q not found", cert.Spec.CAName), nil)
+			}
+			return nil, err
 		}
 		if caCert.CertType != CertTypeCA {
 			return nil, apierrors.NewBadRequest(fmt.Sprintf("%q is not a CA certificate", cert.Spec.CAName), nil)
@@ -131,7 +137,10 @@ func (s *certificateStorage) Create(ctx context.Context, obj runtime.Object, opt
 		if err != nil {
 			return nil, apierrors.NewInternalError(fmt.Errorf("issue certificate: %w", err))
 		}
-		_, notBefore, notAfter = parseCertMeta(certPEM)
+		_, notBefore, notAfter, err = parseCertMeta(certPEM)
+		if err != nil {
+			return nil, apierrors.NewInternalError(fmt.Errorf("parse issued cert: %w", err))
+		}
 	}
 
 	// Encrypt private key before storage
@@ -210,6 +219,27 @@ func (s *certificateStorage) DeleteCollection(ctx context.Context, ids []string,
 		int64IDs = append(int64IDs, parsed)
 	}
 
+	// Check CA dependency for each certificate before batch delete
+	for _, id := range int64IDs {
+		row, err := s.store.GetByID(ctx, id)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				continue // already deleted, skip
+			}
+			return nil, err
+		}
+		if row.CertType == CertTypeCA {
+			depCount, err := s.store.CountByCAName(ctx, row.Name)
+			if err != nil {
+				return nil, err
+			}
+			if depCount > 0 {
+				return nil, apierrors.NewBadRequest(
+					fmt.Sprintf("cannot delete CA %q: %d certificate(s) depend on it", row.Name, depCount), nil)
+			}
+		}
+	}
+
 	count, err := s.store.DeleteByIDs(ctx, int64IDs)
 	if err != nil {
 		return nil, err
@@ -270,14 +300,14 @@ func dbToAPI(row *DBCertificate) *Certificate {
 	return cert
 }
 
-func parseCertMeta(certPEM []byte) (serialNumber string, notBefore, notAfter time.Time) {
+func parseCertMeta(certPEM []byte) (serialNumber string, notBefore, notAfter time.Time, err error) {
 	block, _ := pemDecode(certPEM)
 	if block == nil {
-		return "", time.Now(), time.Now()
+		return "", time.Time{}, time.Time{}, fmt.Errorf("failed to decode PEM block")
 	}
 	cert, err := x509ParseCertificate(block.Bytes)
 	if err != nil {
-		return "", time.Now(), time.Now()
+		return "", time.Time{}, time.Time{}, fmt.Errorf("parse certificate: %w", err)
 	}
-	return cert.SerialNumber.Text(16), cert.NotBefore, cert.NotAfter
+	return cert.SerialNumber.Text(16), cert.NotBefore, cert.NotAfter, nil
 }
