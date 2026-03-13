@@ -13,15 +13,19 @@ import (
 // PermListCode is the permission code for listing permissions (public to any authenticated user).
 const PermListCode = "iam:permissions:list"
 
-// PermissionLookup resolves a (module, resourceChain, verb) triple to a permission code.
-// module → resourceChain → verb → permCode
+// PermissionLookup resolves a (module, resourceChain, verb) triple to permission codes.
+// For normal resources, returns a single auto-derived code.
+// For resources with PermissionTargets, returns the configured targets (may include wildcards).
 type PermissionLookup interface {
-	Get(module, resourceChain, verb string) string
+	Get(module, resourceChain, verb string) []string
 }
 
 // PermissionChecker checks whether a user has a given permission.
 type PermissionChecker interface {
 	CheckPermission(ctx context.Context, userID int64, permCode string, scope string, workspaceID, namespaceID int64) (bool, error)
+	// CheckAnyPermission checks whether a user has any of the given permissions.
+	// Supports wildcard targets (e.g. "infra:hosts:*") via bidirectional matching.
+	CheckAnyPermission(ctx context.Context, userID int64, permCodes []string, scope string, workspaceID, namespaceID int64) (bool, error)
 	IsPlatformAdmin(ctx context.Context, userID int64) (bool, error)
 	GetAccessibleWorkspaceIDs(ctx context.Context, userID int64) ([]int64, error)
 	GetAccessibleNamespaceIDs(ctx context.Context, userID int64) ([]int64, error)
@@ -82,16 +86,19 @@ func WithAuthorization(lookup PermissionLookup, checker PermissionChecker, skipP
 				return
 			}
 
-			// Look up the permission code
-			permCode := lookup.Get(module, resourceChain, verb)
-			if permCode == "" {
+			// Look up the permission codes
+			permCodes := lookup.Get(module, resourceChain, verb)
+			if len(permCodes) == 0 {
 				// Permission not registered → allow (e.g. discovery endpoints)
 				next.ServeHTTP(w, r)
 				return
 			}
 
+			// For display in error messages, use first code
+			permCode := permCodes[0]
+
 			// Whitelisted permission: any authenticated user is allowed
-			if skipSet[permCode] {
+			if len(permCodes) == 1 && skipSet[permCode] {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -150,7 +157,7 @@ func WithAuthorization(lookup PermissionLookup, checker PermissionChecker, skipP
 			}
 
 			// Check permission
-			allowed, err := checker.CheckPermission(r.Context(), userID, permCode, reqInfo.Scope, reqInfo.WorkspaceID, reqInfo.NamespaceID)
+			allowed, err := checker.CheckAnyPermission(r.Context(), userID, permCodes, reqInfo.Scope, reqInfo.WorkspaceID, reqInfo.NamespaceID)
 			if err != nil {
 				forbiddenError(w, "failed to check permissions")
 				return

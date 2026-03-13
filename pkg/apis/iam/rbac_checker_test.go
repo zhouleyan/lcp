@@ -147,6 +147,110 @@ func TestRBACChecker_NoBindings(t *testing.T) {
 	}
 }
 
+func TestHasAnyPermission_WildcardTarget(t *testing.T) {
+	// User has a specific infra:hosts:create permission at workspace level
+	var wsID int64 = 10
+	checker, _ := newTestChecker([]UserPermissionRuleRow{
+		{Scope: ScopeWorkspace, WorkspaceID: &wsID, Pattern: "infra:hosts:create"},
+	})
+	ctx := context.Background()
+
+	// PermissionTargets: ["infra:hosts:*"] — wildcard target should match specific user rule
+	ok, err := checker.CheckAnyPermission(ctx, 1, []string{"infra:hosts:*"}, ScopeWorkspace, 10, 0)
+	if err != nil {
+		t.Fatalf("CheckAnyPermission: %v", err)
+	}
+	if !ok {
+		t.Error("infra:hosts:* should match user with infra:hosts:create")
+	}
+
+	// Should NOT match at a different workspace
+	ok, _ = checker.CheckAnyPermission(ctx, 1, []string{"infra:hosts:*"}, ScopeWorkspace, 20, 0)
+	if ok {
+		t.Error("should not match at ws 20")
+	}
+}
+
+func TestHasAnyPermission_BroadUserRule(t *testing.T) {
+	// User has a broad infra:* rule at platform level
+	checker, _ := newTestChecker([]UserPermissionRuleRow{
+		{Scope: ScopePlatform, Pattern: "infra:*"},
+	})
+	ctx := context.Background()
+
+	// infra:* should cover infra:hosts:*
+	ok, err := checker.CheckAnyPermission(ctx, 1, []string{"infra:hosts:*"}, ScopePlatform, 0, 0)
+	if err != nil {
+		t.Fatalf("CheckAnyPermission: %v", err)
+	}
+	if !ok {
+		t.Error("user with infra:* should match target infra:hosts:*")
+	}
+}
+
+func TestHasAnyPermission_MultipleTargets(t *testing.T) {
+	var wsID int64 = 10
+	checker, _ := newTestChecker([]UserPermissionRuleRow{
+		{Scope: ScopeWorkspace, WorkspaceID: &wsID, Pattern: "infra:hosts:ips:create"},
+	})
+	ctx := context.Background()
+
+	// User has infra:hosts:ips:create, target list includes this
+	ok, _ := checker.CheckAnyPermission(ctx, 1,
+		[]string{"infra:hosts:create", "infra:hosts:ips:create"},
+		ScopeWorkspace, 10, 0)
+	if !ok {
+		t.Error("should match second target")
+	}
+
+	// Neither target matches
+	ok, _ = checker.CheckAnyPermission(ctx, 1,
+		[]string{"infra:hosts:create", "iam:users:list"},
+		ScopeWorkspace, 10, 0)
+	if ok {
+		t.Error("neither target should match")
+	}
+}
+
+func TestHasAnyPermission_NoMatch(t *testing.T) {
+	checker, _ := newTestChecker([]UserPermissionRuleRow{
+		{Scope: ScopePlatform, Pattern: "iam:users:list"},
+	})
+	ctx := context.Background()
+
+	ok, _ := checker.CheckAnyPermission(ctx, 1, []string{"infra:hosts:*"}, ScopePlatform, 0, 0)
+	if ok {
+		t.Error("iam:users:list should not match infra:hosts:*")
+	}
+}
+
+func TestHasAnyPermission_PlatformAdmin(t *testing.T) {
+	checker, _ := newTestChecker([]UserPermissionRuleRow{
+		{Scope: ScopePlatform, Pattern: "*:*"},
+	})
+	ctx := context.Background()
+
+	ok, _ := checker.CheckAnyPermission(ctx, 1, []string{"infra:hosts:*"}, ScopePlatform, 0, 0)
+	if !ok {
+		t.Error("platform admin (*:*) should match any target")
+	}
+}
+
+func TestHasAnyPermission_NamespaceScopeInheritance(t *testing.T) {
+	var wsID int64 = 10
+	var nsID int64 = 100
+	checker, _ := newTestChecker([]UserPermissionRuleRow{
+		{Scope: ScopeWorkspace, WorkspaceID: &wsID, Pattern: "infra:hosts:create"},
+	})
+	ctx := context.Background()
+
+	// Workspace rule should inherit to namespace scope
+	ok, _ := checker.CheckAnyPermission(ctx, 1, []string{"infra:hosts:*"}, ScopeNamespace, 10, nsID)
+	if !ok {
+		t.Error("workspace rule should inherit to namespace scope for wildcard target")
+	}
+}
+
 func TestRBACChecker_ScopeChainInheritance(t *testing.T) {
 	var wsID int64 = 10
 	var nsID int64 = 100

@@ -9,25 +9,27 @@ import (
 	"lcp.io/lcp/lib/rest"
 )
 
-// PermissionLookup maps module → resourceChain → verb → permCode.
-// Example: "iam" → "workspaces:namespaces" → "list" → "iam:namespaces:list"
-type PermissionLookup map[string]map[string]map[string]string
+// PermissionLookup maps module → resourceChain → verb → []permCode.
+// For normal resources, the slice contains a single auto-derived code.
+// For resources with PermissionTargets, it contains the configured targets.
+type PermissionLookup map[string]map[string]map[string][]string
 
-// Get returns the permission code for a given module, resourceChain, and verb.
-func (l PermissionLookup) Get(module, resourceChain, verb string) string {
+// Get returns the permission codes for a given module, resourceChain, and verb.
+func (l PermissionLookup) Get(module, resourceChain, verb string) []string {
 	if m, ok := l[module]; ok {
 		if r, ok := m[resourceChain]; ok {
 			return r[verb]
 		}
 	}
-	return ""
+	return nil
 }
 
 // storageEntry represents a discovered storage endpoint with its resource path.
 type storageEntry struct {
-	storage   rest.Storage
-	codeParts []string // e.g. ["namespaces", "users"]
-	pathParts []string // e.g. ["workspaces", "namespaces", "users"]
+	storage           rest.Storage
+	codeParts         []string // e.g. ["namespaces", "users"]
+	pathParts         []string // e.g. ["workspaces", "namespaces", "users"]
+	permissionTargets []string // from ResourceInfo.PermissionTargets; overrides auto-derived codes
 }
 
 // permissionDef is a generated permission definition.
@@ -111,9 +113,10 @@ func collectStorageEntries(resources []rest.ResourceInfo, parentCodeParts, paren
 		codeParts := append(append([]string{}, parentCodeParts...), res.Name)
 
 		entries = append(entries, storageEntry{
-			storage:   res.Storage,
-			codeParts: codeParts,
-			pathParts: pathParts,
+			storage:           res.Storage,
+			codeParts:         codeParts,
+			pathParts:         pathParts,
+			permissionTargets: res.PermissionTargets,
 		})
 
 		// Recurse into sub-resources
@@ -225,6 +228,11 @@ func generatePermissions(canonical map[rest.Storage]storageEntry, module string,
 	perms = append(perms, actionPerms...)
 
 	for storage, entry := range canonical {
+		// Skip resources with PermissionTargets — they map to existing permissions, not new ones
+		if hasPermissionTargets(storage, entries) {
+			continue
+		}
+
 		basePath := buildAPIPath(group, entry.pathParts)
 		verbs := detectVerbs(storage)
 		naturalScope := scopeForStorage(storage, entries)
@@ -343,32 +351,53 @@ func idParam(name string) string {
 // buildLookup populates the PermissionLookup for all entries (including non-canonical aliases).
 func buildLookup(lookup PermissionLookup, entries []storageEntry, canonical map[rest.Storage]storageEntry, module string) {
 	if lookup[module] == nil {
-		lookup[module] = make(map[string]map[string]string)
+		lookup[module] = make(map[string]map[string][]string)
 	}
 
 	for _, entry := range entries {
-		canonEntry := canonical[entry.storage]
 		verbs := detectVerbs(entry.storage)
 
 		// Resource chain key: join pathParts with ":"
 		chainKey := strings.Join(entry.pathParts, ":")
 
 		if lookup[module][chainKey] == nil {
-			lookup[module][chainKey] = make(map[string]string)
+			lookup[module][chainKey] = make(map[string][]string)
 		}
+
+		// If the entry has PermissionTargets, use them directly instead of auto-derived codes
+		if len(entry.permissionTargets) > 0 {
+			for _, verb := range verbs {
+				lookup[module][chainKey][verb] = entry.permissionTargets
+			}
+			continue
+		}
+
+		canonEntry := canonical[entry.storage]
 		for _, verb := range verbs {
-			lookup[module][chainKey][verb] = canonicalCode(module, canonEntry.codeParts, verb)
+			code := canonicalCode(module, canonEntry.codeParts, verb)
+			lookup[module][chainKey][verb] = []string{code}
 		}
 
 		// Also register by the canonical codeParts chain
 		canonChainKey := strings.Join(canonEntry.codeParts, ":")
 		if lookup[module][canonChainKey] == nil {
-			lookup[module][canonChainKey] = make(map[string]string)
+			lookup[module][canonChainKey] = make(map[string][]string)
 		}
 		for _, verb := range verbs {
-			lookup[module][canonChainKey][verb] = canonicalCode(module, canonEntry.codeParts, verb)
+			code := canonicalCode(module, canonEntry.codeParts, verb)
+			lookup[module][canonChainKey][verb] = []string{code}
 		}
 	}
+}
+
+// hasPermissionTargets checks if any entry for the given storage has PermissionTargets set.
+func hasPermissionTargets(storage rest.Storage, entries []storageEntry) bool {
+	for _, e := range entries {
+		if e.storage == storage && len(e.permissionTargets) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // syncPermissionsToDB batch-upserts all permissions and cleans up stale ones in a single transaction.

@@ -58,6 +58,42 @@ func (e *UserPermissionEntry) HasPermission(code, scope string, wsID, nsID int64
 	return false
 }
 
+// HasAnyPermission checks whether this entry grants any of the given permission codes.
+// Uses bidirectional matching to support wildcard targets (e.g. "infra:hosts:*"):
+//   - Forward: does a user's rule pattern match the target as a code?
+//   - Reverse: does the target as a pattern match a user's rule as a code?
+//
+// This allows PermissionTargets like "infra:hosts:*" to be satisfied by a user
+// who has any specific infra:hosts permission (e.g. "infra:hosts:create"),
+// or by a broader wildcard rule (e.g. "infra:*").
+func (e *UserPermissionEntry) HasAnyPermission(targets []string, scope string, wsID, nsID int64) bool {
+	for _, target := range targets {
+		// 1. Platform-level rules apply to all scopes
+		for _, rule := range e.PlatformRules {
+			if MatchPermission(rule, target) || MatchPermission(target, rule) {
+				return true
+			}
+		}
+		// 2. Workspace-level rules apply to workspace and namespace scopes
+		if (scope == ScopeWorkspace || scope == ScopeNamespace) && wsID > 0 {
+			for _, rule := range e.WorkspaceRules[wsID] {
+				if MatchPermission(rule, target) || MatchPermission(target, rule) {
+					return true
+				}
+			}
+		}
+		// 3. Namespace-level rules apply to namespace scope only
+		if scope == ScopeNamespace && nsID > 0 {
+			for _, rule := range e.NamespaceRules[nsID] {
+				if MatchPermission(rule, target) || MatchPermission(target, rule) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 // RBACChecker implements PermissionChecker backed by RoleBindingStore.
 // Uses singleflight to deduplicate concurrent DB loads for the same user.
 type RBACChecker struct {
@@ -76,6 +112,14 @@ func (c *RBACChecker) CheckPermission(ctx context.Context, userID int64, permCod
 		return false, err
 	}
 	return entry.HasPermission(permCode, scope, workspaceID, namespaceID), nil
+}
+
+func (c *RBACChecker) CheckAnyPermission(ctx context.Context, userID int64, permCodes []string, scope string, workspaceID, namespaceID int64) (bool, error) {
+	entry, err := c.loadEntry(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return entry.HasAnyPermission(permCodes, scope, workspaceID, namespaceID), nil
 }
 
 func (c *RBACChecker) IsPlatformAdmin(ctx context.Context, userID int64) (bool, error) {

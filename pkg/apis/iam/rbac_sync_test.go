@@ -145,14 +145,14 @@ func TestBuildLookup(t *testing.T) {
 	code1 := lookup.Get("iam", "workspaces:namespaces", "list")
 	code2 := lookup.Get("iam", "namespaces", "list")
 
-	if code1 != "iam:namespaces:list" {
-		t.Errorf("workspaces:namespaces list = %q, want iam:namespaces:list", code1)
+	if len(code1) != 1 || code1[0] != "iam:namespaces:list" {
+		t.Errorf("workspaces:namespaces list = %v, want [iam:namespaces:list]", code1)
 	}
-	if code2 != "iam:namespaces:list" {
-		t.Errorf("namespaces list = %q, want iam:namespaces:list", code2)
+	if len(code2) != 1 || code2[0] != "iam:namespaces:list" {
+		t.Errorf("namespaces list = %v, want [iam:namespaces:list]", code2)
 	}
-	if code1 != code2 {
-		t.Errorf("codes should match: %q != %q", code1, code2)
+	if len(code1) > 0 && len(code2) > 0 && code1[0] != code2[0] {
+		t.Errorf("codes should match: %v != %v", code1, code2)
 	}
 }
 
@@ -281,20 +281,20 @@ func TestSyncPermissions(t *testing.T) {
 	}
 
 	// Shared nsStorage: both paths resolve to same canonical code (scope stripped)
-	if code := lookup.Get("iam", "workspaces:namespaces", "list"); code != "iam:namespaces:list" {
-		t.Errorf("lookup workspaces:namespaces list = %q, want iam:namespaces:list", code)
+	if code := lookup.Get("iam", "workspaces:namespaces", "list"); len(code) != 1 || code[0] != "iam:namespaces:list" {
+		t.Errorf("lookup workspaces:namespaces list = %v, want [iam:namespaces:list]", code)
 	}
-	if code := lookup.Get("iam", "namespaces", "list"); code != "iam:namespaces:list" {
-		t.Errorf("lookup namespaces list = %q, want iam:namespaces:list", code)
+	if code := lookup.Get("iam", "namespaces", "list"); len(code) != 1 || code[0] != "iam:namespaces:list" {
+		t.Errorf("lookup namespaces list = %v, want [iam:namespaces:list]", code)
 	}
 
 	// Sub-resource users under namespaces → simplified to iam:users:list
-	if code := lookup.Get("iam", "namespaces:users", "list"); code != "iam:users:list" {
-		t.Errorf("lookup namespaces:users list = %q, want iam:users:list", code)
+	if code := lookup.Get("iam", "namespaces:users", "list"); len(code) != 1 || code[0] != "iam:users:list" {
+		t.Errorf("lookup namespaces:users list = %v, want [iam:users:list]", code)
 	}
 	// Aliased path for same nsUserStorage
-	if code := lookup.Get("iam", "workspaces:namespaces:users", "list"); code != "iam:users:list" {
-		t.Errorf("lookup workspaces:namespaces:users list = %q, want iam:users:list", code)
+	if code := lookup.Get("iam", "workspaces:namespaces:users", "list"); len(code) != 1 || code[0] != "iam:users:list" {
+		t.Errorf("lookup workspaces:namespaces:users list = %v, want [iam:users:list]", code)
 	}
 
 	// SyncModule should be called for "iam:" prefix
@@ -325,11 +325,11 @@ func TestSyncPermissionsMultiModule(t *testing.T) {
 		t.Fatalf("SyncPermissions: %v", err)
 	}
 
-	if code := lookup.Get("iam", "users", "list"); code != "iam:users:list" {
-		t.Errorf("iam users list = %q", code)
+	if code := lookup.Get("iam", "users", "list"); len(code) != 1 || code[0] != "iam:users:list" {
+		t.Errorf("iam users list = %v", code)
 	}
-	if code := lookup.Get("infra", "hosts", "list"); code != "infra:hosts:list" {
-		t.Errorf("infra hosts list = %q", code)
+	if code := lookup.Get("infra", "hosts", "list"); len(code) != 1 || code[0] != "infra:hosts:list" {
+		t.Errorf("infra hosts list = %v", code)
 	}
 
 	if _, ok := store.synced["iam:"]; !ok {
@@ -340,23 +340,107 @@ func TestSyncPermissionsMultiModule(t *testing.T) {
 	}
 }
 
-func TestPermissionLookupGet(t *testing.T) {
-	lookup := PermissionLookup{
-		"iam": {
-			"users": {
-				"list": "iam:users:list",
-				"get":  "iam:users:get",
+func TestPermissionTargets(t *testing.T) {
+	hostStorage := &mockStandardStorage{id: 1}
+	networkStorage := &mockListerStorage{id: 10}
+
+	group := &rest.APIGroupInfo{
+		GroupName: "infra",
+		Version:   "v1",
+		Resources: []rest.ResourceInfo{
+			{Name: "hosts", Storage: hostStorage},
+			{
+				Name:              "networks",
+				Storage:           networkStorage,
+				PermissionTargets: []string{"infra:hosts:*"},
 			},
 		},
 	}
 
-	if got := lookup.Get("iam", "users", "list"); got != "iam:users:list" {
-		t.Errorf("got %q, want iam:users:list", got)
+	store := newMockPermissionStoreForSync()
+	lookup, err := SyncPermissions(context.Background(), store, []*rest.APIGroupInfo{group})
+	if err != nil {
+		t.Fatalf("SyncPermissions: %v", err)
 	}
-	if got := lookup.Get("iam", "users", "delete"); got != "" {
-		t.Errorf("got %q, want empty", got)
+
+	// networks should resolve to PermissionTargets, not auto-derived code
+	codes := lookup.Get("infra", "networks", "list")
+	if len(codes) != 1 || codes[0] != "infra:hosts:*" {
+		t.Errorf("networks list = %v, want [infra:hosts:*]", codes)
 	}
-	if got := lookup.Get("unknown", "users", "list"); got != "" {
-		t.Errorf("got %q, want empty", got)
+
+	// hosts should still resolve normally
+	codes = lookup.Get("infra", "hosts", "list")
+	if len(codes) != 1 || codes[0] != "infra:hosts:list" {
+		t.Errorf("hosts list = %v, want [infra:hosts:list]", codes)
+	}
+
+	// Verify networks permissions are NOT synced to DB
+	synced := store.synced["infra:"]
+	for _, perm := range synced {
+		if perm.Code == "infra:networks:list" {
+			t.Error("infra:networks:list should not be synced to DB")
+		}
+	}
+
+	// Verify hosts permissions ARE synced
+	found := false
+	for _, perm := range synced {
+		if perm.Code == "infra:hosts:list" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("infra:hosts:list should be synced to DB")
+	}
+}
+
+func TestPermissionTargetsMultipleTargets(t *testing.T) {
+	hostStorage := &mockStandardStorage{id: 1}
+	networkStorage := &mockListerStorage{id: 10}
+
+	group := &rest.APIGroupInfo{
+		GroupName: "infra",
+		Version:   "v1",
+		Resources: []rest.ResourceInfo{
+			{Name: "hosts", Storage: hostStorage},
+			{
+				Name:              "networks",
+				Storage:           networkStorage,
+				PermissionTargets: []string{"infra:hosts:create", "infra:hosts:ips:create"},
+			},
+		},
+	}
+
+	lookup := BuildPermissionLookup([]*rest.APIGroupInfo{group})
+
+	codes := lookup.Get("infra", "networks", "list")
+	if len(codes) != 2 {
+		t.Fatalf("networks list = %v, want 2 targets", codes)
+	}
+	if codes[0] != "infra:hosts:create" || codes[1] != "infra:hosts:ips:create" {
+		t.Errorf("networks list = %v, want [infra:hosts:create infra:hosts:ips:create]", codes)
+	}
+}
+
+func TestPermissionLookupGet(t *testing.T) {
+	lookup := PermissionLookup{
+		"iam": {
+			"users": {
+				"list": {"iam:users:list"},
+				"get":  {"iam:users:get"},
+			},
+		},
+	}
+
+	if got := lookup.Get("iam", "users", "list"); len(got) != 1 || got[0] != "iam:users:list" {
+		t.Errorf("got %v, want [iam:users:list]", got)
+	}
+	if got := lookup.Get("iam", "users", "delete"); got != nil {
+		t.Errorf("got %v, want nil", got)
+	}
+	if got := lookup.Get("unknown", "users", "list"); got != nil {
+		t.Errorf("got %v, want nil", got)
 	}
 }

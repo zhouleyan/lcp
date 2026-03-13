@@ -91,15 +91,15 @@ func TestIsSelfUserQuery(t *testing.T) {
 
 // --- Mock types for middleware integration tests ---
 
-type mockLookup map[string]map[string]map[string]string
+type mockLookup map[string]map[string]map[string][]string
 
-func (m mockLookup) Get(module, chain, verb string) string {
+func (m mockLookup) Get(module, chain, verb string) []string {
 	if mc, ok := m[module]; ok {
 		if rc, ok := mc[chain]; ok {
 			return rc[verb]
 		}
 	}
-	return ""
+	return nil
 }
 
 type mockChecker struct {
@@ -111,6 +111,15 @@ type mockChecker struct {
 
 func (m *mockChecker) CheckPermission(_ context.Context, _ int64, permCode string, _ string, _, _ int64) (bool, error) {
 	return m.permissions[permCode], nil
+}
+
+func (m *mockChecker) CheckAnyPermission(_ context.Context, _ int64, permCodes []string, _ string, _, _ int64) (bool, error) {
+	for _, code := range permCodes {
+		if m.permissions[code] {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (m *mockChecker) IsPlatformAdmin(_ context.Context, _ int64) (bool, error) {
@@ -127,7 +136,7 @@ func (m *mockChecker) GetAccessibleNamespaceIDs(_ context.Context, _ int64) ([]i
 
 func TestWithAuthorization_Allowed(t *testing.T) {
 	lookup := mockLookup{
-		"iam": {"users": {"list": "iam:users:list"}},
+		"iam": {"users": {"list": {"iam:users:list"}}},
 	}
 	checker := &mockChecker{permissions: map[string]bool{"iam:users:list": true}}
 	handler := WithAuthorization(lookup, checker)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -146,7 +155,7 @@ func TestWithAuthorization_Allowed(t *testing.T) {
 
 func TestWithAuthorization_Denied(t *testing.T) {
 	lookup := mockLookup{
-		"iam": {"users": {"list": "iam:users:list"}},
+		"iam": {"users": {"list": {"iam:users:list"}}},
 	}
 	checker := &mockChecker{permissions: map[string]bool{}}
 	handler := WithAuthorization(lookup, checker)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -165,7 +174,7 @@ func TestWithAuthorization_Denied(t *testing.T) {
 
 func TestWithAuthorization_PlatformAdminBypass(t *testing.T) {
 	lookup := mockLookup{
-		"iam": {"users": {"list": "iam:users:list"}},
+		"iam": {"users": {"list": {"iam:users:list"}}},
 	}
 	checker := &mockChecker{isAdmin: true, permissions: map[string]bool{}}
 	handler := WithAuthorization(lookup, checker)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -184,7 +193,7 @@ func TestWithAuthorization_PlatformAdminBypass(t *testing.T) {
 
 func TestWithAuthorization_SelfUserAccess(t *testing.T) {
 	lookup := mockLookup{
-		"iam": {"users": {"get": "iam:users:get"}},
+		"iam": {"users": {"get": {"iam:users:get"}}},
 	}
 	// User has no permissions but should access own profile
 	checker := &mockChecker{permissions: map[string]bool{}}
@@ -204,7 +213,7 @@ func TestWithAuthorization_SelfUserAccess(t *testing.T) {
 
 func TestWithAuthorization_SelfUserDeniedForOthers(t *testing.T) {
 	lookup := mockLookup{
-		"iam": {"users": {"get": "iam:users:get"}},
+		"iam": {"users": {"get": {"iam:users:get"}}},
 	}
 	checker := &mockChecker{permissions: map[string]bool{}}
 	handler := WithAuthorization(lookup, checker)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -239,7 +248,7 @@ func TestWithAuthorization_NonAPIPassthrough(t *testing.T) {
 
 func TestWithAuthorization_WorkspaceListInjectsAccessFilter(t *testing.T) {
 	lookup := mockLookup{
-		"iam": {"workspaces": {"list": "iam:workspaces:list"}},
+		"iam": {"workspaces": {"list": {"iam:workspaces:list"}}},
 	}
 	checker := &mockChecker{
 		permissions:  map[string]bool{},
@@ -270,7 +279,7 @@ func TestWithAuthorization_WorkspaceListInjectsAccessFilter(t *testing.T) {
 
 func TestWithAuthorization_NamespaceListInjectsAccessFilter(t *testing.T) {
 	lookup := mockLookup{
-		"iam": {"namespaces": {"list": "iam:namespaces:list"}},
+		"iam": {"namespaces": {"list": {"iam:namespaces:list"}}},
 	}
 	checker := &mockChecker{
 		permissions:  map[string]bool{},
@@ -301,7 +310,7 @@ func TestWithAuthorization_NamespaceListInjectsAccessFilter(t *testing.T) {
 
 func TestWithAuthorization_AdminNoAccessFilter(t *testing.T) {
 	lookup := mockLookup{
-		"iam": {"workspaces": {"list": "iam:workspaces:list"}},
+		"iam": {"workspaces": {"list": {"iam:workspaces:list"}}},
 	}
 	checker := &mockChecker{isAdmin: true}
 
