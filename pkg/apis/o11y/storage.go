@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	apierrors "lcp.io/lcp/lib/api/errors"
 	"lcp.io/lcp/lib/api/types"
+	"lcp.io/lcp/lib/probe"
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/lib/runtime"
 	"lcp.io/lcp/pkg/db"
@@ -299,3 +301,86 @@ func endpointSpecToPatchFields(ep *Endpoint) map[string]any {
 }
 
 var parseID = rest.ParseID
+
+// ===== probe 端点连通性检测 =====
+
+// NewEndpointProbeHandler 创建端点连通性检测处理器。
+// +openapi:action=probe
+// +openapi:resource=Endpoint
+// +openapi:response=ProbeResult
+// +openapi:summary=检测监控端点连通性
+func NewEndpointProbeHandler(endpointStore EndpointStore) rest.HandlerFunc {
+	return func(ctx context.Context, params map[string]string, body []byte) (runtime.Object, error) {
+		idStr := params["endpointId"]
+		eid, err := parseID(idStr)
+		if err != nil {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid endpoint ID: %s", idStr), nil)
+		}
+
+		ep, err := endpointStore.GetByID(ctx, eid)
+		if err != nil {
+			return nil, err
+		}
+
+		urls := []struct {
+			field string
+			url   string
+		}{
+			{"metricsUrl", ep.MetricsUrl},
+			{"logsUrl", ep.LogsUrl},
+			{"tracesUrl", ep.TracesUrl},
+			{"apmUrl", ep.ApmUrl},
+		}
+
+		opts := &probe.Options{Timeout: 5 * time.Second}
+		results := make([]ProbeResultItem, 0, len(urls))
+
+		type probeOut struct {
+			index  int
+			result *probe.Result
+		}
+		ch := make(chan probeOut, len(urls))
+
+		count := 0
+		for i, u := range urls {
+			if u.url == "" {
+				continue
+			}
+			count++
+			go func(idx int, url string) {
+				r := probe.HTTP(ctx, url, opts)
+				ch <- probeOut{index: idx, result: r}
+			}(i, u.url)
+		}
+
+		collected := make(map[int]*probe.Result, count)
+		for range count {
+			out := <-ch
+			collected[out.index] = out.result
+		}
+
+		for i, u := range urls {
+			if u.url == "" {
+				continue
+			}
+			r := collected[i]
+			item := ProbeResultItem{
+				Field:      u.field,
+				URL:        u.url,
+				Success:    r.Success,
+				StatusCode: r.StatusCode,
+				Duration:   r.Duration.Round(time.Millisecond).String(),
+			}
+			if !r.Success {
+				item.Phase = string(r.Phase)
+				item.Message = r.Message
+			}
+			results = append(results, item)
+		}
+
+		return &ProbeResult{
+			TypeMeta: runtime.TypeMeta{Kind: "ProbeResult"},
+			Results:  results,
+		}, nil
+	}
+}

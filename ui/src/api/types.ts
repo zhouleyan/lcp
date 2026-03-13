@@ -515,6 +515,20 @@ export interface EndpointList extends TypeMeta {
   totalCount: number
 }
 
+export interface ProbeResultItem {
+  field: string
+  url: string
+  success: boolean
+  statusCode?: number
+  phase?: string
+  message?: string
+  duration: string
+}
+
+export interface ProbeResult extends TypeMeta {
+  results: ProbeResultItem[]
+}
+
 export interface StatusResponseDetail {
   field: string
   message: string

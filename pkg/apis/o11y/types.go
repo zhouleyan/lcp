@@ -47,5 +47,34 @@ type EndpointList struct {
 
 func (e *EndpointList) GetTypeMeta() *runtime.TypeMeta { return &e.TypeMeta }
 
+// ProbeResult 端点连通性检测结果。
+// +openapi:description=端点连通性检测结果：对端点所有已配置 URL 的连通性检测。
+type ProbeResult struct {
+	runtime.TypeMeta `json:",inline"`
+	// +openapi:description=各 URL 的检测结果
+	Results []ProbeResultItem `json:"results"`
+}
+
+func (p *ProbeResult) GetTypeMeta() *runtime.TypeMeta { return &p.TypeMeta }
+
+// ProbeResultItem 单个 URL 的检测结果。
+// +openapi:description=单个 URL 的连通性检测结果。
+type ProbeResultItem struct {
+	// +openapi:description=字段名称（metricsUrl/logsUrl/tracesUrl/apmUrl）
+	Field string `json:"field"`
+	// +openapi:description=URL 地址
+	URL string `json:"url"`
+	// +openapi:description=是否连通
+	Success bool `json:"success"`
+	// +openapi:description=HTTP 状态码
+	StatusCode int `json:"statusCode,omitempty"`
+	// +openapi:description=失败阶段（dns/tcp/tls/http）
+	Phase string `json:"phase,omitempty"`
+	// +openapi:description=失败原因
+	Message string `json:"message,omitempty"`
+	// +openapi:description=检测耗时
+	Duration string `json:"duration"`
+}
+
 // DB type aliases
 type DBEndpoint = generated.O11yEndpoint
