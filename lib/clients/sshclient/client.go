@@ -127,11 +127,36 @@ func (c *Client) Connect(ctx context.Context) error {
 		}
 	}
 
-	sshClient, err := ssh.Dial("tcp", addr, sshConfig)
-	if err != nil {
-		return fmt.Errorf("sshclient: failed to dial %s: %w", addr, err)
+	if c.config.ProxyJump != nil {
+		proxy := New(*c.config.ProxyJump)
+		if err := proxy.Connect(ctx); err != nil {
+			return fmt.Errorf("sshclient: failed to connect proxy %s:%d: %w",
+				c.config.ProxyJump.Host, c.config.ProxyJump.Port, err)
+		}
+
+		tunnelConn, err := proxy.client.Dial("tcp", addr)
+		if err != nil {
+			proxy.Close()
+			return fmt.Errorf("sshclient: failed to tunnel to %s: %w", addr, err)
+		}
+
+		ncc, chans, reqs, err := ssh.NewClientConn(tunnelConn, addr, sshConfig)
+		if err != nil {
+			tunnelConn.Close()
+			proxy.Close()
+			return fmt.Errorf("sshclient: failed to dial %s via proxy: %w", addr, err)
+		}
+
+		c.client = ssh.NewClient(ncc, chans, reqs)
+		c.proxyClient = proxy
+		c.proxyConn = tunnelConn
+	} else {
+		sshClient, err := ssh.Dial("tcp", addr, sshConfig)
+		if err != nil {
+			return fmt.Errorf("sshclient: failed to dial %s: %w", addr, err)
+		}
+		c.client = sshClient
 	}
-	c.client = sshClient
 
 	return nil
 }

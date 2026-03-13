@@ -1,9 +1,13 @@
 package sshclient
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/pem"
+	"fmt"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -288,5 +292,153 @@ func TestBuildAuthMethods_InvalidKeyFile(t *testing.T) {
 	_, err := c.buildAuthMethods()
 	if err == nil {
 		t.Fatal("expected error for invalid key file content")
+	}
+}
+
+// startTestSSHServer starts a minimal SSH server that accepts connections
+// with password auth. It returns the listener address and a cleanup function.
+// If allowTunnel is true, the server handles "direct-tcpip" channel requests
+// by dialing the requested address (acting as a bastion).
+func startTestSSHServer(t *testing.T, password string, allowTunnel bool) (addr string, cleanup func()) {
+	t.Helper()
+
+	_, hostPriv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate host key: %v", err)
+	}
+	hostSigner, err := ssh.NewSignerFromKey(hostPriv)
+	if err != nil {
+		t.Fatalf("failed to create host signer: %v", err)
+	}
+
+	serverConfig := &ssh.ServerConfig{
+		PasswordCallback: func(conn ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
+			if string(pass) == password {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("password rejected")
+		},
+	}
+	serverConfig.AddHostKey(hostSigner)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go handleTestSSHConn(conn, serverConfig, allowTunnel)
+		}
+	}()
+
+	return ln.Addr().String(), func() { ln.Close() }
+}
+
+func handleTestSSHConn(conn net.Conn, config *ssh.ServerConfig, allowTunnel bool) {
+	srvConn, chans, reqs, err := ssh.NewServerConn(conn, config)
+	if err != nil {
+		conn.Close()
+		return
+	}
+	defer srvConn.Close()
+
+	go ssh.DiscardRequests(reqs)
+
+	for newChan := range chans {
+		switch newChan.ChannelType() {
+		case "session":
+			ch, _, err := newChan.Accept()
+			if err != nil {
+				continue
+			}
+			ch.Close()
+
+		case "direct-tcpip":
+			if !allowTunnel {
+				newChan.Reject(ssh.Prohibited, "tunneling not allowed")
+				continue
+			}
+
+			var payload struct {
+				DestHost string
+				DestPort uint32
+				SrcHost  string
+				SrcPort  uint32
+			}
+			if err := ssh.Unmarshal(newChan.ExtraData(), &payload); err != nil {
+				newChan.Reject(ssh.ConnectionFailed, "bad payload")
+				continue
+			}
+
+			targetAddr := fmt.Sprintf("%s:%d", payload.DestHost, payload.DestPort)
+			targetConn, err := net.Dial("tcp", targetAddr)
+			if err != nil {
+				newChan.Reject(ssh.ConnectionFailed, err.Error())
+				continue
+			}
+
+			ch, _, err := newChan.Accept()
+			if err != nil {
+				targetConn.Close()
+				continue
+			}
+
+			go func() {
+				defer ch.Close()
+				defer targetConn.Close()
+				go func() { _, _ = io.Copy(ch, targetConn) }()
+				_, _ = io.Copy(targetConn, ch)
+			}()
+
+		default:
+			newChan.Reject(ssh.UnknownChannelType, "unknown channel type")
+		}
+	}
+}
+
+func TestConnect_ProxyJump(t *testing.T) {
+	targetAddr, targetCleanup := startTestSSHServer(t, "target-pass", false)
+	defer targetCleanup()
+
+	bastionAddr, bastionCleanup := startTestSSHServer(t, "bastion-pass", true)
+	defer bastionCleanup()
+
+	bastionHost, bastionPortStr, _ := net.SplitHostPort(bastionAddr)
+	bastionPort := 0
+	fmt.Sscanf(bastionPortStr, "%d", &bastionPort)
+
+	targetHost, targetPortStr, _ := net.SplitHostPort(targetAddr)
+	targetPort := 0
+	fmt.Sscanf(targetPortStr, "%d", &targetPort)
+
+	c := New(Config{
+		Host:     targetHost,
+		Port:     targetPort,
+		Password: "target-pass",
+		ProxyJump: &Config{
+			Host:     bastionHost,
+			Port:     bastionPort,
+			Password: "bastion-pass",
+		},
+	})
+
+	if err := c.Connect(context.Background()); err != nil {
+		t.Fatalf("Connect via ProxyJump failed: %v", err)
+	}
+	defer c.Close()
+
+	if c.SSHClient() == nil {
+		t.Error("expected target SSH client to be set")
+	}
+	if c.proxyClient == nil {
+		t.Error("expected proxyClient to be set")
+	}
+	if c.proxyConn == nil {
+		t.Error("expected proxyConn to be set")
 	}
 }
