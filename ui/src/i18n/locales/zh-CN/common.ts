@@ -61,6 +61,8 @@ const common: Messages = {
   "nav.racks": "机柜",
   "nav.o11y": "可观测性",
   "nav.endpoints": "监控端点",
+  "nav.pki": "PKI",
+  "nav.certificates": "证书管理",
   "nav.apiDocs": "API 文档",
 
   // overview
