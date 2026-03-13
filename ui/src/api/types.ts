@@ -515,6 +515,34 @@ export interface EndpointList extends TypeMeta {
   totalCount: number
 }
 
+// --- Certificate ---
+
+export interface CertificateSpec {
+  certType: "ca" | "server" | "client" | "both"
+  commonName?: string
+  dnsNames?: string[]
+  caName?: string
+  validityDays?: number
+}
+
+export interface CertificateStatus {
+  serialNumber: string
+  notBefore: string
+  notAfter: string
+  certificate: string
+}
+
+export interface Certificate extends TypeMeta {
+  metadata: ObjectMeta
+  spec: CertificateSpec
+  status?: CertificateStatus
+}
+
+export interface CertificateList extends TypeMeta {
+  items: Certificate[]
+  totalCount: number
+}
+
 export interface StatusResponseDetail {
   field: string
   message: string
