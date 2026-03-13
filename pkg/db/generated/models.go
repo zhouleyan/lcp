@@ -47,6 +47,7 @@ type Certificate struct {
 	NotAfter     time.Time  `json:"not_after"`
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at"`
+	IpAddresses  []string   `json:"ip_addresses"`
 }
 
 // 环境表：管理维度，用于按生命周期阶段分组资源
@@ -198,6 +199,13 @@ type Permission struct {
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// PKI 加密密钥：AES-256 密钥，用于加密证书私钥
+type PkiEncryptionKey struct {
+	ID            int64     `json:"id"`
+	EncryptionKey []byte    `json:"encryption_key"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // 机柜表：数据中心机房内的物理机柜，属于某个机房

@@ -38,8 +38,11 @@ type CertificateSpec struct {
 	// +openapi:description=通用名称（CA 类型必填）
 	CommonName string `json:"commonName,omitempty"`
 
-	// +openapi:description=SAN 域名列表（server/both 类型必填）
+	// +openapi:description=SAN 域名列表
 	DNSNames []string `json:"dnsNames,omitempty"`
+
+	// +openapi:description=SAN IP 地址列表
+	IPAddresses []string `json:"ipAddresses,omitempty"`
 
 	// +openapi:description=签发 CA 名称（非 CA 类型必填）
 	CAName string `json:"caName,omitempty"`
@@ -56,8 +59,10 @@ type CertificateStatus struct {
 	NotBefore string `json:"notBefore"`
 	// +openapi:description=证书过期时间
 	NotAfter string `json:"notAfter"`
-	// +openapi:description=证书 PEM（公开，不含私钥）
+	// +openapi:description=证书 PEM
 	Certificate string `json:"certificate"`
+	// +openapi:description=私钥 PEM（仅详情接口返回）
+	PrivateKey string `json:"privateKey,omitempty"`
 }
 
 // CertificateList is a list of certificates.

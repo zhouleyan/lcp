@@ -1,13 +1,14 @@
 package pki
 
 import (
+	"net"
 	"regexp"
 
 	"lcp.io/lcp/lib/api/validation"
 )
 
 var (
-	nameRegexp     = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
+	nameRegexp     = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$`)
 	validCertTypes = map[string]bool{
 		CertTypeCA: true, CertTypeServer: true,
 		CertTypeClient: true, CertTypeBoth: true,
@@ -22,7 +23,7 @@ func ValidateCertificateCreate(name string, spec *CertificateSpec) validation.Er
 	if name == "" {
 		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "is required"})
 	} else if !nameRegexp.MatchString(name) {
-		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 3-50 lowercase alphanumeric characters or hyphens"})
+		errs = append(errs, validation.FieldError{Field: "metadata.name", Message: "must be 2-50 lowercase alphanumeric characters or hyphens"})
 	}
 
 	// certType
@@ -51,12 +52,19 @@ func ValidateCertificateCreate(name string, spec *CertificateSpec) validation.Er
 		if spec.CAName == "" {
 			errs = append(errs, validation.FieldError{Field: "spec.caName", Message: "is required for non-CA type"})
 		}
-		if len(spec.DNSNames) == 0 {
-			errs = append(errs, validation.FieldError{Field: "spec.dnsNames", Message: "is required for server/both type"})
+		if len(spec.DNSNames) == 0 && len(spec.IPAddresses) == 0 {
+			errs = append(errs, validation.FieldError{Field: "spec.dnsNames", Message: "dnsNames or ipAddresses is required for server/both type"})
 		}
 	case CertTypeClient:
 		if spec.CAName == "" {
 			errs = append(errs, validation.FieldError{Field: "spec.caName", Message: "is required for non-CA type"})
+		}
+	}
+
+	// Validate IP address format
+	for _, ip := range spec.IPAddresses {
+		if net.ParseIP(ip) == nil {
+			errs = append(errs, validation.FieldError{Field: "spec.ipAddresses", Message: "invalid IP address: " + ip})
 		}
 	}
 

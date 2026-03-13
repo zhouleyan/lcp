@@ -1,15 +1,19 @@
 package v1
 
 import (
+	"context"
 	"crypto/rand"
-	"encoding/base64"
+	"errors"
+	"fmt"
 
-	"lcp.io/lcp/lib/config"
+	"github.com/jackc/pgx/v5"
+
 	"lcp.io/lcp/lib/logger"
 	"lcp.io/lcp/lib/rest"
 	"lcp.io/lcp/pkg/apis/pki"
 	pkistore "lcp.io/lcp/pkg/apis/pki/store"
 	"lcp.io/lcp/pkg/db"
+	"lcp.io/lcp/pkg/db/generated"
 )
 
 // ModuleResult holds the output of PKI module initialization.
@@ -19,7 +23,11 @@ type ModuleResult struct {
 
 // NewPKIModule initializes the PKI module.
 func NewPKIModule(database *db.DB) ModuleResult {
-	encryptionKey := resolveEncryptionKey()
+	encryptionKey, err := loadOrGenerateEncryptionKey(database.Queries)
+	if err != nil {
+		logger.Fatalf("cannot load/generate PKI encryption key: %v", err)
+	}
+	logger.Infof("PKI encryption key ready")
 
 	p := pki.NewRESTStorageProvider(pkistore.NewStores(database))
 	certStorage := pki.NewCertificateStorage(p.Certificate, encryptionKey)
@@ -46,25 +54,33 @@ func NewPKIModule(database *db.DB) ModuleResult {
 	return ModuleResult{Group: group}
 }
 
-// resolveEncryptionKey returns the 32-byte AES key for private key encryption.
-// If not configured, generates a random key (logged as warning).
-func resolveEncryptionKey() []byte {
-	cfg := config.Get()
-	if cfg != nil && cfg.PKI.EncryptionKey != "" {
-		key, err := base64.StdEncoding.DecodeString(cfg.PKI.EncryptionKey)
-		if err != nil {
-			logger.Fatalf("invalid pki.encryptionKey (must be base64): %v", err)
+// loadOrGenerateEncryptionKey loads the AES-256 encryption key from the database,
+// or generates and stores a new one if none exists.
+func loadOrGenerateEncryptionKey(queries *generated.Queries) ([]byte, error) {
+	ctx := context.Background()
+
+	// Try to load existing key
+	row, err := queries.GetPKIEncryptionKey(ctx)
+	if err == nil {
+		if len(row.EncryptionKey) != 32 {
+			return nil, fmt.Errorf("stored encryption key has invalid length %d (expected 32)", len(row.EncryptionKey))
 		}
-		if len(key) != 32 {
-			logger.Fatalf("pki.encryptionKey must be 32 bytes (got %d)", len(key))
-		}
-		return key
+		return row.EncryptionKey, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("query encryption key: %w", err)
 	}
 
-	logger.Warnf("pki.encryptionKey not configured, generating random key (certificates will not survive restart without config)")
+	// Generate new 32-byte AES key
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
-		logger.Fatalf("cannot generate encryption key: %v", err)
+		return nil, fmt.Errorf("generate key: %w", err)
 	}
-	return key
+
+	_, err = queries.CreatePKIEncryptionKey(ctx, key)
+	if err != nil {
+		return nil, fmt.Errorf("store key: %w", err)
+	}
+
+	return key, nil
 }

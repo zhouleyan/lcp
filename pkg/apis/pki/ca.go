@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type IssueRequest struct {
 	CACertPEM    []byte
 	CAKeyPEM     []byte
 	DNSNames     []string
+	IPAddresses  []net.IP
 	CertType     string // server, client, both
 	ValidityDays int
 }
@@ -102,6 +104,7 @@ func IssueCertificate(req IssueRequest) (certPEM, keyPEM []byte, serialNumberStr
 		SerialNumber: serialNumber,
 		Subject:      pkix.Name{},
 		DNSNames:     req.DNSNames,
+		IPAddresses:  req.IPAddresses,
 		NotBefore:    now,
 		NotAfter:     now.AddDate(0, 0, req.ValidityDays),
 	}
