@@ -76,6 +76,10 @@
     {
       "name": "IPAllocation",
       "description": "IP 分配记录：子网中已分配的 IP 地址信息。"
+    },
+    {
+      "name": "Endpoint",
+      "description": "可观测性端点：配置 VictoriaMetrics 等监控系统的连接信息。"
     }
   ],
   "paths": {
@@ -7695,6 +7699,251 @@
         }
       }
     },
+    "/api/o11y/v1/endpoints": {
+      "get": {
+        "summary": "获取监控端点列表",
+        "operationId": "listEndpoint",
+        "tags": [
+          "Endpoint"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "创建监控端点",
+        "operationId": "createEndpoint",
+        "tags": [
+          "Endpoint"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Endpoint"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Endpoint"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "批量删除监控端点",
+        "operationId": "deleteCollectionEndpoint",
+        "tags": [
+          "Endpoint"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/o11y/v1/endpoints/{endpointId}": {
+      "get": {
+        "summary": "获取监控端点详情",
+        "operationId": "getEndpoint",
+        "tags": [
+          "Endpoint"
+        ],
+        "parameters": [
+          {
+            "name": "endpointId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Endpoint"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "更新监控端点（全量）",
+        "operationId": "updateEndpoint",
+        "tags": [
+          "Endpoint"
+        ],
+        "parameters": [
+          {
+            "name": "endpointId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Endpoint"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Endpoint"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "更新监控端点（部分）",
+        "operationId": "patchEndpoint",
+        "tags": [
+          "Endpoint"
+        ],
+        "parameters": [
+          {
+            "name": "endpointId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Endpoint"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Endpoint"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除监控端点",
+        "operationId": "deleteEndpoint",
+        "tags": [
+          "Endpoint"
+        ],
+        "parameters": [
+          {
+            "name": "endpointId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/oidc/authorize": {
       "get": {
         "summary": "授权端点",
@@ -7981,6 +8230,53 @@
             "description": "租户 ID"
           }
         }
+      },
+      "Endpoint": {
+        "type": "object",
+        "properties": {
+          "spec": {
+            "$ref": "#/components/schemas/EndpointSpec"
+          }
+        }
+      },
+      "EndpointList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Endpoint"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "EndpointSpec": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "端点描述"
+          },
+          "metricsUrl": {
+            "type": "string",
+            "description": "Metrics 查询地址（VictoriaMetrics）"
+          },
+          "status": {
+            "type": "string",
+            "description": "端点状态",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          }
+        },
+        "required": [
+          "metricsUrl"
+        ]
       },
       "Environment": {
         "type": "object",
@@ -9555,6 +9851,12 @@
         "Network",
         "Subnet",
         "IPAllocation"
+      ]
+    },
+    {
+      "name": "o11y",
+      "tags": [
+        "Endpoint"
       ]
     }
   ]
