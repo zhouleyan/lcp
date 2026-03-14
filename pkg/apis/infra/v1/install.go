@@ -40,6 +40,9 @@ func NewInfraModule(database *db.DB) ModuleResult {
 	// Network ACL storage (read-only, for host IP allocation)
 	networkACLStorage := infra.NewAvailableNetworkStorage(p.NetworkReader)
 
+	// Host IP sub-resource storage
+	hostIPStorage := infra.NewHostIPStorage(p.Host, p.IPBinder)
+
 	// Action handlers
 	bindEnvHandler := infra.NewBindEnvironmentHandler(p.Host, p.Environment)
 	unbindEnvHandler := infra.NewUnbindEnvironmentHandler(p.Host)
@@ -57,6 +60,9 @@ func NewInfraModule(database *db.DB) ModuleResult {
 				Actions: []rest.ActionInfo{
 					{Name: "bind-environment", Method: "POST", Handler: bindEnvHandler},
 					{Name: "unbind-environment", Method: "POST", Handler: unbindEnvHandler},
+				},
+				SubResources: []rest.ResourceInfo{
+					{Name: "ips", Storage: hostIPStorage, PermissionTargets: []string{"infra:hosts:update"}},
 				},
 			},
 			{
@@ -81,6 +87,9 @@ func NewInfraModule(database *db.DB) ModuleResult {
 							{Name: "bind-environment", Method: "POST", Handler: bindEnvHandler},
 							{Name: "unbind-environment", Method: "POST", Handler: unbindEnvHandler},
 						},
+						SubResources: []rest.ResourceInfo{
+							{Name: "ips", Storage: hostIPStorage, PermissionTargets: []string{"infra:hosts:update"}},
+						},
 					},
 					{
 						Name:    "environments",
@@ -103,6 +112,9 @@ func NewInfraModule(database *db.DB) ModuleResult {
 								Actions: []rest.ActionInfo{
 									{Name: "bind-environment", Method: "POST", Handler: bindEnvHandler},
 									{Name: "unbind-environment", Method: "POST", Handler: unbindEnvHandler},
+								},
+								SubResources: []rest.ResourceInfo{
+									{Name: "ips", Storage: hostIPStorage, PermissionTargets: []string{"infra:hosts:update"}},
 								},
 							},
 							{

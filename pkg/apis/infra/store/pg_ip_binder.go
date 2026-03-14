@@ -62,3 +62,39 @@ func (s *pgIPBinder) CreateIPAllocation(ctx context.Context, tx pgx.Tx, alloc *i
 	}
 	return &row, nil
 }
+
+func (s *pgIPBinder) UnbindIPAllocationFromHost(ctx context.Context, allocID, hostID int64) error {
+	n, err := s.queries.UnbindIPAllocationFromHost(ctx, generated.UnbindIPAllocationFromHostParams{
+		ID:     allocID,
+		HostID: &hostID,
+	})
+	if err != nil {
+		return fmt.Errorf("unbind ip allocation: %w", err)
+	}
+	if n == 0 {
+		return apierrors.NewNotFound("ip_allocation", fmt.Sprintf("%d", allocID))
+	}
+	return nil
+}
+
+func (s *pgIPBinder) ListIPAllocationsByHostID(ctx context.Context, hostID int64) ([]infra.DBHostIPAllocationRow, error) {
+	rows, err := s.queries.ListIPAllocationsByHostID(ctx, &hostID)
+	if err != nil {
+		return nil, fmt.Errorf("list ip allocations by host: %w", err)
+	}
+	return rows, nil
+}
+
+func (s *pgIPBinder) GetIPAllocationForHost(ctx context.Context, allocID, hostID int64) (*infra.DBIPAllocationForHostRow, error) {
+	row, err := s.queries.GetIPAllocationForHost(ctx, generated.GetIPAllocationForHostParams{
+		ID:     allocID,
+		HostID: &hostID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apierrors.NewNotFound("ip_allocation", fmt.Sprintf("%d", allocID))
+		}
+		return nil, fmt.Errorf("get ip allocation for host: %w", err)
+	}
+	return &row, nil
+}

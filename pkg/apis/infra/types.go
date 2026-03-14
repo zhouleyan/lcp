@@ -62,6 +62,8 @@ type HostSpec struct {
 	EnvironmentID string `json:"environmentId,omitempty"`
 	// +openapi:description=绑定的环境名称（只读）
 	EnvironmentName string `json:"environmentName,omitempty"`
+	// +openapi:description=已分配的 IP 列表（只读）
+	AllocatedIPs []AllocatedIP `json:"allocatedIPs,omitempty"`
 	// +openapi:description=主机状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
@@ -495,12 +497,38 @@ type DBSubnet = generated.Subnet
 // IPConfig represents an IP configuration in the host creation request.
 // +openapi:description=IP 配置：创建主机时指定子网 ID 和可选 IP 地址。
 type IPConfig struct {
+	runtime.TypeMeta `json:",inline"`
 	// +openapi:required
 	// +openapi:description=子网 ID
 	SubnetID string `json:"subnetId"`
 	// +openapi:description=IP 地址（为空时自动分配）
 	IP string `json:"ip,omitempty"`
 }
+
+func (c *IPConfig) GetTypeMeta() *runtime.TypeMeta { return &c.TypeMeta }
+
+// AllocatedIP represents an IP address allocated to a host (read-only, returned in API responses).
+// +openapi:description=已分配的 IP 信息
+type AllocatedIP struct {
+	// +openapi:description=IP 地址
+	IP string `json:"ip"`
+	// +openapi:description=子网 ID
+	SubnetID string `json:"subnetId"`
+	// +openapi:description=子网名称（仅详情接口返回）
+	SubnetName string `json:"subnetName,omitempty"`
+	// +openapi:description=子网 CIDR（仅详情接口返回）
+	SubnetCIDR string `json:"subnetCidr,omitempty"`
+}
+
+// AllocatedIPList
+// +openapi:description=已分配 IP 列表
+type AllocatedIPList struct {
+	runtime.TypeMeta `json:",inline"`
+	Items            []AllocatedIP `json:"items"`
+	TotalCount       int64         `json:"totalCount"`
+}
+
+func (l *AllocatedIPList) GetTypeMeta() *runtime.TypeMeta { return &l.TypeMeta }
 
 // DBIPConfig is the internal representation of IPConfig with parsed IDs.
 type DBIPConfig struct {
@@ -513,4 +541,10 @@ type DBSubnetRow = generated.Subnet
 
 // DBIPAllocationWithHost is an alias for CreateIPAllocationWithHost result.
 type DBIPAllocationWithHost = generated.CreateIPAllocationWithHostRow
+
+// DBHostIPAllocationRow is an alias for ListIPAllocationsByHostID result.
+type DBHostIPAllocationRow = generated.ListIPAllocationsByHostIDRow
+
+// DBIPAllocationForHostRow is an alias for GetIPAllocationForHost result.
+type DBIPAllocationForHostRow = generated.GetIPAllocationForHostRow
 

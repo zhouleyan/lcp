@@ -96,6 +96,11 @@ HTTP Request
 - **Pagination**: `page` (1-based), `pageSize` (default 20, max 100), `sortBy`, `sortOrder`
 - **Batch operations**: Use `BatchRequest{IDs []string}` for batch add; `rest.DeleteCollectionRequest{IDs}` for batch delete
 - **Content negotiation**: JSON (default) + YAML (via `Accept: application/yaml`)
+- **PermissionTargets**: 子资源操作在语义上属于父资源的修改时（如主机追加/移除 IP），使用 `PermissionTargets` 将权限指向父资源的权限码，而非生成独立的子资源权限码。保持 REST 子资源路由规范的同时复用父资源权限。示例：
+  ```go
+  // ips 是 hosts 的子资源，但权限复用 infra:hosts:update
+  {Name: "ips", Storage: hostIPStorage, PermissionTargets: []string{"infra:hosts:update"}}
+  ```
 
 ### Storage 组织规则
 

@@ -60,6 +60,7 @@ const network: Messages = {
   "allocation.ip": "IP 地址",
   "allocation.description": "描述",
   "allocation.isGateway": "网关",
+  "allocation.host": "关联主机",
   "allocation.deleteConfirm": "确定要释放 IP \"{ip}\" 吗？",
   "allocation.ipPlaceholder": "如 10.0.0.100",
   "allocation.cannotDeleteGateway": "网关 IP 不可直接释放。",

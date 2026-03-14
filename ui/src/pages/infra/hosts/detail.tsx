@@ -156,9 +156,24 @@ export default function HostDetailPage() {
                 <span className="text-muted-foreground">{t("host.hostname")}</span>
                 <p className="font-medium">{host.spec.hostname || "-"}</p>
               </div>
-              <div>
+              <div className="col-span-2">
                 <span className="text-muted-foreground">{t("host.ipAddress")}</span>
-                <p className="font-medium">{host.spec.ipAddress || "-"}</p>
+                {host.spec.allocatedIPs && host.spec.allocatedIPs.length > 0 ? (
+                  <div className="mt-1 space-y-1">
+                    {host.spec.allocatedIPs.map((a) => (
+                      <p key={a.ip} className="font-mono text-sm font-medium">
+                        {a.ip}
+                        {a.subnetName && (
+                          <span className="text-muted-foreground ml-2 font-sans text-xs font-normal">
+                            {a.subnetName} ({a.subnetCidr})
+                          </span>
+                        )}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="font-medium">{host.spec.ipAddress || "-"}</p>
+                )}
               </div>
               <div>
                 <span className="text-muted-foreground">{t("host.os")}</span>

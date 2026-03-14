@@ -275,7 +275,18 @@ export default function HostListPage() {
                       {host.metadata.name}
                     </Link>
                   </TableCell>
-                  <TableCell className="text-sm">{host.spec.ipAddress || "-"}</TableCell>
+                  <TableCell className="text-sm">
+                    {host.spec.allocatedIPs && host.spec.allocatedIPs.length > 0 ? (
+                      <span className="font-mono" title={host.spec.allocatedIPs.map((a) => a.ip).join("\n")}>
+                        {host.spec.allocatedIPs[0].ip}
+                        {host.spec.allocatedIPs.length > 1 && (
+                          <span className="text-muted-foreground ml-1 text-xs">+{host.spec.allocatedIPs.length - 1}</span>
+                        )}
+                      </span>
+                    ) : (
+                      host.spec.ipAddress || "-"
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm">{host.spec.os || "-"}</TableCell>
                   <TableCell>
                     {host.spec.environmentName ? (
@@ -536,7 +547,13 @@ function HostFormDialog({
               (wsId) => listWorkspaceInfraNetworks(wsId),
               (wsId, nsId) => listNamespaceInfraNetworks(wsId, nsId),
             )
-            setNetworks(data.items ?? [])
+            const nets = data.items ?? []
+            setNetworks(nets)
+            // Auto-add first available subnet
+            const firstSubnet = nets.flatMap((n) => n.spec.subnets).find((s) => s.freeIPs > 0)
+            if (firstSubnet) {
+              form.setValue("ips", [{ subnetId: firstSubnet.id, ip: "" }])
+            }
           } catch {
             setNetworks([])
           }
@@ -631,7 +648,7 @@ function HostFormDialog({
 
             {/* IP Configuration (create mode only) — right after hostname */}
             {!isEdit && (
-              <div className="space-y-3">
+              <div className="space-y-3 pb-2">
                 <div className="text-sm font-medium">{t("host.ips.section")}</div>
                 {fields.map((field, index) => {
                   const selectedSubnetId = form.watch(`ips.${index}.subnetId`)
@@ -652,10 +669,10 @@ function HostFormDialog({
                               <SelectContent>
                                 {networks.map((net) => (
                                   <SelectGroup key={net.metadata.id}>
-                                    <SelectLabel>{net.spec.displayName || net.metadata.name}{net.spec.cidr ? ` (${net.spec.cidr})` : ""}</SelectLabel>
+                                    <SelectLabel className="text-sm text-muted-foreground">{net.spec.displayName || net.metadata.name}{net.spec.cidr ? ` (${net.spec.cidr})` : ""}</SelectLabel>
                                     {net.spec.subnets.map((sub) => (
                                       <SelectItem key={sub.id} value={sub.id} disabled={sub.freeIPs === 0}>
-                                        {sub.displayName || sub.name} — {sub.cidr}
+                                        {sub.displayName || sub.name} {sub.cidr}
                                         <span className="text-muted-foreground ml-2 text-xs">
                                           ({t("host.ips.subnet.free", { free: sub.freeIPs, total: sub.totalIPs })})
                                         </span>
@@ -673,22 +690,12 @@ function HostFormDialog({
                             <FormMessage />
                           </FormItem>
                         )} />
-                        {specifyIpRows.has(index) ? (
-                          <FormField control={form.control} name={`ips.${index}.ip`} render={({ field: f }) => (
-                            <FormItem className="w-40 shrink-0">
-                              <FormControl><Input {...f} placeholder={t("host.ips.ip")} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )} />
-                        ) : (
-                          <button
-                            type="button"
-                            className="text-primary text-sm h-9 shrink-0 hover:underline"
-                            onClick={() => setSpecifyIpRows((prev) => new Set(prev).add(index))}
-                          >
-                            {t("host.ips.ip.specify")}
-                          </button>
-                        )}
+                        <FormField control={form.control} name={`ips.${index}.ip`} render={({ field: f }) => (
+                          <FormItem className="flex-1 min-w-0">
+                            <FormControl><Input {...f} placeholder={t("host.ips.ip.auto")} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
                         <Button
                           type="button"
                           variant="ghost"
@@ -709,15 +716,19 @@ function HostFormDialog({
                     </div>
                   )
                 })}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => append({ subnetId: "", ip: "" })}
-                >
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  {t("host.ips.add")}
-                </Button>
+                {networks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t("host.ips.noNetworks")}</p>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ subnetId: "", ip: "" })}
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    {t("host.ips.add")}
+                  </Button>
+                )}
               </div>
             )}
 

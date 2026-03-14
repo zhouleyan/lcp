@@ -29,18 +29,19 @@ WHERE subnet_id = @subnet_id
          OR description ILIKE '%' || sqlc.narg('search') || '%');
 
 -- name: ListIPAllocations :many
-SELECT id, subnet_id, ip, description, is_gateway, created_at, host_id
-FROM ip_allocations
-WHERE subnet_id = @subnet_id
-    AND (sqlc.narg('is_gateway')::BOOLEAN IS NULL OR is_gateway = sqlc.narg('is_gateway'))
+SELECT ia.id, ia.subnet_id, ia.ip, ia.description, ia.is_gateway, ia.created_at, ia.host_id, h.name AS host_name
+FROM ip_allocations ia
+LEFT JOIN hosts h ON ia.host_id = h.id
+WHERE ia.subnet_id = @subnet_id
+    AND (sqlc.narg('is_gateway')::BOOLEAN IS NULL OR ia.is_gateway = sqlc.narg('is_gateway'))
     AND (sqlc.narg('search')::VARCHAR IS NULL
-         OR ip ILIKE '%' || sqlc.narg('search') || '%'
-         OR description ILIKE '%' || sqlc.narg('search') || '%')
+         OR ia.ip ILIKE '%' || sqlc.narg('search') || '%'
+         OR ia.description ILIKE '%' || sqlc.narg('search') || '%')
 ORDER BY
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'ip' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN ip END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'ip' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN ip END DESC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN created_at END ASC,
-    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN created_at END DESC,
-    created_at DESC
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'ip' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN ia.ip END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'ip' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN ia.ip END DESC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'asc' THEN ia.created_at END ASC,
+    CASE WHEN sqlc.arg('sort_field')::VARCHAR = 'created_at' AND sqlc.arg('sort_order')::VARCHAR = 'desc' THEN ia.created_at END DESC,
+    ia.created_at DESC
 LIMIT sqlc.arg('page_size')::INT
 OFFSET sqlc.arg('page_offset')::INT;

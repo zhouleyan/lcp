@@ -118,6 +118,10 @@ type IPAllocationSpec struct {
 	IsGateway bool `json:"isGateway,omitempty"`
 	// +openapi:description=所属子网 ID（只读）
 	SubnetID string `json:"subnetId,omitempty"`
+	// +openapi:description=关联主机 ID（只读）
+	HostID string `json:"hostId,omitempty"`
+	// +openapi:description=关联主机名称（只读）
+	HostName string `json:"hostName,omitempty"`
 }
 
 // IPAllocationList
@@ -149,3 +153,6 @@ type DBSubnetCIDR = generated.ListSubnetCIDRsByNetworkIDRow
 
 // DBIPAllocation is an alias for the sqlc-generated IpAllocation model.
 type DBIPAllocation = generated.IpAllocation
+
+// DBIPAllocationListRow is an alias for ListIPAllocations row (includes host info).
+type DBIPAllocationListRow = generated.ListIPAllocationsRow

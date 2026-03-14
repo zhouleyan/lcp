@@ -55,6 +55,36 @@ func (q *Queries) CreateIPAllocationWithHost(ctx context.Context, arg CreateIPAl
 	return i, err
 }
 
+const getIPAllocationForHost = `-- name: GetIPAllocationForHost :one
+SELECT ia.id, ia.subnet_id, ia.ip, ia.host_id
+FROM ip_allocations ia
+WHERE ia.id = $1 AND ia.host_id = $2
+`
+
+type GetIPAllocationForHostParams struct {
+	ID     int64  `json:"id"`
+	HostID *int64 `json:"host_id"`
+}
+
+type GetIPAllocationForHostRow struct {
+	ID       int64  `json:"id"`
+	SubnetID int64  `json:"subnet_id"`
+	Ip       string `json:"ip"`
+	HostID   *int64 `json:"host_id"`
+}
+
+func (q *Queries) GetIPAllocationForHost(ctx context.Context, arg GetIPAllocationForHostParams) (GetIPAllocationForHostRow, error) {
+	row := q.db.QueryRow(ctx, getIPAllocationForHost, arg.ID, arg.HostID)
+	var i GetIPAllocationForHostRow
+	err := row.Scan(
+		&i.ID,
+		&i.SubnetID,
+		&i.Ip,
+		&i.HostID,
+	)
+	return i, err
+}
+
 const getSubnetByIDForUpdateACL = `-- name: GetSubnetByIDForUpdateACL :one
 SELECT
     s.id, s.name, s.display_name, s.description, s.network_id,
@@ -81,6 +111,74 @@ func (q *Queries) GetSubnetByIDForUpdateACL(ctx context.Context, id int64) (Subn
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listIPAllocationsByHostID = `-- name: ListIPAllocationsByHostID :many
+SELECT ia.id, ia.subnet_id, ia.ip, ia.description, ia.is_gateway, ia.created_at, ia.host_id,
+       s.name AS subnet_name, s.cidr AS subnet_cidr
+FROM ip_allocations ia
+JOIN subnets s ON ia.subnet_id = s.id
+WHERE ia.host_id = $1
+ORDER BY ia.created_at
+`
+
+type ListIPAllocationsByHostIDRow struct {
+	ID          int64     `json:"id"`
+	SubnetID    int64     `json:"subnet_id"`
+	Ip          string    `json:"ip"`
+	Description string    `json:"description"`
+	IsGateway   bool      `json:"is_gateway"`
+	CreatedAt   time.Time `json:"created_at"`
+	HostID      *int64    `json:"host_id"`
+	SubnetName  string    `json:"subnet_name"`
+	SubnetCidr  string    `json:"subnet_cidr"`
+}
+
+func (q *Queries) ListIPAllocationsByHostID(ctx context.Context, hostID *int64) ([]ListIPAllocationsByHostIDRow, error) {
+	rows, err := q.db.Query(ctx, listIPAllocationsByHostID, hostID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListIPAllocationsByHostIDRow{}
+	for rows.Next() {
+		var i ListIPAllocationsByHostIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SubnetID,
+			&i.Ip,
+			&i.Description,
+			&i.IsGateway,
+			&i.CreatedAt,
+			&i.HostID,
+			&i.SubnetName,
+			&i.SubnetCidr,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const unbindIPAllocationFromHost = `-- name: UnbindIPAllocationFromHost :execrows
+UPDATE ip_allocations SET host_id = NULL WHERE id = $1 AND host_id = $2
+`
+
+type UnbindIPAllocationFromHostParams struct {
+	ID     int64  `json:"id"`
+	HostID *int64 `json:"host_id"`
+}
+
+func (q *Queries) UnbindIPAllocationFromHost(ctx context.Context, arg UnbindIPAllocationFromHostParams) (int64, error) {
+	result, err := q.db.Exec(ctx, unbindIPAllocationFromHost, arg.ID, arg.HostID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateSubnetBitmapACL = `-- name: UpdateSubnetBitmapACL :exec

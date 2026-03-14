@@ -300,6 +300,7 @@ function AllocationsSection({
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort("ip")}>
                   {t("allocation.ip")}<SortIcon field="ip" sortBy={sortBy} sortOrder={sortOrder} />
                 </TableHead>
+                <TableHead>{t("allocation.host")}</TableHead>
                 <TableHead>{t("allocation.description")}</TableHead>
                 <TableHead>{t("allocation.isGateway")}</TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
@@ -312,14 +313,14 @@ function AllocationsSection({
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 5 }).map((_, j) => (
+                    {Array.from({ length: 6 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : allocations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+                  <TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
                     {t("allocation.noData")}
                   </TableCell>
                 </TableRow>
@@ -327,6 +328,7 @@ function AllocationsSection({
                 allocations.map((alloc) => (
                   <TableRow key={alloc.metadata.id}>
                     <TableCell className="font-mono text-sm">{alloc.spec.ip}</TableCell>
+                    <TableCell className="text-sm">{alloc.spec.hostName || "-"}</TableCell>
                     <TableCell className="text-sm">{alloc.spec.description || "-"}</TableCell>
                     <TableCell>
                       {alloc.spec.isGateway

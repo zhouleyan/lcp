@@ -42,6 +42,7 @@ const infra: Messages = {
   "host.ips.ip.outOfRange": "IP address is not within the subnet range",
   "host.ips.subnet.free": "Available {free}/{total}",
   "host.ips.subnet.select": "Select subnet",
+  "host.ips.noNetworks": "No networks available",
   "host.searchPlaceholder": "Search name, display name...",
   "host.filter.environment": "Environment",
   "host.filter.environmentAll": "All Environments",

@@ -778,6 +778,66 @@ func (s *namespaceHostStorage) DeleteCollection(ctx context.Context, ids []strin
 
 // ===== environmentStorage 平台级环境存储 =====
 
+// ===== Host IP sub-resource storage =====
+
+// hostIPStorage 主机 IP 子资源的 REST 存储实现，支持列表、添加和移除。
+type hostIPStorage struct {
+	hostStore HostStore
+	ipBinder  IPBinder
+}
+
+// NewHostIPStorage 创建主机 IP 子资源 REST 存储。
+func NewHostIPStorage(hostStore HostStore, ipBinder IPBinder) *hostIPStorage {
+	return &hostIPStorage{hostStore: hostStore, ipBinder: ipBinder}
+}
+
+func (s *hostIPStorage) NewObject() runtime.Object { return &IPConfig{} }
+
+// Create 为主机追加 IP。
+// +openapi:summary=为主机追加 IP
+func (s *hostIPStorage) Create(ctx context.Context, obj runtime.Object, options *rest.CreateOptions) (runtime.Object, error) {
+	cfg, ok := obj.(*IPConfig)
+	if !ok {
+		return nil, fmt.Errorf("expected *IPConfig, got %T", obj)
+	}
+
+	hostID, err := parseID(options.PathParams["hostId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid host ID", nil)
+	}
+
+	subnetID, err := parseID(cfg.SubnetID)
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid subnet ID", nil)
+	}
+
+	if err := s.hostStore.AddIP(ctx, hostID, DBIPConfig{SubnetID: subnetID, IP: cfg.IP}); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// Delete 从主机移除 IP（解绑但不释放）。
+// +openapi:summary=从主机移除 IP
+func (s *hostIPStorage) Delete(ctx context.Context, options *rest.DeleteOptions) (runtime.Object, error) {
+	hostID, err := parseID(options.PathParams["hostId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid host ID", nil)
+	}
+
+	allocID, err := parseID(options.PathParams["ipId"])
+	if err != nil {
+		return nil, apierrors.NewBadRequest("invalid IP allocation ID", nil)
+	}
+
+	if err := s.ipBinder.UnbindIPAllocationFromHost(ctx, allocID, hostID); err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
 // environmentStorage 平台级环境资源的 REST 存储实现，支持 CRUD 和批量删除。
 type environmentStorage struct {
 	envStore EnvironmentStore
@@ -2964,6 +3024,40 @@ func locationSpecToPatchFields(l *Location) map[string]any {
 
 // ===== DB → API conversion helpers =====
 
+// parseAllocatedIPs parses the allocated_ips JSON column from SQL queries.
+// The JSON contains subnetId as a number, which needs to be converted to a string.
+func parseAllocatedIPs(raw interface{}) []AllocatedIP {
+	if raw == nil {
+		return nil
+	}
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	var items []struct {
+		IP         string  `json:"ip"`
+		SubnetID   float64 `json:"subnetId"`
+		SubnetName string  `json:"subnetName"`
+		SubnetCIDR string  `json:"subnetCidr"`
+	}
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	result := make([]AllocatedIP, len(items))
+	for i, item := range items {
+		result[i] = AllocatedIP{
+			IP:         item.IP,
+			SubnetID:   strconv.FormatInt(int64(item.SubnetID), 10),
+			SubnetName: item.SubnetName,
+			SubnetCIDR: item.SubnetCIDR,
+		}
+	}
+	return result
+}
+
 // hostToAPI converts a DBHost to an API Host.
 func hostToAPI(h *DBHost) *Host {
 	return &Host{
@@ -3015,6 +3109,7 @@ func hostWithEnvToAPI(h *DBHostWithEnv) *Host {
 			WorkspaceID:   optionalIDToStr(h.WorkspaceID),
 			NamespaceID:   optionalIDToStr(h.NamespaceID),
 			EnvironmentID: optionalIDToStr(h.EnvironmentID),
+			AllocatedIPs:  parseAllocatedIPs(h.AllocatedIps),
 			Status:        h.Status,
 		},
 	}
@@ -3053,6 +3148,7 @@ func hostPlatformRowToAPI(h *DBHostPlatformRow) Host {
 			WorkspaceID:   optionalIDToStr(h.WorkspaceID),
 			NamespaceID:   optionalIDToStr(h.NamespaceID),
 			EnvironmentID: optionalIDToStr(h.EnvironmentID),
+			AllocatedIPs:  parseAllocatedIPs(h.AllocatedIps),
 			Status:        h.Status,
 		},
 	}
@@ -3091,6 +3187,7 @@ func hostWorkspaceRowToAPI(h *DBHostWorkspaceRow) Host {
 			WorkspaceID:   optionalIDToStr(h.WorkspaceID),
 			NamespaceID:   optionalIDToStr(h.NamespaceID),
 			EnvironmentID: optionalIDToStr(h.EnvironmentID),
+			AllocatedIPs:  parseAllocatedIPs(h.AllocatedIps),
 			Status:        h.Status,
 		},
 	}
@@ -3126,6 +3223,7 @@ func hostNamespaceRowToAPI(h *DBHostNamespaceRow) Host {
 			WorkspaceID:   optionalIDToStr(h.WorkspaceID),
 			NamespaceID:   optionalIDToStr(h.NamespaceID),
 			EnvironmentID: optionalIDToStr(h.EnvironmentID),
+			AllocatedIPs:  parseAllocatedIPs(h.AllocatedIps),
 			Status:        h.Status,
 		},
 	}
@@ -3157,6 +3255,7 @@ func hostByEnvRowToAPI(h *DBHostByEnvRow) Host {
 			Scope:         h.Scope,
 			WorkspaceID:   optionalIDToStr(h.WorkspaceID),
 			NamespaceID:   optionalIDToStr(h.NamespaceID),
+			AllocatedIPs:  parseAllocatedIPs(h.AllocatedIps),
 			EnvironmentID: optionalIDToStr(h.EnvironmentID),
 			Status:        h.Status,
 		},

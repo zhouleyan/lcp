@@ -14,6 +14,9 @@ type IPBinder interface {
 	GetSubnetForUpdate(ctx context.Context, tx pgx.Tx, subnetID int64) (*DBSubnetRow, error)
 	UpdateSubnetBitmap(ctx context.Context, tx pgx.Tx, subnetID int64, bitmap []byte) error
 	CreateIPAllocation(ctx context.Context, tx pgx.Tx, alloc *DBIPAllocationWithHost) (*DBIPAllocationWithHost, error)
+	UnbindIPAllocationFromHost(ctx context.Context, allocID, hostID int64) error
+	ListIPAllocationsByHostID(ctx context.Context, hostID int64) ([]DBHostIPAllocationRow, error)
+	GetIPAllocationForHost(ctx context.Context, allocID, hostID int64) (*DBIPAllocationForHostRow, error)
 }
 
 // HostStore defines database operations on hosts.
@@ -30,6 +33,7 @@ type HostStore interface {
 	BindEnvironment(ctx context.Context, hostID, envID int64) error
 	UnbindEnvironment(ctx context.Context, hostID int64) error
 	GetWorkspaceIDByNamespaceID(ctx context.Context, nsID int64) (int64, error)
+	AddIP(ctx context.Context, hostID int64, cfg DBIPConfig) error
 }
 
 // EnvironmentStore defines database operations on environments.

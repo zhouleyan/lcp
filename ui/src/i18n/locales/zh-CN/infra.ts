@@ -41,6 +41,7 @@ const infra: Messages = {
   "host.ips.ip.outOfRange": "IP 地址不在子网范围内",
   "host.ips.subnet.free": "可用 {free}/{total}",
   "host.ips.subnet.select": "选择子网",
+  "host.ips.noNetworks": "暂无可用网络",
   "host.searchPlaceholder": "搜索名称、显示名称...",
   "host.filter.environment": "环境",
   "host.filter.environmentAll": "全部环境",

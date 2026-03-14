@@ -799,7 +799,8 @@ func (q *Queries) ListEnvironmentsPlatform(ctx context.Context, arg ListEnvironm
 const listHostsByEnvironmentID = `-- name: ListHostsByEnvironmentID :many
 SELECT
     h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
-    e.name AS environment_name
+    e.name AS environment_name,
+    COALESCE((SELECT json_agg(json_build_object('ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
 FROM hosts h
 LEFT JOIN environments e ON h.environment_id = e.id
 WHERE h.environment_id = $1
@@ -848,6 +849,7 @@ type ListHostsByEnvironmentIDRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	EnvironmentName *string         `json:"environment_name"`
+	AllocatedIps    interface{}     `json:"allocated_ips"`
 }
 
 func (q *Queries) ListHostsByEnvironmentID(ctx context.Context, arg ListHostsByEnvironmentIDParams) ([]ListHostsByEnvironmentIDRow, error) {
@@ -888,6 +890,7 @@ func (q *Queries) ListHostsByEnvironmentID(ctx context.Context, arg ListHostsByE
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EnvironmentName,
+			&i.AllocatedIps,
 		); err != nil {
 			return nil, err
 		}

@@ -270,12 +270,20 @@ export interface IPConfig {
   ip?: string
 }
 
+export interface AllocatedIP {
+  ip: string
+  subnetId: string
+  subnetName?: string
+  subnetCidr?: string
+}
+
 export interface HostSpec {
   displayName?: string
   description?: string
   hostname?: string
   ipAddress?: string
   ips?: IPConfig[]
+  allocatedIPs?: AllocatedIP[]
   os?: string
   arch?: string
   cpuCores?: number
@@ -378,6 +386,8 @@ export interface IPAllocationSpec {
   description?: string
   isGateway?: boolean
   subnetId?: string
+  hostId?: string
+  hostName?: string
 }
 
 export interface IPAllocation extends TypeMeta {

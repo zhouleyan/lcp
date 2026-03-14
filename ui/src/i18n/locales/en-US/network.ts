@@ -60,6 +60,7 @@ const network: Messages = {
   "allocation.ip": "IP Address",
   "allocation.description": "Description",
   "allocation.isGateway": "Gateway",
+  "allocation.host": "Host",
   "allocation.deleteConfirm": "Are you sure you want to release IP \"{ip}\"?",
   "allocation.ipPlaceholder": "e.g. 10.0.0.100",
   "allocation.cannotDeleteGateway": "Cannot directly release gateway IP.",
