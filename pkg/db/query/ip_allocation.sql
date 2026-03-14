@@ -24,6 +24,9 @@ SELECT count(*)
 FROM ip_allocations
 WHERE subnet_id = @subnet_id
     AND (sqlc.narg('is_gateway')::BOOLEAN IS NULL OR is_gateway = sqlc.narg('is_gateway'))
+    AND (sqlc.narg('host_bound')::BOOLEAN IS NULL
+         OR (sqlc.narg('host_bound')::BOOLEAN = true AND host_id IS NOT NULL)
+         OR (sqlc.narg('host_bound')::BOOLEAN = false AND host_id IS NULL))
     AND (sqlc.narg('search')::VARCHAR IS NULL
          OR ip ILIKE '%' || sqlc.narg('search') || '%'
          OR description ILIKE '%' || sqlc.narg('search') || '%');
@@ -34,6 +37,9 @@ FROM ip_allocations ia
 LEFT JOIN hosts h ON ia.host_id = h.id
 WHERE ia.subnet_id = @subnet_id
     AND (sqlc.narg('is_gateway')::BOOLEAN IS NULL OR ia.is_gateway = sqlc.narg('is_gateway'))
+    AND (sqlc.narg('host_bound')::BOOLEAN IS NULL
+         OR (sqlc.narg('host_bound')::BOOLEAN = true AND ia.host_id IS NOT NULL)
+         OR (sqlc.narg('host_bound')::BOOLEAN = false AND ia.host_id IS NULL))
     AND (sqlc.narg('search')::VARCHAR IS NULL
          OR ia.ip ILIKE '%' || sqlc.narg('search') || '%'
          OR ia.description ILIKE '%' || sqlc.narg('search') || '%')

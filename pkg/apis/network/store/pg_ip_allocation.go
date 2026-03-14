@@ -110,6 +110,7 @@ func (s *pgIPAllocationStore) List(ctx context.Context, subnetID int64, q db.Lis
 	count, err := s.queries.CountIPAllocations(ctx, generated.CountIPAllocationsParams{
 		SubnetID:  subnetID,
 		IsGateway: filterBool(q.Filters, "isGateway"),
+		HostBound: filterBool(q.Filters, "hostBound"),
 		Search:    filterStr(q.Filters, "search"),
 	})
 	if err != nil {
@@ -119,6 +120,7 @@ func (s *pgIPAllocationStore) List(ctx context.Context, subnetID int64, q db.Lis
 	rows, err := s.queries.ListIPAllocations(ctx, generated.ListIPAllocationsParams{
 		SubnetID:  subnetID,
 		IsGateway: filterBool(q.Filters, "isGateway"),
+		HostBound: filterBool(q.Filters, "hostBound"),
 		Search:    filterStr(q.Filters, "search"),
 		SortField: q.SortBy,
 		SortOrder: sortOrder,

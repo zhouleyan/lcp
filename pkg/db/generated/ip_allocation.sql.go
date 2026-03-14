@@ -15,19 +15,28 @@ SELECT count(*)
 FROM ip_allocations
 WHERE subnet_id = $1
     AND ($2::BOOLEAN IS NULL OR is_gateway = $2)
-    AND ($3::VARCHAR IS NULL
-         OR ip ILIKE '%' || $3 || '%'
-         OR description ILIKE '%' || $3 || '%')
+    AND ($3::BOOLEAN IS NULL
+         OR ($3::BOOLEAN = true AND host_id IS NOT NULL)
+         OR ($3::BOOLEAN = false AND host_id IS NULL))
+    AND ($4::VARCHAR IS NULL
+         OR ip ILIKE '%' || $4 || '%'
+         OR description ILIKE '%' || $4 || '%')
 `
 
 type CountIPAllocationsParams struct {
 	SubnetID  int64   `json:"subnet_id"`
 	IsGateway *bool   `json:"is_gateway"`
+	HostBound *bool   `json:"host_bound"`
 	Search    *string `json:"search"`
 }
 
 func (q *Queries) CountIPAllocations(ctx context.Context, arg CountIPAllocationsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countIPAllocations, arg.SubnetID, arg.IsGateway, arg.Search)
+	row := q.db.QueryRow(ctx, countIPAllocations,
+		arg.SubnetID,
+		arg.IsGateway,
+		arg.HostBound,
+		arg.Search,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -137,22 +146,26 @@ FROM ip_allocations ia
 LEFT JOIN hosts h ON ia.host_id = h.id
 WHERE ia.subnet_id = $1
     AND ($2::BOOLEAN IS NULL OR ia.is_gateway = $2)
-    AND ($3::VARCHAR IS NULL
-         OR ia.ip ILIKE '%' || $3 || '%'
-         OR ia.description ILIKE '%' || $3 || '%')
+    AND ($3::BOOLEAN IS NULL
+         OR ($3::BOOLEAN = true AND ia.host_id IS NOT NULL)
+         OR ($3::BOOLEAN = false AND ia.host_id IS NULL))
+    AND ($4::VARCHAR IS NULL
+         OR ia.ip ILIKE '%' || $4 || '%'
+         OR ia.description ILIKE '%' || $4 || '%')
 ORDER BY
-    CASE WHEN $4::VARCHAR = 'ip' AND $5::VARCHAR = 'asc' THEN ia.ip END ASC,
-    CASE WHEN $4::VARCHAR = 'ip' AND $5::VARCHAR = 'desc' THEN ia.ip END DESC,
-    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'asc' THEN ia.created_at END ASC,
-    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'desc' THEN ia.created_at END DESC,
+    CASE WHEN $5::VARCHAR = 'ip' AND $6::VARCHAR = 'asc' THEN ia.ip END ASC,
+    CASE WHEN $5::VARCHAR = 'ip' AND $6::VARCHAR = 'desc' THEN ia.ip END DESC,
+    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'asc' THEN ia.created_at END ASC,
+    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'desc' THEN ia.created_at END DESC,
     ia.created_at DESC
-LIMIT $7::INT
-OFFSET $6::INT
+LIMIT $8::INT
+OFFSET $7::INT
 `
 
 type ListIPAllocationsParams struct {
 	SubnetID   int64   `json:"subnet_id"`
 	IsGateway  *bool   `json:"is_gateway"`
+	HostBound  *bool   `json:"host_bound"`
 	Search     *string `json:"search"`
 	SortField  string  `json:"sort_field"`
 	SortOrder  string  `json:"sort_order"`
@@ -175,6 +188,7 @@ func (q *Queries) ListIPAllocations(ctx context.Context, arg ListIPAllocationsPa
 	rows, err := q.db.Query(ctx, listIPAllocations,
 		arg.SubnetID,
 		arg.IsGateway,
+		arg.HostBound,
 		arg.Search,
 		arg.SortField,
 		arg.SortOrder,
