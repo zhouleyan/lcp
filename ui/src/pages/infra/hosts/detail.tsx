@@ -553,7 +553,12 @@ function AddIPDialog({
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      showApiError(err, t, "host.title")
+      const apiErr = err as { reason?: string }
+      if (apiErr.reason === "Conflict") {
+        setIpError(t("host.ips.ip.conflict"))
+      } else {
+        showApiError(err, t, "host.ips.ip")
+      }
     } finally {
       setLoading(false)
     }

@@ -39,6 +39,7 @@ const infra: Messages = {
   "host.ips.ip.specify": "指定 IP",
   "host.ips.ip.auto": "自动分配",
   "host.ips.ip.outOfRange": "IP 地址不在子网范围内",
+  "host.ips.ip.conflict": "该 IP 已被分配",
   "host.ips.subnet.free": "可用 {free}/{total}",
   "host.ips.subnet.select": "选择子网",
   "host.ips.noNetworks": "暂无可用网络",

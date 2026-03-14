@@ -40,6 +40,7 @@ const infra: Messages = {
   "host.ips.ip.specify": "Specify IP",
   "host.ips.ip.auto": "Auto-allocate",
   "host.ips.ip.outOfRange": "IP address is not within the subnet range",
+  "host.ips.ip.conflict": "This IP is already allocated",
   "host.ips.subnet.free": "Available {free}/{total}",
   "host.ips.subnet.select": "Select subnet",
   "host.ips.noNetworks": "No networks available",
