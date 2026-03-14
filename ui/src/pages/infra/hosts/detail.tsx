@@ -184,11 +184,11 @@ export default function HostDetailPage() {
                 <p className="font-medium">{host.spec.hostname || "-"}</p>
               </div>
               <div className="col-span-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">{t("host.ipAddress")}</span>
                   {hasPermission(`${permPrefix}:update`, permScope) && (
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setAddIPOpen(true)}>
-                      <Plus className="mr-1 h-3 w-3" />
+                    <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => setAddIPOpen(true)}>
+                      <Plus className="mr-0.5 h-3 w-3" />
                       {t("host.ips.add")}
                     </Button>
                   )}
@@ -612,7 +612,7 @@ function AddIPDialog({
               <div>
                 <label className="text-sm font-medium">{t("host.ips.ip")}</label>
                 <Input className="mt-1" value={ip} onChange={(e) => { setIp(e.target.value); setIpError("") }} placeholder={t("host.ips.ip.auto")} />
-                {ipError && <p className="text-destructive mt-1 text-sm">{ipError}</p>}
+                <p className="text-destructive mt-1 min-h-[20px] text-sm">{ipError || "\u00A0"}</p>
               </div>
             </>
           )}
