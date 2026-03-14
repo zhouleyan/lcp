@@ -149,6 +149,20 @@ func (s *pgHostStore) allocateIP(ctx context.Context, tx pgx.Tx, hostID, subnetI
 	return err
 }
 
+func (s *pgHostStore) AddIP(ctx context.Context, hostID int64, cfg infra.DBIPConfig) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if err := s.allocateIP(ctx, tx, hostID, cfg.SubnetID, cfg.IP); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 func (s *pgHostStore) GetByID(ctx context.Context, id int64) (*infra.DBHostWithEnv, error) {
 	row, err := s.queries.GetHostByID(ctx, id)
 	if err != nil {

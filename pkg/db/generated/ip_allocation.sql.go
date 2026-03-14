@@ -7,6 +7,7 @@ package generated
 
 import (
 	"context"
+	"time"
 )
 
 const countIPAllocations = `-- name: CountIPAllocations :one
@@ -14,19 +15,28 @@ SELECT count(*)
 FROM ip_allocations
 WHERE subnet_id = $1
     AND ($2::BOOLEAN IS NULL OR is_gateway = $2)
-    AND ($3::VARCHAR IS NULL
-         OR ip ILIKE '%' || $3 || '%'
-         OR description ILIKE '%' || $3 || '%')
+    AND ($3::BOOLEAN IS NULL
+         OR ($3::BOOLEAN = true AND host_id IS NOT NULL)
+         OR ($3::BOOLEAN = false AND host_id IS NULL))
+    AND ($4::VARCHAR IS NULL
+         OR ip ILIKE '%' || $4 || '%'
+         OR description ILIKE '%' || $4 || '%')
 `
 
 type CountIPAllocationsParams struct {
 	SubnetID  int64   `json:"subnet_id"`
 	IsGateway *bool   `json:"is_gateway"`
+	HostBound *bool   `json:"host_bound"`
 	Search    *string `json:"search"`
 }
 
 func (q *Queries) CountIPAllocations(ctx context.Context, arg CountIPAllocationsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countIPAllocations, arg.SubnetID, arg.IsGateway, arg.Search)
+	row := q.db.QueryRow(ctx, countIPAllocations,
+		arg.SubnetID,
+		arg.IsGateway,
+		arg.HostBound,
+		arg.Search,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -131,26 +141,31 @@ func (q *Queries) GetIPAllocationBySubnetAndIP(ctx context.Context, arg GetIPAll
 }
 
 const listIPAllocations = `-- name: ListIPAllocations :many
-SELECT id, subnet_id, ip, description, is_gateway, created_at, host_id
-FROM ip_allocations
-WHERE subnet_id = $1
-    AND ($2::BOOLEAN IS NULL OR is_gateway = $2)
-    AND ($3::VARCHAR IS NULL
-         OR ip ILIKE '%' || $3 || '%'
-         OR description ILIKE '%' || $3 || '%')
+SELECT ia.id, ia.subnet_id, ia.ip, ia.description, ia.is_gateway, ia.created_at, ia.host_id, h.name AS host_name
+FROM ip_allocations ia
+LEFT JOIN hosts h ON ia.host_id = h.id
+WHERE ia.subnet_id = $1
+    AND ($2::BOOLEAN IS NULL OR ia.is_gateway = $2)
+    AND ($3::BOOLEAN IS NULL
+         OR ($3::BOOLEAN = true AND ia.host_id IS NOT NULL)
+         OR ($3::BOOLEAN = false AND ia.host_id IS NULL))
+    AND ($4::VARCHAR IS NULL
+         OR ia.ip ILIKE '%' || $4 || '%'
+         OR ia.description ILIKE '%' || $4 || '%')
 ORDER BY
-    CASE WHEN $4::VARCHAR = 'ip' AND $5::VARCHAR = 'asc' THEN ip END ASC,
-    CASE WHEN $4::VARCHAR = 'ip' AND $5::VARCHAR = 'desc' THEN ip END DESC,
-    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'asc' THEN created_at END ASC,
-    CASE WHEN $4::VARCHAR = 'created_at' AND $5::VARCHAR = 'desc' THEN created_at END DESC,
-    created_at DESC
-LIMIT $7::INT
-OFFSET $6::INT
+    CASE WHEN $5::VARCHAR = 'ip' AND $6::VARCHAR = 'asc' THEN ia.ip END ASC,
+    CASE WHEN $5::VARCHAR = 'ip' AND $6::VARCHAR = 'desc' THEN ia.ip END DESC,
+    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'asc' THEN ia.created_at END ASC,
+    CASE WHEN $5::VARCHAR = 'created_at' AND $6::VARCHAR = 'desc' THEN ia.created_at END DESC,
+    ia.created_at DESC
+LIMIT $8::INT
+OFFSET $7::INT
 `
 
 type ListIPAllocationsParams struct {
 	SubnetID   int64   `json:"subnet_id"`
 	IsGateway  *bool   `json:"is_gateway"`
+	HostBound  *bool   `json:"host_bound"`
 	Search     *string `json:"search"`
 	SortField  string  `json:"sort_field"`
 	SortOrder  string  `json:"sort_order"`
@@ -158,10 +173,22 @@ type ListIPAllocationsParams struct {
 	PageSize   int32   `json:"page_size"`
 }
 
-func (q *Queries) ListIPAllocations(ctx context.Context, arg ListIPAllocationsParams) ([]IpAllocation, error) {
+type ListIPAllocationsRow struct {
+	ID          int64     `json:"id"`
+	SubnetID    int64     `json:"subnet_id"`
+	Ip          string    `json:"ip"`
+	Description string    `json:"description"`
+	IsGateway   bool      `json:"is_gateway"`
+	CreatedAt   time.Time `json:"created_at"`
+	HostID      *int64    `json:"host_id"`
+	HostName    *string   `json:"host_name"`
+}
+
+func (q *Queries) ListIPAllocations(ctx context.Context, arg ListIPAllocationsParams) ([]ListIPAllocationsRow, error) {
 	rows, err := q.db.Query(ctx, listIPAllocations,
 		arg.SubnetID,
 		arg.IsGateway,
+		arg.HostBound,
 		arg.Search,
 		arg.SortField,
 		arg.SortOrder,
@@ -172,9 +199,9 @@ func (q *Queries) ListIPAllocations(ctx context.Context, arg ListIPAllocationsPa
 		return nil, err
 	}
 	defer rows.Close()
-	items := []IpAllocation{}
+	items := []ListIPAllocationsRow{}
 	for rows.Next() {
-		var i IpAllocation
+		var i ListIPAllocationsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SubnetID,
@@ -183,6 +210,7 @@ func (q *Queries) ListIPAllocations(ctx context.Context, arg ListIPAllocationsPa
 			&i.IsGateway,
 			&i.CreatedAt,
 			&i.HostID,
+			&i.HostName,
 		); err != nil {
 			return nil, err
 		}

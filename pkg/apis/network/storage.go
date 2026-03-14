@@ -846,6 +846,11 @@ func (s *allocationStorage) Delete(ctx context.Context, options *rest.DeleteOpti
 		return apierrors.NewNotFound("ip_allocation", allocID)
 	}
 
+	// 已绑定主机的 IP 不允许直接删除，需先从主机解绑
+	if target.HostID != nil {
+		return apierrors.NewBadRequest("cannot delete IP bound to a host, unbind it first", nil)
+	}
+
 	ip := net.ParseIP(target.Ip)
 
 	// 锁定路径释放 bitmap
@@ -1002,8 +1007,8 @@ func subnetToAPI(s *DBSubnet) *Subnet {
 	return result
 }
 
-func allocationToAPI(a *DBIPAllocation) IPAllocation {
-	return IPAllocation{
+func allocationToAPI(a *DBIPAllocationListRow) IPAllocation {
+	alloc := IPAllocation{
 		TypeMeta: runtime.TypeMeta{Kind: "IPAllocation"},
 		ObjectMeta: types.ObjectMeta{
 			ID:        strconv.FormatInt(a.ID, 10),
@@ -1016,6 +1021,13 @@ func allocationToAPI(a *DBIPAllocation) IPAllocation {
 			SubnetID:    strconv.FormatInt(a.SubnetID, 10),
 		},
 	}
+	if a.HostID != nil {
+		alloc.Spec.HostID = strconv.FormatInt(*a.HostID, 10)
+	}
+	if a.HostName != nil {
+		alloc.Spec.HostName = *a.HostName
+	}
+	return alloc
 }
 
 func networkSpecToPatchFields(n *Network) map[string]any {

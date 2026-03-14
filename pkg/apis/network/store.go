@@ -46,5 +46,5 @@ type IPAllocationStore interface {
 	Delete(ctx context.Context, id int64) error
 	DeleteTx(ctx context.Context, tx pgx.Tx, id int64) error
 	DeleteBySubnetID(ctx context.Context, tx pgx.Tx, subnetID int64) error
-	List(ctx context.Context, subnetID int64, query db.ListQuery) (*db.ListResult[DBIPAllocation], error)
+	List(ctx context.Context, subnetID int64, query db.ListQuery) (*db.ListResult[DBIPAllocationListRow], error)
 }

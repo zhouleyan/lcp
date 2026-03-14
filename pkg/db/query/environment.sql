@@ -200,7 +200,8 @@ OFFSET sqlc.arg('page_offset')::INT;
 -- name: ListHostsByEnvironmentID :many
 SELECT
     h.*,
-    e.name AS environment_name
+    e.name AS environment_name,
+    COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
 FROM hosts h
 LEFT JOIN environments e ON h.environment_id = e.id
 WHERE h.environment_id = @environment_id

@@ -62,6 +62,8 @@ type HostSpec struct {
 	EnvironmentID string `json:"environmentId,omitempty"`
 	// +openapi:description=绑定的环境名称（只读）
 	EnvironmentName string `json:"environmentName,omitempty"`
+	// +openapi:description=已分配的 IP 列表（只读）
+	AllocatedIPs []AllocatedIP `json:"allocatedIPs,omitempty"`
 	// +openapi:description=主机状态
 	// +openapi:enum=active,inactive
 	Status string `json:"status,omitempty"`
@@ -337,6 +339,66 @@ type RackList struct {
 
 func (r *RackList) GetTypeMeta() *runtime.TypeMeta { return &r.TypeMeta }
 
+// --- Network ACL types (read-only, for host IP allocation) ---
+
+// AvailableNetwork
+// +openapi:description=可用网络：主机 IP 分配时的网络选择视图，包含网络及其子网的摘要信息。
+type AvailableNetwork struct {
+	runtime.TypeMeta `json:",inline"`
+	types.ObjectMeta `json:"metadata"`
+	Spec             AvailableNetworkSpec `json:"spec"`
+}
+
+func (n *AvailableNetwork) GetTypeMeta() *runtime.TypeMeta { return &n.TypeMeta }
+
+// AvailableNetworkSpec
+// +openapi:description=可用网络属性：网络基本信息及下属子网摘要列表。
+type AvailableNetworkSpec struct {
+	// +openapi:description=网络显示名称
+	DisplayName string `json:"displayName,omitempty"`
+	// +openapi:description=网络描述
+	Description string `json:"description,omitempty"`
+	// +openapi:description=网络 CIDR 地址段
+	CIDR string `json:"cidr,omitempty"`
+	// +openapi:description=是否公开网络
+	IsPublic bool `json:"isPublic"`
+	// +openapi:description=子网数量
+	SubnetCount int64 `json:"subnetCount"`
+	// +openapi:description=子网列表
+	Subnets []SubnetSummary `json:"subnets"`
+}
+
+// SubnetSummary
+// +openapi:description=子网摘要：子网基本信息和 IP 使用统计。
+type SubnetSummary struct {
+	// +openapi:description=子网 ID
+	ID string `json:"id"`
+	// +openapi:description=子网名称
+	Name string `json:"name"`
+	// +openapi:description=子网显示名称
+	DisplayName string `json:"displayName,omitempty"`
+	// +openapi:description=CIDR 地址段
+	CIDR string `json:"cidr"`
+	// +openapi:description=网关 IP 地址
+	Gateway string `json:"gateway,omitempty"`
+	// +openapi:description=可用 IP 数量
+	FreeIPs int `json:"freeIPs"`
+	// +openapi:description=已用 IP 数量
+	UsedIPs int `json:"usedIPs"`
+	// +openapi:description=总可用 IP 数量
+	TotalIPs int `json:"totalIPs"`
+}
+
+// AvailableNetworkList
+// +openapi:description=可用网络列表：主机 IP 分配时可选的网络集合。
+type AvailableNetworkList struct {
+	runtime.TypeMeta `json:",inline"`
+	Items            []AvailableNetwork `json:"items"`
+	TotalCount       int64              `json:"totalCount"`
+}
+
+func (nl *AvailableNetworkList) GetTypeMeta() *runtime.TypeMeta { return &nl.TypeMeta }
+
 // --- DB type aliases ---
 
 // DBHost is an alias for the sqlc-generated Host model.
@@ -422,17 +484,53 @@ type DBRackWithDetails = generated.GetRackByIDRow
 // DBRackListRow is an alias for ListRacks row.
 type DBRackListRow = generated.ListRacksRow
 
+// --- Network reader DB type aliases (ACL) ---
+
+// DBNetworkACLRow is an alias for ListActiveNetworksWithSubnetCount row.
+type DBNetworkACLRow = generated.ListActiveNetworksWithSubnetCountRow
+
+// DBSubnet is an alias for the sqlc-generated Subnet model (for bitmap parsing).
+type DBSubnet = generated.Subnet
+
 // --- IP allocation types ---
 
 // IPConfig represents an IP configuration in the host creation request.
 // +openapi:description=IP 配置：创建主机时指定子网 ID 和可选 IP 地址。
 type IPConfig struct {
+	runtime.TypeMeta `json:",inline"`
 	// +openapi:required
 	// +openapi:description=子网 ID
 	SubnetID string `json:"subnetId"`
 	// +openapi:description=IP 地址（为空时自动分配）
 	IP string `json:"ip,omitempty"`
 }
+
+func (c *IPConfig) GetTypeMeta() *runtime.TypeMeta { return &c.TypeMeta }
+
+// AllocatedIP represents an IP address allocated to a host (read-only, returned in API responses).
+// +openapi:description=已分配的 IP 信息
+type AllocatedIP struct {
+	// +openapi:description=分配记录 ID
+	ID string `json:"id"`
+	// +openapi:description=IP 地址
+	IP string `json:"ip"`
+	// +openapi:description=子网 ID
+	SubnetID string `json:"subnetId"`
+	// +openapi:description=子网名称（仅详情接口返回）
+	SubnetName string `json:"subnetName,omitempty"`
+	// +openapi:description=子网 CIDR（仅详情接口返回）
+	SubnetCIDR string `json:"subnetCidr,omitempty"`
+}
+
+// AllocatedIPList
+// +openapi:description=已分配 IP 列表
+type AllocatedIPList struct {
+	runtime.TypeMeta `json:",inline"`
+	Items            []AllocatedIP `json:"items"`
+	TotalCount       int64         `json:"totalCount"`
+}
+
+func (l *AllocatedIPList) GetTypeMeta() *runtime.TypeMeta { return &l.TypeMeta }
 
 // DBIPConfig is the internal representation of IPConfig with parsed IDs.
 type DBIPConfig struct {
@@ -445,4 +543,5 @@ type DBSubnetRow = generated.Subnet
 
 // DBIPAllocationWithHost is an alias for CreateIPAllocationWithHost result.
 type DBIPAllocationWithHost = generated.CreateIPAllocationWithHostRow
+
 

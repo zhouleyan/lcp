@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { Link, useParams } from "react-router"
-import { Plus, Pencil, Trash2, Search, Filter, Unlink, Link2 } from "lucide-react"
-import { useForm } from "react-hook-form"
+import { Plus, Pencil, Trash2, Search, Filter, Unlink, Link2, X } from "lucide-react"
+import { useForm, useFieldArray } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -40,8 +40,11 @@ import {
 import {
   listEnvironments, listWorkspaceEnvironments, listNamespaceEnvironments,
 } from "@/api/infra/environments"
+import {
+  listInfraNetworks, listWorkspaceInfraNetworks, listNamespaceInfraNetworks,
+} from "@/api/infra/networks"
 import { showApiError } from "@/api/client"
-import type { Host, Environment, ListParams } from "@/api/types"
+import type { Host, Environment, AvailableNetwork, ListParams } from "@/api/types"
 import { useTranslation } from "@/i18n"
 import { buildPermScope, scopedApiCall } from "@/lib/nav-config"
 import { usePermission } from "@/hooks/use-permission"
@@ -49,6 +52,8 @@ import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { isIPInCIDR } from "@/lib/ip-utils"
+import { AddIPDialog } from "./add-ip-dialog"
 
 export default function HostListPage() {
   const { t } = useTranslation()
@@ -73,6 +78,7 @@ export default function HostListPage() {
   // Action dialogs
   const [bindTarget, setBindTarget] = useState<Host | null>(null)
   const [unbindTarget, setUnbindTarget] = useState<Host | null>(null)
+  const [addIPTarget, setAddIPTarget] = useState<Host | null>(null)
 
   const permPrefix = "infra:hosts"
   const isPlatformScope = !scopeWorkspaceId
@@ -272,7 +278,18 @@ export default function HostListPage() {
                       {host.metadata.name}
                     </Link>
                   </TableCell>
-                  <TableCell className="text-sm">{host.spec.ipAddress || "-"}</TableCell>
+                  <TableCell className="text-sm">
+                    {host.spec.allocatedIPs && host.spec.allocatedIPs.length > 0 ? (
+                      <span className="font-mono" title={host.spec.allocatedIPs.map((a) => a.ip).join("\n")}>
+                        {host.spec.allocatedIPs[0].ip}
+                        {host.spec.allocatedIPs.length > 1 && (
+                          <span className="text-muted-foreground ml-1 text-xs">+{host.spec.allocatedIPs.length - 1}</span>
+                        )}
+                      </span>
+                    ) : (
+                      host.spec.ipAddress || "-"
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm">{host.spec.os || "-"}</TableCell>
                   <TableCell>
                     {host.spec.environmentName ? (
@@ -320,6 +337,12 @@ export default function HostListPage() {
                           <DropdownMenuItem onClick={() => setUnbindTarget(host)}>
                             <Unlink className="mr-2 h-3.5 w-3.5" />
                             {t("host.unbindEnv")}
+                          </DropdownMenuItem>
+                        )}
+                        {hasPermission(`${permPrefix}:update`, permScope) && (
+                          <DropdownMenuItem onClick={() => setAddIPTarget(host)}>
+                            <Plus className="mr-2 h-3.5 w-3.5" />
+                            {t("host.ips.add")}
                           </DropdownMenuItem>
                         )}
                         {hasPermission(`${permPrefix}:delete`, permScope) && (
@@ -399,24 +422,40 @@ export default function HostListPage() {
         confirmText={t("common.confirm")}
       />
 
+      {addIPTarget && (
+        <AddIPDialog
+          open={!!addIPTarget}
+          onOpenChange={(v) => { if (!v) setAddIPTarget(null) }}
+          hostId={addIPTarget.metadata.id}
+          onSuccess={fetchData}
+          scopeWorkspaceId={scopeWorkspaceId}
+          scopeNamespaceId={scopeNamespaceId}
+        />
+      )}
+
     </div>
   )
 }
 
 // ===== Host Form Dialog =====
 
+interface IPConfigFormValues {
+  subnetId: string
+  ip: string
+}
+
 interface HostFormValues {
   name: string
   displayName: string
   description: string
   hostname: string
-  ipAddress: string
   os: string
   arch: string
   cpuCores: string
   memoryMb: string
   diskGb: string
   status: "active" | "inactive"
+  ips: IPConfigFormValues[]
 }
 
 function HostFormDialog({
@@ -432,6 +471,26 @@ function HostFormDialog({
   const { t } = useTranslation()
   const isEdit = !!host
   const [loading, setLoading] = useState(false)
+  const [networks, setNetworks] = useState<AvailableNetwork[]>([])
+
+  const allSubnets = networks.flatMap((n) => n.spec.subnets)
+
+  const ipConfigSchema = z.object({
+    subnetId: z.string().min(1, t("api.validation.required", { field: t("host.ips.subnetId") })),
+    ip: z.string().optional(),
+  }).superRefine((data, ctx) => {
+    if (!data.ip) return
+    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(data.ip)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("api.validation.ip.format"), path: ["ip"] })
+      return
+    }
+    if (data.subnetId) {
+      const subnet = allSubnets.find((s) => s.id === data.subnetId)
+      if (subnet && !isIPInCIDR(data.ip, subnet.cidr)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("host.ips.ip.outOfRange"), path: ["ip"] })
+      }
+    }
+  })
 
   const schema = z.object({
     name: z.string()
@@ -441,19 +500,24 @@ function HostFormDialog({
     displayName: z.string().optional(),
     description: z.string().optional(),
     hostname: z.string().optional(),
-    ipAddress: z.string().optional(),
     os: z.string().optional(),
     arch: z.string().optional(),
     cpuCores: z.string().optional(),
     memoryMb: z.string().optional(),
     diskGb: z.string().optional(),
     status: z.enum(["active", "inactive"]),
+    ips: z.array(ipConfigSchema).optional().default([]),
   })
 
   const form = useForm<HostFormValues>({
     resolver: zodResolver(schema) as never,
     mode: "onBlur",
-    defaultValues: { name: "", displayName: "", description: "", hostname: "", ipAddress: "", os: "", arch: "", cpuCores: "", memoryMb: "", diskGb: "", status: "active" },
+    defaultValues: { name: "", displayName: "", description: "", hostname: "", os: "", arch: "", cpuCores: "", memoryMb: "", diskGb: "", status: "active", ips: [] },
+  })
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "ips",
   })
 
   useEffect(() => {
@@ -464,26 +528,54 @@ function HostFormDialog({
           displayName: host.spec.displayName ?? "",
           description: host.spec.description ?? "",
           hostname: host.spec.hostname ?? "",
-          ipAddress: host.spec.ipAddress ?? "",
           os: host.spec.os ?? "",
           arch: host.spec.arch ?? "",
           cpuCores: host.spec.cpuCores ? String(host.spec.cpuCores) : "",
           memoryMb: host.spec.memoryMb ? String(host.spec.memoryMb) : "",
           diskGb: host.spec.diskGb ? String(host.spec.diskGb) : "",
           status: (host.spec.status as "active" | "inactive") ?? "active",
+          ips: [],
         })
       } else {
-        form.reset({ name: "", displayName: "", description: "", hostname: "", ipAddress: "", os: "", arch: "", cpuCores: "", memoryMb: "", diskGb: "", status: "active" })
+        form.reset({ name: "", displayName: "", description: "", hostname: "", os: "", arch: "", cpuCores: "", memoryMb: "", diskGb: "", status: "active", ips: [] })
+      }
+      // Fetch available networks for IP configuration (create mode only)
+      if (!host) {
+        const fetchNetworks = async () => {
+          try {
+            const data = await scopedApiCall(
+              scopeWorkspaceId, scopeNamespaceId,
+              () => listInfraNetworks(),
+              (wsId) => listWorkspaceInfraNetworks(wsId),
+              (wsId, nsId) => listNamespaceInfraNetworks(wsId, nsId),
+            )
+            const nets = data.items ?? []
+            setNetworks(nets)
+            // Auto-add first available subnet
+            const firstSubnet = nets.flatMap((n) => n.spec.subnets).find((s) => s.freeIPs > 0)
+            if (firstSubnet) {
+              form.setValue("ips", [{ subnetId: firstSubnet.id, ip: "" }])
+            }
+          } catch {
+            setNetworks([])
+          }
+        }
+        fetchNetworks()
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, host, form])
 
   const onSubmit = async (values: HostFormValues) => {
     setLoading(true)
     try {
+      const ips = values.ips
+        ?.filter((ip) => ip.subnetId)
+        .map((ip) => ({ subnetId: ip.subnetId, ...(ip.ip ? { ip: ip.ip } : {}) }))
+
       const spec: Host["spec"] = {
         hostname: values.hostname,
-        ipAddress: values.ipAddress,
+        ...(ips && ips.length > 0 ? { ips } : {}),
         os: values.os,
         arch: values.arch,
         cpuCores: values.cpuCores ? Number(values.cpuCores) : undefined,
@@ -527,7 +619,7 @@ function HostFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t("host.edit") : t("host.create")}</DialogTitle>
         </DialogHeader>
@@ -552,14 +644,91 @@ function HostFormDialog({
             <FormField control={form.control} name="description" render={({ field }) => (
               <FormItem><FormLabel>{t("host.description")}</FormLabel><FormControl><Textarea rows={2} {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="hostname" render={({ field }) => (
-                <FormItem><FormLabel>{t("host.hostname")}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="ipAddress" render={({ field }) => (
-                <FormItem><FormLabel>{t("host.ipAddress")}</FormLabel><FormControl><Input {...field} placeholder="192.168.1.1" /></FormControl><FormMessage /></FormItem>
-              )} />
-            </div>
+            <FormField control={form.control} name="hostname" render={({ field }) => (
+              <FormItem><FormLabel>{t("host.hostname")}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+
+            {/* IP Configuration (create mode only) — right after hostname */}
+            {!isEdit && (
+              <div className="space-y-3 pb-2">
+                <div className="text-sm font-medium">{t("host.ips.section")}</div>
+                {fields.map((field, index) => {
+                  const selectedSubnetId = form.watch(`ips.${index}.subnetId`)
+                  const selectedSubnet = selectedSubnetId
+                    ? networks.flatMap((n) => n.spec.subnets).find((s) => s.id === selectedSubnetId)
+                    : null
+                  return (
+                    <div key={field.id}>
+                      <div className="flex items-start gap-2">
+                        <FormField control={form.control} name={`ips.${index}.subnetId`} render={({ field: f }) => (
+                          <FormItem className="flex-1 min-w-0">
+                            <Select value={f.value} onValueChange={f.onChange}>
+                              <FormControl>
+                                <SelectTrigger className="w-full truncate">
+                                  <SelectValue placeholder={t("host.ips.subnet.select")} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {networks.map((net) => (
+                                  <SelectGroup key={net.metadata.id}>
+                                    <SelectLabel className="text-sm text-muted-foreground">{net.spec.displayName || net.metadata.name}{net.spec.cidr ? ` (${net.spec.cidr})` : ""}</SelectLabel>
+                                    {net.spec.subnets.map((sub) => (
+                                      <SelectItem key={sub.id} value={sub.id} disabled={sub.freeIPs === 0}>
+                                        {sub.displayName || sub.name} {sub.cidr}
+                                        <span className="text-muted-foreground ml-2 text-xs">
+                                          ({t("host.ips.subnet.free", { free: sub.freeIPs, total: sub.totalIPs })})
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {selectedSubnet && (
+                              <p className="text-muted-foreground text-xs">
+                                {selectedSubnet.cidr} · {t("host.ips.subnet.free", { free: selectedSubnet.freeIPs, total: selectedSubnet.totalIPs })}
+                              </p>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name={`ips.${index}.ip`} render={({ field: f }) => (
+                          <FormItem className="flex-1 min-w-0">
+                            <FormControl><Input {...f} placeholder={t("host.ips.ip.auto")} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 shrink-0"
+                          onClick={() => {
+                            remove(index)
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+                {networks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t("host.ips.noNetworks")}</p>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ subnetId: "", ip: "" })}
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    {t("host.ips.add")}
+                  </Button>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="os" render={({ field }) => (
                 <FormItem><FormLabel>{t("host.os")}</FormLabel><FormControl><Input {...field} placeholder="Linux" /></FormControl><FormMessage /></FormItem>
@@ -592,6 +761,7 @@ function HostFormDialog({
                 <FormMessage />
               </FormItem>
             )} />
+
             </div>
             <DialogFooter className="mt-6 pt-4 border-t shrink-0">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
@@ -697,3 +867,4 @@ function BindEnvironmentDialog({
     </Dialog>
   )
 }
+

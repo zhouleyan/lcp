@@ -14,6 +14,7 @@ type IPBinder interface {
 	GetSubnetForUpdate(ctx context.Context, tx pgx.Tx, subnetID int64) (*DBSubnetRow, error)
 	UpdateSubnetBitmap(ctx context.Context, tx pgx.Tx, subnetID int64, bitmap []byte) error
 	CreateIPAllocation(ctx context.Context, tx pgx.Tx, alloc *DBIPAllocationWithHost) (*DBIPAllocationWithHost, error)
+	UnbindIPAllocationFromHost(ctx context.Context, allocID, hostID int64) error
 }
 
 // HostStore defines database operations on hosts.
@@ -30,6 +31,7 @@ type HostStore interface {
 	BindEnvironment(ctx context.Context, hostID, envID int64) error
 	UnbindEnvironment(ctx context.Context, hostID int64) error
 	GetWorkspaceIDByNamespaceID(ctx context.Context, nsID int64) (int64, error)
+	AddIP(ctx context.Context, hostID int64, cfg DBIPConfig) error
 }
 
 // EnvironmentStore defines database operations on environments.
@@ -82,6 +84,13 @@ type LocationStore interface {
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	List(ctx context.Context, query db.ListQuery) (*db.ListResult[DBLocationListRow], error)
 	CountChildRacks(ctx context.Context, locationID int64) (int64, error)
+}
+
+// NetworkReader provides read-only access to networks and subnets for host IP allocation (ACL layer).
+// This is a cross-domain reader: infra module queries network tables directly.
+type NetworkReader interface {
+	ListActiveNetworks(ctx context.Context) ([]DBNetworkACLRow, error)
+	ListSubnetsByNetworkIDs(ctx context.Context, networkIDs []int64) ([]DBSubnet, error)
 }
 
 // RackStore defines database operations on racks.

@@ -62,3 +62,18 @@ func (s *pgIPBinder) CreateIPAllocation(ctx context.Context, tx pgx.Tx, alloc *i
 	}
 	return &row, nil
 }
+
+func (s *pgIPBinder) UnbindIPAllocationFromHost(ctx context.Context, allocID, hostID int64) error {
+	n, err := s.queries.UnbindIPAllocationFromHost(ctx, generated.UnbindIPAllocationFromHostParams{
+		ID:     allocID,
+		HostID: &hostID,
+	})
+	if err != nil {
+		return fmt.Errorf("unbind ip allocation: %w", err)
+	}
+	if n == 0 {
+		return apierrors.NewNotFound("ip_allocation", fmt.Sprintf("%d", allocID))
+	}
+	return nil
+}
+

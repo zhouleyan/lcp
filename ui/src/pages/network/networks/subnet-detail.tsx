@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useNavigate } from "react-router"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Filter } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -21,6 +21,9 @@ import {
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { getSubnet, updateSubnet, deleteSubnet } from "@/api/network/subnets"
 import { listAllocations, createAllocation, deleteAllocation } from "@/api/network/allocations"
@@ -243,11 +246,14 @@ function AllocationsSection({
 
   const [createOpen, setCreateOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<IPAllocation | null>(null)
+  const [bindFilter, setBindFilter] = useState("all")
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const params: ListParams = { page, pageSize, sortBy, sortOrder }
+      const params: ListParams & Record<string, string> = { page, pageSize, sortBy, sortOrder }
+      if (bindFilter === "bound") params.hostBound = "true"
+      else if (bindFilter === "unbound") params.hostBound = "false"
       const data = await listAllocations(networkId, subnetId, params)
       setAllocations(data.items ?? [])
       setTotalCount(data.totalCount)
@@ -257,7 +263,7 @@ function AllocationsSection({
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [networkId, subnetId, page, pageSize, sortBy, sortOrder])
+  }, [networkId, subnetId, page, pageSize, sortBy, sortOrder, bindFilter])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -300,6 +306,21 @@ function AllocationsSection({
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort("ip")}>
                   {t("allocation.ip")}<SortIcon field="ip" sortBy={sortBy} sortOrder={sortOrder} />
                 </TableHead>
+                <TableHead>{t("allocation.host")}</TableHead>
+                <TableHead>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="inline-flex items-center gap-1 select-none">
+                        {t("allocation.status")}<Filter className="h-3 w-3" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => setBindFilter("all")}>{t("common.all")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setBindFilter("bound")}>{t("allocation.bound")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setBindFilter("unbound")}>{t("allocation.unbound")}</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableHead>
                 <TableHead>{t("allocation.description")}</TableHead>
                 <TableHead>{t("allocation.isGateway")}</TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
@@ -312,14 +333,14 @@ function AllocationsSection({
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 5 }).map((_, j) => (
+                    {Array.from({ length: 7 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : allocations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+                  <TableCell colSpan={7} className="text-muted-foreground py-8 text-center">
                     {t("allocation.noData")}
                   </TableCell>
                 </TableRow>
@@ -327,6 +348,12 @@ function AllocationsSection({
                 allocations.map((alloc) => (
                   <TableRow key={alloc.metadata.id}>
                     <TableCell className="font-mono text-sm">{alloc.spec.ip}</TableCell>
+                    <TableCell className="text-sm">{alloc.spec.hostName || "-"}</TableCell>
+                    <TableCell>
+                      {alloc.spec.hostId
+                        ? <Badge variant="default">{t("allocation.bound")}</Badge>
+                        : <Badge variant="secondary">{t("allocation.unbound")}</Badge>}
+                    </TableCell>
                     <TableCell className="text-sm">{alloc.spec.description || "-"}</TableCell>
                     <TableCell>
                       {alloc.spec.isGateway

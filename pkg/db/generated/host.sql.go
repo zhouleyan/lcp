@@ -227,7 +227,8 @@ SELECT
     h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
     e.name AS environment_name,
     w.name AS workspace_name,
-    n.name AS namespace_name
+    n.name AS namespace_name,
+    COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'ip', ia.ip, 'subnetId', ia.subnet_id, 'subnetName', s.name, 'subnetCidr', s.cidr) ORDER BY ia.created_at) FROM ip_allocations ia JOIN subnets s ON ia.subnet_id = s.id WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
 FROM hosts h
 LEFT JOIN environments e ON h.environment_id = e.id
 LEFT JOIN workspaces w ON h.workspace_id = w.id
@@ -258,6 +259,7 @@ type GetHostByIDRow struct {
 	EnvironmentName *string         `json:"environment_name"`
 	WorkspaceName   *string         `json:"workspace_name"`
 	NamespaceName   *string         `json:"namespace_name"`
+	AllocatedIps    interface{}     `json:"allocated_ips"`
 }
 
 func (q *Queries) GetHostByID(ctx context.Context, id int64) (GetHostByIDRow, error) {
@@ -286,6 +288,7 @@ func (q *Queries) GetHostByID(ctx context.Context, id int64) (GetHostByIDRow, er
 		&i.EnvironmentName,
 		&i.WorkspaceName,
 		&i.NamespaceName,
+		&i.AllocatedIps,
 	)
 	return i, err
 }
@@ -305,7 +308,8 @@ const listHostsByNamespaceID = `-- name: ListHostsByNamespaceID :many
 WITH host_data AS (
     SELECT
         h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
-        e.name AS environment_name
+        e.name AS environment_name,
+        COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
     FROM hosts h
     LEFT JOIN environments e ON h.environment_id = e.id
     WHERE h.scope = 'namespace' AND h.namespace_id = $5
@@ -317,7 +321,7 @@ WITH host_data AS (
              OR h.name ILIKE '%' || $8 || '%'
              OR h.display_name ILIKE '%' || $8 || '%')
 )
-SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name FROM host_data
+SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, allocated_ips FROM host_data
 ORDER BY
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
@@ -364,6 +368,7 @@ type ListHostsByNamespaceIDRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	EnvironmentName *string         `json:"environment_name"`
+	AllocatedIps    interface{}     `json:"allocated_ips"`
 }
 
 func (q *Queries) ListHostsByNamespaceID(ctx context.Context, arg ListHostsByNamespaceIDParams) ([]ListHostsByNamespaceIDRow, error) {
@@ -405,6 +410,7 @@ func (q *Queries) ListHostsByNamespaceID(ctx context.Context, arg ListHostsByNam
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EnvironmentName,
+			&i.AllocatedIps,
 		); err != nil {
 			return nil, err
 		}
@@ -421,7 +427,8 @@ WITH host_data AS (
     SELECT
         h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
         e.name AS environment_name,
-        n.name AS namespace_name
+        n.name AS namespace_name,
+        COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
     FROM hosts h
     LEFT JOIN environments e ON h.environment_id = e.id
     LEFT JOIN namespaces n ON h.namespace_id = n.id
@@ -437,7 +444,7 @@ WITH host_data AS (
              OR h.name ILIKE '%' || $8 || '%'
              OR h.display_name ILIKE '%' || $8 || '%')
 )
-SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, namespace_name FROM host_data
+SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, namespace_name, allocated_ips FROM host_data
 ORDER BY
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
@@ -485,6 +492,7 @@ type ListHostsByWorkspaceIDRow struct {
 	UpdatedAt       time.Time       `json:"updated_at"`
 	EnvironmentName *string         `json:"environment_name"`
 	NamespaceName   *string         `json:"namespace_name"`
+	AllocatedIps    interface{}     `json:"allocated_ips"`
 }
 
 func (q *Queries) ListHostsByWorkspaceID(ctx context.Context, arg ListHostsByWorkspaceIDParams) ([]ListHostsByWorkspaceIDRow, error) {
@@ -527,6 +535,7 @@ func (q *Queries) ListHostsByWorkspaceID(ctx context.Context, arg ListHostsByWor
 			&i.UpdatedAt,
 			&i.EnvironmentName,
 			&i.NamespaceName,
+			&i.AllocatedIps,
 		); err != nil {
 			return nil, err
 		}
@@ -544,7 +553,8 @@ WITH host_data AS (
         h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
         e.name AS environment_name,
         w.name AS workspace_name,
-        n.name AS namespace_name
+        n.name AS namespace_name,
+        COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
     FROM hosts h
     LEFT JOIN environments e ON h.environment_id = e.id
     LEFT JOIN workspaces w ON h.workspace_id = w.id
@@ -557,7 +567,7 @@ WITH host_data AS (
              OR h.name ILIKE '%' || $7 || '%'
              OR h.display_name ILIKE '%' || $7 || '%')
 )
-SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, workspace_name, namespace_name FROM host_data
+SELECT id, name, display_name, description, hostname, ip_address, os, arch, cpu_cores, memory_mb, disk_gb, labels, scope, workspace_id, namespace_id, environment_id, status, created_at, updated_at, environment_name, workspace_name, namespace_name, allocated_ips FROM host_data
 ORDER BY
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'asc' THEN name END ASC,
     CASE WHEN $1::VARCHAR = 'name' AND $2::VARCHAR = 'desc' THEN name END DESC,
@@ -605,6 +615,7 @@ type ListHostsPlatformRow struct {
 	EnvironmentName *string         `json:"environment_name"`
 	WorkspaceName   *string         `json:"workspace_name"`
 	NamespaceName   *string         `json:"namespace_name"`
+	AllocatedIps    interface{}     `json:"allocated_ips"`
 }
 
 func (q *Queries) ListHostsPlatform(ctx context.Context, arg ListHostsPlatformParams) ([]ListHostsPlatformRow, error) {
@@ -647,6 +658,7 @@ func (q *Queries) ListHostsPlatform(ctx context.Context, arg ListHostsPlatformPa
 			&i.EnvironmentName,
 			&i.WorkspaceName,
 			&i.NamespaceName,
+			&i.AllocatedIps,
 		); err != nil {
 			return nil, err
 		}

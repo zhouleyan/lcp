@@ -83,6 +83,23 @@ func (q *Queries) GetSubnetByIDForUpdateACL(ctx context.Context, id int64) (Subn
 	return i, err
 }
 
+const unbindIPAllocationFromHost = `-- name: UnbindIPAllocationFromHost :execrows
+UPDATE ip_allocations SET host_id = NULL WHERE id = $1 AND host_id = $2
+`
+
+type UnbindIPAllocationFromHostParams struct {
+	ID     int64  `json:"id"`
+	HostID *int64 `json:"host_id"`
+}
+
+func (q *Queries) UnbindIPAllocationFromHost(ctx context.Context, arg UnbindIPAllocationFromHostParams) (int64, error) {
+	result, err := q.db.Exec(ctx, unbindIPAllocationFromHost, arg.ID, arg.HostID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateSubnetBitmapACL = `-- name: UpdateSubnetBitmapACL :exec
 UPDATE subnets SET bitmap = $1, updated_at = now() WHERE id = $2
 `

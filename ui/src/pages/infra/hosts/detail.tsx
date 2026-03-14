@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router"
-import { Pencil, Trash2, Cpu, HardDrive, MemoryStick } from "lucide-react"
+import { Pencil, Trash2, Cpu, HardDrive, MemoryStick, Plus, X } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -25,13 +25,15 @@ import {
   getHost, getWorkspaceHost, getNamespaceHost,
   updateHost, updateWorkspaceHost, updateNamespaceHost,
   deleteHost, deleteWorkspaceHost, deleteNamespaceHost,
+  removeHostIP, removeWorkspaceHostIP, removeNamespaceHostIP,
 } from "@/api/infra/hosts"
 import { showApiError } from "@/api/client"
-import type { Host } from "@/api/types"
+import type { Host, AllocatedIP } from "@/api/types"
 import { OverviewCard } from "@/components/overview-card"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
 import { buildPermScope, scopedApiCall } from "@/lib/nav-config"
+import { AddIPDialog } from "./add-ip-dialog"
 
 export default function HostDetailPage() {
   const { hostId, workspaceId: scopeWorkspaceId, namespaceId: scopeNamespaceId } = useParams()
@@ -43,6 +45,8 @@ export default function HostDetailPage() {
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [addIPOpen, setAddIPOpen] = useState(false)
+  const [removeIPTarget, setRemoveIPTarget] = useState<AllocatedIP | null>(null)
 
   const permPrefix = "infra:hosts"
 
@@ -79,6 +83,23 @@ export default function HostDetailPage() {
       )
       toast.success(t("action.deleteSuccess"))
       navigate("..")
+    } catch (err) {
+      showApiError(err, t, "host.title")
+    }
+  }
+
+  const handleRemoveIP = async () => {
+    if (!host || !removeIPTarget) return
+    try {
+      await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => removeHostIP(host.metadata.id, removeIPTarget.id),
+        (wsId) => removeWorkspaceHostIP(wsId, host.metadata.id, removeIPTarget.id),
+        (wsId, nsId) => removeNamespaceHostIP(wsId, nsId, host.metadata.id, removeIPTarget.id),
+      )
+      toast.success(t("action.deleteSuccess"))
+      setRemoveIPTarget(null)
+      fetchHost()
     } catch (err) {
       showApiError(err, t, "host.title")
     }
@@ -156,9 +177,44 @@ export default function HostDetailPage() {
                 <span className="text-muted-foreground">{t("host.hostname")}</span>
                 <p className="font-medium">{host.spec.hostname || "-"}</p>
               </div>
-              <div>
-                <span className="text-muted-foreground">{t("host.ipAddress")}</span>
-                <p className="font-medium">{host.spec.ipAddress || "-"}</p>
+              <div className="col-span-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">{t("host.ipAddress")}</span>
+                  {hasPermission(`${permPrefix}:update`, permScope) && (
+                    <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => setAddIPOpen(true)}>
+                      <Plus className="mr-0.5 h-3 w-3" />
+                      {t("host.ips.add")}
+                    </Button>
+                  )}
+                </div>
+                {host.spec.allocatedIPs && host.spec.allocatedIPs.length > 0 ? (
+                  <div className="mt-1 space-y-1">
+                    {host.spec.allocatedIPs.map((a) => (
+                      <div key={a.id} className="flex items-center gap-2">
+                        <p className="font-mono text-sm font-medium">
+                          {a.ip}
+                          {a.subnetName && (
+                            <span className="text-muted-foreground ml-2 font-sans text-xs font-normal">
+                              {a.subnetName} ({a.subnetCidr})
+                            </span>
+                          )}
+                        </p>
+                        {hasPermission(`${permPrefix}:update`, permScope) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                            onClick={() => setRemoveIPTarget(a)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="font-medium">{host.spec.ipAddress || "-"}</p>
+                )}
               </div>
               <div>
                 <span className="text-muted-foreground">{t("host.os")}</span>
@@ -215,6 +271,24 @@ export default function HostDetailPage() {
         description={t("host.deleteConfirm", { name: host.metadata.name })}
         onConfirm={handleDelete}
         confirmText={t("common.delete")}
+      />
+
+      <AddIPDialog
+        open={addIPOpen}
+        onOpenChange={setAddIPOpen}
+        hostId={host.metadata.id}
+        onSuccess={fetchHost}
+        scopeWorkspaceId={scopeWorkspaceId}
+        scopeNamespaceId={scopeNamespaceId}
+      />
+
+      <ConfirmDialog
+        open={!!removeIPTarget}
+        onOpenChange={(v) => { if (!v) setRemoveIPTarget(null) }}
+        title={t("host.ips.remove")}
+        description={t("host.ips.removeConfirm", { ip: removeIPTarget?.ip ?? "" })}
+        onConfirm={handleRemoveIP}
+        confirmText={t("host.ips.remove")}
       />
     </div>
   )
@@ -387,3 +461,4 @@ function EditHostDialog({
     </Dialog>
   )
 }
+

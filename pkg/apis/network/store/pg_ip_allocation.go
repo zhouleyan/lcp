@@ -100,7 +100,7 @@ func (s *pgIPAllocationStore) DeleteBySubnetID(ctx context.Context, tx pgx.Tx, s
 	return nil
 }
 
-func (s *pgIPAllocationStore) List(ctx context.Context, subnetID int64, q db.ListQuery) (*db.ListResult[network.DBIPAllocation], error) {
+func (s *pgIPAllocationStore) List(ctx context.Context, subnetID int64, q db.ListQuery) (*db.ListResult[network.DBIPAllocationListRow], error) {
 	offset, limit := db.PaginationToOffsetLimit(q.Pagination)
 	sortOrder := q.SortOrder
 	if sortOrder == "" {
@@ -110,6 +110,7 @@ func (s *pgIPAllocationStore) List(ctx context.Context, subnetID int64, q db.Lis
 	count, err := s.queries.CountIPAllocations(ctx, generated.CountIPAllocationsParams{
 		SubnetID:  subnetID,
 		IsGateway: filterBool(q.Filters, "isGateway"),
+		HostBound: filterBool(q.Filters, "hostBound"),
 		Search:    filterStr(q.Filters, "search"),
 	})
 	if err != nil {
@@ -119,6 +120,7 @@ func (s *pgIPAllocationStore) List(ctx context.Context, subnetID int64, q db.Lis
 	rows, err := s.queries.ListIPAllocations(ctx, generated.ListIPAllocationsParams{
 		SubnetID:  subnetID,
 		IsGateway: filterBool(q.Filters, "isGateway"),
+		HostBound: filterBool(q.Filters, "hostBound"),
 		Search:    filterStr(q.Filters, "search"),
 		SortField: q.SortBy,
 		SortOrder: sortOrder,
@@ -129,5 +131,5 @@ func (s *pgIPAllocationStore) List(ctx context.Context, subnetID int64, q db.Lis
 		return nil, fmt.Errorf("list ip allocations: %w", err)
 	}
 
-	return &db.ListResult[network.DBIPAllocation]{Items: rows, TotalCount: count}, nil
+	return &db.ListResult[network.DBIPAllocationListRow]{Items: rows, TotalCount: count}, nil
 }

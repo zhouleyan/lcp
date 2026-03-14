@@ -14,3 +14,6 @@ UPDATE subnets SET bitmap = @bitmap, updated_at = now() WHERE id = @id;
 INSERT INTO ip_allocations (subnet_id, ip, description, is_gateway, host_id)
 VALUES (@subnet_id, @ip, @description, @is_gateway, @host_id)
 RETURNING id, subnet_id, ip, description, is_gateway, host_id, created_at;
+
+-- name: UnbindIPAllocationFromHost :execrows
+UPDATE ip_allocations SET host_id = NULL WHERE id = @id AND host_id = @host_id;

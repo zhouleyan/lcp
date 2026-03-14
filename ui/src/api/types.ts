@@ -265,11 +265,26 @@ export interface AuditLogList extends TypeMeta {
 
 // --- Host ---
 
+export interface IPConfig {
+  subnetId: string
+  ip?: string
+}
+
+export interface AllocatedIP {
+  id: string
+  ip: string
+  subnetId: string
+  subnetName?: string
+  subnetCidr?: string
+}
+
 export interface HostSpec {
   displayName?: string
   description?: string
   hostname?: string
   ipAddress?: string
+  ips?: IPConfig[]
+  allocatedIPs?: AllocatedIP[]
   os?: string
   arch?: string
   cpuCores?: number
@@ -372,6 +387,8 @@ export interface IPAllocationSpec {
   description?: string
   isGateway?: boolean
   subnetId?: string
+  hostId?: string
+  hostName?: string
 }
 
 export interface IPAllocation extends TypeMeta {
@@ -556,6 +573,38 @@ export interface Certificate extends TypeMeta {
 
 export interface CertificateList extends TypeMeta {
   items: Certificate[]
+  totalCount: number
+}
+
+// --- Available Network (read-only, for host IP allocation) ---
+
+export interface SubnetSummary {
+  id: string
+  name: string
+  displayName?: string
+  cidr: string
+  gateway?: string
+  freeIPs: number
+  usedIPs: number
+  totalIPs: number
+}
+
+export interface AvailableNetworkSpec {
+  displayName?: string
+  description?: string
+  cidr?: string
+  isPublic: boolean
+  subnetCount: number
+  subnets: SubnetSummary[]
+}
+
+export interface AvailableNetwork extends TypeMeta {
+  metadata: ObjectMeta
+  spec: AvailableNetworkSpec
+}
+
+export interface AvailableNetworkList extends TypeMeta {
+  items: AvailableNetwork[]
   totalCount: number
 }
 

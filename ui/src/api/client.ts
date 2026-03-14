@@ -136,6 +136,7 @@ const detailMessagePrefixMap: Record<string, string> = {
 }
 
 const messageMap: Record<string, string> = {
+  "cannot delete IP bound to a host, unbind it first": "allocation.cannotDeleteBound",
   "old password is incorrect": "api.error.oldPasswordIncorrect",
   "oldPassword and newPassword are required": "api.error.badRequest",
   "cannot remove workspace owner": "api.error.cannotRemoveOwner",
