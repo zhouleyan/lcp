@@ -468,6 +468,20 @@ function EditHostDialog({
   )
 }
 
+function isIPInCIDR(ip: string, cidr: string): boolean {
+  const parts = ip.split(".").map(Number)
+  if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) return false
+  const [net, bits] = cidr.split("/")
+  const prefix = Number(bits)
+  if (isNaN(prefix) || prefix < 0 || prefix > 32) return false
+  const netParts = net.split(".").map(Number)
+  if (netParts.length !== 4) return false
+  const ipNum = ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0
+  const netNum = ((netParts[0] << 24) | (netParts[1] << 16) | (netParts[2] << 8) | netParts[3]) >>> 0
+  const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0
+  return (ipNum & mask) === (netNum & mask)
+}
+
 // ===== Add IP Dialog =====
 
 function AddIPDialog({
@@ -485,11 +499,13 @@ function AddIPDialog({
   const [networks, setNetworks] = useState<AvailableNetwork[]>([])
   const [subnetId, setSubnetId] = useState("")
   const [ip, setIp] = useState("")
+  const [ipError, setIpError] = useState("")
 
   useEffect(() => {
     if (!open) return
     setSubnetId("")
     setIp("")
+    setIpError("")
     const fetchNetworks = async () => {
       try {
         const data = await scopedApiCall(
@@ -512,6 +528,18 @@ function AddIPDialog({
 
   const handleSubmit = async () => {
     if (!subnetId) return
+    if (ip) {
+      if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+        setIpError(t("api.validation.ip.format"))
+        return
+      }
+      const subnet = networks.flatMap((n) => n.spec.subnets).find((s) => s.id === subnetId)
+      if (subnet && !isIPInCIDR(ip, subnet.cidr)) {
+        setIpError(t("host.ips.ip.outOfRange"))
+        return
+      }
+    }
+    setIpError("")
     setLoading(true)
     try {
       const data = { subnetId, ...(ip ? { ip } : {}) }
@@ -578,7 +606,8 @@ function AddIPDialog({
               </div>
               <div>
                 <label className="text-sm font-medium">{t("host.ips.ip")}</label>
-                <Input className="mt-1" value={ip} onChange={(e) => setIp(e.target.value)} placeholder={t("host.ips.ip.auto")} />
+                <Input className="mt-1" value={ip} onChange={(e) => { setIp(e.target.value); setIpError("") }} placeholder={t("host.ips.ip.auto")} />
+                {ipError && <p className="text-destructive mt-1 text-sm">{ipError}</p>}
               </div>
             </>
           )}
