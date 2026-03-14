@@ -3035,6 +3035,7 @@ func parseAllocatedIPs(raw interface{}) []AllocatedIP {
 		return nil
 	}
 	var items []struct {
+		ID         float64 `json:"id"`
 		IP         string  `json:"ip"`
 		SubnetID   float64 `json:"subnetId"`
 		SubnetName string  `json:"subnetName"`
@@ -3049,6 +3050,7 @@ func parseAllocatedIPs(raw interface{}) []AllocatedIP {
 	result := make([]AllocatedIP, len(items))
 	for i, item := range items {
 		result[i] = AllocatedIP{
+			ID:         strconv.FormatInt(int64(item.ID), 10),
 			IP:         item.IP,
 			SubnetID:   strconv.FormatInt(int64(item.SubnetID), 10),
 			SubnetName: item.SubnetName,

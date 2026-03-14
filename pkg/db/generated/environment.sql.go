@@ -800,7 +800,7 @@ const listHostsByEnvironmentID = `-- name: ListHostsByEnvironmentID :many
 SELECT
     h.id, h.name, h.display_name, h.description, h.hostname, h.ip_address, h.os, h.arch, h.cpu_cores, h.memory_mb, h.disk_gb, h.labels, h.scope, h.workspace_id, h.namespace_id, h.environment_id, h.status, h.created_at, h.updated_at,
     e.name AS environment_name,
-    COALESCE((SELECT json_agg(json_build_object('ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
+    COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
 FROM hosts h
 LEFT JOIN environments e ON h.environment_id = e.id
 WHERE h.environment_id = $1

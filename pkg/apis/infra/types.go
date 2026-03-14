@@ -510,6 +510,8 @@ func (c *IPConfig) GetTypeMeta() *runtime.TypeMeta { return &c.TypeMeta }
 // AllocatedIP represents an IP address allocated to a host (read-only, returned in API responses).
 // +openapi:description=已分配的 IP 信息
 type AllocatedIP struct {
+	// +openapi:description=分配记录 ID
+	ID string `json:"id"`
 	// +openapi:description=IP 地址
 	IP string `json:"ip"`
 	// +openapi:description=子网 ID

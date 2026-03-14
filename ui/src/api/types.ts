@@ -271,6 +271,7 @@ export interface IPConfig {
 }
 
 export interface AllocatedIP {
+  id: string
   ip: string
   subnetId: string
   subnetName?: string

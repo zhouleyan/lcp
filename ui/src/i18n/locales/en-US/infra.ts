@@ -43,6 +43,7 @@ const infra: Messages = {
   "host.ips.subnet.free": "Available {free}/{total}",
   "host.ips.subnet.select": "Select subnet",
   "host.ips.noNetworks": "No networks available",
+  "host.ips.removeConfirm": "Remove IP \"{ip}\" from this host? The IP will remain allocated in the subnet.",
   "host.searchPlaceholder": "Search name, display name...",
   "host.filter.environment": "Environment",
   "host.filter.environmentAll": "All Environments",

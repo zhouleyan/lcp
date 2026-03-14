@@ -9,7 +9,7 @@ SELECT
     e.name AS environment_name,
     w.name AS workspace_name,
     n.name AS namespace_name,
-    COALESCE((SELECT json_agg(json_build_object('ip', ia.ip, 'subnetId', ia.subnet_id, 'subnetName', s.name, 'subnetCidr', s.cidr) ORDER BY ia.created_at) FROM ip_allocations ia JOIN subnets s ON ia.subnet_id = s.id WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
+    COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'ip', ia.ip, 'subnetId', ia.subnet_id, 'subnetName', s.name, 'subnetCidr', s.cidr) ORDER BY ia.created_at) FROM ip_allocations ia JOIN subnets s ON ia.subnet_id = s.id WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
 FROM hosts h
 LEFT JOIN environments e ON h.environment_id = e.id
 LEFT JOIN workspaces w ON h.workspace_id = w.id
@@ -88,7 +88,7 @@ WITH host_data AS (
         e.name AS environment_name,
         w.name AS workspace_name,
         n.name AS namespace_name,
-        COALESCE((SELECT json_agg(json_build_object('ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
+        COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
     FROM hosts h
     LEFT JOIN environments e ON h.environment_id = e.id
     LEFT JOIN workspaces w ON h.workspace_id = w.id
@@ -136,7 +136,7 @@ WITH host_data AS (
         h.*,
         e.name AS environment_name,
         n.name AS namespace_name,
-        COALESCE((SELECT json_agg(json_build_object('ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
+        COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
     FROM hosts h
     LEFT JOIN environments e ON h.environment_id = e.id
     LEFT JOIN namespaces n ON h.namespace_id = n.id
@@ -183,7 +183,7 @@ WITH host_data AS (
     SELECT
         h.*,
         e.name AS environment_name,
-        COALESCE((SELECT json_agg(json_build_object('ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
+        COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'ip', ia.ip, 'subnetId', ia.subnet_id) ORDER BY ia.created_at) FROM ip_allocations ia WHERE ia.host_id = h.id), '[]'::json) AS allocated_ips
     FROM hosts h
     LEFT JOIN environments e ON h.environment_id = e.id
     WHERE h.scope = 'namespace' AND h.namespace_id = @namespace_id

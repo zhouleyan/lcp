@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router"
-import { Pencil, Trash2, Cpu, HardDrive, MemoryStick } from "lucide-react"
+import { Pencil, Trash2, Cpu, HardDrive, MemoryStick, Plus, X } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -22,12 +22,20 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form"
 import {
+  SelectGroup, SelectLabel,
+} from "@/components/ui/select"
+import {
   getHost, getWorkspaceHost, getNamespaceHost,
   updateHost, updateWorkspaceHost, updateNamespaceHost,
   deleteHost, deleteWorkspaceHost, deleteNamespaceHost,
+  addHostIP, addWorkspaceHostIP, addNamespaceHostIP,
+  removeHostIP, removeWorkspaceHostIP, removeNamespaceHostIP,
 } from "@/api/infra/hosts"
+import {
+  listInfraNetworks, listWorkspaceInfraNetworks, listNamespaceInfraNetworks,
+} from "@/api/infra/networks"
 import { showApiError } from "@/api/client"
-import type { Host } from "@/api/types"
+import type { Host, AllocatedIP, AvailableNetwork } from "@/api/types"
 import { OverviewCard } from "@/components/overview-card"
 import { useTranslation } from "@/i18n"
 import { usePermission } from "@/hooks/use-permission"
@@ -43,6 +51,8 @@ export default function HostDetailPage() {
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [addIPOpen, setAddIPOpen] = useState(false)
+  const [removeIPTarget, setRemoveIPTarget] = useState<AllocatedIP | null>(null)
 
   const permPrefix = "infra:hosts"
 
@@ -79,6 +89,23 @@ export default function HostDetailPage() {
       )
       toast.success(t("action.deleteSuccess"))
       navigate("..")
+    } catch (err) {
+      showApiError(err, t, "host.title")
+    }
+  }
+
+  const handleRemoveIP = async () => {
+    if (!host || !removeIPTarget) return
+    try {
+      await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => removeHostIP(host.metadata.id, removeIPTarget.id),
+        (wsId) => removeWorkspaceHostIP(wsId, host.metadata.id, removeIPTarget.id),
+        (wsId, nsId) => removeNamespaceHostIP(wsId, nsId, host.metadata.id, removeIPTarget.id),
+      )
+      toast.success(t("action.deleteSuccess"))
+      setRemoveIPTarget(null)
+      fetchHost()
     } catch (err) {
       showApiError(err, t, "host.title")
     }
@@ -157,18 +184,38 @@ export default function HostDetailPage() {
                 <p className="font-medium">{host.spec.hostname || "-"}</p>
               </div>
               <div className="col-span-2">
-                <span className="text-muted-foreground">{t("host.ipAddress")}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">{t("host.ipAddress")}</span>
+                  {hasPermission(`${permPrefix}:update`, permScope) && (
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setAddIPOpen(true)}>
+                      <Plus className="mr-1 h-3 w-3" />
+                      {t("host.ips.add")}
+                    </Button>
+                  )}
+                </div>
                 {host.spec.allocatedIPs && host.spec.allocatedIPs.length > 0 ? (
                   <div className="mt-1 space-y-1">
                     {host.spec.allocatedIPs.map((a) => (
-                      <p key={a.ip} className="font-mono text-sm font-medium">
-                        {a.ip}
-                        {a.subnetName && (
-                          <span className="text-muted-foreground ml-2 font-sans text-xs font-normal">
-                            {a.subnetName} ({a.subnetCidr})
-                          </span>
+                      <div key={a.id} className="flex items-center gap-2">
+                        <p className="font-mono text-sm font-medium">
+                          {a.ip}
+                          {a.subnetName && (
+                            <span className="text-muted-foreground ml-2 font-sans text-xs font-normal">
+                              {a.subnetName} ({a.subnetCidr})
+                            </span>
+                          )}
+                        </p>
+                        {hasPermission(`${permPrefix}:update`, permScope) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                            onClick={() => setRemoveIPTarget(a)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
                         )}
-                      </p>
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -230,6 +277,24 @@ export default function HostDetailPage() {
         description={t("host.deleteConfirm", { name: host.metadata.name })}
         onConfirm={handleDelete}
         confirmText={t("common.delete")}
+      />
+
+      <AddIPDialog
+        open={addIPOpen}
+        onOpenChange={setAddIPOpen}
+        hostId={host.metadata.id}
+        onSuccess={fetchHost}
+        scopeWorkspaceId={scopeWorkspaceId}
+        scopeNamespaceId={scopeNamespaceId}
+      />
+
+      <ConfirmDialog
+        open={!!removeIPTarget}
+        onOpenChange={(v) => { if (!v) setRemoveIPTarget(null) }}
+        title={t("host.ips.remove")}
+        description={t("host.ips.removeConfirm", { ip: removeIPTarget?.ip ?? "" })}
+        onConfirm={handleRemoveIP}
+        confirmText={t("host.ips.remove")}
       />
     </div>
   )
@@ -398,6 +463,130 @@ function EditHostDialog({
             </DialogFooter>
           </form>
         </Form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ===== Add IP Dialog =====
+
+function AddIPDialog({
+  open, onOpenChange, hostId, onSuccess, scopeWorkspaceId, scopeNamespaceId,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  hostId: string
+  onSuccess: () => void
+  scopeWorkspaceId: string | undefined
+  scopeNamespaceId: string | undefined
+}) {
+  const { t } = useTranslation()
+  const [loading, setLoading] = useState(false)
+  const [networks, setNetworks] = useState<AvailableNetwork[]>([])
+  const [subnetId, setSubnetId] = useState("")
+  const [ip, setIp] = useState("")
+
+  useEffect(() => {
+    if (!open) return
+    setSubnetId("")
+    setIp("")
+    const fetchNetworks = async () => {
+      try {
+        const data = await scopedApiCall(
+          scopeWorkspaceId, scopeNamespaceId,
+          () => listInfraNetworks(),
+          (wsId) => listWorkspaceInfraNetworks(wsId),
+          (wsId, nsId) => listNamespaceInfraNetworks(wsId, nsId),
+        )
+        const nets = data.items ?? []
+        setNetworks(nets)
+        const first = nets.flatMap((n) => n.spec.subnets).find((s) => s.freeIPs > 0)
+        if (first) setSubnetId(first.id)
+      } catch {
+        setNetworks([])
+      }
+    }
+    fetchNetworks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  const handleSubmit = async () => {
+    if (!subnetId) return
+    setLoading(true)
+    try {
+      const data = { subnetId, ...(ip ? { ip } : {}) }
+      await scopedApiCall(
+        scopeWorkspaceId, scopeNamespaceId,
+        () => addHostIP(hostId, data),
+        (wsId) => addWorkspaceHostIP(wsId, hostId, data),
+        (wsId, nsId) => addNamespaceHostIP(wsId, nsId, hostId, data),
+      )
+      toast.success(t("action.createSuccess"))
+      onOpenChange(false)
+      onSuccess()
+    } catch (err) {
+      showApiError(err, t, "host.title")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const selectedSubnet = subnetId
+    ? networks.flatMap((n) => n.spec.subnets).find((s) => s.id === subnetId)
+    : null
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>{t("host.ips.add")}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          {networks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("host.ips.noNetworks")}</p>
+          ) : (
+            <>
+              <div>
+                <label className="text-sm font-medium">{t("host.ips.subnetId")}</label>
+                <Select value={subnetId} onValueChange={setSubnetId}>
+                  <SelectTrigger className="mt-1 w-full">
+                    <SelectValue placeholder={t("host.ips.subnet.select")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {networks.map((net) => (
+                      <SelectGroup key={net.metadata.id}>
+                        <SelectLabel className="text-sm text-muted-foreground">
+                          {net.spec.displayName || net.metadata.name}{net.spec.cidr ? ` (${net.spec.cidr})` : ""}
+                        </SelectLabel>
+                        {net.spec.subnets.map((sub) => (
+                          <SelectItem key={sub.id} value={sub.id} disabled={sub.freeIPs === 0}>
+                            {sub.displayName || sub.name} {sub.cidr}
+                            <span className="text-muted-foreground ml-2 text-xs">
+                              ({t("host.ips.subnet.free", { free: sub.freeIPs, total: sub.totalIPs })})
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedSubnet && (
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    {selectedSubnet.cidr} · {t("host.ips.subnet.free", { free: selectedSubnet.freeIPs, total: selectedSubnet.totalIPs })}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium">{t("host.ips.ip")}</label>
+                <Input className="mt-1" value={ip} onChange={(e) => setIp(e.target.value)} placeholder={t("host.ips.ip.auto")} />
+              </div>
+            </>
+          )}
+        </div>
+        <DialogFooter className="mt-4">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
+          <Button onClick={handleSubmit} disabled={loading || !subnetId}>{loading ? "..." : t("common.save")}</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

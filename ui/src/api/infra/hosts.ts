@@ -3,6 +3,7 @@ import { apiRequest } from "../client"
 import type {
   Host,
   HostList,
+  IPConfig,
   BindEnvironmentRequest,
   ListParams,
 } from "../types"
@@ -43,6 +44,14 @@ export async function bindHostEnvironment(id: string, body: BindEnvironmentReque
 
 export async function unbindHostEnvironment(id: string): Promise<void> {
   await apiRequest(infraApi.post(`hosts/${id}/unbind-environment`, { json: {} }).json())
+}
+
+export async function addHostIP(hostId: string, data: IPConfig): Promise<void> {
+  await apiRequest(infraApi.post(`hosts/${hostId}/ips`, { json: data }).json())
+}
+
+export async function removeHostIP(hostId: string, ipId: string): Promise<void> {
+  await apiRequest(infraApi.delete(`hosts/${hostId}/ips/${ipId}`).json())
 }
 
 // --- Workspace-level ---
@@ -87,6 +96,14 @@ export async function bindWorkspaceHostEnvironment(
 
 export async function unbindWorkspaceHostEnvironment(wsId: string, hostId: string): Promise<void> {
   await apiRequest(infraApi.post(`workspaces/${wsId}/hosts/${hostId}/unbind-environment`, { json: {} }).json())
+}
+
+export async function addWorkspaceHostIP(wsId: string, hostId: string, data: IPConfig): Promise<void> {
+  await apiRequest(infraApi.post(`workspaces/${wsId}/hosts/${hostId}/ips`, { json: data }).json())
+}
+
+export async function removeWorkspaceHostIP(wsId: string, hostId: string, ipId: string): Promise<void> {
+  await apiRequest(infraApi.delete(`workspaces/${wsId}/hosts/${hostId}/ips/${ipId}`).json())
 }
 
 // --- Namespace-level ---
@@ -142,5 +159,17 @@ export async function bindNamespaceHostEnvironment(
 export async function unbindNamespaceHostEnvironment(wsId: string, nsId: string, hostId: string): Promise<void> {
   await apiRequest(
     infraApi.post(`workspaces/${wsId}/namespaces/${nsId}/hosts/${hostId}/unbind-environment`, { json: {} }).json(),
+  )
+}
+
+export async function addNamespaceHostIP(wsId: string, nsId: string, hostId: string, data: IPConfig): Promise<void> {
+  await apiRequest(
+    infraApi.post(`workspaces/${wsId}/namespaces/${nsId}/hosts/${hostId}/ips`, { json: data }).json(),
+  )
+}
+
+export async function removeNamespaceHostIP(wsId: string, nsId: string, hostId: string, ipId: string): Promise<void> {
+  await apiRequest(
+    infraApi.delete(`workspaces/${wsId}/namespaces/${nsId}/hosts/${hostId}/ips/${ipId}`).json(),
   )
 }

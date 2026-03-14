@@ -42,6 +42,7 @@ const infra: Messages = {
   "host.ips.subnet.free": "可用 {free}/{total}",
   "host.ips.subnet.select": "选择子网",
   "host.ips.noNetworks": "暂无可用网络",
+  "host.ips.removeConfirm": "确定要从主机移除 IP \"{ip}\" 吗？IP 仍会保留在子网中。",
   "host.searchPlaceholder": "搜索名称、显示名称...",
   "host.filter.environment": "环境",
   "host.filter.environmentAll": "全部环境",
