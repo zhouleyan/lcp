@@ -1,4 +1,4 @@
-package modules
+package fetch
 
 import (
 	"bytes"
@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-)
 
-func init() {
-	RegisterModule("fetch", ModuleFetch)
-}
+	"lcp.io/lcp/lib/ansible/modules/internal"
+)
 
 // ModuleFetch downloads a file from a remote host to the local filesystem.
 //
@@ -18,13 +16,13 @@ func init() {
 //
 //	src:  remote file path (required)
 //	dest: local destination path (required)
-func ModuleFetch(ctx context.Context, opts ExecOptions) (string, string, error) {
-	src := stringArg(opts.Args, "src")
+func ModuleFetch(ctx context.Context, opts internal.ExecOptions) (string, string, error) {
+	src := internal.StringArg(opts.Args, "src")
 	if src == "" {
 		return "", "", fmt.Errorf("fetch: src is required")
 	}
 
-	dest := stringArg(opts.Args, "dest")
+	dest := internal.StringArg(opts.Args, "dest")
 	if dest == "" {
 		return "", "", fmt.Errorf("fetch: dest is required")
 	}

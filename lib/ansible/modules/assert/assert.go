@@ -1,15 +1,12 @@
-package modules
+package assert
 
 import (
 	"context"
 	"fmt"
 
+	"lcp.io/lcp/lib/ansible/modules/internal"
 	"lcp.io/lcp/lib/ansible/template"
 )
-
-func init() {
-	RegisterModule("assert", ModuleAssert)
-}
 
 // ModuleAssert evaluates conditions and fails if any are false.
 // Args:
@@ -17,7 +14,7 @@ func init() {
 //	that: list of conditions (template expressions)
 //	fail_msg: message on failure (optional)
 //	success_msg: message on success (optional)
-func ModuleAssert(ctx context.Context, opts ExecOptions) (string, string, error) {
+func ModuleAssert(ctx context.Context, opts internal.ExecOptions) (string, string, error) {
 	that := opts.Args["that"]
 	failMsg, _ := opts.Args["fail_msg"].(string)
 	successMsg, _ := opts.Args["success_msg"].(string)
@@ -29,7 +26,7 @@ func ModuleAssert(ctx context.Context, opts ExecOptions) (string, string, error)
 	vars := opts.GetAllVariables()
 
 	// Convert "that" to string slice.
-	conditions := toStringSlice(that)
+	conditions := ToStringSlice(that)
 	if len(conditions) == 0 {
 		return "", "", fmt.Errorf("assert: 'that' argument required")
 	}
@@ -49,9 +46,9 @@ func ModuleAssert(ctx context.Context, opts ExecOptions) (string, string, error)
 	return "all assertions passed", "", nil
 }
 
-// toStringSlice converts an interface value to a string slice.
+// ToStringSlice converts an interface value to a string slice.
 // It handles []any (from YAML parsing), []string, and single string values.
-func toStringSlice(v any) []string {
+func ToStringSlice(v any) []string {
 	switch val := v.(type) {
 	case []any:
 		result := make([]string, 0, len(val))

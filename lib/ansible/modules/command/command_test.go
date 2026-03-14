@@ -1,10 +1,36 @@
-package modules
+package command
 
 import (
 	"context"
 	"fmt"
+	"io"
+	"io/fs"
 	"testing"
+
+	"lcp.io/lcp/lib/ansible/modules/internal"
 )
+
+// mockConnector implements connector.Connector for testing.
+type mockConnector struct {
+	execFn     func(ctx context.Context, cmd string) ([]byte, []byte, error)
+	execOutput []byte
+	execErr    error
+}
+
+func (m *mockConnector) Init(context.Context) error  { return nil }
+func (m *mockConnector) Close(context.Context) error { return nil }
+func (m *mockConnector) ExecuteCommand(ctx context.Context, cmd string) ([]byte, []byte, error) {
+	if m.execFn != nil {
+		return m.execFn(ctx, cmd)
+	}
+	return m.execOutput, nil, m.execErr
+}
+func (m *mockConnector) PutFile(_ context.Context, _ []byte, _ string, _ fs.FileMode) error {
+	return nil
+}
+func (m *mockConnector) FetchFile(_ context.Context, _ string, _ io.Writer) error {
+	return nil
+}
 
 func TestModuleCommand_Simple(t *testing.T) {
 	mock := &mockConnector{
@@ -16,7 +42,7 @@ func TestModuleCommand_Simple(t *testing.T) {
 		},
 	}
 
-	stdout, stderr, err := ModuleCommand(context.Background(), ExecOptions{
+	stdout, stderr, err := ModuleCommand(context.Background(), internal.ExecOptions{
 		Args:      map[string]any{"cmd": "echo hello"},
 		Connector: mock,
 	})
@@ -38,7 +64,7 @@ func TestModuleCommand_CommandKey(t *testing.T) {
 		},
 	}
 
-	stdout, _, err := ModuleCommand(context.Background(), ExecOptions{
+	stdout, _, err := ModuleCommand(context.Background(), internal.ExecOptions{
 		Args:      map[string]any{"command": "ls -la"},
 		Connector: mock,
 	})
@@ -60,7 +86,7 @@ func TestModuleCommand_ShellKey(t *testing.T) {
 		},
 	}
 
-	stdout, _, err := ModuleCommand(context.Background(), ExecOptions{
+	stdout, _, err := ModuleCommand(context.Background(), internal.ExecOptions{
 		Args:      map[string]any{"shell": "cat /etc/hosts"},
 		Connector: mock,
 	})
@@ -75,7 +101,7 @@ func TestModuleCommand_ShellKey(t *testing.T) {
 func TestModuleCommand_NoCommand(t *testing.T) {
 	mock := &mockConnector{}
 
-	_, _, err := ModuleCommand(context.Background(), ExecOptions{
+	_, _, err := ModuleCommand(context.Background(), internal.ExecOptions{
 		Args:      map[string]any{},
 		Connector: mock,
 	})
@@ -90,7 +116,7 @@ func TestModuleCommand_NoCommand(t *testing.T) {
 func TestModuleCommand_NilArgs(t *testing.T) {
 	mock := &mockConnector{}
 
-	_, _, err := ModuleCommand(context.Background(), ExecOptions{
+	_, _, err := ModuleCommand(context.Background(), internal.ExecOptions{
 		Args:      nil,
 		Connector: mock,
 	})
@@ -106,7 +132,7 @@ func TestModuleCommand_WithStderr(t *testing.T) {
 		},
 	}
 
-	stdout, stderr, err := ModuleCommand(context.Background(), ExecOptions{
+	stdout, stderr, err := ModuleCommand(context.Background(), internal.ExecOptions{
 		Args:      map[string]any{"cmd": "some-cmd"},
 		Connector: mock,
 	})
@@ -128,7 +154,7 @@ func TestModuleCommand_ExecutionError(t *testing.T) {
 		},
 	}
 
-	_, stderr, err := ModuleCommand(context.Background(), ExecOptions{
+	_, stderr, err := ModuleCommand(context.Background(), internal.ExecOptions{
 		Args:      map[string]any{"cmd": "nonexistent-cmd"},
 		Connector: mock,
 	})
@@ -148,7 +174,7 @@ func TestModuleCommand_KeyPriority(t *testing.T) {
 		},
 	}
 
-	stdout, _, err := ModuleCommand(context.Background(), ExecOptions{
+	stdout, _, err := ModuleCommand(context.Background(), internal.ExecOptions{
 		Args: map[string]any{
 			"cmd":     "from-cmd",
 			"command": "from-command",
@@ -170,7 +196,7 @@ func TestModuleShell(t *testing.T) {
 		},
 	}
 
-	stdout, stderr, err := ModuleShell(context.Background(), ExecOptions{
+	stdout, stderr, err := ModuleShell(context.Background(), internal.ExecOptions{
 		Args:      map[string]any{"cmd": "echo test"},
 		Connector: mock,
 	})
@@ -188,7 +214,7 @@ func TestModuleShell(t *testing.T) {
 func TestModuleShell_NoCommand(t *testing.T) {
 	mock := &mockConnector{}
 
-	_, _, err := ModuleShell(context.Background(), ExecOptions{
+	_, _, err := ModuleShell(context.Background(), internal.ExecOptions{
 		Args:      map[string]any{},
 		Connector: mock,
 	})
@@ -197,28 +223,15 @@ func TestModuleShell_NoCommand(t *testing.T) {
 	}
 }
 
-func TestModuleCommand_Registered(t *testing.T) {
-	// The init() function should have registered both "command" and "shell".
-	fn := FindModule("command")
-	if fn == nil {
-		t.Fatal("expected 'command' module to be registered, got nil")
-	}
-
-	fn = FindModule("shell")
-	if fn == nil {
-		t.Fatal("expected 'shell' module to be registered, got nil")
-	}
-}
-
 func TestExtractCommand_EmptyString(t *testing.T) {
-	result := extractCommand(map[string]any{"cmd": ""})
+	result := ExtractCommand(map[string]any{"cmd": ""})
 	if result != "" {
 		t.Errorf("expected empty string for empty cmd value, got %q", result)
 	}
 }
 
 func TestExtractCommand_NonStringValue(t *testing.T) {
-	result := extractCommand(map[string]any{"cmd": 123})
+	result := ExtractCommand(map[string]any{"cmd": 123})
 	if result != "" {
 		t.Errorf("expected empty string for non-string cmd value, got %q", result)
 	}

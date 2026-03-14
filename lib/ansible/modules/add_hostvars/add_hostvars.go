@@ -1,23 +1,20 @@
-package modules
+package add_hostvars
 
 import (
 	"context"
 	"fmt"
 
+	"lcp.io/lcp/lib/ansible/modules/internal"
 	"lcp.io/lcp/lib/ansible/variable"
 )
-
-func init() {
-	RegisterModule("add_hostvars", ModuleAddHostvars)
-}
 
 // ModuleAddHostvars adds variables to a specific host's RuntimeVars.
 //
 // Args:
 //   - "host": target hostname (optional; defaults to opts.Host)
 //   - All other key-value pairs are merged as variables.
-func ModuleAddHostvars(_ context.Context, opts ExecOptions) (string, string, error) {
-	host := stringArg(opts.Args, "host")
+func ModuleAddHostvars(_ context.Context, opts internal.ExecOptions) (string, string, error) {
+	host := internal.StringArg(opts.Args, "host")
 	if host == "" {
 		host = opts.Host
 	}

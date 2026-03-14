@@ -1,14 +1,51 @@
-package modules
+package template
 
 import (
 	"context"
 	"fmt"
+	"io"
+	"io/fs"
 	"strings"
 	"testing"
 
 	"lcp.io/lcp/lib/ansible"
+	"lcp.io/lcp/lib/ansible/modules/internal"
 	"lcp.io/lcp/lib/ansible/variable"
 )
+
+// mockConnector implements connector.Connector for testing.
+type mockConnector struct {
+	putFileData []byte
+	putFileDest string
+	putFileMode fs.FileMode
+	putFileErr  error
+}
+
+func (m *mockConnector) Init(context.Context) error  { return nil }
+func (m *mockConnector) Close(context.Context) error { return nil }
+func (m *mockConnector) ExecuteCommand(_ context.Context, _ string) ([]byte, []byte, error) {
+	return nil, nil, nil
+}
+func (m *mockConnector) PutFile(_ context.Context, src []byte, dst string, mode fs.FileMode) error {
+	m.putFileData = src
+	m.putFileDest = dst
+	m.putFileMode = mode
+	return m.putFileErr
+}
+func (m *mockConnector) FetchFile(_ context.Context, _ string, _ io.Writer) error { return nil }
+
+// mockSource provides in-memory file content for Source.ReadFile.
+type mockSource struct {
+	files map[string][]byte
+}
+
+func (s *mockSource) ReadFile(path string) ([]byte, error) {
+	data, ok := s.files[path]
+	if !ok {
+		return nil, fmt.Errorf("file not found: %s", path)
+	}
+	return data, nil
+}
 
 func TestModuleTemplate(t *testing.T) {
 	source := &mockSource{
@@ -26,7 +63,7 @@ func TestModuleTemplate(t *testing.T) {
 	}
 	v := variable.New(inv)
 
-	opts := ExecOptions{
+	opts := internal.ExecOptions{
 		Args: map[string]any{
 			"src":  "config.tmpl",
 			"dest": "/etc/app/config.yaml",
@@ -76,7 +113,7 @@ func TestModuleTemplate_CustomMode(t *testing.T) {
 	}
 	v := variable.New(inv)
 
-	opts := ExecOptions{
+	opts := internal.ExecOptions{
 		Args: map[string]any{
 			"src":  "script.tmpl",
 			"dest": "/usr/local/bin/run.sh",
@@ -99,7 +136,7 @@ func TestModuleTemplate_CustomMode(t *testing.T) {
 }
 
 func TestModuleTemplate_MissingSrc(t *testing.T) {
-	opts := ExecOptions{
+	opts := internal.ExecOptions{
 		Args: map[string]any{
 			"dest": "/etc/app/config.yaml",
 		},
@@ -115,7 +152,7 @@ func TestModuleTemplate_MissingSrc(t *testing.T) {
 }
 
 func TestModuleTemplate_MissingDest(t *testing.T) {
-	opts := ExecOptions{
+	opts := internal.ExecOptions{
 		Args: map[string]any{
 			"src": "config.tmpl",
 		},
@@ -131,7 +168,7 @@ func TestModuleTemplate_MissingDest(t *testing.T) {
 }
 
 func TestModuleTemplate_MissingBoth(t *testing.T) {
-	opts := ExecOptions{
+	opts := internal.ExecOptions{
 		Args: map[string]any{},
 	}
 
@@ -156,7 +193,7 @@ func TestModuleTemplate_SourceReadError(t *testing.T) {
 	}
 	v := variable.New(inv)
 
-	opts := ExecOptions{
+	opts := internal.ExecOptions{
 		Args: map[string]any{
 			"src":  "missing.tmpl",
 			"dest": "/etc/app/config.yaml",
@@ -192,7 +229,7 @@ func TestModuleTemplate_RenderError(t *testing.T) {
 
 	conn := &mockConnector{}
 
-	opts := ExecOptions{
+	opts := internal.ExecOptions{
 		Args: map[string]any{
 			"src":  "bad.tmpl",
 			"dest": "/etc/app/config.yaml",
@@ -230,7 +267,7 @@ func TestModuleTemplate_PutFileError(t *testing.T) {
 	}
 	v := variable.New(inv)
 
-	opts := ExecOptions{
+	opts := internal.ExecOptions{
 		Args: map[string]any{
 			"src":  "config.tmpl",
 			"dest": "/etc/app/config.yaml",
@@ -270,7 +307,7 @@ func TestModuleTemplate_NoTemplateContent(t *testing.T) {
 	}
 	v := variable.New(inv)
 
-	opts := ExecOptions{
+	opts := internal.ExecOptions{
 		Args: map[string]any{
 			"src":  "plain.txt",
 			"dest": "/etc/app/plain.txt",
@@ -302,7 +339,7 @@ func TestModuleTemplate_NilSource(t *testing.T) {
 	}
 	v := variable.New(inv)
 
-	opts := ExecOptions{
+	opts := internal.ExecOptions{
 		Args: map[string]any{
 			"src":  "config.tmpl",
 			"dest": "/etc/app/config.yaml",
@@ -318,12 +355,5 @@ func TestModuleTemplate_NilSource(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "template: read") {
 		t.Errorf("expected 'template: read' error, got %q", err.Error())
-	}
-}
-
-func TestModuleTemplate_Registered(t *testing.T) {
-	fn := FindModule("template")
-	if fn == nil {
-		t.Fatal("expected 'template' module to be registered, got nil")
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"testing"
 
 	"lcp.io/lcp/lib/ansible"
 	"lcp.io/lcp/lib/ansible/variable"
@@ -135,4 +136,78 @@ func getHostRemoteVars(v variable.Variable, host string) map[string]any {
 		return m
 	}
 	return map[string]any{}
+}
+
+// --- helper function tests ---
+
+func TestStringArg(t *testing.T) {
+	args := map[string]any{
+		"name":  "hello",
+		"count": 42,
+		"empty": "",
+	}
+
+	if got := StringArg(args, "name"); got != "hello" {
+		t.Errorf("expected 'hello', got %q", got)
+	}
+	if got := StringArg(args, "count"); got != "" {
+		t.Errorf("expected empty string for non-string value, got %q", got)
+	}
+	if got := StringArg(args, "missing"); got != "" {
+		t.Errorf("expected empty string for missing key, got %q", got)
+	}
+	if got := StringArg(args, "empty"); got != "" {
+		t.Errorf("expected empty string, got %q", got)
+	}
+}
+
+func TestFileModeArg(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     map[string]any
+		key      string
+		def      fs.FileMode
+		expected fs.FileMode
+	}{
+		{"missing key", map[string]any{}, "mode", 0644, 0644},
+		{"int value", map[string]any{"mode": 0755}, "mode", 0644, 0755},
+		{"int64 value", map[string]any{"mode": int64(0600)}, "mode", 0644, 0600},
+		{"float64 value", map[string]any{"mode": float64(0644)}, "mode", 0755, 0644},
+		{"string octal", map[string]any{"mode": "0755"}, "mode", 0644, 0755},
+		{"string octal 644", map[string]any{"mode": "644"}, "mode", 0755, 0644},
+		{"invalid string", map[string]any{"mode": "notanumber"}, "mode", 0644, 0644},
+		{"unsupported type", map[string]any{"mode": true}, "mode", 0644, 0644},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FileModeArg(tt.args, tt.key, tt.def)
+			if got != tt.expected {
+				t.Errorf("expected %04o, got %04o", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestReadSource_Relative(t *testing.T) {
+	source := &mockSource{
+		files: map[string][]byte{
+			"templates/config.yaml": []byte("key: val"),
+		},
+	}
+
+	data, err := ReadSource(source, "templates/config.yaml")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(data) != "key: val" {
+		t.Errorf("expected %q, got %q", "key: val", string(data))
+	}
+}
+
+func TestReadSource_NilSource(t *testing.T) {
+	_, err := ReadSource(nil, "relative/path.txt")
+	if err == nil {
+		t.Fatal("expected error with nil source")
+	}
 }

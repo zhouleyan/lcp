@@ -1,4 +1,4 @@
-package modules
+package include_vars
 
 import (
 	"context"
@@ -7,12 +7,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"lcp.io/lcp/lib/ansible/modules/internal"
 	"lcp.io/lcp/lib/ansible/variable"
 )
-
-func init() {
-	RegisterModule("include_vars", ModuleIncludeVars)
-}
 
 // ModuleIncludeVars loads variables from a YAML file and merges them into the
 // host's RuntimeVars.
@@ -23,10 +20,10 @@ func init() {
 //
 // Only .yaml and .yml extensions are accepted. The file is read through
 // opts.Source (the project file source).
-func ModuleIncludeVars(_ context.Context, opts ExecOptions) (string, string, error) {
-	file := stringArg(opts.Args, "file")
+func ModuleIncludeVars(_ context.Context, opts internal.ExecOptions) (string, string, error) {
+	file := internal.StringArg(opts.Args, "file")
 	if file == "" {
-		file = stringArg(opts.Args, "include_vars")
+		file = internal.StringArg(opts.Args, "include_vars")
 	}
 	if file == "" {
 		return "", "", fmt.Errorf("include_vars: no file specified")
@@ -37,7 +34,7 @@ func ModuleIncludeVars(_ context.Context, opts ExecOptions) (string, string, err
 		return "", "", fmt.Errorf("include_vars: unsupported file extension %q: only .yaml and .yml files are allowed", ext)
 	}
 
-	data, err := readSource(opts.Source, file)
+	data, err := internal.ReadSource(opts.Source, file)
 	if err != nil {
 		return "", "", fmt.Errorf("include_vars: failed to read file %q: %w", file, err)
 	}

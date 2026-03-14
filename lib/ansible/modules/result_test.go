@@ -7,8 +7,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"lcp.io/lcp/lib/ansible/modules/assert"
+	mcopy "lcp.io/lcp/lib/ansible/modules/copy"
+	"lcp.io/lcp/lib/ansible/modules/fetch"
+	"lcp.io/lcp/lib/ansible/modules/http_get_file"
+	"lcp.io/lcp/lib/ansible/modules/result"
 	"lcp.io/lcp/lib/ansible/variable"
 )
 
@@ -19,7 +25,7 @@ import (
 func TestModuleResult(t *testing.T) {
 	v := newTestVariable("testhost")
 
-	stdout, stderr, err := ModuleResult(context.Background(), ExecOptions{
+	stdout, stderr, err := result.ModuleResult(context.Background(), ExecOptions{
 		Host:     "testhost",
 		Variable: v,
 		Args: map[string]any{
@@ -38,10 +44,10 @@ func TestModuleResult(t *testing.T) {
 	}
 
 	// Verify the result was stored.
-	result := v.Get(variable.GetResultVariable())
-	m, ok := result.(map[string]any)
+	r := v.Get(variable.GetResultVariable())
+	m, ok := r.(map[string]any)
 	if !ok {
-		t.Fatalf("expected result to be map[string]any, got %T", result)
+		t.Fatalf("expected result to be map[string]any, got %T", r)
 	}
 	if m["app_version"] != "1.0.0" {
 		t.Errorf("expected app_version='1.0.0', got %v", m["app_version"])
@@ -55,7 +61,7 @@ func TestModuleResult_MergeMultiple(t *testing.T) {
 	v := newTestVariable("testhost")
 
 	// First call: set some keys.
-	_, _, err := ModuleResult(context.Background(), ExecOptions{
+	_, _, err := result.ModuleResult(context.Background(), ExecOptions{
 		Host:     "testhost",
 		Variable: v,
 		Args:     map[string]any{"key1": "value1"},
@@ -65,7 +71,7 @@ func TestModuleResult_MergeMultiple(t *testing.T) {
 	}
 
 	// Second call: set additional keys.
-	_, _, err = ModuleResult(context.Background(), ExecOptions{
+	_, _, err = result.ModuleResult(context.Background(), ExecOptions{
 		Host:     "testhost",
 		Variable: v,
 		Args:     map[string]any{"key2": "value2"},
@@ -75,10 +81,10 @@ func TestModuleResult_MergeMultiple(t *testing.T) {
 	}
 
 	// Both keys should be present.
-	result := v.Get(variable.GetResultVariable())
-	m, ok := result.(map[string]any)
+	r := v.Get(variable.GetResultVariable())
+	m, ok := r.(map[string]any)
 	if !ok {
-		t.Fatalf("expected result to be map[string]any, got %T", result)
+		t.Fatalf("expected result to be map[string]any, got %T", r)
 	}
 	if m["key1"] != "value1" {
 		t.Errorf("expected key1='value1', got %v", m["key1"])
@@ -92,7 +98,7 @@ func TestModuleResult_Empty(t *testing.T) {
 	v := newTestVariable("testhost")
 
 	// nil args
-	_, _, err := ModuleResult(context.Background(), ExecOptions{
+	_, _, err := result.ModuleResult(context.Background(), ExecOptions{
 		Host:     "testhost",
 		Variable: v,
 		Args:     nil,
@@ -102,7 +108,7 @@ func TestModuleResult_Empty(t *testing.T) {
 	}
 
 	// empty args
-	_, _, err = ModuleResult(context.Background(), ExecOptions{
+	_, _, err = result.ModuleResult(context.Background(), ExecOptions{
 		Host:     "testhost",
 		Variable: v,
 		Args:     map[string]any{},
@@ -133,7 +139,7 @@ func TestModuleHTTPGetFile(t *testing.T) {
 
 	dest := filepath.Join(t.TempDir(), "downloaded.txt")
 
-	stdout, stderr, err := ModuleHTTPGetFile(context.Background(), ExecOptions{
+	stdout, stderr, err := http_get_file.ModuleHTTPGetFile(context.Background(), ExecOptions{
 		Args: map[string]any{
 			"url":  srv.URL + "/file.txt",
 			"dest": dest,
@@ -177,7 +183,7 @@ func TestModuleHTTPGetFile_BasicAuth(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "auth_file.txt")
 
 	// Without auth: should fail.
-	_, _, err := ModuleHTTPGetFile(context.Background(), ExecOptions{
+	_, _, err := http_get_file.ModuleHTTPGetFile(context.Background(), ExecOptions{
 		Args: map[string]any{
 			"url":  srv.URL + "/secure",
 			"dest": dest,
@@ -188,7 +194,7 @@ func TestModuleHTTPGetFile_BasicAuth(t *testing.T) {
 	}
 
 	// With auth: should succeed.
-	stdout, stderr, err := ModuleHTTPGetFile(context.Background(), ExecOptions{
+	stdout, stderr, err := http_get_file.ModuleHTTPGetFile(context.Background(), ExecOptions{
 		Args: map[string]any{
 			"url":      srv.URL + "/secure",
 			"dest":     dest,
@@ -231,7 +237,7 @@ func TestModuleHTTPGetFile_BearerToken(t *testing.T) {
 
 	dest := filepath.Join(t.TempDir(), "token_file.txt")
 
-	stdout, stderr, err := ModuleHTTPGetFile(context.Background(), ExecOptions{
+	stdout, stderr, err := http_get_file.ModuleHTTPGetFile(context.Background(), ExecOptions{
 		Args: map[string]any{
 			"url":   srv.URL + "/api/data",
 			"dest":  dest,
@@ -270,7 +276,7 @@ func TestModuleHTTPGetFile_CustomHeaders(t *testing.T) {
 
 	dest := filepath.Join(t.TempDir(), "header_file.txt")
 
-	_, _, err := ModuleHTTPGetFile(context.Background(), ExecOptions{
+	_, _, err := http_get_file.ModuleHTTPGetFile(context.Background(), ExecOptions{
 		Args: map[string]any{
 			"url":  srv.URL,
 			"dest": dest,
@@ -305,7 +311,7 @@ func TestModuleHTTPGetFile_MissingArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := ModuleHTTPGetFile(context.Background(), ExecOptions{
+			_, _, err := http_get_file.ModuleHTTPGetFile(context.Background(), ExecOptions{
 				Args: tt.args,
 			})
 			if err == nil {
@@ -324,7 +330,7 @@ func TestModuleHTTPGetFile_ServerError(t *testing.T) {
 
 	dest := filepath.Join(t.TempDir(), "error_file.txt")
 
-	_, _, err := ModuleHTTPGetFile(context.Background(), ExecOptions{
+	_, _, err := http_get_file.ModuleHTTPGetFile(context.Background(), ExecOptions{
 		Args: map[string]any{
 			"url":  srv.URL + "/fail",
 			"dest": dest,
@@ -354,7 +360,7 @@ func TestModuleHTTPGetFile_AtomicWrite(t *testing.T) {
 
 	dest := filepath.Join(t.TempDir(), "atomic_file.txt")
 
-	_, _, err := ModuleHTTPGetFile(context.Background(), ExecOptions{
+	_, _, err := http_get_file.ModuleHTTPGetFile(context.Background(), ExecOptions{
 		Args: map[string]any{
 			"url":  srv.URL + "/partial",
 			"dest": dest,
@@ -393,7 +399,7 @@ func TestModuleHTTPGetFile_CreatesParentDir(t *testing.T) {
 	// Dest is in a deeply nested directory that does not exist.
 	dest := filepath.Join(t.TempDir(), "a", "b", "c", "file.txt")
 
-	_, _, err := ModuleHTTPGetFile(context.Background(), ExecOptions{
+	_, _, err := http_get_file.ModuleHTTPGetFile(context.Background(), ExecOptions{
 		Args: map[string]any{
 			"url":  srv.URL,
 			"dest": dest,
@@ -415,7 +421,7 @@ func TestModuleHTTPGetFile_CreatesParentDir(t *testing.T) {
 func TestModuleHTTPGetFile_InvalidScheme(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "file.txt")
 
-	_, _, err := ModuleHTTPGetFile(context.Background(), ExecOptions{
+	_, _, err := http_get_file.ModuleHTTPGetFile(context.Background(), ExecOptions{
 		Args: map[string]any{
 			"url":  "ftp://example.com/file.txt",
 			"dest": dest,
@@ -430,5 +436,251 @@ func TestModuleHTTPGetFile_Registered(t *testing.T) {
 	fn := FindModule("http_get_file")
 	if fn == nil {
 		t.Fatal("expected 'http_get_file' module to be registered, got nil")
+	}
+}
+
+// --- registration tests ---
+
+func TestCopyModuleRegistered(t *testing.T) {
+	if fn := FindModule("copy"); fn == nil {
+		t.Error("expected 'copy' module to be registered")
+	}
+}
+
+func TestFetchModuleRegistered(t *testing.T) {
+	if fn := FindModule("fetch"); fn == nil {
+		t.Error("expected 'fetch' module to be registered")
+	}
+}
+
+// --- copy tests (integration, using FindModule) ---
+
+func TestModuleCopy_Content(t *testing.T) {
+	conn := &mockConnector{}
+	opts := ExecOptions{
+		Args: map[string]any{
+			"content": "hello world",
+			"dest":    "/tmp/hello.txt",
+		},
+		Connector: conn,
+	}
+
+	stdout, stderr, err := mcopy.ModuleCopy(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stderr != "" {
+		t.Errorf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(stdout, "/tmp/hello.txt") {
+		t.Errorf("expected stdout to mention dest, got %q", stdout)
+	}
+	if string(conn.putFileData) != "hello world" {
+		t.Errorf("expected PutFile data %q, got %q", "hello world", string(conn.putFileData))
+	}
+	if conn.putFileDest != "/tmp/hello.txt" {
+		t.Errorf("expected PutFile dest %q, got %q", "/tmp/hello.txt", conn.putFileDest)
+	}
+	if conn.putFileMode != 0644 {
+		t.Errorf("expected default mode 0644, got %04o", conn.putFileMode)
+	}
+}
+
+// --- fetch tests (integration) ---
+
+func TestModuleFetch(t *testing.T) {
+	tmpDir := t.TempDir()
+	destPath := filepath.Join(tmpDir, "fetched.txt")
+
+	conn := &mockConnector{
+		fetchFileContent: []byte("remote file content"),
+	}
+	opts := ExecOptions{
+		Args: map[string]any{
+			"src":  "/remote/file.txt",
+			"dest": destPath,
+		},
+		Connector: conn,
+	}
+
+	stdout, stderr, err := fetch.ModuleFetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stderr != "" {
+		t.Errorf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(stdout, "/remote/file.txt") {
+		t.Errorf("expected stdout to mention src, got %q", stdout)
+	}
+
+	data, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("failed to read dest file: %v", err)
+	}
+	if string(data) != "remote file content" {
+		t.Errorf("expected file content %q, got %q", "remote file content", string(data))
+	}
+}
+
+func TestModuleFetch_NoSrc(t *testing.T) {
+	opts := ExecOptions{
+		Args: map[string]any{
+			"dest": "/tmp/dest.txt",
+		},
+	}
+
+	_, _, err := fetch.ModuleFetch(context.Background(), opts)
+	if err == nil {
+		t.Fatal("expected error when src is missing")
+	}
+	if !strings.Contains(err.Error(), "src is required") {
+		t.Errorf("expected 'src is required' error, got %q", err.Error())
+	}
+}
+
+func TestModuleFetch_NoDest(t *testing.T) {
+	opts := ExecOptions{
+		Args: map[string]any{
+			"src": "/remote/file.txt",
+		},
+	}
+
+	_, _, err := fetch.ModuleFetch(context.Background(), opts)
+	if err == nil {
+		t.Fatal("expected error when dest is missing")
+	}
+	if !strings.Contains(err.Error(), "dest is required") {
+		t.Errorf("expected 'dest is required' error, got %q", err.Error())
+	}
+}
+
+func TestModuleFetch_ConnectorError(t *testing.T) {
+	tmpDir := t.TempDir()
+	destPath := filepath.Join(tmpDir, "out.txt")
+
+	conn := &mockConnector{
+		fetchFileErr: fmt.Errorf("network error"),
+	}
+	opts := ExecOptions{
+		Args: map[string]any{
+			"src":  "/remote/file.txt",
+			"dest": destPath,
+		},
+		Connector: conn,
+	}
+
+	_, _, err := fetch.ModuleFetch(context.Background(), opts)
+	if err == nil {
+		t.Fatal("expected error from FetchFile failure")
+	}
+	if !strings.Contains(err.Error(), "fetch file") {
+		t.Errorf("expected 'fetch file' error, got %q", err.Error())
+	}
+}
+
+func TestModuleFetch_CreatesDestDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	destPath := filepath.Join(tmpDir, "sub", "dir", "fetched.txt")
+
+	conn := &mockConnector{
+		fetchFileContent: []byte("data"),
+	}
+	opts := ExecOptions{
+		Args: map[string]any{
+			"src":  "/remote/file.txt",
+			"dest": destPath,
+		},
+		Connector: conn,
+	}
+
+	_, _, err := fetch.ModuleFetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("failed to read dest file: %v", err)
+	}
+	if string(data) != "data" {
+		t.Errorf("expected %q, got %q", "data", string(data))
+	}
+}
+
+// --- debug/assert registration tests ---
+
+func TestModuleDebug_Registered(t *testing.T) {
+	fn := FindModule("debug")
+	if fn == nil {
+		t.Fatal("expected 'debug' module to be registered, got nil")
+	}
+}
+
+func TestModuleAssert_Registered(t *testing.T) {
+	fn := FindModule("assert")
+	if fn == nil {
+		t.Fatal("expected 'assert' module to be registered, got nil")
+	}
+}
+
+func TestModuleCommand_Registered(t *testing.T) {
+	// The init() function should have registered both "command" and "shell".
+	fn := FindModule("command")
+	if fn == nil {
+		t.Fatal("expected 'command' module to be registered, got nil")
+	}
+
+	fn = FindModule("shell")
+	if fn == nil {
+		t.Fatal("expected 'shell' module to be registered, got nil")
+	}
+}
+
+func TestModuleTemplate_Registered(t *testing.T) {
+	fn := FindModule("template")
+	if fn == nil {
+		t.Fatal("expected 'template' module to be registered, got nil")
+	}
+}
+
+// --- assert/toStringSlice tests ---
+
+func TestToStringSlice_AnySlice(t *testing.T) {
+	input := []any{"a", "b", "c"}
+	result := assert.ToStringSlice(input)
+	if len(result) != 3 || result[0] != "a" || result[1] != "b" || result[2] != "c" {
+		t.Errorf("expected [a b c], got %v", result)
+	}
+}
+
+func TestToStringSlice_StringSlice(t *testing.T) {
+	input := []string{"x", "y"}
+	result := assert.ToStringSlice(input)
+	if len(result) != 2 || result[0] != "x" || result[1] != "y" {
+		t.Errorf("expected [x y], got %v", result)
+	}
+}
+
+func TestToStringSlice_SingleString(t *testing.T) {
+	result := assert.ToStringSlice("hello")
+	if len(result) != 1 || result[0] != "hello" {
+		t.Errorf("expected [hello], got %v", result)
+	}
+}
+
+func TestToStringSlice_Nil(t *testing.T) {
+	result := assert.ToStringSlice(nil)
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
+}
+
+func TestToStringSlice_NonStringItems(t *testing.T) {
+	// Non-string items in []any should be skipped.
+	input := []any{"a", 42, "b"}
+	result := assert.ToStringSlice(input)
+	if len(result) != 2 || result[0] != "a" || result[1] != "b" {
+		t.Errorf("expected [a b], got %v", result)
 	}
 }

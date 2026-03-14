@@ -33,7 +33,7 @@ func buildFuncMap(t *template.Template, includedNames map[string]int) template.F
 	fm["fileExists"] = fileExists
 	fm["unquote"] = unquote
 	fm["include"] = includeFn(t, includedNames)
-	fm["tpl"] = tplFn(t, includedNames)
+	fm["tpl"] = tplFn(t, includedNames, false)
 
 	return fm
 }
@@ -60,20 +60,27 @@ func includeFn(t *template.Template, includedNames map[string]int) func(string, 
 
 // tplFn returns a function that evaluates a string as a template, supporting
 // recursive template evaluation with depth limiting.
-func tplFn(parent *template.Template, includedNames map[string]int) func(string, any) (string, error) {
+// When strict is true, missing keys produce an error; when false, they evaluate to zero values.
+func tplFn(parent *template.Template, includedNames map[string]int, strict bool) func(string, any) (string, error) {
 	return func(tpl string, vals any) (string, error) {
 		t, err := parent.Clone()
 		if err != nil {
 			return "", fmt.Errorf("cannot clone template: %w", err)
 		}
 
-		t.Option("missingkey=zero")
+		// Re-inject the missingkey option, see text/template issue https://github.com/golang/go/issues/43022
+		// We have to go by strict from our engine configuration, as the option fields are private in Template.
+		if strict {
+			t.Option("missingkey=error")
+		} else {
+			t.Option("missingkey=zero")
+		}
 
 		// Re-inject include and tpl so that define blocks inside tpl can be
 		// included, and nested tpl calls work.
 		t.Funcs(template.FuncMap{
 			"include": includeFn(t, includedNames),
-			"tpl":     tplFn(t, includedNames),
+			"tpl":     tplFn(t, includedNames, strict),
 		})
 
 		t, err = t.New(parent.Name()).Parse(tpl)

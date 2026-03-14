@@ -4,6 +4,11 @@ import (
 	"context"
 	"fmt"
 	"testing"
+
+	"lcp.io/lcp/lib/ansible/modules/add_hostvars"
+	"lcp.io/lcp/lib/ansible/modules/include_vars"
+	"lcp.io/lcp/lib/ansible/modules/set_fact"
+	"lcp.io/lcp/lib/ansible/modules/setup"
 )
 
 // ========================================================================
@@ -24,7 +29,7 @@ func TestModuleSetup_GathersFacts(t *testing.T) {
 		},
 	}
 
-	stdout, stderr, err := ModuleSetup(context.Background(), ExecOptions{
+	stdout, stderr, err := setup.ModuleSetup(context.Background(), ExecOptions{
 		Host:      "node1",
 		Variable:  v,
 		Connector: conn,
@@ -57,7 +62,7 @@ func TestModuleSetup_NoGatherFacts(t *testing.T) {
 	// mockConnector does not implement GatherFacts.
 	conn := &mockConnector{}
 
-	_, _, err := ModuleSetup(context.Background(), ExecOptions{
+	_, _, err := setup.ModuleSetup(context.Background(), ExecOptions{
 		Host:      "node1",
 		Variable:  v,
 		Connector: conn,
@@ -78,7 +83,7 @@ func TestModuleSetup_HostInfoError(t *testing.T) {
 		},
 	}
 
-	_, _, err := ModuleSetup(context.Background(), ExecOptions{
+	_, _, err := setup.ModuleSetup(context.Background(), ExecOptions{
 		Host:      "node1",
 		Variable:  v,
 		Connector: conn,
@@ -95,7 +100,7 @@ func TestModuleSetup_HostInfoError(t *testing.T) {
 func TestModuleSetFact_SingleFact(t *testing.T) {
 	v := newTestVariable("host1")
 
-	stdout, stderr, err := ModuleSetFact(context.Background(), ExecOptions{
+	stdout, stderr, err := set_fact.ModuleSetFact(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args:     map[string]any{"app_version": "1.0.0"},
@@ -119,7 +124,7 @@ func TestModuleSetFact_SingleFact(t *testing.T) {
 func TestModuleSetFact_MultipleFacts(t *testing.T) {
 	v := newTestVariable("host1")
 
-	_, _, err := ModuleSetFact(context.Background(), ExecOptions{
+	_, _, err := set_fact.ModuleSetFact(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args: map[string]any{
@@ -143,7 +148,7 @@ func TestModuleSetFact_MultipleFacts(t *testing.T) {
 func TestModuleSetFact_EmptyArgs(t *testing.T) {
 	v := newTestVariable("host1")
 
-	_, _, err := ModuleSetFact(context.Background(), ExecOptions{
+	_, _, err := set_fact.ModuleSetFact(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args:     map[string]any{},
@@ -156,7 +161,7 @@ func TestModuleSetFact_EmptyArgs(t *testing.T) {
 func TestModuleSetFact_NilArgs(t *testing.T) {
 	v := newTestVariable("host1")
 
-	_, _, err := ModuleSetFact(context.Background(), ExecOptions{
+	_, _, err := set_fact.ModuleSetFact(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args:     nil,
@@ -170,14 +175,14 @@ func TestModuleSetFact_OverwriteExisting(t *testing.T) {
 	v := newTestVariable("host1")
 
 	// Set initial value.
-	_, _, _ = ModuleSetFact(context.Background(), ExecOptions{
+	_, _, _ = set_fact.ModuleSetFact(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args:     map[string]any{"key": "old"},
 	})
 
 	// Overwrite.
-	_, _, _ = ModuleSetFact(context.Background(), ExecOptions{
+	_, _, _ = set_fact.ModuleSetFact(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args:     map[string]any{"key": "new"},
@@ -201,7 +206,7 @@ func TestModuleIncludeVars_FromFile(t *testing.T) {
 		},
 	}
 
-	stdout, stderr, err := ModuleIncludeVars(context.Background(), ExecOptions{
+	stdout, stderr, err := include_vars.ModuleIncludeVars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Source:   src,
@@ -234,7 +239,7 @@ func TestModuleIncludeVars_ShorthandSyntax(t *testing.T) {
 		},
 	}
 
-	_, _, err := ModuleIncludeVars(context.Background(), ExecOptions{
+	_, _, err := include_vars.ModuleIncludeVars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Source:   src,
@@ -253,7 +258,7 @@ func TestModuleIncludeVars_ShorthandSyntax(t *testing.T) {
 func TestModuleIncludeVars_NoFile(t *testing.T) {
 	v := newTestVariable("host1")
 
-	_, _, err := ModuleIncludeVars(context.Background(), ExecOptions{
+	_, _, err := include_vars.ModuleIncludeVars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args:     map[string]any{},
@@ -266,7 +271,7 @@ func TestModuleIncludeVars_NoFile(t *testing.T) {
 func TestModuleIncludeVars_UnsupportedExtension(t *testing.T) {
 	v := newTestVariable("host1")
 
-	_, _, err := ModuleIncludeVars(context.Background(), ExecOptions{
+	_, _, err := include_vars.ModuleIncludeVars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args:     map[string]any{"file": "config.json"},
@@ -280,7 +285,7 @@ func TestModuleIncludeVars_FileNotFound(t *testing.T) {
 	v := newTestVariable("host1")
 	src := &mockSource{files: map[string][]byte{}}
 
-	_, _, err := ModuleIncludeVars(context.Background(), ExecOptions{
+	_, _, err := include_vars.ModuleIncludeVars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Source:   src,
@@ -299,7 +304,7 @@ func TestModuleIncludeVars_InvalidYAML(t *testing.T) {
 		},
 	}
 
-	_, _, err := ModuleIncludeVars(context.Background(), ExecOptions{
+	_, _, err := include_vars.ModuleIncludeVars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Source:   src,
@@ -318,7 +323,7 @@ func TestModuleIncludeVars_NestedVars(t *testing.T) {
 		},
 	}
 
-	_, _, err := ModuleIncludeVars(context.Background(), ExecOptions{
+	_, _, err := include_vars.ModuleIncludeVars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Source:   src,
@@ -348,7 +353,7 @@ func TestModuleIncludeVars_NestedVars(t *testing.T) {
 func TestModuleAddHostvars_CurrentHost(t *testing.T) {
 	v := newTestVariable("host1")
 
-	stdout, stderr, err := ModuleAddHostvars(context.Background(), ExecOptions{
+	stdout, stderr, err := add_hostvars.ModuleAddHostvars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args: map[string]any{
@@ -378,7 +383,7 @@ func TestModuleAddHostvars_CurrentHost(t *testing.T) {
 func TestModuleAddHostvars_SpecificHost(t *testing.T) {
 	v := newTestVariable("host1", "host2")
 
-	_, _, err := ModuleAddHostvars(context.Background(), ExecOptions{
+	_, _, err := add_hostvars.ModuleAddHostvars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args: map[string]any{
@@ -410,7 +415,7 @@ func TestModuleAddHostvars_SpecificHost(t *testing.T) {
 func TestModuleAddHostvars_NoVars(t *testing.T) {
 	v := newTestVariable("host1")
 
-	_, _, err := ModuleAddHostvars(context.Background(), ExecOptions{
+	_, _, err := add_hostvars.ModuleAddHostvars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args:     map[string]any{"host": "host1"},
@@ -423,7 +428,7 @@ func TestModuleAddHostvars_NoVars(t *testing.T) {
 func TestModuleAddHostvars_EmptyArgs(t *testing.T) {
 	v := newTestVariable("host1")
 
-	_, _, err := ModuleAddHostvars(context.Background(), ExecOptions{
+	_, _, err := add_hostvars.ModuleAddHostvars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args:     map[string]any{},
@@ -436,7 +441,7 @@ func TestModuleAddHostvars_EmptyArgs(t *testing.T) {
 func TestModuleAddHostvars_DefaultsToCurrentHost(t *testing.T) {
 	v := newTestVariable("host1")
 
-	_, _, err := ModuleAddHostvars(context.Background(), ExecOptions{
+	_, _, err := add_hostvars.ModuleAddHostvars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args:     map[string]any{"key": "value"},
@@ -454,7 +459,7 @@ func TestModuleAddHostvars_DefaultsToCurrentHost(t *testing.T) {
 func TestModuleAddHostvars_HostKeyExcluded(t *testing.T) {
 	v := newTestVariable("host1", "target")
 
-	_, _, err := ModuleAddHostvars(context.Background(), ExecOptions{
+	_, _, err := add_hostvars.ModuleAddHostvars(context.Background(), ExecOptions{
 		Host:     "host1",
 		Variable: v,
 		Args: map[string]any{

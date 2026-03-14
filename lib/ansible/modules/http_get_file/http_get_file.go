@@ -1,4 +1,4 @@
-package modules
+package http_get_file
 
 import (
 	"context"
@@ -9,11 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-)
 
-func init() {
-	RegisterModule("http_get_file", ModuleHTTPGetFile)
-}
+	"lcp.io/lcp/lib/ansible/modules/internal"
+)
 
 // ModuleHTTPGetFile downloads a file from HTTP/HTTPS to a local path.
 //
@@ -26,9 +24,9 @@ func init() {
 //	token:    bearer token (optional)
 //	timeout:  request timeout duration string (optional, default "30s")
 //	headers:  custom headers map[string]any (optional)
-func ModuleHTTPGetFile(ctx context.Context, opts ExecOptions) (string, string, error) {
-	urlStr := stringArg(opts.Args, "url")
-	dest := stringArg(opts.Args, "dest")
+func ModuleHTTPGetFile(ctx context.Context, opts internal.ExecOptions) (string, string, error) {
+	urlStr := internal.StringArg(opts.Args, "url")
+	dest := internal.StringArg(opts.Args, "dest")
 	if urlStr == "" || dest == "" {
 		return "", "", fmt.Errorf("http_get_file: url and dest are required")
 	}
@@ -47,7 +45,7 @@ func ModuleHTTPGetFile(ctx context.Context, opts ExecOptions) (string, string, e
 
 	// Parse timeout.
 	timeout := 30 * time.Second
-	if t := stringArg(opts.Args, "timeout"); t != "" {
+	if t := internal.StringArg(opts.Args, "timeout"); t != "" {
 		if d, err := time.ParseDuration(t); err == nil {
 			timeout = d
 		}
@@ -63,14 +61,14 @@ func ModuleHTTPGetFile(ctx context.Context, opts ExecOptions) (string, string, e
 	}
 
 	// Add basic auth.
-	username := stringArg(opts.Args, "username")
-	password := stringArg(opts.Args, "password")
+	username := internal.StringArg(opts.Args, "username")
+	password := internal.StringArg(opts.Args, "password")
 	if username != "" && password != "" {
 		req.SetBasicAuth(username, password)
 	}
 
 	// Add bearer token.
-	if token := stringArg(opts.Args, "token"); token != "" {
+	if token := internal.StringArg(opts.Args, "token"); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 

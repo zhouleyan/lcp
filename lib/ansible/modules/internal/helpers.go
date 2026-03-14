@@ -1,13 +1,13 @@
-package modules
+package internal
 
 import (
 	"fmt"
 	"io/fs"
 )
 
-// stringArg extracts a string value from module args by key.
+// StringArg extracts a string value from module args by key.
 // Returns empty string if the key is missing or not a string.
-func stringArg(args map[string]any, key string) string {
+func StringArg(args map[string]any, key string) string {
 	if v, ok := args[key]; ok {
 		if s, ok := v.(string); ok {
 			return s
@@ -16,10 +16,10 @@ func stringArg(args map[string]any, key string) string {
 	return ""
 }
 
-// fileModeArg extracts a file mode from module args by key.
+// FileModeArg extracts a file mode from module args by key.
 // Returns the provided default if the key is missing or cannot be converted.
 // Supports integer values (e.g., 0644) and string values (e.g., "0644").
-func fileModeArg(args map[string]any, key string, defaultMode fs.FileMode) fs.FileMode {
+func FileModeArg(args map[string]any, key string, defaultMode fs.FileMode) fs.FileMode {
 	v, ok := args[key]
 	if !ok {
 		return defaultMode
@@ -46,9 +46,9 @@ func fileModeArg(args map[string]any, key string, defaultMode fs.FileMode) fs.Fi
 	return defaultMode
 }
 
-// readSource reads a file from the Source, returning its contents.
+// ReadSource reads a file from the Source, returning its contents.
 // Returns an error if Source is nil or the file cannot be read.
-func readSource(source Source, path string) ([]byte, error) {
+func ReadSource(source Source, path string) ([]byte, error) {
 	if source == nil {
 		return nil, fmt.Errorf("no source available")
 	}

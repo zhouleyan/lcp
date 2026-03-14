@@ -1,22 +1,19 @@
-package modules
+package debug
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
+	"lcp.io/lcp/lib/ansible/modules/internal"
 	"lcp.io/lcp/lib/ansible/template"
 )
-
-func init() {
-	RegisterModule("debug", ModuleDebug)
-}
 
 // ModuleDebug prints debug messages.
 // Args:
 //
 //	msg: message string (supports {{ template }} syntax)
-func ModuleDebug(ctx context.Context, opts ExecOptions) (string, string, error) {
+func ModuleDebug(ctx context.Context, opts internal.ExecOptions) (string, string, error) {
 	msg, ok := opts.Args["msg"]
 	if !ok {
 		return "", "", fmt.Errorf("debug: msg argument required")
