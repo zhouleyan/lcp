@@ -544,9 +544,4 @@ type DBSubnetRow = generated.Subnet
 // DBIPAllocationWithHost is an alias for CreateIPAllocationWithHost result.
 type DBIPAllocationWithHost = generated.CreateIPAllocationWithHostRow
 
-// DBHostIPAllocationRow is an alias for ListIPAllocationsByHostID result.
-type DBHostIPAllocationRow = generated.ListIPAllocationsByHostIDRow
-
-// DBIPAllocationForHostRow is an alias for GetIPAllocationForHost result.
-type DBIPAllocationForHostRow = generated.GetIPAllocationForHostRow
 

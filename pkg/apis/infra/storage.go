@@ -1,6 +1,7 @@
 package infra
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -809,6 +810,11 @@ func (s *hostIPStorage) Create(ctx context.Context, obj runtime.Object, options 
 	subnetID, err := parseID(cfg.SubnetID)
 	if err != nil {
 		return nil, apierrors.NewBadRequest("invalid subnet ID", nil)
+	}
+
+	// Verify host exists
+	if _, err := s.hostStore.GetByID(ctx, hostID); err != nil {
+		return nil, err
 	}
 
 	if err := s.hostStore.AddIP(ctx, hostID, DBIPConfig{SubnetID: subnetID, IP: cfg.IP}); err != nil {
@@ -2726,6 +2732,7 @@ func (s *availableNetworkStorage) NewObject() runtime.Object { return &Available
 // +openapi:summary=获取可用网络列表
 // +openapi:summary.workspaces.networks=获取租户下的可用网络列表
 // +openapi:summary.workspaces.namespaces.networks=获取项目下的可用网络列表
+// Network list is small (typically <10), no pagination needed.
 func (s *availableNetworkStorage) List(ctx context.Context, _ *rest.ListOptions) (runtime.Object, error) {
 	// 1. Load all active networks
 	networks, err := s.reader.ListActiveNetworks(ctx)
@@ -3021,7 +3028,7 @@ func locationSpecToPatchFields(l *Location) map[string]any {
 // ===== DB → API conversion helpers =====
 
 // parseAllocatedIPs parses the allocated_ips JSON column from SQL queries.
-// The JSON contains subnetId as a number, which needs to be converted to a string.
+// Uses json.Number to avoid float64 precision loss on large int64 IDs.
 func parseAllocatedIPs(raw interface{}) []AllocatedIP {
 	if raw == nil {
 		return nil
@@ -3031,13 +3038,15 @@ func parseAllocatedIPs(raw interface{}) []AllocatedIP {
 		return nil
 	}
 	var items []struct {
-		ID         float64 `json:"id"`
-		IP         string  `json:"ip"`
-		SubnetID   float64 `json:"subnetId"`
-		SubnetName string  `json:"subnetName"`
-		SubnetCIDR string  `json:"subnetCidr"`
+		ID         json.Number `json:"id"`
+		IP         string      `json:"ip"`
+		SubnetID   json.Number `json:"subnetId"`
+		SubnetName string      `json:"subnetName"`
+		SubnetCIDR string      `json:"subnetCidr"`
 	}
-	if err := json.Unmarshal(data, &items); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	if err := dec.Decode(&items); err != nil {
 		return nil
 	}
 	if len(items) == 0 {
@@ -3046,9 +3055,9 @@ func parseAllocatedIPs(raw interface{}) []AllocatedIP {
 	result := make([]AllocatedIP, len(items))
 	for i, item := range items {
 		result[i] = AllocatedIP{
-			ID:         strconv.FormatInt(int64(item.ID), 10),
+			ID:         item.ID.String(),
 			IP:         item.IP,
-			SubnetID:   strconv.FormatInt(int64(item.SubnetID), 10),
+			SubnetID:   item.SubnetID.String(),
 			SubnetName: item.SubnetName,
 			SubnetCIDR: item.SubnetCIDR,
 		}
@@ -3057,6 +3066,8 @@ func parseAllocatedIPs(raw interface{}) []AllocatedIP {
 }
 
 // hostToAPI converts a DBHost to an API Host.
+// Note: DBHost (from Create/Update) does not include allocated_ips;
+// the caller should re-fetch via GetByID if IP data is needed.
 func hostToAPI(h *DBHost) *Host {
 	return &Host{
 		TypeMeta: runtime.TypeMeta{Kind: "Host"},

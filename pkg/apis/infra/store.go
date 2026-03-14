@@ -15,8 +15,6 @@ type IPBinder interface {
 	UpdateSubnetBitmap(ctx context.Context, tx pgx.Tx, subnetID int64, bitmap []byte) error
 	CreateIPAllocation(ctx context.Context, tx pgx.Tx, alloc *DBIPAllocationWithHost) (*DBIPAllocationWithHost, error)
 	UnbindIPAllocationFromHost(ctx context.Context, allocID, hostID int64) error
-	ListIPAllocationsByHostID(ctx context.Context, hostID int64) ([]DBHostIPAllocationRow, error)
-	GetIPAllocationForHost(ctx context.Context, allocID, hostID int64) (*DBIPAllocationForHostRow, error)
 }
 
 // HostStore defines database operations on hosts.

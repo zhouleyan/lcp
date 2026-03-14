@@ -36,7 +36,6 @@ import {
   bindHostEnvironment, unbindHostEnvironment,
   bindWorkspaceHostEnvironment, unbindWorkspaceHostEnvironment,
   bindNamespaceHostEnvironment, unbindNamespaceHostEnvironment,
-  addHostIP, addWorkspaceHostIP, addNamespaceHostIP,
 } from "@/api/infra/hosts"
 import {
   listEnvironments, listWorkspaceEnvironments, listNamespaceEnvironments,
@@ -53,6 +52,8 @@ import { useListState } from "@/hooks/use-list-state"
 import { SortIcon } from "@/components/sort-icon"
 import { Pagination } from "@/components/pagination"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { isIPInCIDR } from "@/lib/ip-utils"
+import { AddIPDialog } from "./add-ip-dialog"
 
 export default function HostListPage() {
   const { t } = useTranslation()
@@ -422,7 +423,7 @@ export default function HostListPage() {
       />
 
       {addIPTarget && (
-        <AddIPToHostDialog
+        <AddIPDialog
           open={!!addIPTarget}
           onOpenChange={(v) => { if (!v) setAddIPTarget(null) }}
           hostId={addIPTarget.metadata.id}
@@ -434,22 +435,6 @@ export default function HostListPage() {
 
     </div>
   )
-}
-
-// ===== CIDR helper =====
-
-function isIPInCIDR(ip: string, cidr: string): boolean {
-  const parts = ip.split(".").map(Number)
-  if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) return false
-  const [net, bits] = cidr.split("/")
-  const prefix = Number(bits)
-  if (isNaN(prefix) || prefix < 0 || prefix > 32) return false
-  const netParts = net.split(".").map(Number)
-  if (netParts.length !== 4) return false
-  const ipNum = ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0
-  const netNum = ((netParts[0] << 24) | (netParts[1] << 16) | (netParts[2] << 8) | netParts[3]) >>> 0
-  const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0
-  return (ipNum & mask) === (netNum & mask)
 }
 
 // ===== Host Form Dialog =====
@@ -487,7 +472,6 @@ function HostFormDialog({
   const isEdit = !!host
   const [loading, setLoading] = useState(false)
   const [networks, setNetworks] = useState<AvailableNetwork[]>([])
-  const [specifyIpRows, setSpecifyIpRows] = useState<Set<number>>(new Set())
 
   const allSubnets = networks.flatMap((n) => n.spec.subnets)
 
@@ -538,7 +522,6 @@ function HostFormDialog({
 
   useEffect(() => {
     if (open) {
-      setSpecifyIpRows(new Set())
       if (host) {
         form.reset({
           name: host.metadata.name,
@@ -722,11 +705,6 @@ function HostFormDialog({
                           className="h-9 w-9 shrink-0"
                           onClick={() => {
                             remove(index)
-                            setSpecifyIpRows((prev) => {
-                              const next = new Set<number>()
-                              prev.forEach((i) => { if (i < index) next.add(i); else if (i > index) next.add(i - 1) })
-                              return next
-                            })
                           }}
                         >
                           <X className="h-4 w-4" />
@@ -890,146 +868,3 @@ function BindEnvironmentDialog({
   )
 }
 
-// ===== Add IP to Host Dialog (from list page) =====
-
-function AddIPToHostDialog({
-  open, onOpenChange, hostId, onSuccess, scopeWorkspaceId, scopeNamespaceId,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  hostId: string
-  onSuccess: () => void
-  scopeWorkspaceId: string | undefined
-  scopeNamespaceId: string | undefined
-}) {
-  const { t } = useTranslation()
-  const [loading, setLoading] = useState(false)
-  const [networks, setNetworks] = useState<AvailableNetwork[]>([])
-  const [subnetId, setSubnetId] = useState("")
-  const [ip, setIp] = useState("")
-  const [ipError, setIpError] = useState("")
-
-  useEffect(() => {
-    if (!open) return
-    setSubnetId("")
-    setIp("")
-    setIpError("")
-    const fetchNetworks = async () => {
-      try {
-        const data = await scopedApiCall(
-          scopeWorkspaceId, scopeNamespaceId,
-          () => listInfraNetworks(),
-          (wsId) => listWorkspaceInfraNetworks(wsId),
-          (wsId, nsId) => listNamespaceInfraNetworks(wsId, nsId),
-        )
-        const nets = data.items ?? []
-        setNetworks(nets)
-        const first = nets.flatMap((n) => n.spec.subnets).find((s) => s.freeIPs > 0)
-        if (first) setSubnetId(first.id)
-      } catch {
-        setNetworks([])
-      }
-    }
-    fetchNetworks()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
-  const handleSubmit = async () => {
-    if (!subnetId) return
-    if (ip) {
-      if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
-        setIpError(t("api.validation.ip.format"))
-        return
-      }
-      const subnet = networks.flatMap((n) => n.spec.subnets).find((s) => s.id === subnetId)
-      if (subnet && !isIPInCIDR(ip, subnet.cidr)) {
-        setIpError(t("host.ips.ip.outOfRange"))
-        return
-      }
-    }
-    setIpError("")
-    setLoading(true)
-    try {
-      const data = { subnetId, ...(ip ? { ip } : {}) }
-      await scopedApiCall(
-        scopeWorkspaceId, scopeNamespaceId,
-        () => addHostIP(hostId, data),
-        (wsId) => addWorkspaceHostIP(wsId, hostId, data),
-        (wsId, nsId) => addNamespaceHostIP(wsId, nsId, hostId, data),
-      )
-      toast.success(t("action.createSuccess"))
-      onOpenChange(false)
-      onSuccess()
-    } catch (err) {
-      const apiErr = err as { reason?: string }
-      if (apiErr.reason === "Conflict") {
-        setIpError(t("host.ips.ip.conflict"))
-      } else {
-        showApiError(err, t, "host.ips.ip")
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const selectedSubnet = subnetId
-    ? networks.flatMap((n) => n.spec.subnets).find((s) => s.id === subnetId)
-    : null
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()} aria-describedby={undefined}>
-        <DialogHeader>
-          <DialogTitle>{t("host.ips.add")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          {networks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("host.ips.noNetworks")}</p>
-          ) : (
-            <>
-              <div>
-                <label className="text-sm font-medium">{t("host.ips.subnetId")}</label>
-                <Select value={subnetId} onValueChange={setSubnetId}>
-                  <SelectTrigger className="mt-1 w-full">
-                    <SelectValue placeholder={t("host.ips.subnet.select")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {networks.map((net) => (
-                      <SelectGroup key={net.metadata.id}>
-                        <SelectLabel className="text-sm text-muted-foreground">
-                          {net.spec.displayName || net.metadata.name}{net.spec.cidr ? ` (${net.spec.cidr})` : ""}
-                        </SelectLabel>
-                        {net.spec.subnets.map((sub) => (
-                          <SelectItem key={sub.id} value={sub.id} disabled={sub.freeIPs === 0}>
-                            {sub.displayName || sub.name} {sub.cidr}
-                            <span className="text-muted-foreground ml-2 text-xs">
-                              ({t("host.ips.subnet.free", { free: sub.freeIPs, total: sub.totalIPs })})
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedSubnet && (
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    {selectedSubnet.cidr} · {t("host.ips.subnet.free", { free: selectedSubnet.freeIPs, total: selectedSubnet.totalIPs })}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium">{t("host.ips.ip")}</label>
-                <Input className="mt-1" value={ip} onChange={(e) => { setIp(e.target.value); setIpError("") }} placeholder={t("host.ips.ip.auto")} />
-                <p className="text-destructive mt-1 min-h-[20px] text-sm">{ipError || "\u00A0"}</p>
-              </div>
-            </>
-          )}
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-          <Button onClick={handleSubmit} disabled={loading || !subnetId}>{loading ? "..." : t("common.save")}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}

@@ -7,6 +7,7 @@ SELECT
     (SELECT count(*) FROM subnets s WHERE s.network_id = n.id) AS subnet_count
 FROM networks n
 WHERE n.status = 'active'
+  AND n.is_public = true
 ORDER BY n.name ASC;
 
 -- name: ListSubnetsByNetworkIDs :many
