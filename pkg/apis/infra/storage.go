@@ -820,22 +820,18 @@ func (s *hostIPStorage) Create(ctx context.Context, obj runtime.Object, options 
 
 // Delete 从主机移除 IP（解绑但不释放）。
 // +openapi:summary=从主机移除 IP
-func (s *hostIPStorage) Delete(ctx context.Context, options *rest.DeleteOptions) (runtime.Object, error) {
+func (s *hostIPStorage) Delete(ctx context.Context, options *rest.DeleteOptions) error {
 	hostID, err := parseID(options.PathParams["hostId"])
 	if err != nil {
-		return nil, apierrors.NewBadRequest("invalid host ID", nil)
+		return apierrors.NewBadRequest("invalid host ID", nil)
 	}
 
 	allocID, err := parseID(options.PathParams["ipId"])
 	if err != nil {
-		return nil, apierrors.NewBadRequest("invalid IP allocation ID", nil)
+		return apierrors.NewBadRequest("invalid IP allocation ID", nil)
 	}
 
-	if err := s.ipBinder.UnbindIPAllocationFromHost(ctx, allocID, hostID); err != nil {
-		return nil, err
-	}
-
-	return nil, nil
+	return s.ipBinder.UnbindIPAllocationFromHost(ctx, allocID, hostID)
 }
 
 // environmentStorage 平台级环境资源的 REST 存储实现，支持 CRUD 和批量删除。
